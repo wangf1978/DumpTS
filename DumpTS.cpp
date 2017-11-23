@@ -290,6 +290,8 @@ int RefactorTS()
 
 int main(int argc, char* argv[])
 {
+	int nDumpRet = 0;
+
 	if(argc < 2)
 	{
 		PrintHelp();
@@ -304,7 +306,28 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
+	//
 	// Check what dump case should be gone through
+	//
+
+	// If the output format is ES/PES, and PID is also specified, go into the DumpOneStream mode
+	if (g_params.find("pid") != g_params.end())
+	{
+		if (g_params.find("outputfmt") == g_params.end())
+			g_params["outputfmt"] = "es";
+
+		std::string& str_output_fmt = g_params["outputfmt"];
+		std::string& str_pid = g_params["pid"];
+
+		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes")))
+		{
+			nDumpRet = DumpOneStream();
+		}
+		else if (str_output_fmt.compare("ts") == 0 || str_output_fmt.compare("m2ts") == 0)
+		{
+			nDumpRet = DumpPartialTS();
+		}
+	}
 
 
 
