@@ -4,7 +4,15 @@
 #include "stdafx.h"
 #include <stdio.h>
 #include <memory.h>
-#include <string.h>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <tuple>
+#include <io.h>
+#include <locale>
+#include <algorithm>
+
+using namespace std;
 
 #define AUDIO_STREAM_ID	0xE0
 #define FILTER_PID		0x1400//0x1011//0x1011//0x1400
@@ -99,13 +107,206 @@ int FlushPESBuffer(FILE* fw, unsigned char* pes_buffer, int pes_buffer_len, int 
 	return iret;
 }
 
+//
+// DumpTS TSSourceFileName DestFileName --pid=0x100 --destpid=0x1011 --startpts=xxxxx --srcfmt=m2ts --outputfmt=es/pes/m2ts/ts --showpts
+//
+
+unordered_map<std::string, std::string> g_params;
+
+void ParseCommandLine(int argc, char* argv[])
+{
+	if (argc < 2)
+		return;
+
+	g_params.insert({ "input", argv[1] });
+
+	std::string str_arg_prefixes[] = {
+		"output", "pid", "destpid", "startpts", "srcfmt", "outputfmt", "showpts"
+	};
+	
+	for (int iarg = 2; iarg < argc; iarg++)
+	{
+		std::string strArg = argv[iarg];
+		if (strArg.find("--") == 0)
+			strArg = strArg.substr(2);
+
+		for (int i = 0; i < sizeof(str_arg_prefixes) / sizeof(str_arg_prefixes[0]); i++)
+		{
+			if (strArg.find(str_arg_prefixes[i] + "=") == 0)
+			{
+				string strVal = strArg.substr(str_arg_prefixes[i].length() + 1);
+				std::transform(strVal.begin(), strVal.end(), strVal.begin(), ::tolower);
+				g_params.insert({ str_arg_prefixes[i],  strVal});
+			}
+		}
+	}
+
+	unordered_map<std::string, std::string>::const_iterator iter = g_params.cbegin();
+	for (; iter != g_params.cend(); iter++)
+	{
+		printf("%s : %s.\r\n", iter->first.c_str(), iter->second.c_str());
+	}
+
+	// Set the default values
+
+	return;
+}
+
+long long ConvertToLongLong(std::string& str)
+{
+	size_t idx = 0;
+	long long ret = -1LL;
+	// Check whether it is a valid PID value or not
+	if (str.compare(0, 2, "0x") == 0)	// hex value
+	{
+		ret = std::stoll(str.substr(2), &idx, 16);
+	}
+	else if (str.compare(0, 1, "0") == 0)	// oct value
+	{
+		ret = std::stoll(str.substr(1), &idx, 8);
+	}
+	else
+	{
+		ret = std::stoll(str, &idx, 10);
+	}
+
+	return idx > 0 ? ret : -1;
+}
+
+bool VerifyCommandLine()
+{
+	int ret = 0;
+
+	//
+	// For input file
+	//
+
+	// Test the source file exists or not
+	if (g_params.find("input") == g_params.end())
+	{
+		printf("Please specify the input ts file path.\r\n");
+		return false;
+	}
+
+	if ((ret = _access(g_params["input"].c_str(), 4)) != 0)
+	{
+		printf("Failed to open the input file: %s {error code: %d}.\r\n", g_params["input"].c_str(), ret);
+		return false;
+	}
+
+	//
+	// For output file
+	//
+	if (g_params.find("output") != g_params.end() && (ret = _access(g_params["output"].c_str(), 2)) != 0)
+	{
+		printf("The output file: %s can't be written {error code: %d}.\r\n", g_params["output"].c_str(), ret);
+		return false;
+	}
+
+	//
+	// For PID
+	//
+	if (g_params.find("pid") != g_params.end())
+	{
+		long long pid = ConvertToLongLong(g_params["pid"]);
+		if (!(pid >= 0 && pid <= 0x1FFF))
+		{
+			printf("The specified PID: %s is invalid, please make sure it is between 0 to 0x1FFF inclusive.\r\n", g_params["pid"].c_str());
+			return false;
+		}
+	}
+
+	//
+	// For Destination PID
+	//
+	if (g_params.find("destpid") != g_params.end())
+	{
+		long long pid = ConvertToLongLong(g_params["destpid"]);
+		if (!(pid >= 0 && pid <= 0x1FFF))
+		{
+			printf("The specified Destination PID: %s is invalid, please make sure it is between 0 to 0x1FFF inclusive.\r\n", g_params["destpid"].c_str());
+			return false;
+		}
+	}
+
+	//
+	// For start pts
+	//
+	if (g_params.find("startpts") != g_params.end())
+	{
+		long long start_pts = ConvertToLongLong(g_params["startpts"]);
+		if (!(start_pts >= 0 && start_pts <= 0x1FFFFFFFFLL))
+		{
+			printf("The start pts: %s is invalid, please make sure it is between 0 to 0x1FFFFFFFF(%lld) inclusive.\r\n", g_params["startpts"].c_str(), 0x1FFFFFFFFLL);
+			return false;
+		}
+	}
+
+	//
+	// for source format
+	//
+
+
+	// TODO...
+
+	return true;
+}
+
+void PrintHelp()
+{
+	printf("Usage: DumpTS.exe TSSourceFileName [OPTION]...\r\n");
+	printf("\t--output\t\tThe output dumped file path\r\n");
+	printf("\t--pid\t\t\tThe PID of dumped stream\r\n");
+	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\r\n");
+	printf("\t--startpts\t\tThe start PTS of TS file will be adjusted to start with this pts\r\n");
+	printf("\t--srcfmt\t\tThe source TS format, including: ts, m2ts, if it is not specified, find the sync-word to decide it\r\n");
+	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\r\n");
+	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
+
+	printf("Examples:\r\n");
+	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\r\n");
+	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\r\n");
+
+	return;
+}
+
+// Dump a stream with specified PID to a pes/es stream
+int DumpOneStream()
+{
+	return -1;
+}
+
+// Dump a partial TS
+int DumpPartialTS()
+{
+	return -1;
+}
+
+// Refactor TS, for example, change PID, PTS, or changing from ts to m2ts and so on
+int RefactorTS()
+{
+	return -1;
+}
+
 int main(int argc, char* argv[])
 {
-	if(argc < 3)
+	if(argc < 2)
 	{
-		printf("Usage: DumpTS.exe TSFileName DumpFileName [pid] [raw] [m2ts].\r\n");
+		PrintHelp();
 		return 0;
 	}
+
+	ParseCommandLine(argc, argv);
+
+	if (VerifyCommandLine() == false)
+	{
+		PrintHelp();
+		return 0;
+	}
+
+	// Check what dump case should be gone through
+
+
 
 	int sPID = FILTER_PID;
 
@@ -189,96 +390,6 @@ int main(int argc, char* argv[])
 		fclose(fp);
 	if (fw)
 		fclose(fw);
-
-#if 0
-	if(rawmode == true)
-		return 0;
-
-	// rip PES header.
-	unsigned char raw_buffer[2048];
-	fp = fopen(argv[2],"rb");
-	fw = fopen("c:\\dump.raw","wb+");
-
-	int find_pos = 0;
-	int required_bytes = 0;
-	int left_over = 0;
-	while(true)
-	{
-		int nRead = fread(raw_buffer+left_over,1,2048-left_over,fp);
-
-		if(nRead <= 0)
-			break;
-	
-		if(required_bytes > 0)
-		{
-			int nwrite = fwrite(raw_buffer+find_pos, 1, required_bytes>2048?2048:required_bytes,fw);
-			required_bytes -= nwrite;
-		}
-
-		find_pos += required_bytes;
-
-		// Find PES_header
-		while(true)
-		{
-			if(find_pos + 9 < 2048)
-			{
-				if( raw_buffer[find_pos] == 0 &&
-					raw_buffer[find_pos + 1] == 0 &&
-					raw_buffer[find_pos + 2] == 1 &&
-					raw_buffer[find_pos + 3] == AUDIO_STREAM_ID)
-				{
-					int pes_len = raw_buffer[find_pos + 4]<<8 | raw_buffer[find_pos+5];
-					int pes_hdr_len = raw_buffer[find_pos + 8];// + 4;
-					int raw_data_len = pes_len - pes_hdr_len  - 3;
-					
-					find_pos += 9;
-					required_bytes = raw_data_len;
-
-					if(find_pos + pes_hdr_len < 2048)
-					{
-						find_pos += pes_hdr_len;
-						if(2048 - find_pos > raw_data_len)
-						{
-							fwrite(raw_buffer+find_pos,1,raw_data_len,fw);
-							required_bytes = 0;
-							left_over = 2048 -find_pos - raw_data_len;
-							memmove(raw_buffer, raw_buffer + 2048 - left_over, left_over);
-						}
-						else
-						{
-							fwrite(raw_buffer+find_pos, 1, 2048 - find_pos, fw);
-							required_bytes -= 2048 - find_pos;
-							left_over = 0;
-						}
-						find_pos = 0;
-						break;
-					}
-					else
-					{
-						find_pos = find_pos + pes_hdr_len - 2048;
-						left_over = 0;
-						break;
-					}
-				}
-				else
-				{
-					find_pos++;
-				}
-			}
-			else
-			{
-				required_bytes = 0;
-				memmove(raw_buffer, raw_buffer + 2048 - 8, 8);
-				left_over = 8;
-				find_pos = 0;
-				break;
-			}
-		}
-	}
-
-	fclose(fw);
-	fclose(fp);
-#endif
 
 	return 0;
 }
