@@ -45,7 +45,7 @@ long long GetPTSValue(unsigned char* pkt_data)
 	return ts;
 }
 
-int FlushPESBuffer(FILE* fw, unsigned char* pes_buffer, int pes_buffer_len, int dumpopt, int &raw_data_len)
+int FlushPESBuffer(FILE* fw, unsigned char* pes_buffer, int pes_buffer_len, int dumpopt, int &raw_data_len, int stream_id = -1, int stream_id_extension=-1)
 {
 	int iret=0;
 	raw_data_len = 0;
@@ -55,8 +55,99 @@ int FlushPESBuffer(FILE* fw, unsigned char* pes_buffer, int pes_buffer_len, int 
 			pes_buffer[1] == 0 &&
 			pes_buffer[2] == 1 )
 		{
+			int off = 9;
+			int pes_stream_id = pes_buffer[3];
+			int pes_stream_id_extension = -1;
 			int pes_len = pes_buffer[4]<<8 | pes_buffer[5];
 			int pes_hdr_len = pes_buffer[8];
+			unsigned char PTS_DTS_flags = (pes_buffer[7] >> 6) & 0x3;
+			unsigned char ESCR_flag = (pes_buffer[7] >> 5) & 0x1;
+			unsigned char ES_rate_flag = (pes_buffer[7] >> 4) & 0x1;
+			unsigned char DSM_trick_mode_flag = (pes_buffer[7] >> 3) & 0x1;
+			unsigned char additional_copy_info_flag = (pes_buffer[7] >> 2) & 0x1;
+			unsigned char PES_CRC_flag = (pes_buffer[7] >> 1) & 0x1;
+			unsigned char pes_hdr_extension_flag = pes_buffer[7] & 0x1;
+
+			if (PTS_DTS_flags == 2)
+				off += 5;
+			else if (PTS_DTS_flags == 3)
+				off += 10;
+
+			if (ESCR_flag)
+				off += 6;
+
+			if (ES_rate_flag)
+				off += 3;
+
+			if (DSM_trick_mode_flag)
+				off += 1;
+
+			if (additional_copy_info_flag)
+				off += 1;
+
+			if (PES_CRC_flag)
+				off += 2;
+
+			if (off >= pes_buffer_len)
+				return -1;
+
+			if (pes_hdr_extension_flag)
+			{
+				unsigned char PES_private_data_flag = (pes_buffer[off]>>7) & 0x1;
+				unsigned char pack_header_field_flag = (pes_buffer[off] >> 6) & 0x1;
+				unsigned char program_packet_sequence_counter_flag = (pes_buffer[off] >> 5) & 0x1;
+				unsigned char PSTD_buffer_flag = (pes_buffer[off] >> 4) & 0x1;
+				unsigned char PES_extension_flag_2 = pes_buffer[off] & 0x1;
+				off += 1;
+
+				if (PES_private_data_flag)
+					off += 16;
+
+				if (pack_header_field_flag)
+				{
+					off++;
+					
+					if (off >= pes_buffer_len)
+						return -1;
+
+					off += pes_buffer[off];
+				}
+
+				if (program_packet_sequence_counter_flag)
+					off += 2;
+
+				if (PSTD_buffer_flag)
+					off += 2;
+
+				if (off >= pes_buffer_len)
+					return -1;
+
+				if (PES_extension_flag_2)
+				{
+					unsigned char PES_extension_field_length = pes_buffer[off] & 0x7F;
+
+					off++;
+
+					if (off >= pes_buffer_len)
+						return -1;
+					
+					if (PES_extension_field_length > 0)
+					{
+						unsigned char stream_id_extension_flag = (pes_buffer[off] >> 7) & 0x1;
+						if (stream_id_extension_flag == 0)
+						{
+							pes_stream_id_extension = pes_buffer[off];
+						}
+					}
+				}
+			}
+
+			// filter it by stream_id and stream_id_extension
+			if (stream_id != -1 && stream_id != pes_stream_id)
+				return 1;	// mis-match with stream_id filter
+
+			if (stream_id_extension != -1 && pes_stream_id_extension != -1 && stream_id_extension != pes_stream_id_extension)
+				return 1;	// mis-match with stream_id filter
 
 			if(dumpopt&DUMP_RAW_OUTPUT)
 			{
@@ -100,12 +191,12 @@ int FlushPESBuffer(FILE* fw, unsigned char* pes_buffer, int pes_buffer_len, int 
 		}
 		else
 		{
-			iret = -2;
+			iret = -2;	// invalid ES
 		}
 	}
 	else if(pes_buffer_len > 0)
 	{
-		iret = -3;
+		iret = -3;	// too short PES raw data buffer
 	}
 
 	return iret;
@@ -125,7 +216,7 @@ void ParseCommandLine(int argc, char* argv[])
 	g_params.insert({ "input", argv[1] });
 
 	std::string str_arg_prefixes[] = {
-		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts"
+		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension"
 	};
 	
 	for (int iarg = 2; iarg < argc; iarg++)
@@ -255,7 +346,9 @@ void PrintHelp()
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\r\n");
 	printf("\t--srcfmt\t\tThe source TS format, including: ts, m2ts, if it is not specified, find the sync-word to decide it\r\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\r\n");
-	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
+	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\r\n");
+	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\r\n");
+	printf("\t--stream_id_extension\t\tThe stream_id_extension in PES header of dumped stream\r\n");
 
 	printf("Examples:\r\n");
 	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\r\n");
@@ -313,6 +406,18 @@ int DumpOneStream()
 		dumpopt |= DUMP_BD_M2TS;
 	}
 
+	int stream_id_extension = -1;
+	if (g_params.find("stream_id_extension") != g_params.end())
+	{
+		stream_id_extension = (int)ConvertToLongLong(g_params["stream_id_extension"]);
+	}
+
+	int stream_id = -1;
+	if (g_params.find("stream_id") != g_params.end())
+	{
+		stream_id = (int)ConvertToLongLong(g_params["stream_id"]);
+	}
+
 	// Make sure the dump option
 	if (g_params.find("outputfmt") != g_params.end())
 	{
@@ -344,7 +449,7 @@ int DumpOneStream()
 
 		if (payload_unit_start)
 		{
-			if ((dump_ret = FlushPESBuffer(fw, pes_buffer, pes_buffer_len, dumpopt, raw_data_len)) < 0)
+			if ((dump_ret = FlushPESBuffer(fw, pes_buffer, pes_buffer_len, dumpopt, raw_data_len, stream_id, stream_id_extension)) < 0)
 				printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
 			pes_buffer_len = 0;
 			pes_hdr_location = ftell(fp) - nRead;
@@ -360,7 +465,7 @@ int DumpOneStream()
 		}
 	}
 
-	if ((dump_ret = FlushPESBuffer(fw, pes_buffer, pes_buffer_len, dumpopt, raw_data_len)) < 0)
+	if ((dump_ret = FlushPESBuffer(fw, pes_buffer, pes_buffer_len, dumpopt, raw_data_len, stream_id, stream_id_extension)) < 0)
 		printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
 
 	iRet = 0;
