@@ -1,34 +1,31 @@
-========================================================================
-       CONSOLE APPLICATION : DumpTS
-========================================================================
+What is DumpTS?
+	DumpTS is a simple utility tool to process TS/M2TS stream file, which will provide these kinds of features:
+		> Dump one elementary stream or PSI sections from m2ts/ts stream file
+		> Re-factor a TS/M2TS stream file in place
+		> Extract some elementary streams, and reconstruct a partial TS/M2TS file
+		> Show media information of elementary streams
 
+How to build?
+	Use VS2015 to open DumpTS.sln to build it
 
-AppWizard has created this DumpTS application for you.  
+How to run it?
+	Usage: DumpTS.exe TSSourceFileName [OPTION]...\r\n");
+		--output				The output dumped file path
+		--pid					The PID of dumped stream
+		--destpid				The PID of source stream will be placed with this PID
+		--srcfmt				The source TS format, including: ts, m2ts, if it is not specified, find the sync-word to decide it
+		--outputfmt				The destination dumped format, including: ts, m2ts, pes and es
+		--showpts				Print the pts of every elementary stream packet
+		--stream_id				The stream_id in PES header of dumped stream
+		--stream_id_extension	The stream_id_extension in PES header of dumped stream
+		--showinfo				Print the media information of elementary stream, for example, stream type, audio sample rate, audio channel mapping and so on
+		--verbose				Print more message in the intermediate process
 
-This file contains a summary of what you will find in each of the files that
-make up your DumpTS application.
+	Here are some examples of command line
+		> DumpTS c:\00001.m2ts --output=c:\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts
+		It will dump a hevc es stream with PID 0x1011 from the m2ts stream file: c:\00001.m2ts, and print its print of every frame.
+		> DumpTS C:\test.ts --output=c:\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts
+		It will re-factor the file: c:\test.ts, and replace the PID 0x100 with 0x1011 in TS pack and PSI, and convert it to a m2ts
+		> DumpTS C:\00022.m2ts --output=c:\00022.mlp --pid=0x1100 --srcfmt=m2ts --outputfmt=es --stream_id_extension=0x72
+		It will dump a MLP sub-stream from C:\00022.m2ts with the PID 0x1100 and stream_id_extension in PES: 0x72
 
-DumpTS.dsp
-    This file (the project file) contains information at the project level and
-    is used to build a single project or subproject. Other users can share the
-    project (.dsp) file, but they should export the makefiles locally.
-
-DumpTS.cpp
-    This is the main application source file.
-
-
-/////////////////////////////////////////////////////////////////////////////
-Other standard files:
-
-StdAfx.h, StdAfx.cpp
-    These files are used to build a precompiled header (PCH) file
-    named DumpTS.pch and a precompiled types file named StdAfx.obj.
-
-
-/////////////////////////////////////////////////////////////////////////////
-Other notes:
-
-AppWizard uses "TODO:" to indicate parts of the source code you
-should add to or customize.
-
-/////////////////////////////////////////////////////////////////////////////

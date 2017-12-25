@@ -13,6 +13,14 @@
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 
 #include <stdio.h>
+#include <memory.h>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <tuple>
+#include <io.h>
+#include <locale>
+#include <algorithm>
 
 // TODO: reference additional headers your program requires here
 

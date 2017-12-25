@@ -2,27 +2,17 @@
 //
 
 #include "stdafx.h"
-#include <stdio.h>
-#include <memory.h>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <tuple>
-#include <io.h>
-#include <locale>
-#include <algorithm>
 #include "crc.h"
+#include "PayloadBuf.h"
 
 using namespace std;
 
-#define AUDIO_STREAM_ID	0xE0
-#define FILTER_PID		0x1400//0x1011//0x1011//0x1400
-#define TS_PACKET_SIZE	192
+unordered_map<std::string, std::string> g_params;
 
-#define DUMP_RAW_OUTPUT	(1<<0)
-#define DUMP_BD_M2TS	(1<<1)
-#define DUMP_PES_OUTPUT	(1<<2)
-#define DUMP_PTS_VIEW	(1<<3)
+using PID_props = unordered_map<std::string, int>;
+unordered_map<short, PID_props&> g_PIDs_props;
+
+TS_FORMAT_INFO	g_ts_fmtinfo;
 
 const char *dump_msg[] = {
 	"Warning: wrong PES_length field value, read:location, read pos[%d], write pos:[%d].\r\n",
@@ -34,179 +24,72 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
-long long GetPTSValue(unsigned char* pkt_data)
-{
-	long long ts;
-	ts  = ((long long)(pkt_data[0]&0x0e))<<29;	//requires 33 bits
-	ts |= ((long long)pkt_data[1]<<22);
-	ts |= ((long long)pkt_data[2]&0xfe)<<14;
-	ts |= ((long long)pkt_data[3]<<7);
-	ts |= ((long long)pkt_data[4]>>1);
-	return ts;
-}
+extern int	RefactorTS();
+extern int	DumpOneStream();
+extern int	DumpPartialTS();
 
-int FlushPESBuffer(FILE* fw, unsigned char* pes_buffer, int pes_buffer_len, int dumpopt, int &raw_data_len, int stream_id = -1, int stream_id_extension=-1)
+bool TryFitMPEGSysType(FILE* rfp, MPEG_SYSTEM_TYPE eMPEGSysType, unsigned short& packet_size, unsigned short& num_of_prefix_bytes, unsigned short& num_of_suffix_bytes, bool& bEncrypted)
 {
-	int iret=0;
-	raw_data_len = 0;
-	if(pes_buffer_len >= 9)
+	if (eMPEGSysType == MPEG_SYSTEM_UNKNOWN)
+		return false;
+
+	bool bRet = false;
+	unsigned char packet_buf[6144];
+
+	bEncrypted = false;
+	if (eMPEGSysType == MPEG_SYSTEM_BDAV ||
+		eMPEGSysType == MPEG_SYSTEM_BDMV)
 	{
-		if( pes_buffer[0] == 0 &&
-			pes_buffer[1] == 0 &&
-			pes_buffer[2] == 1 )
+		if (fread(packet_buf, 1, 6144, rfp) == 6144 && packet_buf[4] == 0x47)
 		{
-			int off = 9;
-			int pes_stream_id = pes_buffer[3];
-			int pes_stream_id_extension = -1;
-			int pes_len = pes_buffer[4]<<8 | pes_buffer[5];
-			int pes_hdr_len = pes_buffer[8];
-			unsigned char PTS_DTS_flags = (pes_buffer[7] >> 6) & 0x3;
-			unsigned char ESCR_flag = (pes_buffer[7] >> 5) & 0x1;
-			unsigned char ES_rate_flag = (pes_buffer[7] >> 4) & 0x1;
-			unsigned char DSM_trick_mode_flag = (pes_buffer[7] >> 3) & 0x1;
-			unsigned char additional_copy_info_flag = (pes_buffer[7] >> 2) & 0x1;
-			unsigned char PES_CRC_flag = (pes_buffer[7] >> 1) & 0x1;
-			unsigned char pes_hdr_extension_flag = pes_buffer[7] & 0x1;
-
-			if (PTS_DTS_flags == 2)
-				off += 5;
-			else if (PTS_DTS_flags == 3)
-				off += 10;
-
-			if (ESCR_flag)
-				off += 6;
-
-			if (ES_rate_flag)
-				off += 3;
-
-			if (DSM_trick_mode_flag)
-				off += 1;
-
-			if (additional_copy_info_flag)
-				off += 1;
-
-			if (PES_CRC_flag)
-				off += 2;
-
-			if (off >= pes_buffer_len)
-				return -1;
-
-			if (pes_hdr_extension_flag)
+			if ((packet_buf[0] & 0xC0) == 0)
 			{
-				unsigned char PES_private_data_flag = (pes_buffer[off]>>7) & 0x1;
-				unsigned char pack_header_field_flag = (pes_buffer[off] >> 6) & 0x1;
-				unsigned char program_packet_sequence_counter_flag = (pes_buffer[off] >> 5) & 0x1;
-				unsigned char PSTD_buffer_flag = (pes_buffer[off] >> 4) & 0x1;
-				unsigned char PES_extension_flag_2 = pes_buffer[off] & 0x1;
-				off += 1;
-
-				if (PES_private_data_flag)
-					off += 16;
-
-				if (pack_header_field_flag)
-				{
-					off++;
-					
-					if (off >= pes_buffer_len)
-						return -1;
-
-					off += pes_buffer[off];
-				}
-
-				if (program_packet_sequence_counter_flag)
-					off += 2;
-
-				if (PSTD_buffer_flag)
-					off += 2;
-
-				if (off >= pes_buffer_len)
-					return -1;
-
-				if (PES_extension_flag_2)
-				{
-					unsigned char PES_extension_field_length = pes_buffer[off] & 0x7F;
-
-					off++;
-
-					if (off >= pes_buffer_len)
-						return -1;
-					
-					if (PES_extension_field_length > 0)
-					{
-						unsigned char stream_id_extension_flag = (pes_buffer[off] >> 7) & 0x1;
-						if (stream_id_extension_flag == 0)
-						{
-							pes_stream_id_extension = pes_buffer[off];
-						}
-					}
-				}
+				if (packet_buf[196] == 0x47)
+					bRet = true;
 			}
-
-			// filter it by stream_id and stream_id_extension
-			if (stream_id != -1 && stream_id != pes_stream_id)
-				return 1;	// mis-match with stream_id filter
-
-			if (stream_id_extension != -1 && pes_stream_id_extension != -1 && stream_id_extension != pes_stream_id_extension)
-				return 1;	// mis-match with stream_id filter
-
-			if(dumpopt&DUMP_RAW_OUTPUT)
+			else // encrypted content
 			{
-				if(pes_buffer_len < pes_len + 6 || pes_buffer_len < pes_hdr_len + 9)
-				{
-					iret = -1;
-				}
-				else if(pes_len == 0)
-				{
-					raw_data_len = pes_buffer_len - pes_hdr_len - 9;
-					if (fw != NULL)
-						fwrite(pes_buffer + pes_hdr_len + 9, 1, raw_data_len, fw);
-				}
-				else
-				{
-					raw_data_len = pes_len - 3 - pes_hdr_len;
-					if (fw != NULL)
-						fwrite(pes_buffer + pes_hdr_len + 9, 1, raw_data_len, fw);
-				}
-			}
-			else if(dumpopt&DUMP_PES_OUTPUT)
-			{
-				raw_data_len = pes_len==0?pes_buffer_len:pes_len;
-				if (fw != NULL)
-					fwrite(pes_buffer, 1, raw_data_len, fw);
-			}
-
-			if(dumpopt&DUMP_PTS_VIEW)
-			{
-				if(pes_buffer_len < pes_len + 6 || pes_buffer_len < pes_hdr_len + 9)
-				{
-					iret = -1;
-				}
-				else
-				{
-					static int PktIndex = 0;
-					__int64 pts = GetPTSValue(pes_buffer + 9);
-					printf("PktIndex:%d, PTS value is %lld(0X%llX).\r\n", PktIndex++, pts, pts);
-				}
+				bEncrypted = true;
+				bRet = true;
 			}
 		}
-		else
-		{
-			iret = -2;	// invalid ES
+
+		if (bRet == true) {
+			packet_size = 192;
+			num_of_prefix_bytes = 4;
+			num_of_suffix_bytes = 0;
 		}
 	}
-	else if(pes_buffer_len > 0)
+	else if (eMPEGSysType == MPEG_SYSTEM_TS ||
+		eMPEGSysType == MPEG_SYSTEM_TTS ||
+		eMPEGSysType == MPEG_SYSTEM_TS204 ||
+		eMPEGSysType == MPEG_SYSTEM_TS208)
 	{
-		iret = -3;	// too short PES raw data buffer
+		unsigned short lead_bytes = eMPEGSysType == MPEG_SYSTEM_TTS ? 4 : 0;
+		unsigned short padding_bytes = eMPEGSysType == MPEG_SYSTEM_TS204 ? 16 : (eMPEGSysType == MPEG_SYSTEM_TS208 ? 20 : 0);
+		unsigned short pkt_size = lead_bytes + 188 + padding_bytes;
+		if (fread(packet_buf, 1, pkt_size, rfp) == pkt_size && packet_buf[lead_bytes] == 0x47) {
+			if (fread(&packet_buf[pkt_size], 1, pkt_size, rfp) == pkt_size) {
+				if (packet_buf[pkt_size + lead_bytes] == 0x47)
+					bRet = true;
+			}
+			else
+				bRet = true;
+		}
+
+		if (bRet == true) {
+			packet_size = pkt_size;
+			num_of_prefix_bytes = lead_bytes;
+			num_of_suffix_bytes = padding_bytes;
+		}
 	}
 
-	return iret;
+	return bRet;
 }
 
 //
 // DumpTS TSSourceFileName DestFileName --pid=0x100 --destpid=0x1011 --srcfmt=m2ts --outputfmt=es/pes/m2ts/ts --showpts
 //
-
-unordered_map<std::string, std::string> g_params;
 
 void ParseCommandLine(int argc, char* argv[])
 {
@@ -216,9 +99,9 @@ void ParseCommandLine(int argc, char* argv[])
 	g_params.insert({ "input", argv[1] });
 
 	std::string str_arg_prefixes[] = {
-		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension"
+		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose"
 	};
-	
+
 	for (int iarg = 2; iarg < argc; iarg++)
 	{
 		std::string strArg = argv[iarg];
@@ -231,8 +114,12 @@ void ParseCommandLine(int argc, char* argv[])
 			{
 				string strVal = strArg.substr(str_arg_prefixes[i].length() + 1);
 				std::transform(strVal.begin(), strVal.end(), strVal.begin(), ::tolower);
-				g_params.insert({ str_arg_prefixes[i],  strVal});
+				g_params.insert({ str_arg_prefixes[i],  strVal });
 				break;
+			}
+			else if (strArg.find(str_arg_prefixes[i]) == 0)
+			{
+				g_params.insert({ str_arg_prefixes[i], "" });
 			}
 		}
 	}
@@ -246,27 +133,6 @@ void ParseCommandLine(int argc, char* argv[])
 	// Set the default values
 
 	return;
-}
-
-long long ConvertToLongLong(std::string& str)
-{
-	size_t idx = 0;
-	long long ret = -1LL;
-	// Check whether it is a valid PID value or not
-	if (str.compare(0, 2, "0x") == 0)	// hex value
-	{
-		ret = std::stoll(str.substr(2), &idx, 16);
-	}
-	else if (str.compare(0, 1, "0") == 0)	// oct value
-	{
-		ret = std::stoll(str.substr(1), &idx, 8);
-	}
-	else
-	{
-		ret = std::stoll(str, &idx, 10);
-	}
-
-	return idx > 0 ? ret : -1LL;
 }
 
 bool VerifyCommandLine()
@@ -338,6 +204,67 @@ bool VerifyCommandLine()
 	return true;
 }
 
+int PrepareParams()
+{
+	int iRet = -1;
+
+	memset(&g_ts_fmtinfo, 0, sizeof(g_ts_fmtinfo));
+	g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_UNKNOWN;
+
+	auto iter = g_params.find("srcfmt");
+	if (iter != g_params.end())
+	{
+		if (iter->second.compare("m2ts") == 0)
+		{
+			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_BDMV;
+			g_ts_fmtinfo.packet_size = 192;
+			g_ts_fmtinfo.encrypted = false;
+			g_ts_fmtinfo.num_of_prefix_bytes = 4;
+			g_ts_fmtinfo.num_of_suffix_bytes = 0;
+		}
+		else if (iter->second.compare("ts") == 0)
+		{
+			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_TS;
+			g_ts_fmtinfo.packet_size = 188;
+			g_ts_fmtinfo.encrypted = false;
+			g_ts_fmtinfo.num_of_prefix_bytes = 0;
+			g_ts_fmtinfo.num_of_suffix_bytes = 0;
+		}
+	}
+
+	if (g_ts_fmtinfo.packet_size == 0)
+	{
+		FILE* rfp = NULL;
+		errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
+		if (errn != 0 || rfp == NULL)
+		{
+			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+			iRet = -1;
+			goto done;
+		}
+
+		// Have to analyze a part of buffer to get the TS packet size
+		MPEG_SYSTEM_TYPE sys_types[] = { MPEG_SYSTEM_TS, MPEG_SYSTEM_TS204, MPEG_SYSTEM_TS208, MPEG_SYSTEM_TTS };
+		for (int idx = 0; idx < _countof(sys_types); idx++) {
+			fseek(rfp, 0, SEEK_SET);
+			if (TryFitMPEGSysType(rfp, sys_types[idx], g_ts_fmtinfo.packet_size, g_ts_fmtinfo.num_of_prefix_bytes, g_ts_fmtinfo.num_of_suffix_bytes, g_ts_fmtinfo.encrypted))
+			{
+				g_ts_fmtinfo.eMpegSys = sys_types[idx];
+				iRet = 0;
+				break;
+			}
+		}
+
+		if (g_ts_fmtinfo.packet_size == 0)
+			printf("This input file: %s seems not to be a valid TS file.\r\n", g_params["input"].c_str());
+	}
+	else
+		iRet = 0;
+
+done:
+	return iRet;
+}
+
 void PrintHelp()
 {
 	printf("Usage: DumpTS.exe TSSourceFileName [OPTION]...\r\n");
@@ -349,673 +276,14 @@ void PrintHelp()
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\r\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\r\n");
 	printf("\t--stream_id_extension\t\tThe stream_id_extension in PES header of dumped stream\r\n");
+	printf("\t--showinfo\t\tPrint the media information of elementary stream in TS/M2TS file\r\n");
+	printf("\t--verbose\t\tPrint the intermediate information during media processing\r\n");
 
 	printf("Examples:\r\n");
 	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\r\n");
 	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\r\n");
 
 	return;
-}
-
-// Dump a stream with specified PID to a pes/es stream
-int DumpOneStream()
-{
-	int iRet = -1;
-	FILE *fp = NULL, *fw = NULL;
-	int sPID = FILTER_PID;
-	int dumpopt = 0;
-	unsigned char* pes_buffer = new (std::nothrow) unsigned char[20 * 1024 * 1024];
-
-	unsigned char buf[TS_PACKET_SIZE];
-
-	if (g_params.find("pid") == g_params.end())
-	{
-		printf("No PID is specified, nothing to do.\r\n");
-		goto done;
-	}
-
-	sPID = (int)ConvertToLongLong(g_params["pid"]);
-	
-	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
-	if (errn != 0 || fp == NULL)
-	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
-		goto done;
-	}
-
-	if(g_params.find("output") != g_params.end())
-	{
-		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
-		if (errn != 0 || fw == NULL)
-		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
-			goto done;
-		}
-	}
-
-	size_t pes_hdr_location;
-	int raw_data_len, dump_ret;
-	unsigned long pes_buffer_len = 0;
-	int buf_head_offset = 0;	// dumpopt&DUMP_BD_M2TS ? 4 : 0;
-	int ts_pack_size = TS_PACKET_SIZE - 4;	// dumpopt&DUMP_BD_M2TS ? TS_PACKET_SIZE : TS_PACKET_SIZE - 4;
-
-	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("m2ts") == 0)
-	{
-		buf_head_offset = 4;
-		ts_pack_size = TS_PACKET_SIZE;
-		dumpopt |= DUMP_BD_M2TS;
-	}
-
-	int stream_id_extension = -1;
-	if (g_params.find("stream_id_extension") != g_params.end())
-	{
-		stream_id_extension = (int)ConvertToLongLong(g_params["stream_id_extension"]);
-	}
-
-	int stream_id = -1;
-	if (g_params.find("stream_id") != g_params.end())
-	{
-		stream_id = (int)ConvertToLongLong(g_params["stream_id"]);
-	}
-
-	// Make sure the dump option
-	if (g_params.find("outputfmt") != g_params.end())
-	{
-		if (g_params["outputfmt"].compare("es") == 0)
-			dumpopt |= DUMP_RAW_OUTPUT;
-		else if (g_params["output"].compare("pes") == 0)
-			dumpopt |= DUMP_PES_OUTPUT;
-	}
-
-	if (g_params.find("showpts") != g_params.end())
-	{
-		dumpopt |= DUMP_PTS_VIEW;
-	}
-
-	while (true)
-	{
-		int nRead = fread(buf, 1, ts_pack_size, fp);
-		if (nRead < ts_pack_size)
-			break;
-
-		unsigned short PID = (buf[buf_head_offset + 1] & 0x1f) << 8 | buf[buf_head_offset + 2];
-		if (PID != sPID)
-			continue;
-
-		int index = buf_head_offset + 4;
-		unsigned char payload_unit_start = buf[buf_head_offset + 1] & 0x40;
-		unsigned char adaptation_field_control = (buf[buf_head_offset + 3] >> 4) & 0x03;
-		unsigned char discontinuity_counter = buf[buf_head_offset + 3] & 0x0f;
-
-		if (payload_unit_start)
-		{
-			if ((dump_ret = FlushPESBuffer(fw, pes_buffer, pes_buffer_len, dumpopt, raw_data_len, stream_id, stream_id_extension)) < 0)
-				printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
-			pes_buffer_len = 0;
-			pes_hdr_location = ftell(fp) - nRead;
-		}
-
-		if (adaptation_field_control & 0x02)
-			index += buf[buf_head_offset + 4] + 1;
-
-		if (payload_unit_start || !payload_unit_start && pes_buffer_len > 0)
-		{
-			memcpy(pes_buffer + pes_buffer_len, buf + index, TS_PACKET_SIZE - index);
-			pes_buffer_len += TS_PACKET_SIZE - index;
-		}
-	}
-
-	if ((dump_ret = FlushPESBuffer(fw, pes_buffer, pes_buffer_len, dumpopt, raw_data_len, stream_id, stream_id_extension)) < 0)
-		printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
-
-	iRet = 0;
-
-done:
-	if (fp)
-		fclose(fp);
-	if (fw)
-		fclose(fw);
-
-	if (pes_buffer != NULL)
-	{
-		delete[] pes_buffer;
-		pes_buffer = NULL;
-	}
-
-	return iRet;
-}
-
-// Dump a partial TS
-int DumpPartialTS()
-{
-	return -1;
-}
-
-struct PayloadBufSlice
-{
-	unsigned long ts_packet_idx;		// The TS packet index of current PES buf slice
-	unsigned char start_off;			// The start byte position in TS packet of current PES buf slice
-	unsigned char end_off;				// The end byte position in TS packet of current PES buf slice
-
-	PayloadBufSlice(unsigned long idxTSPack, unsigned char offStart, unsigned char offEnd)
-		: ts_packet_idx(idxTSPack), start_off(offStart), end_off(offEnd) {}
-};
-
-#define IS_PES_PAYLOAD(p)			((p)[0] == 0 && (p)[1] == 0 && (p)[2] == 1 && (p)[3] >= 0xBC)
-
-enum PSI_TABLE_ID {
-	TID_program_association_section = 0x00,
-	TID_conditional_access_section,
-	TID_TS_program_map_section,
-	TID_TS_description_section,
-	TID_ISO_IEC_14496_scene_description_section,
-	TID_ISO_IEC_14496_object_descriptor_section,
-	TID_Metadata_section,
-	TID_IPMP_Control_Information_section,
-	TID_Forbidden = 0xFF
-};
-
-struct PayloadBuf
-{
-	std::vector<PayloadBufSlice> slices;
-	unsigned char* buffer;
-	unsigned long buffer_len;
-
-	FILE* m_fw;
-	unsigned char m_ts_pack_size;
-
-	PayloadBuf(FILE* fw, unsigned char nTSPackSize)
-		: buffer_len(0)
-		, m_fw(fw)
-		, m_ts_pack_size(nTSPackSize)
-	{
-		buffer = new (std::nothrow) unsigned char[20 * 1024 * 1024];
-	}
-
-	~PayloadBuf()
-	{
-		if (buffer != NULL)
-		{
-			delete[] buffer;
-			buffer = NULL;
-		}
-	}
-
-	int PushTSBuf(unsigned long idxTSPack, unsigned char* pBuf, unsigned char offStart, unsigned char offEnd)
-	{
-		slices.emplace_back(idxTSPack, offStart, offEnd);
-
-		if (buffer != NULL)
-			memcpy(buffer + buffer_len, pBuf + offStart, offEnd - offStart);
-
-		buffer_len += offEnd - offStart;
-
-		return 0;
-	}
-
-	int Process(std::unordered_map<int, int>& pid_maps, FILE* fw)
-	{
-		unsigned long ulMappedSize = 0;
-		unsigned char* pBuf = buffer;
-		// Check the current payload buffer is a PSI buffer or not.
-		if (buffer_len >= 4 && !IS_PES_PAYLOAD(buffer))
-		{
-			unsigned char pointer_field = *pBuf;
-			unsigned char table_id;
-			ulMappedSize++;
-			ulMappedSize += pointer_field;
-
-			if (ulMappedSize < buffer_len)
-				table_id = pBuf[ulMappedSize];
-			else
-				return -1;
-
-			if (ulMappedSize + 3 > buffer_len)
-				return -1;
-
-			unsigned char* pSectionStart = &pBuf[ulMappedSize];
-			unsigned long ulSectionStart = ulMappedSize;
-
-			unsigned short section_length = (pBuf[ulMappedSize + 1] << 8 | pBuf[ulMappedSize + 2]) & 0XFFF;
-
-			// The maximum number of bytes in a section of a Rec. ITU-T H.222.0 | ISO/IEC 13818-1 defined PSI table is
-			// 1024 bytes. The maximum number of bytes in a private_section is 4096 bytes.
-			// The DSMCC section data is also 4096 (table_id from 0x38 to 0x3F)
-			if (section_length > ((pBuf[ulMappedSize] >= 0x40 && pBuf[ulMappedSize] <= 0xFE ||
-				pBuf[ulMappedSize] >= 0x38 && pBuf[ulMappedSize] <= 0x3F) ? 4093 : 1021))
-				return -1;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
-
-			if (ulMappedSize + 3 + section_length > buffer_len)
-				return -1;	// RET_CODE_BUFFER_TOO_SMALL;
-
-			unsigned char section_syntax_indicator = (pBuf[ulMappedSize + 1] >> 7) & 0x01;
-
-			if ((table_id == TID_program_association_section || table_id == TID_TS_program_map_section) && !section_syntax_indicator)
-				return -1;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
-
-			if (ulMappedSize + 8 > buffer_len)
-				return -1;
-
-			ulMappedSize += 8;
-
-			bool bChanged = false;
-
-			// Check the PID in PAT and PMT
-			if (table_id == TID_program_association_section)
-			{
-				// 4 bytes of CRC32, 4 bytes of PAT entry
-				while(ulMappedSize + 4 + 4 <= 3 + section_length + ulSectionStart)
-				{
-					unsigned short PID = (pBuf[ulMappedSize + 2] & 0x1f) << 8 | pBuf[ulMappedSize + 3];
-
-					if (pid_maps.find(PID) != pid_maps.end())
-					{
-						pBuf[ulMappedSize + 2] &= 0xE0;
-						pBuf[ulMappedSize + 2] |= ((pid_maps[PID] >> 8) & 0x1F);
-						pBuf[ulMappedSize + 3] = pid_maps[PID] & 0xFF;
-						
-						// Update the original TS pack according to buffer offset and value
-						WriteBack(ulMappedSize + 2, &pBuf[ulMappedSize + 2], 2);
-
-						bChanged = true;
-					}
-
-					ulMappedSize += 4;
-				}
-			}
-			else if (table_id == TID_TS_program_map_section)
-			{
-				if (ulMappedSize + 4 > buffer_len)
-					return -1;
-
-				// Change PCR_PID
-				unsigned short PID = (pBuf[ulMappedSize] & 0x1f) << 8 | pBuf[ulMappedSize + 1];
-				if (pid_maps.find(PID) != pid_maps.end())
-				{
-					pBuf[ulMappedSize] &= 0xE0;
-					pBuf[ulMappedSize] |= ((pid_maps[PID] >> 8) & 0x1F);
-					pBuf[ulMappedSize + 1] = pid_maps[PID] & 0xFF;
-
-					// Update the original TS pack according to buffer offset and value
-					WriteBack(ulMappedSize, &pBuf[ulMappedSize], 2);
-				}
-
-				unsigned short program_info_length = (pBuf[ulMappedSize + 2] & 0xF) << 8 | pBuf[ulMappedSize + 3];
-				ulMappedSize += 4;
-
-				if (ulMappedSize + program_info_length > buffer_len)
-					return -1;
-
-				ulMappedSize += program_info_length;
-
-				// Reserve 4 bytes of CRC32 and 5 bytes of basic ES info (stream_type, reserved, elementary_PID, reserved and ES_info_length)
-				while (ulMappedSize + 5 + 4 <= 3 + section_length + ulSectionStart)
-				{
-					unsigned char stream_type = pBuf[ulMappedSize];
-					PID = (pBuf[ulMappedSize + 1] & 0x1f) << 8 | pBuf[ulMappedSize + 2];
-					unsigned short ES_info_length = (pBuf[ulMappedSize + 3] & 0xF) << 8 | pBuf[ulMappedSize + 4];
-
-					if (pid_maps.find(PID) != pid_maps.end())
-					{
-						pBuf[ulMappedSize + 1] &= 0xE0;
-						pBuf[ulMappedSize + 1] |= ((pid_maps[PID] >> 8) & 0x1F);
-						pBuf[ulMappedSize + 2] = pid_maps[PID] & 0xFF;
-
-						// Update the original TS pack according to buffer offset and value
-						WriteBack(ulMappedSize + 1, &pBuf[ulMappedSize+ 1], 2);
-
-						bChanged = true;
-					}
-
-					ulMappedSize += 5;
-					ulMappedSize += ES_info_length;
-				}
-			}
-
-			if (bChanged)
-			{
-				// Recalculate the CRC32 value
-				F_CRC_InicializaTable();
-				crc crc_val = F_CRC_CalculaCheckSum(&pBuf[ulSectionStart], (uint16_t)(ulMappedSize - ulSectionStart));
-				pBuf[ulMappedSize] = (crc_val >> 24) & 0xFF;
-				pBuf[ulMappedSize + 1] = (crc_val >> 16) & 0xFF;
-				pBuf[ulMappedSize + 2] = (crc_val >> 8) & 0xFF;
-				pBuf[ulMappedSize + 3] = (crc_val) & 0xFF;
-
-				WriteBack(ulMappedSize, &pBuf[ulMappedSize], 4);
-			}
-		}
-
-		return 0;
-	}
-
-	void Reset()
-	{
-		slices.clear();
-		buffer_len = 0;
-	}
-
-	int WriteBack(unsigned long off, unsigned char* pBuf, unsigned long cbSize)
-	{
-		int iRet = -1;
-		unsigned long cbRead = 0;
-		// Find which TS pack the corresponding bytes are written into TS pack buffer
-		for (std::vector<PayloadBufSlice>::iterator iter = slices.begin(); iter != slices.end(); iter++)
-		{
-			if (off >= cbRead && off < cbRead + iter->end_off - iter->start_off)
-			{
-				const unsigned long cbWritten = std::min(cbSize, cbRead + iter->end_off - iter->start_off - off);
-
-				if (m_fw != NULL)
-				{
-					// Record the backup position of file
-					long long backup_pos = _ftelli64(m_fw);
-
-					_fseeki64(m_fw, iter->ts_packet_idx*m_ts_pack_size + iter->start_off + off - cbRead, SEEK_SET);
-					if (fwrite(pBuf, 1, cbWritten, m_fw) != cbWritten)
-					{
-						printf("Failed to write back the bytes into destination file.\r\n");
-						_fseeki64(m_fw, backup_pos, SEEK_SET);
-						goto done;
-					}
-
-					// Restore the original file position
-					_fseeki64(m_fw, backup_pos, SEEK_SET);
-				}
-
-				off += cbWritten;
-				cbSize -= cbWritten;
-				pBuf += cbWritten;
-			}
-			
-			if (off + cbSize <= cbRead)
-				break;
-
-			cbRead += iter->end_off - iter->start_off;
-		}
-
-		iRet = 0;
-		
-	done:
-		return iRet;
-	}
-};
-
-// Refactor TS, for example, change PID, PTS, or changing from ts to m2ts and so on
-int RefactorTS()
-{
-	// At present, only support the below operation
-	// Src PID#1 -> Dest PID#1
-	// Src PID#2 -> Dest PID#2
-	// ...
-	// Add 30 bits of ATC clock time at the beginning of 188 bytes
-
-	int iRet = -1;
-	unsigned long ulATCTime = 0x1951D2E;
-	bool bAppendATCTime = false;
-	unordered_map<int, int> pid_maps;
-	unsigned char buf[TS_PACKET_SIZE];
-	FILE *fp = NULL, *fw = NULL;
-	unordered_map<unsigned short, PayloadBuf*> pPayloadBufs;
-
-	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
-	if (errn != 0 || fp == NULL)
-	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
-		goto done;
-	}
-
-	if (g_params.find("output") != g_params.end())
-	{
-		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
-		if (errn != 0 || fw == NULL)
-		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
-			goto done;
-		}
-	}
-
-	if (g_params.find("srcfmt") == g_params.end())
-	{
-		// Check its extension name
-		char szExt[_MAX_EXT];
-		memset(szExt, 0, sizeof(szExt));
-		_splitpath_s(g_params["input"].c_str(), NULL, 0, NULL, 0, NULL, 0, szExt, _MAX_EXT);
-
-		if (_stricmp(szExt, ".ts") == 0)
-			g_params["srcfmt"] = "ts";
-		else if (_stricmp(szExt, ".m2ts") == 0)
-			g_params["srcfmt"] = "m2ts";
-		else
-		{
-			// Implement it later, need scan the current TS, and decide which kind of TS stream it is.
-			goto done;
-		}
-	}
-
-	if (g_params.find("outputfmt") == g_params.end())
-	{
-		// Assume the output format is the same with input format
-		g_params["outputfmt"] = g_params["srcfmt"];
-	}
-
-	// Check whether to add 30bits of ATC time at the beginning of each 188 TS packet
-	if (g_params["outputfmt"].compare("m2ts") == 0 && g_params["srcfmt"].compare("ts") == 0)
-		bAppendATCTime = true;
-
-	if (g_params.find("pid") != g_params.end() && g_params.find("destpid") != g_params.end())
-	{
-		// Set up the PID maps.
-		// Assume every PIDs are separated with ',' or ';'
-		const char* p = g_params["pid"].c_str(), *s = p;
-		std::vector<int> src_pids;
-		
-		for(;;)
-		{
-			if (*p == ',' || *p == ';' || *p == '\0')
-			{
-				std::string strPID(s, p - s);
-				long long llPID = ConvertToLongLong(strPID);
-				if (llPID >= 0 && llPID <= 0x1FFFLL)
-					src_pids.push_back((int)llPID);
-				else
-					src_pids.push_back(-1);
-
-				if (*p == '\0')
-					break;
-
-				s = p + 1;
-			}
-
-			p++;
-		}
-
-		s = p = g_params["destpid"].c_str();
-		std::vector<int> dest_pids;
-		
-		for (;;)
-		{
-			if (*p == ',' || *p == ';' || *p == '\0')
-			{
-				std::string strPID(s, p - s);
-				long long llPID = ConvertToLongLong(strPID);
-				if (llPID >= 0 && llPID <= 0x1FFFLL)
-					dest_pids.push_back((int)llPID);
-				else
-					dest_pids.push_back(-1);
-
-				if (*p == '\0')
-					break;
-
-				s = p + 1;
-			}
-
-			p++;
-		}
-
-		for (size_t i = 0; i < std::max(src_pids.size(), dest_pids.size()); i++)
-		{
-			if (src_pids[i] == -1)
-				continue;
-
-			if (dest_pids[i] == -1)
-				continue;
-
-			pid_maps[src_pids[i]] = dest_pids[i];
-		}
-	}
-
-	unsigned long pes_buffer_len = 0;
-	unsigned char buf_head_offset = 0;	// dumpopt&DUMP_BD_M2TS ? 4 : 0;
-	unsigned char ts_pack_size = TS_PACKET_SIZE - 4;	// dumpopt&DUMP_BD_M2TS ? TS_PACKET_SIZE : TS_PACKET_SIZE - 4;
-
-	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("m2ts") == 0)
-		ts_pack_size = TS_PACKET_SIZE;
-
-	unsigned char dest_ts_pack_size = TS_PACKET_SIZE - 4;
-	if (g_params.find("outputfmt") != g_params.end() && g_params["outputfmt"].compare("m2ts") == 0)
-	{
-		buf_head_offset = 4;
-		dest_ts_pack_size = TS_PACKET_SIZE;
-	}
-
-	unsigned long ts_pack_idx = 0;
-	while (true)
-	{
-		size_t nRead = fread(buf, 1, ts_pack_size, fp);
-		if (nRead < ts_pack_size)
-			break;
-
-		// Try to append ATC time
-		if (dest_ts_pack_size == 192 && ts_pack_size == 188)
-		{
-			memmove(buf + 4, buf, 188);
-
-			if (bAppendATCTime)
-			{
-				buf[0] = (ulATCTime >> 24) & 0xFF;
-				buf[1] = (ulATCTime >> 16) & 0xFF;
-				buf[2] = (ulATCTime >> 8) & 0xFF;
-				buf[3] = ulATCTime & 0xFF;
-
-				ulATCTime += 0x1F2;			// Fixed value at present, later we may support the accurate ATC time
-				ulATCTime &= 0x3FFFFFFF;
-			}
-			else
-				*((unsigned long*)(&buf[0])) = 0;
-		}
-		else if (dest_ts_pack_size == 188 && ts_pack_size == 192)
-		{
-			memmove(buf, buf + 4, 188);
-		}
-		else
-		{
-			printf("Don't know how to process {%s(), %s: %d}.\n", __FUNCTION__, __FILE__, __LINE__);
-			break;
-		}
-
-		// Try to change PID
-		unsigned short PID = (buf[buf_head_offset + 1] & 0x1f) << 8 | buf[buf_head_offset + 2];
-		if (pid_maps.find(PID) != pid_maps.end())
-		{
-			buf[buf_head_offset + 1] &= 0xE0;
-			buf[buf_head_offset + 1] |= ((pid_maps[PID] >> 8) & 0x1F);
-			buf[buf_head_offset + 2] = pid_maps[PID] & 0xFF;
-		}
-
-		if (fw != NULL)
-		{
-			if (fwrite(buf, 1, dest_ts_pack_size, fw) < dest_ts_pack_size)
-			{
-				printf("Failed to write %d bytes into output file.\n", dest_ts_pack_size);
-				break;
-			}
-		}
-
-		int index = buf_head_offset + 4;
-		unsigned char payload_unit_start = buf[buf_head_offset + 1] & 0x40;
-		unsigned char adaptation_field_control = (buf[buf_head_offset + 3] >> 4) & 0x03;
-		unsigned char discontinuity_counter = buf[buf_head_offset + 3] & 0x0f;
-
-		if (pPayloadBufs.find(PID) != pPayloadBufs.end())
-		{
-			if (payload_unit_start)
-			{
-				pPayloadBufs[PID]->Process(pid_maps, fw);
-				pPayloadBufs[PID]->Reset();
-			}
-		}
-		else
-			pPayloadBufs[PID] = new PayloadBuf(fw, dest_ts_pack_size);
-
-		if (adaptation_field_control & 0x02)
-			index += buf[buf_head_offset + 4] + 1;
-
-		if (payload_unit_start || !payload_unit_start && pes_buffer_len > 0)
-		{
-			pPayloadBufs[PID]->PushTSBuf(ts_pack_idx, buf, index, dest_ts_pack_size);
-		}
-
-		ts_pack_idx++;
-	}
-
-	if (feof(fp) && dest_ts_pack_size == 192 && ts_pack_size == 188 && (ts_pack_idx % 32) != 0)
-	{
-		// Fill the NULL packet to be aligned with 6K
-		int padding_pack_count = 32 - (ts_pack_idx % 32);
-		for (int i = 0; i < padding_pack_count; i++)
-		{
-			memset(buf + 4, 0xFF, 188);
-			buf[4] = 0x47;
-			buf[5] = 0x1F;
-			buf[6] = 0xFF;
-			buf[7] = 0x10;
-
-			if (bAppendATCTime)
-			{
-				buf[0] = (ulATCTime >> 24) & 0xFF;
-				buf[1] = (ulATCTime >> 16) & 0xFF;
-				buf[2] = (ulATCTime >> 8) & 0xFF;
-				buf[3] = ulATCTime & 0xFF;
-
-				ulATCTime += 0x1F2;			// Fixed value at present, later we may support the accurate ATC time
-				ulATCTime &= 0x3FFFFFFF;
-			}
-			else
-				*((unsigned long*)(&buf[0])) = 0;
-
-			if (fw != NULL)
-			{
-				if (fwrite(buf, 1, dest_ts_pack_size, fw) < dest_ts_pack_size)
-				{
-					printf("Failed to write %d bytes into output file.\n", dest_ts_pack_size);
-					break;
-				}
-			}
-		}
-	}
-
-	for (std::unordered_map<unsigned short, PayloadBuf*>::iterator iter = pPayloadBufs.begin(); iter != pPayloadBufs.end(); iter++)
-	{
-		if (iter->second != NULL)
-			iter->second->Process(pid_maps, fw);
-	}
-
-	iRet = 0;
-
-done:
-	if (fp)
-		fclose(fp);
-	if (fw)
-		fclose(fw);
-
-	for (std::unordered_map<unsigned short, PayloadBuf*>::iterator iter = pPayloadBufs.begin(); iter != pPayloadBufs.end(); iter++)
-	{
-		delete iter->second;
-		iter->second = NULL;
-	}
-
-	return iRet;
 }
 
 int main(int argc, char* argv[])
@@ -1028,13 +296,19 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
+	// Parse the command line
 	ParseCommandLine(argc, argv);
 
+	// Verify the command line
 	if (VerifyCommandLine() == false)
 	{
 		PrintHelp();
 		return 0;
 	}
+
+	// Prepare the dumping parameters
+	if (PrepareParams() < 0)
+		return 0;
 
 	//
 	// Check what dump case should be gone through
