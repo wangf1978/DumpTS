@@ -15,15 +15,15 @@ How to run it?
         --pid                   The PID of dumped stream
         --destpid               The PID of source stream will be placed with this PID
         --srcfmt                The source TS format
-        						Including: ts, m2ts, 
-        						if it is not specified, find the sync-word to decide it
+                                Including: ts, m2ts, 
+                                if it is not specified, find the sync-word to decide it
         --outputfmt             The destination dumped format, including: ts, m2ts, pes and es
         --showpts               Print the pts of every elementary stream packet
         --stream_id             The stream_id in PES header of dumped stream
         --stream_id_extension   The stream_id_extension in PES header of dumped stream
         --showinfo              Print the media information of elementary stream, 
-        						for example, stream type, audio sample rate, audio channel 
-        						mapping, video resolution, frame-rate and so on
+                                for example, stream type, audio sample rate, audio channel 
+                                mapping, video resolution, frame-rate and so on
         --verbose               Print more message in the intermediate process
 
     Here are some examples of command line
