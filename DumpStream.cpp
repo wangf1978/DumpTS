@@ -1,5 +1,7 @@
 #include "StdAfx.h"
 #include "PayloadBuf.h"
+#include <memory.h>
+#include <string.h>
 
 using namespace std;
 
@@ -7,12 +9,303 @@ extern const char *dump_msg[];
 extern unordered_map<std::string, std::string> g_params;
 extern TS_FORMAT_INFO g_ts_fmtinfo;
 
+
+// For MLP audio
+#define FBB_SYNC_CODE	0xF8726FBB
+#define FBA_SYNC_CODE	0xF8726FBA
+#define MLP_SIGNATURE	0xB752
+
+enum CHANNEL_MAP_LOC
+{
+	CH_LOC_LEFT = 0,
+	CH_LOC_CENTER,
+	CH_LOC_RIGHT,
+	CH_LOC_LS,
+	CH_LOC_RS,
+	CH_LOC_LC,
+	CH_LOC_RC,
+	CH_LOC_LRS,
+	CH_LOC_RRS,
+	CH_LOC_CS,
+	CH_LOC_TS,
+	CH_LOC_LSD,
+	CH_LOC_RSD,
+	CH_LOC_LW,
+	CH_LOC_RW,
+	CH_LOC_VHL,
+	CH_LOC_VHR,
+	CH_LOC_VHC,
+	CH_LOC_LTS,
+	CH_LOC_RTS,
+	CH_LOC_LFE2,
+	CH_LOC_LFE
+};
+
+#define CHANNEL_BITMASK(loc)			(1<<loc)
+
+std::tuple<std::string, std::string, std::string> channel_descs[] = 
+{
+	{ "L", "Left", "A loudspeaker position behind the screen to the left edge, horizontally, of the screen center as viewed from the seating area"},
+	{ "C", "Center", ""},
+	{ "R", "Right", ""},
+	{ "Ls", "Left Surround", ""},
+	{ "Rs", "Right Surround", ""},
+	{ "Lc", "Left Center", ""},
+	{ "Rc", "Right Center", ""},
+	{ "Lrs", "Left Rear Surround", ""},
+	{ "Rrs", "Right Rear Surround", ""},
+	{ "Cs", "Center Surround", ""},
+	{ "Ts", "Top Center Surround", ""},
+	{ "Lsd", "Left Surround Direct", ""},
+	{ "Rsd", "Right Surround Direct", ""},
+	{ "Lw", "Left Wide", ""},
+	{ "Rw", "Right Wide", ""},
+	{ "Vhl", "Vertical Height Left", ""},
+	{ "Vhr", "Vertical Height Right", ""},
+	{ "Vhc", "Vertical Height Center", ""},
+	{ "Lts", "Left Top Surround", ""},
+	{ "Rts", "Right Top Surround", ""},
+	{ "LFE2", "Secondary low-frequency effects", ""},
+	{ "LFE", "Low-frequency effects", ""},
+};
+
+std::string GetChannelMappingDesc(unsigned long channel_mapping)
+{
+	std::string sDesc;
+	for (int i = 0; i < sizeof(channel_descs) / sizeof(channel_descs[0]); i++)
+	{
+		if (channel_mapping&(1 << i))
+		{
+			if (sDesc.length() > 0)
+				sDesc += ", ";
+			sDesc += std::get<0>(channel_descs[i]);
+		}
+	}
+	return sDesc;
+}
+
+struct AUDIO_INFO
+{
+	unsigned long	sample_frequency;
+	unsigned long	channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
+	unsigned long	bits_per_sample;
+};
+
+struct VIDEO_INFO
+{
+	unsigned char	EOTF;			// HDR10, SDR
+	unsigned char	colorspace;		// REC.601, BT.709 and BT.2020
+	unsigned char	colorfmt;		// YUV 4:2:0, 4:2:2 or 4:4:4
+	unsigned char	reserved;
+	unsigned long	video_height;
+	unsigned long	video_width;
+	unsigned short	framerate_numerator;
+	unsigned short	framerate_denominator;
+	unsigned short	aspect_ratio_numerator;
+	unsigned short	aspect_ratio_denominator;
+};
+
+struct STREAM_INFO
+{
+	int	stream_coding_type;
+
+	union
+	{
+		AUDIO_INFO	audio_info;
+		VIDEO_INFO	video_info;
+	};
+};
+
+unordered_map<unsigned short, STREAM_INFO>	g_stream_infos;
+
+int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
+{
+	if (sync_code != FBA_SYNC_CODE && sync_code != FBB_SYNC_CODE)
+		return -1;
+
+	unsigned char check_nibble = (pBuf[0] & 0xF0) >> 4;
+	unsigned short access_unit_length = ((pBuf[0] << 8) | pBuf[1]) & 0xFFF;
+
+	audio_info.stream_coding_type = stream_type;
+
+	unsigned char audio_sampling_frequency;
+	if (sync_code == FBA_SYNC_CODE)
+	{
+		audio_info.audio_info.bits_per_sample = 24;
+
+		audio_sampling_frequency = (pBuf[8] >> 4) & 0xF;
+
+		unsigned char channel_assignment_6ch_presentation = ((pBuf[9] & 0x0F) << 1) | ((pBuf[10] >> 7) & 0x01);
+		unsigned char channel_assignment_8ch_presentation = ((pBuf[10] & 0x1F) << 8) | pBuf[11];
+
+		audio_info.audio_info.channel_mapping = 0;
+
+		if (channel_assignment_8ch_presentation & 0x01)
+			audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT));
+
+		if (channel_assignment_8ch_presentation & 0x02)
+			audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_CENTER));
+
+		if (channel_assignment_8ch_presentation & 0x04)
+			audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LFE));
+
+		if (channel_assignment_8ch_presentation & 0x08)
+			audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS));
+
+		unsigned short flags = (pBuf[14] << 8) | pBuf[15];
+		if ((flags & 0x8000))
+		{
+			if (channel_assignment_8ch_presentation & 0x10)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LTS) | CHANNEL_BITMASK(CH_LOC_RTS));
+		}
+		else
+		{
+			if (channel_assignment_8ch_presentation & 0x10)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_VHL) | CHANNEL_BITMASK(CH_LOC_VHR));
+
+			if (channel_assignment_8ch_presentation & 0x20)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LC) | CHANNEL_BITMASK(CH_LOC_RC));
+
+			if (channel_assignment_8ch_presentation & 0x40)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS));
+
+			if (channel_assignment_8ch_presentation & 0x80)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_CS));
+
+			if (channel_assignment_8ch_presentation & 0x100)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_TS));
+
+			if (channel_assignment_8ch_presentation & 0x200)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LSD) | CHANNEL_BITMASK(CH_LOC_RSD));
+
+			if (channel_assignment_8ch_presentation & 0x400)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LW) | CHANNEL_BITMASK(CH_LOC_RW));
+
+			if (channel_assignment_8ch_presentation & 0x800)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_VHC));
+
+			if (channel_assignment_8ch_presentation & 0x1000)
+				audio_info.audio_info.channel_mapping |= (CHANNEL_BITMASK(CH_LOC_LFE2));
+		}
+	}
+	else if (sync_code == FBB_SYNC_CODE)
+	{
+		unsigned char quantization_word_length_1 = (pBuf[8] >> 4);
+		unsigned char audio_sampling_frequency_1 = (pBuf[9] >> 4) & 0xF;
+		audio_sampling_frequency = audio_sampling_frequency_1;
+
+		audio_info.audio_info.channel_mapping = 0;
+		static unsigned long FBB_Channel_assignments[] = {
+			/* 00000b(0x00)  */CHANNEL_BITMASK(CH_LOC_CENTER),
+			/* 00001b(0x01)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
+			/* 00010b(0x02)  */(unsigned long)-1,
+			/* 00011b(0x03)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+			/* 00100b(0x04)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LFE),
+			/* 00101b(0x05)  */(unsigned long)-1,
+			/* 00110b(0x06)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LFE) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+			/* 00111b(0x07)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER),
+			/* 01000b(0x08)  */(unsigned long)-1,
+			/* 01001b(0x09)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+			/* 01011b(0x0A)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE),
+			/* 01010b(0x0B)  */(unsigned long)-1,
+			/* 01011b(0x0C)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+			/* 01100b(0x0D)  */(unsigned long)-1,
+			/* 01110b(0x0E)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+			/* 01111b(0x0F)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE),
+			/* 10000b(0x10)  */(unsigned long)-1,
+			/* 10001b(0x11)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+			/* 10010b(0x12)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LFE),
+			/* 10011b(0x13)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_CENTER),
+			/* 10100b(0x14)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE) ,
+		};
+		
+		unsigned char channel_assignment = pBuf[11] & 0x1F;
+		if (channel_assignment < sizeof(FBB_Channel_assignments) / sizeof(FBB_Channel_assignments[0]))
+			audio_info.audio_info.channel_mapping = FBB_Channel_assignments[channel_assignment];
+		else
+			audio_info.audio_info.channel_mapping = 0;	// Not support
+		
+		audio_info.audio_info.bits_per_sample = quantization_word_length_1 == 0 ? 16 : (quantization_word_length_1 == 1 ? 20 : (quantization_word_length_1 == 2 ? 24 : 0));
+	}
+
+	switch (audio_sampling_frequency)
+	{
+	case 0x0: audio_info.audio_info.sample_frequency = 48000; break;
+	case 0x1: audio_info.audio_info.sample_frequency = 96000; break;
+	case 0x2: audio_info.audio_info.sample_frequency = 192000; break;
+	case 0x8: audio_info.audio_info.sample_frequency = 44100; break;
+	case 0x9: audio_info.audio_info.sample_frequency = 88200; break;
+	case 0xA: audio_info.audio_info.sample_frequency = 176400; break;
+	default:
+		audio_info.audio_info.sample_frequency = (unsigned long)-1;
+	}
+
+	return 0;
+}
+
 int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize)
 {
 	// At first, check whether the stream type is already decided or not for the current dumped stream.
 	if (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM)
 	{
 		// Try to analyze the MLP audio information.
+		// header size:
+		// check_nibble/access_unit_length/input_timing: 4 bytes
+		// major_sync_info: at least 28 bytes
+		const int min_header_size = 32;
+		if (cbSize < min_header_size)
+			return -1;
+
+		unsigned char* p = pBuf;
+		int cbLeft = cbSize;
+		unsigned long sync_code = (p[4] << 16) | (p[5] << 8) | p[6];
+		// For the first round, try to find FBA sync code
+		while (cbLeft >= min_header_size)
+		{
+			sync_code = (sync_code << 8) | p[7];
+			if (sync_code == FBA_SYNC_CODE || sync_code == FBB_SYNC_CODE)
+			{
+				int signature = (p[12] << 8) + p[13];
+
+				if (signature == MLP_SIGNATURE)
+				{
+					/* found it */
+					break;
+				}
+			}
+			
+			cbLeft--;
+			p++;
+		}
+
+		if (cbLeft >= min_header_size && (sync_code == FBA_SYNC_CODE || sync_code == FBB_SYNC_CODE))
+		{
+			STREAM_INFO stm_info;
+			if (ParseMLPAU(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
+			{
+				// Compare with the previous audio information.
+				bool bChanged = false;
+				if (g_stream_infos.find(PID) == g_stream_infos.end())
+					bChanged = true;
+				else
+				{
+					STREAM_INFO& cur_stm_info = g_stream_infos[PID];
+					if (memcmp(&cur_stm_info, &stm_info, sizeof(stm_info)) != 0)
+						bChanged = true;
+				}
+
+				if (bChanged)
+				{
+					g_stream_infos[PID] = stm_info;
+					printf("MLP Audio Stream information:\r\n");
+					printf("\tPID: 0X%X.\r\n", PID);
+					printf("\tStream Type: %d.\r\n", stm_info.stream_coding_type);
+					printf("\tSample Frequency: %d (HZ).\r\n", stm_info.audio_info.sample_frequency);
+					printf("\tBits Per Sample: %d.\r\n", stm_info.audio_info.bits_per_sample);
+					printf("\tChannel Layout: %s.\r\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
+				}
+			}
+		}
 	}
 
 	return -1;
