@@ -1,4 +1,4 @@
- What is DumpTS?
+# What is DumpTS?
 DumpTS is a simple utility tool to process TS/M2TS stream file, which will provide these kinds of features:
 
 - Dump one elementary stream or PSI sections from m2ts/ts stream file
@@ -16,16 +16,16 @@ Use VS2015 to open DumpTS.sln to build it
 
 |Option|Value|Description|
 |:--|:----:|:--|
-|**--output**||The output dumped file path|
-|**--pid**|0Xhhhh|The PID of dumped stream|
-|**--destpid**|0xhhhh|The PID of source stream will be placed with this PID|
-|**--srcfmt**|ts, m2ts, tts|The source TS format, Including: ts, m2ts,if it is not specified, find the sync-word to decide it|
-|**--outputfmt**|ts, m2ts, pes, es, wav, pcm|The destination dumped format, including: ts, m2ts, pes, es and so on|
-|**--showpts**||Print the pts of every elementary stream packet|
-|**--stream_id**|0xhh|The stream_id in PES header of dumped stream|
-|**--stream_id_extension**|0xhh|The stream_id_extension in PES header of dumped stream|
-|**--showinfo**||Print the media information of elementary stream, for example, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
-|**--verbose**||Print more message in the intermediate process|
+|**--output**||the output dumped file path|
+|**--pid**|*0xhhhh*|the PID of dumped stream|
+|**--destpid**|*0xhhhh*|the PID of source stream will be placed with this PID|
+|**--srcfmt**|*ts, m2ts, tts*|the source TS format, Including: ts, m2ts,if it is not specified, find the sync-word to decide it|
+|**--outputfmt**|*ts, m2ts, pes, es, wav, pcm*|the destination dumped format, including: ts, m2ts, pes, es and so on|
+|**--showpts**||print the pts of every elementary stream packet|
+|**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
+|**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
+|**--showinfo**||print the media information of elementary stream, for example, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
+|**--verbose**||print more message in the intermediate process|
  
 Here are some examples of command lines:  
 
