@@ -12,9 +12,7 @@ Use VS2015 to open DumpTS.sln to build it
 
 # How to run it?
 
-```
-*Usage: DumpTS.exe TSSourceFileName \[OPTION\]... *
-```
+*Usage: DumpTS.exe TSSourceFileName \[OPTION\]...*
 
 |Option|Value|Description|
 |:--|:----:|:--|
