@@ -1,0 +1,114 @@
+<html>
+<body>
+<h1>What is DumpTS?</h1>
+<div style="padding:10px">
+    DumpTS is a simple utility tool to process TS/M2TS stream file, which will provide these kinds of features:
+	<ol style="font-weight:bold">
+        <li>Dump one elementary stream or PSI sections from m2ts/ts stream file</li>
+        <li>Re-factor a TS/M2TS stream file in place</li>
+        <li>Extract some elementary streams, and reconstruct a partial TS/M2TS file</li>
+        <li>Show media information of elementary streams</li>
+	</ol>
+</div>
+<h1>How to build?</h1>
+<div style="padding:10px">
+    Use VS2015 to open DumpTS.sln to build it
+</div>
+<h1>How to run it?</h1>
+<div style="padding:10px">
+	<table style="background-color:D0D0D0;font-family:consolas;font-size:10pt">
+		<tr>
+			<td colspan="4" style="background-color: #CCCCCC;font-weight:bold;font-style:italic">
+			Usage: DumpTS.exe TSSourceFileName [OPTION]...
+			</td>
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+			<td>--output</td>
+			<td>&nbsp;</td>
+			<td>The output dumped file path</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--pid</td>
+			<td>&nbsp;</td>
+			<td>The PID of dumped stream</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--destpid</td>
+			<td>&nbsp;</td>
+			<td>The PID of source stream will be placed with this PID</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--srcfmt</td>
+			<td>&nbsp;</td>
+			<td>The source TS format<br />
+				Including: ts, m2ts,<br /> 
+				if it is not specified, find the sync-word to decide it</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--outputfmt</td>
+			<td>&nbsp;</td>
+			<td>The destination dumped format, including: ts, m2ts, pes and es</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--showpts</td>
+			<td>&nbsp;</td>
+			<td>Print the pts of every elementary stream packet</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--stream_id</td>
+			<td>&nbsp;</td>
+			<td>The stream_id in PES header of dumped stream</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--stream_id_extension</td>
+			<td>&nbsp;</td>
+			<td>The stream_id_extension in PES header of dumped stream</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--showinfo</td>
+			<td>&nbsp;</td>
+			<td>Print the media information of elementary stream, <br />
+                for example, stream type, audio sample rate, audio channel <br />
+                mapping, video resolution, frame-rate and so on</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>--verbose</td>
+			<td>&nbsp;</td>
+			<td>Print more message in the intermediate process</td>
+		</tr>
+	</table>
+	<br />
+    Here are some examples of command lines:<br />
+	<div style="padding:10px">
+	<span style="font-family:consolas;font-size:9pt;background-color:#e0e0e0;color:blue;font-weight:bold;font-style:italic">
+		> DumpTS c:\00001.m2ts --output=c:\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts
+	</span><br />
+    It will dump a hevc es stream with PID 0x1011 from the m2ts stream file: c:\00001.m2ts, 
+    and print its print of every frame.
+	</div>
+	<div style="padding:10px">
+	<span style="font-family:consolas;font-size:9pt;background-color:#e0e0e0;color:blue;font-weight:bold;font-style:italic">
+    > DumpTS C:\test.ts --output=c:\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts
+	</span><br />
+    It will re-factor the file: c:\test.ts, and replace the PID 0x100 with 0x1011 
+    in TS pack and PSI, and convert it to a m2ts
+	</div>
+	<div style="padding:10px">
+	<span style="font-family:consolas;font-size:9pt;background-color:#e0e0e0;color:blue;font-weight:bold;font-style:italic">
+    > DumpTS C:\00022.m2ts --output=c:\00022.mlp --pid=0x1100 --srcfmt=m2ts --outputfmt=es --stream_id_extension=0x72
+	</span><br />
+    It will dump a MLP sub-stream from C:\00022.m2ts with the PID 0x1100 and stream_id_extension in PES: 0x72
+	</div>
+</div>
+</body>
+<html>
