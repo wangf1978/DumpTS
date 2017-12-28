@@ -26,7 +26,7 @@ using namespace std;
 #define MPEG1_AUDIO_STREAM					0x03
 #define MPEG2_AUDIO_STREAM					0x04
 #define AAC_AUDIO_STREAM					0x0F	// ISO/IEC 13818-7 Audio with ADTS transport syntax
-#define MPEG4_AAC							0x11	// ISO/IEC 14496-3 Audio with the LATM transport syntax as defined in ISO/IEC 14496-3
+#define MPEG4_AAC_AUDIO_STREAM				0x11	// ISO/IEC 14496-3 Audio with the LATM transport syntax as defined in ISO/IEC 14496-3
 
 #define HDMV_LPCM_AUDIO_STREAM				0x80
 #define DOLBY_AC3_AUDIO_STREAM				0x81
@@ -40,6 +40,28 @@ using namespace std;
 #define DRA_EXTENSION_AUDIO_STREAM			0x88
 #define DD_PLUS_SECONDARY_AUDIO_STREAM		0xA1
 #define DTS_HD_SECONDARY_AUDIO_STREAM		0xA2
+
+#define STREAM_TYPE_NAMEA(st)	(\
+	(st) == MPEG2_VIDEO_STREAM?"MPEG2 Video":(\
+	(st) == MPEG4_AVC_VIDEO_STREAM?"MPEG4 AVC Video":(\
+	(st) == SMPTE_VC1_VIDEO_STREAM?"VC1 Video":(\
+	(st) == MPEG4_MVC_VIDEO_STREAM?"MVC Video":(\
+	(st) == HEVC_VIDEO_STREAM?"HEVC Video":(\
+	(st) == MPEG1_AUDIO_STREAM?"MPEG1 Audio":(\
+	(st) == MPEG2_AUDIO_STREAM?"MPEG2 Audio":(\
+	(st) == AAC_AUDIO_STREAM?"AAC Audio":(\
+	(st) == MPEG4_AAC_AUDIO_STREAM?"MPEG4 AAC Audio":(\
+	(st) == HDMV_LPCM_AUDIO_STREAM?"HDMV LPCM Audio":(\
+	(st) == DOLBY_AC3_AUDIO_STREAM?"AC3 Audio":(\
+	(st) == DTS_AUDIO_STREAM?"DTS Audio":(\
+	(st) == DOLBY_LOSSLESS_AUDIO_STREAM?"Dolby Lossless Audio":(\
+	(st) == DD_PLUS_AUDIO_STREAM?"DD+ Audio":(\
+	(st) == DTS_HD_EXCEPT_XLL_AUDIO_STREAM?"DTS-HD audio":(\
+	(st) == DTS_HD_XLL_AUDIO_STREAM?"DTS-HD Lossless Audio":(\
+	(st) == DRA_AUDIO_STREAM?"DRA Audio":(\
+	(st) == DRA_EXTENSION_AUDIO_STREAM?"DRA Extension Audio":(\
+	(st) == DD_PLUS_SECONDARY_AUDIO_STREAM?"DD+ Secondary Audio":(\
+	(st) == DTS_HD_SECONDARY_AUDIO_STREAM?"DTS LBR Audio":"Unknown"))))))))))))))))))))
 
 enum MPEG_SYSTEM_TYPE
 {

@@ -2,13 +2,14 @@
 #include "PayloadBuf.h"
 #include <memory.h>
 #include <string.h>
+#include "Bitstream.h"
 
 using namespace std;
 
 extern const char *dump_msg[];
 extern unordered_map<std::string, std::string> g_params;
 extern TS_FORMAT_INFO g_ts_fmtinfo;
-
+extern int g_verbose_level;
 
 // For MLP audio
 #define FBB_SYNC_CODE	0xF8726FBB
@@ -38,10 +39,12 @@ enum CHANNEL_MAP_LOC
 	CH_LOC_LTS,
 	CH_LOC_RTS,
 	CH_LOC_LFE2,
-	CH_LOC_LFE
+	CH_LOC_LFE,
+	CH_LOC_DUALMONO = 31
 };
 
 #define CHANNEL_BITMASK(loc)			(1<<loc)
+#define CHANNLE_PRESENT(chanmap, loc)	(chanmap&(CHANNEL_BITMASK(loc)))
 
 std::tuple<std::string, std::string, std::string> channel_descs[] = 
 {
@@ -72,6 +75,7 @@ std::tuple<std::string, std::string, std::string> channel_descs[] =
 std::string GetChannelMappingDesc(unsigned long channel_mapping)
 {
 	std::string sDesc;
+	int num_ch = 0, lfe = 0;
 	for (int i = 0; i < sizeof(channel_descs) / sizeof(channel_descs[0]); i++)
 	{
 		if (channel_mapping&(1 << i))
@@ -79,9 +83,33 @@ std::string GetChannelMappingDesc(unsigned long channel_mapping)
 			if (sDesc.length() > 0)
 				sDesc += ", ";
 			sDesc += std::get<0>(channel_descs[i]);
+			if (i == CH_LOC_LFE || i == CH_LOC_LFE2)
+				lfe++;
+			else
+				num_ch++;
 		}
 	}
-	return sDesc;
+
+	std::string sChDesc;
+	if (num_ch == 2 && lfe == 0 && CHANNLE_PRESENT(channel_mapping, CH_LOC_DUALMONO))
+	{
+		sChDesc = "2ch (Dual-Mono)";
+	}
+	else
+	{
+		sChDesc = std::to_string(num_ch);
+		if (lfe > 0)
+		{
+			sChDesc += ".";
+			sChDesc += std::to_string(lfe);
+		}
+
+		sChDesc += "ch(";
+		sChDesc += sDesc;
+		sChDesc += ")";
+	}
+
+	return sChDesc;
 }
 
 struct AUDIO_INFO
@@ -93,9 +121,9 @@ struct AUDIO_INFO
 
 struct VIDEO_INFO
 {
-	unsigned char	EOTF;			// HDR10, SDR
-	unsigned char	colorspace;		// REC.601, BT.709 and BT.2020
-	unsigned char	colorfmt;		// YUV 4:2:0, 4:2:2 or 4:4:4
+	unsigned char	EOTF;				// HDR10, SDR
+	unsigned char	colorspace;			// REC.601, BT.709 and BT.2020
+	unsigned char	colorfmt;			// YUV 4:2:0, 4:2:2 or 4:4:4
 	unsigned char	reserved;
 	unsigned long	video_height;
 	unsigned long	video_width;
@@ -116,7 +144,246 @@ struct STREAM_INFO
 	};
 };
 
-unordered_map<unsigned short, STREAM_INFO>	g_stream_infos;
+using PID_StramInfos = unordered_map<unsigned short, std::vector<STREAM_INFO>>;
+using DDP_Program_StreamInfos = unordered_map<unsigned char /* Program */, std::vector<STREAM_INFO>>;
+
+PID_StramInfos g_stream_infos;
+DDP_Program_StreamInfos g_ddp_program_stream_infos;
+unsigned char g_cur_ddp_program_id = 0XFF;
+
+static unsigned long acmod_ch_assignments[] =
+{
+	/* 00000b(0x00) */(unsigned long)(CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_DUALMONO)),
+	/* 00000b(0x01) */CHANNEL_BITMASK(CH_LOC_CENTER),
+	/* 00000b(0x02) */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
+	/* 00000b(0x03) */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT),
+	/* 00000b(0x04) */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
+	/* 00000b(0x05) */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
+	/* 00000b(0x06) */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+	/* 00000b(0x07) */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+};
+
+static unsigned long ddp_ch_assignment[] =
+{
+	/*0 Left			*/ CHANNEL_BITMASK(CH_LOC_LEFT),
+	/*1 Center			*/ CHANNEL_BITMASK(CH_LOC_CENTER),
+	/*2 Right			*/ CHANNEL_BITMASK(CH_LOC_RIGHT),
+	/*3 Left Surround	*/ CHANNEL_BITMASK(CH_LOC_LS),
+	/*4 Right Surround	*/ CHANNEL_BITMASK(CH_LOC_RS),
+	/*5 Lc / Rc pair	*/ CHANNEL_BITMASK(CH_LOC_LC) | CHANNEL_BITMASK(CH_LOC_RC),
+	/*6 Lrs / Rrs pair	*/ CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),
+	/*7 Cs				*/ CHANNEL_BITMASK(CH_LOC_CS),
+	/*8 Ts				*/ CHANNEL_BITMASK(CH_LOC_TS),
+	/*9 Lsd / Rsd pair	*/ CHANNEL_BITMASK(CH_LOC_LSD) | CHANNEL_BITMASK(CH_LOC_RSD),
+	/*10 Lw / Rw pair	*/ CHANNEL_BITMASK(CH_LOC_LW) | CHANNEL_BITMASK(CH_LOC_RW),
+	/*11 Vhl / Vhr pair	*/ CHANNEL_BITMASK(CH_LOC_VHL) | CHANNEL_BITMASK(CH_LOC_VHR),
+	/*12 Vhc			*/ CHANNEL_BITMASK(CH_LOC_VHC),
+	/*13 Lts / Rts pair	*/ CHANNEL_BITMASK(CH_LOC_LTS) | CHANNEL_BITMASK(CH_LOC_RTS),
+	/*14 LFE2			*/ CHANNEL_BITMASK(CH_LOC_LFE2),
+	/*15 LFE			*/ CHANNEL_BITMASK(CH_LOC_LFE),
+};
+
+int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
+{
+	CBitstream bst(pBuf, cbSize << 3);
+	bst.SkipBits(32);
+
+	uint8_t fscod = (uint8_t)bst.GetBits(2);
+	uint8_t frmsizecod = (uint8_t)bst.GetBits(6);
+
+	uint8_t bsid = (uint8_t)bst.GetBits(5);
+
+	if (bsid != 0x08)
+		return -1;
+
+	uint8_t bsmod = (uint8_t)bst.GetBits(3);
+	uint8_t acmod = (uint8_t)bst.GetBits(3);
+
+	uint8_t cmixlev = 0;
+	uint8_t surmixlev = 0;
+	uint8_t dsurmod = 0;
+	if ((acmod & 0x1) && (acmod != 1))
+		cmixlev = (uint8_t)bst.GetBits(2);
+
+	if ((acmod & 0x4))
+		surmixlev = (uint8_t)bst.GetBits(2);
+
+	if (acmod == 0x2)
+		dsurmod = (uint8_t)bst.GetBits(2);
+
+	uint8_t lfeon = (uint8_t)bst.GetBits(1);
+
+	audio_info.audio_info.bits_per_sample = 16;
+	audio_info.audio_info.sample_frequency = fscod == 0 ? 48000 : (fscod == 1 ? 44100 : (fscod == 2 ? 32000 : 0));
+	audio_info.audio_info.channel_mapping = acmod_ch_assignments[acmod];
+
+	if (lfeon)
+		audio_info.audio_info.channel_mapping |= CHANNEL_BITMASK(CH_LOC_LFE);
+
+	audio_info.stream_coding_type = stream_type;
+
+	return 0;
+}
+
+int ParseEAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info, unsigned char& ddp_progid)
+{
+	int iRet = -1;
+	CBitstream bst(pBuf, cbSize << 3);
+	bst.SkipBits(16);
+
+	uint32_t byte2to5 = (uint32_t)bst.PeekBits(32);
+	uint8_t bsid = (byte2to5 >> 3) & 0x1F;
+
+	if (bsid != 0x8 && bsid != 0x10)
+		return -1;
+
+	if (bsid == 0x8 || bsid == 0x10 && ((byte2to5 >> 30) == 0 || (byte2to5 >> 30) == 2))
+	{
+		unsigned char program_id = 0;
+		if (bsid == 0x08)
+			program_id = 0;
+		else
+		{
+			uint8_t substreamid = (byte2to5 >> 27) & 0x7;
+			program_id = substreamid;
+		}
+
+		if (g_ddp_program_stream_infos.size() > 0 && 
+			g_ddp_program_stream_infos.find(program_id) != g_ddp_program_stream_infos.end() &&
+			g_ddp_program_stream_infos[program_id].size() > 0)
+		{
+			auto ddp_prog_stminfo = &g_ddp_program_stream_infos[program_id][0];
+
+			// Current it is an AC3 program
+			audio_info.stream_coding_type = ddp_prog_stminfo->stream_coding_type;
+			audio_info.audio_info.bits_per_sample = 16;
+			audio_info.audio_info.sample_frequency = ddp_prog_stminfo->audio_info.sample_frequency;
+
+			unsigned long ddp_channel_mapping = 0;
+			for (size_t i = 0; i < g_ddp_program_stream_infos[program_id].size(); i++)
+			{
+				ddp_channel_mapping |= g_ddp_program_stream_infos[program_id][i].audio_info.channel_mapping;
+			}
+				
+			audio_info.audio_info.channel_mapping = ddp_prog_stminfo->audio_info.channel_mapping = ddp_channel_mapping;
+
+			g_ddp_program_stream_infos[program_id].clear();
+			ddp_progid = program_id;
+			iRet = 0;
+		}
+	}
+
+	if (bsid == 0x8)	// AC3
+	{
+		STREAM_INFO ac3_info;
+		if (ParseAC3Frame(PID, stream_type, pBuf, cbSize, ac3_info) < 0)
+		{
+			// Clear the current information
+			g_ddp_program_stream_infos[0].clear();
+			goto done;
+		}
+
+		g_cur_ddp_program_id = 0;
+		g_ddp_program_stream_infos[0].resize(1);
+		g_ddp_program_stream_infos[0][0] = ac3_info;
+	}
+	else if (bsid == 0x10)	// EAC3
+	{
+		uint8_t strmtyp = (uint8_t)bst.GetBits(2);
+		uint8_t substreamid = (uint8_t)bst.GetBits(3);
+
+		uint16_t frmsiz = (uint16_t)bst.GetBits(11);
+
+		uint8_t fscod = (uint8_t)bst.GetBits(2);
+		uint8_t fscod2 = 0xFF;
+		uint8_t numblkscod = 0x3;
+		if (fscod == 0x3)
+			fscod2 = (uint8_t)bst.GetBits(2);
+		else
+			numblkscod = (uint8_t)bst.GetBits(2);
+
+		uint8_t acmod = (uint8_t)bst.GetBits(3);
+		uint8_t lfeon = (uint8_t)bst.GetBits(1);
+
+		uint8_t bsid = (uint8_t)bst.GetBits(5);
+		uint8_t dialnorm = (uint8_t)bst.GetBits(5);
+		uint8_t compre = (uint8_t)bst.GetBits(1);
+		if (compre)
+			bst.SkipBits(8);
+
+		if (acmod == 0x0)
+		{
+			bst.SkipBits(5);
+			uint8_t compr2e = (uint8_t)bst.GetBits(1);
+			if (compr2e)
+				bst.SkipBits(8);
+		}
+
+		uint16_t chanmap = 0;
+		uint8_t chanmape = 0;
+		if (strmtyp == 0x01)
+		{
+			chanmape = (uint8_t)bst.GetBits(1);
+			if (chanmape)
+				chanmap = (uint16_t)bst.GetBits(16);
+		}
+
+		auto getfs = [](uint8_t fscod, uint8_t fscod2) {
+			return fscod == 0 ? 48000 : (fscod == 1 ? 44100 : (fscod == 2 ? 32000 : (fscod == 3 ? (
+				fscod2 == 0 ? 24000 : (fscod2 == 1 ? 22050 : (fscod2 == 2 ? 16000 : 0))) : 0)));
+		};
+
+		if (strmtyp == 0 || strmtyp == 2)
+		{
+			g_cur_ddp_program_id = substreamid;
+			g_ddp_program_stream_infos[substreamid].resize(1);
+
+			// analyze the audio info.
+			auto ptr_stm_info = &g_ddp_program_stream_infos[substreamid][0];
+			ptr_stm_info->stream_coding_type = stream_type;
+			ptr_stm_info->audio_info.bits_per_sample = 16;
+			ptr_stm_info->audio_info.sample_frequency = getfs(fscod, fscod2);
+			ptr_stm_info->audio_info.channel_mapping = acmod_ch_assignments[acmod] |
+				(lfeon ? CHANNEL_BITMASK(CH_LOC_LFE) : 0);
+		}
+		else if (strmtyp == 1 && g_cur_ddp_program_id >= 0 && g_cur_ddp_program_id <= 7)
+		{
+			if (g_ddp_program_stream_infos[g_cur_ddp_program_id].size() != substreamid + 1)
+			{
+				g_ddp_program_stream_infos[g_cur_ddp_program_id].clear();
+				goto done;
+			}
+
+			g_ddp_program_stream_infos[g_cur_ddp_program_id].resize(substreamid + 2);
+
+			// analyze the audio info
+			auto ptr_stm_info = &g_ddp_program_stream_infos[g_cur_ddp_program_id][substreamid + 1];
+			ptr_stm_info->stream_coding_type = stream_type;
+			ptr_stm_info->audio_info.bits_per_sample = 16;
+			ptr_stm_info->audio_info.sample_frequency = getfs(fscod, fscod2);
+
+			if (chanmape)
+			{
+				unsigned long ddp_channel_mapping = 0;
+				for (int i = 0; i < _countof(ddp_ch_assignment); i++)
+					if ((1 << (15-i))&chanmap)
+						ddp_channel_mapping |= ddp_ch_assignment[i];
+				ptr_stm_info->audio_info.channel_mapping = ddp_channel_mapping;
+			}
+			else
+				ptr_stm_info->audio_info.channel_mapping = acmod_ch_assignments[acmod] |
+					(lfeon? CHANNEL_BITMASK(CH_LOC_LFE):0);
+		}
+		else
+		{
+			// Nothing to do
+			goto done;
+		}
+	}
+
+done:
+	return iRet;
+}
 
 int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
@@ -245,6 +512,12 @@ int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, uns
 
 int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize)
 {
+	unsigned char* p = pBuf;
+	int cbLeft = cbSize;
+	int iParseRet = -1;
+	unsigned char audio_program_id = 0;
+	STREAM_INFO stm_info;
+
 	// At first, check whether the stream type is already decided or not for the current dumped stream.
 	if (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM)
 	{
@@ -256,8 +529,6 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 		if (cbSize < min_header_size)
 			return -1;
 
-		unsigned char* p = pBuf;
-		int cbLeft = cbSize;
 		unsigned long sync_code = (p[4] << 16) | (p[5] << 8) | p[6];
 		// For the first round, try to find FBA sync code
 		while (cbLeft >= min_header_size)
@@ -280,35 +551,80 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 
 		if (cbLeft >= min_header_size && (sync_code == FBA_SYNC_CODE || sync_code == FBB_SYNC_CODE))
 		{
-			STREAM_INFO stm_info;
 			if (ParseMLPAU(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
 			{
-				// Compare with the previous audio information.
-				bool bChanged = false;
-				if (g_stream_infos.find(PID) == g_stream_infos.end())
-					bChanged = true;
-				else
-				{
-					STREAM_INFO& cur_stm_info = g_stream_infos[PID];
-					if (memcmp(&cur_stm_info, &stm_info, sizeof(stm_info)) != 0)
-						bChanged = true;
-				}
+				iParseRet = 0;
+			}
+		}
+	}
+	else if (DOLBY_AC3_AUDIO_STREAM == stream_type || DD_PLUS_AUDIO_STREAM == stream_type)
+	{
+		unsigned short sync_code = pBuf[0];
+		while (cbLeft >= 8)
+		{
+			sync_code = (sync_code << 8) | p[1];
+			if (sync_code == 0x0B77)
+				break;
 
-				if (bChanged)
+			cbLeft--;
+			p++;
+		}
+
+		if (cbLeft >= 8)
+		{
+			if (DOLBY_AC3_AUDIO_STREAM == stream_type)
+			{
+				if (ParseAC3Frame(PID, stream_type, p, cbLeft, stm_info) == 0)
 				{
-					g_stream_infos[PID] = stm_info;
-					printf("MLP Audio Stream information:\r\n");
-					printf("\tPID: 0X%X.\r\n", PID);
-					printf("\tStream Type: %d.\r\n", stm_info.stream_coding_type);
-					printf("\tSample Frequency: %d (HZ).\r\n", stm_info.audio_info.sample_frequency);
-					printf("\tBits Per Sample: %d.\r\n", stm_info.audio_info.bits_per_sample);
-					printf("\tChannel Layout: %s.\r\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
+					iParseRet = 0;
+				}
+			}
+			else if (DD_PLUS_AUDIO_STREAM == stream_type)
+			{
+				if (ParseEAC3Frame(PID, stream_type, p, cbLeft, stm_info, audio_program_id) == 0)
+				{
+					iParseRet = 0;
 				}
 			}
 		}
 	}
 
-	return -1;
+	if (iParseRet == 0)
+	{
+		bool bChanged = false;
+		// Compare with the previous audio information.
+		if (g_stream_infos.find(PID) == g_stream_infos.end())
+			bChanged = true;
+		else
+		{
+			if (g_stream_infos[PID].size() > audio_program_id)
+			{
+				STREAM_INFO& cur_stm_info = g_stream_infos[PID][audio_program_id];
+				if (memcmp(&cur_stm_info, &stm_info, sizeof(stm_info)) != 0)
+					bChanged = true;
+			}
+			else
+				bChanged = true;
+		}
+
+		if (bChanged)
+		{
+			if (g_stream_infos[PID].size() <= audio_program_id)
+				g_stream_infos[PID].resize(audio_program_id + 1);
+			g_stream_infos[PID][audio_program_id] = stm_info;
+			if (g_stream_infos[PID].size() > 1)
+				printf("%s Stream information#%d:\r\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
+			else
+				printf("%s Stream information:\r\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
+			printf("\tPID: 0X%X.\r\n", PID);
+			printf("\tStream Type: %d(0X%02X).\r\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+			printf("\tSample Frequency: %d (HZ).\r\n", stm_info.audio_info.sample_frequency);
+			printf("\tBits Per Sample: %d.\r\n", stm_info.audio_info.bits_per_sample);
+			printf("\tChannel Layout: %s.\r\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
+		}
+	}
+
+	return iParseRet;
 }
 
 int FlushPSIBuffer(FILE* fw, unsigned char* psi_buffer, int psi_buffer_len, int dumpopt, int &raw_data_len)

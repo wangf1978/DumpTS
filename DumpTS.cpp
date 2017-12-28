@@ -13,6 +13,7 @@ using PID_props = unordered_map<std::string, int>;
 unordered_map<short, PID_props&> g_PIDs_props;
 
 TS_FORMAT_INFO	g_ts_fmtinfo;
+int g_verbose_level = 0;
 
 const char *dump_msg[] = {
 	"Warning: wrong PES_length field value, read:location, read pos[%d], write pos:[%d].\r\n",
@@ -260,6 +261,14 @@ int PrepareParams()
 	}
 	else
 		iRet = 0;
+
+	if (g_params.find("verbose") != g_params.end())
+	{
+		if (g_params["verbose"].length() == 0)
+			g_verbose_level = 1;
+		else
+			g_verbose_level = (int)ConvertToLongLong(g_params["verbose"]);
+	}
 
 done:
 	return iRet;

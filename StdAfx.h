@@ -21,8 +21,19 @@
 #include <io.h>
 #include <locale>
 #include <algorithm>
+#include <vector>
 
-// TODO: reference additional headers your program requires here
+#ifndef UNREFERENCED_PARAMETER
+#define UNREFERENCED_PARAMETER(P)          (P)
+#endif
+
+#ifndef DBG_UNREFERENCED_PARAMETER
+#define DBG_UNREFERENCED_PARAMETER(P)      (P)
+#endif
+
+#ifndef DBG_UNREFERENCED_LOCAL_VARIABLE
+#define DBG_UNREFERENCED_LOCAL_VARIABLE(V) (V)
+#endif
 
 //{{AFX_INSERT_LOCATION}}
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
