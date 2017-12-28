@@ -165,22 +165,60 @@ static unsigned long acmod_ch_assignments[] =
 
 static unsigned long ddp_ch_assignment[] =
 {
-	/*0 Left			*/ CHANNEL_BITMASK(CH_LOC_LEFT),
-	/*1 Center			*/ CHANNEL_BITMASK(CH_LOC_CENTER),
-	/*2 Right			*/ CHANNEL_BITMASK(CH_LOC_RIGHT),
-	/*3 Left Surround	*/ CHANNEL_BITMASK(CH_LOC_LS),
-	/*4 Right Surround	*/ CHANNEL_BITMASK(CH_LOC_RS),
-	/*5 Lc / Rc pair	*/ CHANNEL_BITMASK(CH_LOC_LC) | CHANNEL_BITMASK(CH_LOC_RC),
-	/*6 Lrs / Rrs pair	*/ CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),
-	/*7 Cs				*/ CHANNEL_BITMASK(CH_LOC_CS),
-	/*8 Ts				*/ CHANNEL_BITMASK(CH_LOC_TS),
-	/*9 Lsd / Rsd pair	*/ CHANNEL_BITMASK(CH_LOC_LSD) | CHANNEL_BITMASK(CH_LOC_RSD),
+	/*0  Left			*/ CHANNEL_BITMASK(CH_LOC_LEFT),
+	/*1  Center			*/ CHANNEL_BITMASK(CH_LOC_CENTER),
+	/*2  Right			*/ CHANNEL_BITMASK(CH_LOC_RIGHT),
+	/*3  Left Surround	*/ CHANNEL_BITMASK(CH_LOC_LS),
+	/*4  Right Surround	*/ CHANNEL_BITMASK(CH_LOC_RS),
+	/*5  Lc / Rc pair	*/ CHANNEL_BITMASK(CH_LOC_LC) | CHANNEL_BITMASK(CH_LOC_RC),
+	/*6  Lrs / Rrs pair	*/ CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),
+	/*7  Cs				*/ CHANNEL_BITMASK(CH_LOC_CS),
+	/*8  Ts				*/ CHANNEL_BITMASK(CH_LOC_TS),
+	/*9  Lsd / Rsd pair	*/ CHANNEL_BITMASK(CH_LOC_LSD) | CHANNEL_BITMASK(CH_LOC_RSD),
 	/*10 Lw / Rw pair	*/ CHANNEL_BITMASK(CH_LOC_LW) | CHANNEL_BITMASK(CH_LOC_RW),
 	/*11 Vhl / Vhr pair	*/ CHANNEL_BITMASK(CH_LOC_VHL) | CHANNEL_BITMASK(CH_LOC_VHR),
 	/*12 Vhc			*/ CHANNEL_BITMASK(CH_LOC_VHC),
 	/*13 Lts / Rts pair	*/ CHANNEL_BITMASK(CH_LOC_LTS) | CHANNEL_BITMASK(CH_LOC_RTS),
 	/*14 LFE2			*/ CHANNEL_BITMASK(CH_LOC_LFE2),
 	/*15 LFE			*/ CHANNEL_BITMASK(CH_LOC_LFE),
+};
+
+static unsigned long hdmv_lpcm_ch_assignments[] = 
+{
+	/*
+	0	-				reserved
+	---------------------------------------------------------------------------------------------------
+	1	2 ch	mono											M1
+	2			reserved
+	3			stereo											L	R
+	---------------------------------------------------------------------------------------------------
+	4	4 ch	L, C, R(3 / 0)									L	R	C
+	5			L, R, S(2 / 1)									L	R	S
+	6			L,C,R,S(3 / 1)									L	R	C	S
+	7			L,R,LS,RS(2 / 2)								L	R	LS	RS
+	---------------------------------------------------------------------------------------------------
+	8	6 ch	L, C, R, LS, RS(3 / 2)							L	R	C	LS	RS
+	9			L, C, R, LS, RS, lfe(3 / 2 + lfe)				L	R	C	LS	RS	lfe
+	---------------------------------------------------------------------------------------------------
+	10	8 ch	L, C, R, LS, Rls, Rrs, RS (3 / 4)				L	R	C	LS	Rls	Rrs	RS
+	11			L, C, R, LS, Rls, Rrs, RS, lfe(3 / 4 + lfe)		L	R	C	LS	Rls	Rrs	RS	lfe
+	*/
+	0,
+	(unsigned long)(CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_DUALMONO)),
+	0,
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LFE),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),
+	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS) | CHANNEL_BITMASK(CH_LOC_LFE),
+	0,
+	0,
+	0,
+	0
 };
 
 int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
@@ -586,6 +624,22 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 					iParseRet = 0;
 				}
 			}
+		}
+	}
+	else if (HDMV_LPCM_AUDIO_STREAM == stream_type)
+	{
+		if (cbSize >= 4)
+		{
+			uint16_t audio_data_payload_size = (pBuf[0] << 8) | pBuf[1];
+			uint8_t channel_assignment = (pBuf[2] >> 4) & 0x0F;
+			uint8_t sample_frequency = pBuf[2] & 0x0F;
+			uint8_t bits_per_sample = (pBuf[3] >> 6) & 0x03;
+
+			stm_info.stream_coding_type = stream_type;
+			stm_info.audio_info.sample_frequency = sample_frequency == 1 ? 48000 : (sample_frequency == 4 ? 96000 : (sample_frequency == 5 ? 192000 : 0));
+			stm_info.audio_info.bits_per_sample = bits_per_sample == 1 ? 16 : (bits_per_sample == 2 ? 20 : (bits_per_sample == 3 ? 24 : 0));
+			stm_info.audio_info.channel_mapping = hdmv_lpcm_ch_assignments[channel_assignment];
+			iParseRet = 0;
 		}
 	}
 
