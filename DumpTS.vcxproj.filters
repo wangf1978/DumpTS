@@ -55,6 +55,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="ReadMe.html" />
+    <None Include="README.md" />
   </ItemGroup>
 </Project>
