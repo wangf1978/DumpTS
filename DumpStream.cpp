@@ -502,7 +502,7 @@ int WriteWaveFileBuffer(FILE* fw, unsigned PID, int stream_type, unsigned char* 
 	uint8_t* hdmv_lpcm_payload_buf = new uint8_t[audio_data_payload_size];
 	memcpy(hdmv_lpcm_payload_buf, es_buffer + 4, audio_data_payload_size);
 
-	bool bWaveFormatExtent = (channel_assignment <= 3 && (bps[bits_per_sample] & 0x7) == 0) ? false : true;
+	bool bWaveFormatExtent = (numch[channel_assignment] > 2 || bps[bits_per_sample] > 16) ? true : false;
 	uint32_t dwChannelMask = 0;
 	for (int i = 0; i < _countof(Channel_Speaker_Mapping); i++)
 		if (CHANNLE_PRESENT(std::get<0>(hdmv_lpcm_ch_assignments[channel_assignment]), i))
