@@ -12,6 +12,9 @@ using namespace std;
 #define DUMP_BD_M2TS						(1<<1)
 #define DUMP_PES_OUTPUT						(1<<2)
 #define DUMP_PTS_VIEW						(1<<3)
+#define DUMP_PCM							(1<<4)		// Raw LPCM data
+#define DUMP_WAV							(1<<5)		// MSFT wave file
+#define DUMP_MEDIA_INFO_VIEW				(1<<6)
 
 #define PID_PROGRAM_ASSOCIATION_TABLE		0x0000
 

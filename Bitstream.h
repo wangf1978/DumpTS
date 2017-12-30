@@ -104,3 +104,29 @@ private:
 	AM_BST_CURSOR		save_point;
 };
 
+template<class First, class Tuple, std::size_t N, std::size_t K = N>
+struct ArrayFiller {
+	static void fill_bytes_from_tuple(const Tuple& t, std::vector<uint8_t>& bytes) {
+		ArrayFiller<First, Tuple, N, K - 1>::fill_bytes_from_tuple(t, bytes);
+		auto val = std::get<K - 1>(t);
+		uint8_t* pBytes = (uint8_t*)&val;
+		for (int i = 0; i < sizeof(val); i++)
+			bytes.push_back(pBytes[i]);
+	}
+};
+
+template<class First, class Tuple, std::size_t N>
+struct ArrayFiller<First, Tuple, N, 1> {
+	static void fill_bytes_from_tuple(const Tuple& t, std::vector<uint8_t>& bytes) {
+		auto val = std::get<0>(t);
+		uint8_t* pBytes = (uint8_t*)&val;
+		for (int i = 0; i < sizeof(val); i++)
+			bytes.push_back(pBytes[i]);
+	}
+};
+
+template<typename First, typename... Rem>
+void fill_bytes_from_tuple(const std::tuple<First, Rem...>& t, std::vector<uint8_t>& bytes) {
+	ArrayFiller<First, decltype(t), 1 + sizeof...(Rem)>::fill_bytes_from_tuple(t, bytes);
+}
+

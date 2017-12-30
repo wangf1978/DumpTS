@@ -4,6 +4,8 @@
 #include "stdafx.h"
 #include "crc.h"
 #include "PayloadBuf.h"
+#include "DumpTS.h"
+#include "Bitstream.h"
 
 using namespace std;
 
@@ -13,7 +15,8 @@ using PID_props = unordered_map<std::string, int>;
 unordered_map<short, PID_props&> g_PIDs_props;
 
 TS_FORMAT_INFO	g_ts_fmtinfo;
-int g_verbose_level = 0;
+int				g_verbose_level = 0;
+DUMP_STATUS		g_dump_status;
 
 const char *dump_msg[] = {
 	"Warning: wrong PES_length field value, read:location, read pos[%d], write pos:[%d].\r\n",
@@ -274,6 +277,35 @@ done:
 	return iRet;
 }
 
+int PrepareDump()
+{
+	int iRet = 0;
+	FILE* rfp = NULL;
+	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
+
+	if (errn != 0 || rfp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		iRet = -1;
+		goto done;
+	}
+
+	g_dump_status.state = DUMP_STATE_INITIALIZE;
+
+	_fseeki64(rfp, -1, SEEK_END);
+	long long file_size = _ftelli64(rfp);
+
+	g_dump_status.num_of_packs = file_size / g_ts_fmtinfo.packet_size;
+
+	// Do other preparing or initializing things...
+
+done:
+	if (rfp != NULL)
+		fclose(rfp);
+
+	return iRet;
+}
+
 void PrintHelp()
 {
 	printf("Usage: DumpTS.exe TSSourceFileName [OPTION]...\r\n");
@@ -299,10 +331,12 @@ int main(int argc, char* argv[])
 {
 	int nDumpRet = 0;
 
+	memset(&g_dump_status, 0, sizeof(g_dump_status));
+
 	if(argc < 2)
 	{
 		PrintHelp();
-		return 0;
+		return -1;
 	}
 
 	// Parse the command line
@@ -312,16 +346,23 @@ int main(int argc, char* argv[])
 	if (VerifyCommandLine() == false)
 	{
 		PrintHelp();
-		return 0;
+		return -1;
 	}
 
 	// Prepare the dumping parameters
 	if (PrepareParams() < 0)
-		return 0;
+	{
+		printf("Failed to prepare the dump parameters.\r\n");
+		return -1;
+	}
 
-	//
-	// Check what dump case should be gone through
-	//
+
+	// Prepare the dump
+	if (PrepareDump() < 0)
+	{
+		printf("Failed to prepare the dump procedure.\r\n");
+		return -1;
+	}
 
 	// If the output format is ES/PES, and PID is also specified, go into the DumpOneStream mode
 	if (g_params.find("pid") != g_params.end())
@@ -332,7 +373,7 @@ int main(int argc, char* argv[])
 		std::string& str_output_fmt = g_params["outputfmt"];
 		std::string& str_pid = g_params["pid"];
 
-		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0))
+		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 		{
 			nDumpRet = DumpOneStream();
 		}

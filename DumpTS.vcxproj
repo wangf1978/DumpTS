@@ -127,6 +127,7 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AudChMap.cpp" />
     <ClCompile Include="Bitstream.cpp" />
     <ClCompile Include="crc.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -143,8 +144,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudChMap.h" />
     <ClInclude Include="Bitstream.h" />
     <ClInclude Include="crc.h" />
+    <ClInclude Include="DumpTS.h" />
     <ClInclude Include="PayloadBuf.h" />
     <ClInclude Include="StdAfx.h" />
   </ItemGroup>
