@@ -1010,7 +1010,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			iParseRet = 0;
 		}
 	}
-	else if (DTS_HD_EXCEPT_XLL_AUDIO_STREAM == stream_type)
+	else if (DTS_HD_EXCEPT_XLL_AUDIO_STREAM == stream_type || DTS_HD_XLL_AUDIO_STREAM == stream_type)
 	{
 		uint32_t sync_code = p[0];
 		while (cbLeft >= 4)
