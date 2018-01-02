@@ -99,6 +99,46 @@ unsigned long ddp_ch_assignment[16] =
 	/*15 LFE			*/	CHANNEL_BITMASK(CH_LOC_LFE),
 };
 
+/*
+Notation       Loudspeaker Location Description             Bit Mask      Number of Channels
+--------------------------------------------------------------------------------------------
+C              Centre in front of listener                    0x0001		1
+LR             Left / Right in front                          0x0002		2
+LsRs           Left / Right surround on side in rear          0x0004		2
+LFE1           Low frequency effects subwoofer                0x0008		1
+Cs             Centre surround in rear                        0x0010		1
+LhRh           Left / Right height in front                   0x0020		2
+LsrRsr         Left / Right surround in rear                  0x0040		2
+Ch             Centre Height in front                         0x0080		1
+Oh             Over the listener's head                       0x0100		1
+LcRc           Between left / right and centre in front       0x0200		2
+LwRw           Left / Right on side in front                  0x0400		2
+LssRss         Left / Right surround on side                  0x0800		2
+LFE2           Second low frequency effects subwoofer         0x1000		1
+LhsRhs         Left / Right height on side                    0x2000		2
+Chr            Centre height in rear                          0x4000		1
+LhrRhr         Left / Right height in rear                    0x8000		2
+*/
+std::tuple<std::string/*Notation*/, std::string/*Desc*/, uint32_t/*ch_loc*/, uint8_t> dtshd_speaker_bitmask_table[16]
+{
+	{ "C",		"Centre in front of listener",				CHANNEL_BITMASK(CH_LOC_CENTER),									1 },
+	{ "LR",		"Left / Right in front",					CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),	2 },
+	{ "LsRs",	"Left / Right surround on side in rear",	CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),		2 },
+	{ "LFE1",	"Low frequency effects subwoofer",			CHANNEL_BITMASK(CH_LOC_LFE),									1 },
+	{ "Cs",		"Centre surround in rear",					CHANNEL_BITMASK(CH_LOC_CS),										1 },
+	{ "LhRh",	"Left / Right height in front",				CHANNEL_BITMASK(CH_LOC_VHL) | CHANNEL_BITMASK(CH_LOC_VHR),		2 },
+	{ "LsrRrs", "Left / Right surround in rear",			CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),		2 },
+	{ "Ch",		"Centre Height in front",					CHANNEL_BITMASK(CH_LOC_VHC),									1 },
+	{ "Oh",		"Over the listener's head",					CHANNEL_BITMASK(CH_LOC_CENTER),									1 },
+	{ "LcRc",	"Between left / right and centre in front", CHANNEL_BITMASK(CH_LOC_TS),										2 },
+	{ "LwRw",	"Left / Right on side in front",			CHANNEL_BITMASK(CH_LOC_LW) | CHANNEL_BITMASK(CH_LOC_RW),		2 },
+	{ "LssRss", "Left / Right surround on side",			CHANNEL_BITMASK(CH_LOC_CENTER),									2 },
+	{ "LFE2",	"Second low frequency effects subwoofer",	CHANNEL_BITMASK(CH_LOC_LFE2),									1 },
+	{ "LhsRhs", "Left / Right height on side",				CHANNEL_BITMASK(CH_LOC_LHS) | CHANNEL_BITMASK(CH_LOC_RHS),		2 },
+	{ "Chr",	"Centre height in rear",					CHANNEL_BITMASK(CH_LOC_CHR),									1 },
+	{ "LhrRhr", "Left / Right height in rear",				CHANNEL_BITMASK(CH_LOC_LHR) | CHANNEL_BITMASK(CH_LOC_RHR),		2 },
+};
+
 std::tuple<uint32_t, std::vector<uint8_t>> hdmv_lpcm_ch_assignments[16] =
 {
 	/*
@@ -242,28 +282,68 @@ unsigned long FBA_Channel_Loc_mapping_1[5] = {
 };
 
 unsigned long Channel_Speaker_Mapping[] = {
-	/* CH_LOC_LEFT = 0,		*/	SPEAKER_LOC_FRONT_LEFT,
-	/* CH_LOC_CENTER,		*/	SPEAKER_LOC_FRONT_CENTER,
-	/* CH_LOC_RIGHT,		*/	SPEAKER_LOC_FRONT_RIGHT,
-	/* CH_LOC_LS,			*/	SPEAKER_LOC_SIDE_LEFT,
-	/* CH_LOC_RS,			*/	SPEAKER_LOC_SIDE_RIGHT,
-	/* CH_LOC_LC,			*/	SPEAKER_LOC_FRONT_LEFT_OF_CENTER,
-	/* CH_LOC_RC,			*/	SPEAKER_LOC_FRONT_RIGHT_OF_CENTER,
-	/* CH_LOC_LRS,			*/	SPEAKER_LOC_BACK_LEFT,
-	/* CH_LOC_RRS,			*/	SPEAKER_LOC_BACK_RIGHT,
-	/* CH_LOC_CS,			*/	SPEAKER_LOC_BACK_CENTER,
-	/* CH_LOC_TS,			*/	SPEAKER_LOC_TOP_CENTER,
-	/* CH_LOC_LSD,			*/	SPEAKER_LOC_BACK_LEFT,		// Not sure
-	/* CH_LOC_RSD,			*/	SPEAKER_LOC_BACK_RIGHT,		// Not sure
+	/* CH_LOC_LEFT = 0,		*/	SPEAKER_POS_FRONT_LEFT,
+	/* CH_LOC_CENTER,		*/	SPEAKER_POS_FRONT_CENTER,
+	/* CH_LOC_RIGHT,		*/	SPEAKER_POS_FRONT_RIGHT,
+	/* CH_LOC_LS,			*/	SPEAKER_POS_SIDE_LEFT,
+	/* CH_LOC_RS,			*/	SPEAKER_POS_SIDE_RIGHT,
+	/* CH_LOC_LC,			*/	SPEAKER_POS_FRONT_LEFT_OF_CENTER,
+	/* CH_LOC_RC,			*/	SPEAKER_POS_FRONT_RIGHT_OF_CENTER,
+	/* CH_LOC_LRS,			*/	SPEAKER_POS_BACK_LEFT,
+	/* CH_LOC_RRS,			*/	SPEAKER_POS_BACK_RIGHT,
+	/* CH_LOC_CS,			*/	SPEAKER_POS_BACK_CENTER,
+	/* CH_LOC_TS,			*/	SPEAKER_POS_TOP_CENTER,
+	/* CH_LOC_LSD,			*/	SPEAKER_POS_BACK_LEFT,		// Not sure
+	/* CH_LOC_RSD,			*/	SPEAKER_POS_BACK_RIGHT,		// Not sure
 	/* CH_LOC_LW,			*/	0,						// Can't find speaker mapping
 	/* CH_LOC_RW,			*/	0,						// Can't find speaker mapping
-	/* CH_LOC_VHL,			*/	SPEAKER_LOC_TOP_FRONT_LEFT,
-	/* CH_LOC_VHR,			*/	SPEAKER_LOC_TOP_FRONT_RIGHT,
-	/* CH_LOC_VHC,			*/	SPEAKER_LOC_TOP_FRONT_CENTER,
-	/* CH_LOC_LTS,			*/	SPEAKER_LOC_TOP_BACK_LEFT,
-	/* CH_LOC_RTS,			*/	SPEAKER_LOC_TOP_BACK_RIGHT,
-	/* CH_LOC_LFE,			*/	SPEAKER_LOC_LOW_FREQUENCY,
-	/* CH_LOC_LFE2,			*/	SPEAKER_LOC_LOW_FREQUENCY,
+	/* CH_LOC_VHL,			*/	SPEAKER_POS_TOP_FRONT_LEFT,
+	/* CH_LOC_VHR,			*/	SPEAKER_POS_TOP_FRONT_RIGHT,
+	/* CH_LOC_VHC,			*/	SPEAKER_POS_TOP_FRONT_CENTER,
+	/* CH_LOC_LTS,			*/	SPEAKER_POS_TOP_BACK_LEFT,
+	/* CH_LOC_RTS,			*/	SPEAKER_POS_TOP_BACK_RIGHT,
+	/* CH_LOC_LFE,			*/	SPEAKER_POS_LOW_FREQUENCY,
+	/* CH_LOC_LFE2,			*/	SPEAKER_POS_LOW_FREQUENCY,
 	/* CH_LOC_DUALMONO = 31	*/
+};
+
+std::vector<CHANNEL_LOC> dts_audio_channel_arragements[16] = {
+	/*
+	AMODE	CHS	Arrangement
+	0b000000	1	A
+	0b000001	2	A + B(dual mono)
+	0b000010	2	L + R(stereo)
+	0b000011	2	(L + R) + (L - R) (sum - difference)
+	0b000100	2	LT + RT(left and right total)
+	0b000101	3	C + L + R
+	0b000110	3	L + R + S
+	0b000111	4	C + L + R + S
+	0b001000	4	L + R + SL + SR
+	0b001001	5	C + L + R + SL + SR
+	0b001010	6	CL + CR + L + R + SL + SR
+	0b001011	6	C + L + R + LR + RR + OV
+	0b001100	6	CF + CR + LF + RF + LR + RR
+	0b001101	7	CL + C + CR + L + R + SL + SR
+	0b001110	8	CL + CR + L + R + SL1 + SL2 + SR1 + SR2
+	0b001111	8	CL + C + CR + L + R + SL + S + SR
+	0b010000 - 0b111111		User defined
+	NOTE : L = left, R = right, C = centre, S = surround, F = front, R = rear, T = total, OV = overhead, A = first mono channel, B = second mono channel.
+	*/
+	/*0b000000*/{ CH_MONO },
+	/*0b000001*/{ CH_MONO, CH_MONO },
+	/*0b000010*/{ CH_LOC_LEFT, CH_LOC_RIGHT },
+	/*0b000011*/{ CH_LR_SUM, CH_LR_DIFF },
+	/*0b000100*/{ CH_LT, CH_RT },
+	/*0b000101*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT },
+	/*0b000110*/{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_SURROUND },
+	/*0b000111*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_SURROUND },
+	/*0b001000*/{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
+	/*0b001001*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
+	/*0b001010*/{ CH_LOC_LC, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
+	/*0b001011*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_TS },
+	/*0b001100*/{ CH_LOC_CENTER, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS },
+	/*0b001101*/{ CH_LOC_LC, CH_LOC_CENTER, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
+	/*0b001110*/{ CH_LOC_LC, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_LS, CH_LOC_RS, CH_LOC_RS },
+	/*0b001111*/{ CH_LOC_LC, CH_LOC_CENTER, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_SURROUND, CH_LOC_RS },
 };
 

@@ -3,6 +3,8 @@
 //      are changed infrequently
 //
 
+// Don't want to depend on windows build environment, and it is expected to be compiled successfully under Linux
+
 #if !defined(AFX_STDAFX_H__E6271142_93A8_4CD1_B0C9_9747CCBA1E3E__INCLUDED_)
 #define AFX_STDAFX_H__E6271142_93A8_4CD1_B0C9_9747CCBA1E3E__INCLUDED_
 

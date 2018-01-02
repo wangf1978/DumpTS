@@ -43,8 +43,8 @@ int CBitstream::GetAllLeftBits()
 {
 	int bits_left = cursor.p_end <= cursor.p ? 0 : (((int)(cursor.p_end - cursor.p)) << 3);
 	return bits_left <= cursor.exclude_bits ? 0
-		: (bits_left < (sizeof(CURBITS_TYPE) << 3) ? (bits_left - cursor.exclude_bits)
-		: (bits_left - (sizeof(CURBITS_TYPE) << 3) + bits_left - cursor.exclude_bits));
+		: (bits_left < (sizeof(CURBITS_TYPE) << 3) ? (cursor.bits_left - cursor.exclude_bits)
+			: (bits_left - (sizeof(CURBITS_TYPE) << 3) + cursor.bits_left - cursor.exclude_bits));
 }
 
 void CBitstream::_UpdateCurBits(bool bEos)
@@ -219,6 +219,23 @@ int64_t CBitstream::GetLongLong()
 {
 	return (int64_t)GetBits(64);
 }
+
+uint32_t CBitstream::Tell(int* left_bits_in_bst)
+{
+	if (cursor.p_start == NULL || cursor.p == NULL)
+	{
+		if (left_bits_in_bst)
+			*left_bits_in_bst = 0;
+		return 0;
+	}
+
+	int nAllLeftBits = GetAllLeftBits();
+	if (left_bits_in_bst != NULL)
+		*left_bits_in_bst = nAllLeftBits;
+
+	return (uint32_t)(8 * (cursor.p_end - cursor.p_start - cursor.start_offset) - nAllLeftBits);
+}
+
 
 CBitstream::~CBitstream()
 {

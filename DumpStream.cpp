@@ -15,15 +15,29 @@ extern int g_verbose_level;
 extern DUMP_STATUS g_dump_status;
 
 // For MLP audio
-#define FBB_SYNC_CODE	0xF8726FBB
-#define FBA_SYNC_CODE	0xF8726FBA
-#define MLP_SIGNATURE	0xB752
+#define FBB_SYNC_CODE				0xF8726FBB
+#define FBA_SYNC_CODE				0xF8726FBA
+#define MLP_SIGNATURE				0xB752
+
+#define AC3_SYNCWORD				0x0B77
+#define EAC3_SYNCWORD				0x0B77
+
+#define DTS_SYNCWORD_CORE			0x7ffe8001
+#define DTS_SYNCWORD_XCH			0x5a5a5a5a
+#define DTS_SYNCWORD_XXCH			0x47004a03
+#define DTS_SYNCWORD_X96			0x1d95f262
+#define DTS_SYNCWORD_XBR			0x655e315e
+#define DTS_SYNCWORD_LBR			0x0a801921
+#define DTS_SYNCWORD_XLL			0x41a29547
+#define DTS_SYNCWORD_SUBSTREAM		0x64582025
+#define DTS_SYNCWORD_SUBSTREAM_CORE 0x02b09261
 
 struct AUDIO_INFO
 {
 	unsigned long	sample_frequency;
 	unsigned long	channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
 	unsigned long	bits_per_sample;
+	unsigned long	bitrate;			// bits/second
 };
 
 struct VIDEO_INFO
@@ -57,6 +71,7 @@ using DDP_Program_StreamInfos = unordered_map<unsigned char /* Program */, std::
 PID_StramInfos g_stream_infos;
 DDP_Program_StreamInfos g_ddp_program_stream_infos;
 unsigned char g_cur_ddp_program_id = 0XFF;
+std::vector<STREAM_INFO> g_cur_dtshd_stream_infos;
 
 int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
@@ -327,6 +342,562 @@ int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, uns
 	return 0;
 }
 
+int ParseCoreDTSAU(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
+{
+	int iRet = -1;
+	CBitstream bst(pBuf, cbSize << 3);
+
+
+	try
+	{
+		bst.SkipBits(32);
+		uint8_t FTYPE = (uint8_t)bst.GetBits(1);
+
+		if (FTYPE == 0)
+			return -1;
+
+		uint8_t SHORT = (uint8_t)bst.GetBits(5);
+		uint8_t CPF = (uint8_t)bst.GetBits(1);
+		uint8_t NBLKS = (uint8_t)bst.GetBits(7);
+		if (NBLKS <= 4)
+			return -1;
+
+		uint16_t FSIZE = (uint16_t)bst.GetBits(14);
+		if (FSIZE <= 94)
+			return -1;
+
+		uint8_t AMODE = (uint8_t)bst.GetBits(6);
+		uint8_t SFREQ = (uint8_t)bst.GetBits(4);
+		uint8_t RATE = (uint8_t)bst.GetBits(5);
+		uint8_t FixedBit = (uint8_t)bst.GetBits(1);
+
+		if (FixedBit != 0)
+			return -1;
+
+		uint8_t DYNF = (uint8_t)bst.GetBits(1);
+		uint8_t TIMEF = (uint8_t)bst.GetBits(1);
+		uint8_t AUXF = (uint8_t)bst.GetBits(1);
+		uint8_t HDCD = (uint8_t)bst.GetBits(1);
+		uint8_t EXT_AUDIO_ID = (uint8_t)bst.GetBits(3);
+		uint8_t EXT_AUDIO = (uint8_t)bst.GetBits(1);
+		uint8_t ASPF = (uint8_t)bst.GetBits(1);
+		uint8_t LFF = (uint8_t)bst.GetBits(2);
+		uint8_t HFLAG = (uint8_t)bst.GetBits(1);
+		uint16_t HCRC;
+		if (CPF == 1) // Present
+			HCRC = (uint16_t)bst.GetBits(16);
+		uint8_t FILTS = (uint8_t)bst.GetBits(1);
+		uint8_t VERNUM = (uint8_t)bst.GetBits(4);
+		uint8_t CHIST = (uint8_t)bst.GetBits(2);
+		uint8_t PCMR = (uint8_t)bst.GetBits(3);
+		uint8_t SUMF = (uint8_t)bst.GetBits(1);
+		uint8_t SUMS = (uint8_t)bst.GetBits(1);
+
+		static uint32_t SFREQs[] = {
+			0, 8000, 16000, 32000, 0, 0, 11025, 22050, 44100, 0, 0, 12000, 24000, 48000, 0, 0 };
+
+		static uint32_t RATEs[] = {
+			32000, 56000, 64000, 96000, 112000, 128000, 192000, 224000, 256000, 320000, 384000, 448000, 512000, 576000, 640000,
+			768000, 960000, 1024000, 1152000, 1280000, 1344000, 1408000, 1411200, 1472000, 1536000, 1920000, 2048000, 3072000, 3840000,
+			(unsigned long)-3,	// Open
+			(unsigned long)-2,	// Variant
+			(unsigned long)-1	// Lossless
+		};
+		static uint8_t bpses[] = {
+			16, 16, 20, 20, 24, 24, 0, 0
+		};
+
+		// Organize the information.
+		audio_info.stream_coding_type = stream_type;
+		audio_info.audio_info.channel_mapping = 0;
+		for (size_t i = 0; AMODE < _countof(dts_audio_channel_arragements) && i < dts_audio_channel_arragements[AMODE].size(); i++)
+			audio_info.audio_info.channel_mapping |= CHANNEL_BITMASK(dts_audio_channel_arragements[AMODE][i]);
+
+		if (LFF)
+			audio_info.audio_info.channel_mapping |= CHANNEL_BITMASK(CH_LOC_LFE);
+
+		audio_info.audio_info.sample_frequency = SFREQs[SFREQ];
+		audio_info.audio_info.bits_per_sample = bpses[PCMR];
+		audio_info.audio_info.bitrate = RATEs[RATE];
+	}
+	catch (...)
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
+enum DTS_EXTSUBSTREAM
+{
+
+	DTS_CORESUBSTREAM_CORE = 0x00000001,
+	DTS_BCCORE_XXCH = 0x00000002,
+	DTS_BCCORE_X96 = 0x00000004,
+	DTS_BCCORE_XCH = 0x00000008,
+	DTS_EXSUBSTREAM_CORE = 0x00000010,
+	DTS_EXSUBSTREAM_XBR = 0x00000020,
+	DTS_EXSUBSTREAM_XXCH = 0x00000040,
+	DTS_EXSUBSTREAM_X96 = 0x00000080,
+	DTS_EXSUBSTREAM_LBR = 0x00000100,
+	DTS_EXSUBSTREAM_XLL = 0x00000200,
+	DTS_EXSUBSTREAM_AUX1 = 0x00000400,
+	DTS_EXSUBSTREAM_AUX2 = 0x00000800,
+};
+
+int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
+{
+	auto NumSpkrTableLookUp = [&](uint32_t nSpkrMask)
+	{
+		unsigned int i, nTotalChs;
+
+		if (nSpkrMask == 0)
+			return 0;
+
+		nTotalChs = 0;
+		for (i = 0; i < _countof(dtshd_speaker_bitmask_table); i++)
+		{
+			if ((1 << i)& nSpkrMask)
+				nTotalChs += std::get<3>(dtshd_speaker_bitmask_table[i]);
+		}
+		return (int)nTotalChs;
+	};
+
+	auto CountBitsSet_to_1 = [](uint8_t bitcount, uint32_t val)
+	{
+		uint8_t nRet = 0;
+		for (uint8_t i = 0; i < bitcount; i++)
+		{
+			if (val & (1 << i))
+				nRet++;
+		}
+		return nRet;
+	};
+
+	CBitstream bst(pBuf, cbSize << 3);
+	bst.SkipBits(32);
+
+	uint8_t UserDefinedBits = (uint8_t)bst.GetBits(8);
+	uint8_t nExtSSIndex = (uint8_t)bst.GetBits(2);
+
+	uint8_t	bHeaderSizeType = (uint8_t)bst.GetBits(1);
+	uint8_t nuBits4Header = bHeaderSizeType ? 12 : 8;
+	uint8_t nuBits4ExSSFsize = bHeaderSizeType ? 20 : 16;
+
+	uint32_t nuExtSSHeaderSize, nuExtSSFsize;
+	bst.GetBits(nuBits4Header, nuExtSSHeaderSize);
+	bst.GetBits(nuBits4ExSSFsize, nuExtSSFsize);
+	nuExtSSHeaderSize++; nuExtSSFsize++;
+
+	uint8_t bStaticFieldsPresent;
+	bst.GetBits(1, bStaticFieldsPresent);
+
+	STREAM_INFO stm_info;
+	memset(&stm_info, 0, sizeof(stm_info));
+
+	stm_info.stream_coding_type = stream_type;
+
+	uint8_t nuNumAudioPresnt = 1, nuNumAssets = 1, bMixMetadataEnbl = 0;
+	uint8_t nuNumMixOutConfigs = 0;
+	uint8_t nuMixOutChMask[4];
+	uint8_t nNumMixOutCh[4];
+	uint16_t nuExSSFrameDurationCode;
+	if (bStaticFieldsPresent)
+	{
+		uint8_t nuRefClockCode, bTimeStampFlag;
+
+		bst.GetBits(2, nuRefClockCode);
+		bst.GetBits(3, nuExSSFrameDurationCode);
+		nuExSSFrameDurationCode = 512 * (nuExSSFrameDurationCode + 1);
+		bst.GetBits(1, bTimeStampFlag);
+
+		if (bTimeStampFlag)
+			bst.SkipBits(36);
+
+		bst.GetBits(3, nuNumAudioPresnt); nuNumAudioPresnt++;
+		bst.GetBits(3, nuNumAssets); nuNumAssets++;
+
+		uint8_t nuActiveExSSMask[8];
+		uint8_t nuActiveAssetMask[8][4];
+		for (uint8_t nAuPr = 0; nAuPr < nuNumAudioPresnt; nAuPr++)
+			bst.GetBits(nExtSSIndex + 1, nuActiveExSSMask[nAuPr]);
+
+		for (uint8_t nAuPr = 0; nAuPr < nuNumAudioPresnt; nAuPr++) {
+			for (uint8_t nSS = 0; nSS < nExtSSIndex + 1; nSS++) {
+				if (((nuActiveExSSMask[nAuPr] >> nSS) & 0x1) == 1)
+					nuActiveAssetMask[nAuPr][nSS] = (uint8_t)bst.GetBits(8);
+				else
+					nuActiveAssetMask[nAuPr][nSS] = 0;
+			}
+		}
+
+		bMixMetadataEnbl = (uint8_t)bst.GetBits(1);
+		if (bMixMetadataEnbl)
+		{
+			uint8_t nuMixMetadataAdjLevel = (uint8_t)bst.GetBits(2);
+			uint8_t nuBits4MixOutMask = (uint8_t)(bst.GetBits(2) + 1) << 2;
+			nuNumMixOutConfigs = (uint8_t)bst.GetBits(2) + 1;
+			// Output Mixing Configuration Loop
+			for (uint8_t ns = 0; ns < nuNumMixOutConfigs; ns++) {
+				nuMixOutChMask[ns] = (uint8_t)bst.GetBits(nuBits4MixOutMask);
+				nNumMixOutCh[ns] = NumSpkrTableLookUp(nuMixOutChMask[ns]);
+			}
+		}
+	}
+	else
+		return -1;	// Can't get audio information if bStaticFieldPresent is false;
+
+	uint32_t nuAssetFsize[8];
+	for (int nAst = 0; nAst < nuNumAssets; nAst++)
+		nuAssetFsize[nAst] = (uint16_t)bst.GetBits(nuBits4ExSSFsize) + 1;
+
+	for (int nAst = 0; nAst < nuNumAssets; nAst++)
+	{
+		uint8_t nuAssetIndex;
+		uint16_t nuAssetDescriptFsize;
+		uint8_t nuBitResolution = 0, nuMaxSampleRate = 0, nuTotalNumChs = 0, bOne2OneMapChannels2Speakers = 0;
+
+		uint32_t asset_start_bitpos = bst.Tell();
+
+		bst.GetBits(9, nuAssetDescriptFsize); nuAssetDescriptFsize++;
+		bst.GetBits(3, nuAssetIndex);
+
+		uint8_t bEmbeddedStereoFlag = 0, bEmbeddedSixChFlag = 0, nuRepresentationType = 0;
+		uint8_t nuMainAudioScaleCode[4][32];
+
+		if (bStaticFieldsPresent)
+		{
+			uint8_t bAssetTypeDescrPresent = (uint8_t)bst.GetBits(1);
+			uint8_t nuAssetTypeDescriptor = 0;
+			if (bAssetTypeDescrPresent)
+				nuAssetTypeDescriptor = (uint8_t)bst.GetBits(4);
+			uint8_t bLanguageDescrPresent = (uint8_t)bst.GetBits(1);
+			uint32_t LanguageDescriptor;
+			if (bLanguageDescrPresent)
+				LanguageDescriptor = (uint32_t)bst.GetBits(24);
+			uint8_t bInfoTextPresent = (uint8_t)bst.GetBits(1);
+			uint16_t nuInfoTextByteSize;
+			if (bInfoTextPresent)
+				nuInfoTextByteSize = (uint16_t)bst.GetBits(10) + 1;
+
+			if (bInfoTextPresent)
+				bst.SkipBits(nuInfoTextByteSize * 8);
+			nuBitResolution = (uint8_t)bst.GetBits(5) + 1;
+			nuMaxSampleRate = (uint8_t)bst.GetBits(4);
+			nuTotalNumChs = (uint8_t)bst.GetBits(8) + 1;
+			bOne2OneMapChannels2Speakers = (uint8_t)bst.GetBits(1);
+
+			uint32_t nuSpkrActivityMask = 0;
+			if (bOne2OneMapChannels2Speakers)
+			{
+				uint8_t bSpkrMaskEnabled = 0, nuNumBits4SAMask = 0;
+				if (nuTotalNumChs>2)
+					bEmbeddedStereoFlag = (uint8_t)bst.GetBits(1);
+
+				if (nuTotalNumChs>6)
+					bEmbeddedSixChFlag = (uint8_t)bst.GetBits(1);
+
+				bSpkrMaskEnabled = (uint8_t)bst.GetBits(1);
+				if (bSpkrMaskEnabled)
+					nuNumBits4SAMask = (uint8_t)(bst.GetBits(2) + 1) << 2;
+
+				if (bSpkrMaskEnabled)
+					nuSpkrActivityMask = (uint32_t)bst.GetBits(nuNumBits4SAMask);
+				uint8_t nuNumSpkrRemapSets = (uint8_t)bst.GetBits(3);
+				uint32_t nuStndrSpkrLayoutMask[8];
+				uint8_t nuNumDecCh4Remap[8];
+				uint32_t nuRemapDecChMask[8][32];
+				uint8_t nuSpkrRemapCodes[8][32][32];
+				for (uint8_t ns = 0; ns<nuNumSpkrRemapSets; ns++)
+					nuStndrSpkrLayoutMask[ns] = (uint8_t)bst.GetBits(nuNumBits4SAMask);
+				for (uint8_t ns = 0; ns<nuNumSpkrRemapSets; ns++) {
+					uint8_t nuNumSpeakers = NumSpkrTableLookUp(nuStndrSpkrLayoutMask[ns]);
+					nuNumDecCh4Remap[ns] = (uint8_t)bst.GetBits(5) + 1;
+					for (int nCh = 0; nCh<nuNumSpeakers; nCh++) { // Output channel loop
+						nuRemapDecChMask[ns][nCh] = (uint32_t)bst.GetBits(nuNumDecCh4Remap[ns]);
+						uint8_t nCoefs = CountBitsSet_to_1(nuNumDecCh4Remap[ns], nuRemapDecChMask[ns][nCh]);
+						for (uint8_t nc = 0; nc<nCoefs; nc++)
+							nuSpkrRemapCodes[ns][nCh][nc] = (uint8_t)bst.GetBits(5);
+					} // End output channel loop
+				} // End nuNumSpkrRemapSets loop
+			}
+			else
+			{
+				// No speaker feed case
+				bEmbeddedStereoFlag = 0;
+				bEmbeddedSixChFlag = 0;
+				nuRepresentationType = (uint8_t)bst.GetBits(3);
+			}
+
+
+			//
+			// Update stm_info of current audio asset
+			// It is not so accurate, later we may get the audio information order by audio present defined in each extension stream header
+			//
+			if (stm_info.audio_info.bits_per_sample < nuBitResolution)
+				stm_info.audio_info.bits_per_sample = nuBitResolution;
+
+			static uint32_t ExSS_Asset_Max_SampleRates[] = {
+				8000,16000,32000,64000,128000,
+				22050,44100,88200,176400,352800,
+				12000,24000,48000,96000,192000,384000
+			};
+
+			if (stm_info.audio_info.sample_frequency < ExSS_Asset_Max_SampleRates[nuMaxSampleRate])
+				stm_info.audio_info.sample_frequency = ExSS_Asset_Max_SampleRates[nuMaxSampleRate];
+
+			// Update the channel information
+			if (bOne2OneMapChannels2Speakers)
+			{
+				for (int i = 0; i < _countof(dtshd_speaker_bitmask_table); i++)
+				{
+					if ((1<<i)&nuSpkrActivityMask)
+						stm_info.audio_info.channel_mapping |= std::get<2>(dtshd_speaker_bitmask_table[i]);
+				}
+			}
+			else
+			{
+				// Can't process it at present.
+				// TODO...
+			}
+		} // End of if (bStaticFieldsPresent)
+
+		uint32_t asset_cur_bitpos = bst.Tell();
+
+		uint8_t nuDRCCode, nuDialNormCode, nuDRC2ChDmixCode, bMixMetadataPresent;
+		uint8_t bDRCCoefPresent = (uint8_t)bst.GetBits(1);
+		if (bDRCCoefPresent)
+			nuDRCCode = (uint8_t)bst.GetBits(8);
+		uint8_t bDialNormPresent = (uint8_t)bst.GetBits(1);
+		if (bDialNormPresent)
+			nuDialNormCode = (uint8_t)bst.GetBits(5);
+		if (bDRCCoefPresent && bEmbeddedStereoFlag)
+			nuDRC2ChDmixCode = (uint8_t)bst.GetBits(8);
+		if (bMixMetadataEnbl)
+			bMixMetadataPresent = (uint8_t)bst.GetBits(1);
+		else
+			bMixMetadataPresent = 0;
+
+		if (bMixMetadataPresent) {
+			uint8_t bExternalMixFlag = (uint8_t)bst.GetBits(1);
+			uint8_t nuPostMixGainAdjCode = (uint8_t)bst.GetBits(6);
+			uint8_t nuControlMixerDRC = (uint8_t)bst.GetBits(2);
+			if (nuControlMixerDRC <3)
+				uint8_t nuLimit4EmbeddedDRC = (uint8_t)bst.GetBits(3);
+			if (nuControlMixerDRC == 3)
+				uint8_t nuCustomDRCCode = (uint8_t)bst.GetBits(8);
+			uint8_t bEnblPerChMainAudioScale = (uint8_t)bst.GetBits(1);
+			for (uint8_t ns = 0; ns<nuNumMixOutConfigs; ns++) {
+				if (bEnblPerChMainAudioScale) {
+					for (uint8_t nCh = 0; nCh<nNumMixOutCh[ns]; nCh++)
+						nuMainAudioScaleCode[ns][nCh] = (uint8_t)bst.GetBits(6);
+				}
+				else
+					nuMainAudioScaleCode[ns][0] = (uint8_t)bst.GetBits(6);
+			}
+			uint8_t nEmDM = 1;
+			uint8_t nDecCh[2];
+			nDecCh[0] = nuTotalNumChs;
+			if (bEmbeddedSixChFlag) {
+				nDecCh[nEmDM] = 6;
+				nEmDM = nEmDM + 1;
+			}
+			if (bEmbeddedStereoFlag) {
+				nDecCh[nEmDM] = 2;
+				nEmDM = nEmDM + 1;
+			}
+			uint8_t nuMixMapMask[4][2][6];
+			uint8_t nuNumMixCoefs[4][2][6];
+			uint8_t nuMixCoeffs[4][2][6][32];
+			for (uint8_t ns = 0; ns<nuNumMixOutConfigs; ns++) { //Configuration Loop
+				for (uint8_t nE = 0; nE<nEmDM; nE++) { // Embedded downmix loop
+					for (uint8_t nCh = 0; nCh<nDecCh[nE]; nCh++) { //Supplemental Channel Loop
+						nuMixMapMask[ns][nE][nCh] = (uint8_t)bst.GetBits(nNumMixOutCh[ns]);
+						nuNumMixCoefs[ns][nE][nCh] = CountBitsSet_to_1(nNumMixOutCh[ns], nuMixMapMask[ns][nE][nCh]);
+						for (uint8_t nC = 0; nC<nuNumMixCoefs[ns][nE][nCh]; nC++)
+							nuMixCoeffs[ns][nE][nCh][nC] = (uint8_t)bst.GetBits(6);
+					} // End supplemental channel loop
+				} // End of Embedded downmix loop
+			} // End configuration loop
+		} // End if (bMixMetadataPresent)
+
+		uint16_t nuCoreExtensionMask = 0;
+		uint8_t nuCodingMode = (uint8_t)bst.GetBits(2);
+		switch (nuCodingMode) {
+		case 0:
+		{
+			nuCoreExtensionMask = (uint16_t)bst.GetBits(12);
+			if (nuCoreExtensionMask & DTS_EXSUBSTREAM_CORE) {
+				uint16_t nuExSSCoreFsize = (uint16_t)bst.GetBits(14) + 1;
+				uint8_t bExSSCoreSyncPresent = (uint8_t)bst.GetBits(1);
+				uint8_t nuExSSCoreSyncDistInFrames = 0;
+				if (bExSSCoreSyncPresent)
+					nuExSSCoreSyncDistInFrames = (uint8_t)(1 << (bst.GetBits(2)));
+			}
+			uint16_t nuExSSXBRFsize, nuExSSXXCHFsize, nuExSSX96Fsize, nuExSSLBRFsize;
+			uint8_t bExSSLBRSyncPresent, nuExSSLBRSyncDistInFrames;
+			if (nuCoreExtensionMask & DTS_EXSUBSTREAM_XBR)
+				nuExSSXBRFsize = (uint16_t)bst.GetBits(14) + 1;
+			if (nuCoreExtensionMask & DTS_EXSUBSTREAM_XXCH)
+				nuExSSXXCHFsize = (uint16_t)bst.GetBits(14) + 1;
+			if (nuCoreExtensionMask & DTS_EXSUBSTREAM_X96)
+				nuExSSX96Fsize = (uint16_t)bst.GetBits(12) + 1;
+			if (nuCoreExtensionMask & DTS_EXSUBSTREAM_LBR) {
+				nuExSSLBRFsize = (uint16_t)bst.GetBits(14) + 1;
+				bExSSLBRSyncPresent = (uint8_t)bst.GetBits(1);
+				if (bExSSLBRSyncPresent)
+					nuExSSLBRSyncDistInFrames = (uint8_t)(1 << (bst.GetBits(2)));
+			}
+			if (nuCoreExtensionMask & DTS_EXSUBSTREAM_XLL) {
+				uint32_t nuExSSXLLFsize = (uint32_t)bst.GetBits(nuBits4ExSSFsize) + 1;
+				uint8_t bExSSXLLSyncPresent = (uint8_t)bst.GetBits(1);
+				if (bExSSXLLSyncPresent) {
+					uint16_t nuPeakBRCntrlBuffSzkB = (uint16_t)bst.GetBits(4) << 4;
+					uint8_t nuBitsInitDecDly = (uint8_t)bst.GetBits(5) + 1;
+					uint32_t nuInitLLDecDlyFrames = (uint32_t)bst.GetBits(nuBitsInitDecDly);
+					uint32_t nuExSSXLLSyncOffset = (uint32_t)bst.GetBits(nuBits4ExSSFsize);
+				}
+			}
+		}
+		break;
+		case 1:
+		{
+			uint32_t nuExSSXLLFsize = (uint32_t)bst.GetBits(nuBits4ExSSFsize) + 1;
+			uint8_t bExSSXLLSyncPresent = (uint8_t)bst.GetBits(1);
+			if (bExSSXLLSyncPresent) {
+				uint16_t nuPeakBRCntrlBuffSzkB = (uint16_t)(bst.GetBits(4) << 4);
+				uint8_t nuBitsInitDecDly = (uint8_t)bst.GetBits(5) + 1;
+				uint32_t nuInitLLDecDlyFrames = (uint32_t)bst.GetBits(nuBitsInitDecDly);
+				uint32_t nuExSSXLLSyncOffset = (uint32_t)bst.GetBits(nuBits4ExSSFsize);
+			}
+		}
+		break;
+		case 2:
+		{
+			uint16_t nuExSSLBRFsize = (uint16_t)bst.GetBits(14) + 1;
+			uint8_t bExSSLBRSyncPresent = (uint8_t)bst.GetBits(1);
+			uint8_t nuExSSLBRSyncDistInFrames = 0;
+			if (bExSSLBRSyncPresent)
+				nuExSSLBRSyncDistInFrames = (uint8_t)(1 << (bst.GetBits(2)));
+		}
+		break;
+		case 3:
+		{
+			uint16_t nuExSSAuxFsize = (uint16_t)bst.GetBits(14) + 1;
+			uint8_t nuAuxCodecID = (uint8_t)bst.GetBits(8);
+			uint8_t bExSSAuxSyncPresent = (uint8_t)bst.GetBits(1);
+			uint8_t nuExSSAuxSyncDistInFrames = 0;
+			if (bExSSAuxSyncPresent)
+				nuExSSAuxSyncDistInFrames = (uint8_t)bst.GetBits(3) + 1;
+		}
+		break;
+		default:
+			break;
+		}
+
+		asset_cur_bitpos = bst.Tell();
+
+		uint8_t nuDTSHDStreamID;
+		if (((nuCodingMode == 0) && (nuCoreExtensionMask & DTS_EXSUBSTREAM_XLL)) || (nuCodingMode == 1)) {
+			nuDTSHDStreamID = (uint8_t)bst.GetBits(3);
+		}
+		uint8_t bOnetoOneMixingFlag = 0, bEnblPerChMainAudioScale = 0;
+		if (bOne2OneMapChannels2Speakers == 1 && bMixMetadataEnbl == 1 && bMixMetadataPresent == 0)
+			bOnetoOneMixingFlag = (uint8_t)bst.GetBits(1);
+		if (bOnetoOneMixingFlag) {
+			bEnblPerChMainAudioScale = (uint8_t)bst.GetBits(1);
+			for (uint8_t ns = 0; ns<nuNumMixOutConfigs; ns++) {
+				if (bEnblPerChMainAudioScale) {
+					for (uint8_t nCh = 0; nCh<nNumMixOutCh[ns]; nCh++)
+						nuMainAudioScaleCode[ns][nCh] = (uint8_t)bst.GetBits(6);
+				}
+				else
+					nuMainAudioScaleCode[ns][0] = (uint8_t)bst.GetBits(6);
+			}
+		} // End of bOnetoOneMixingFlag==true condition
+		uint8_t bDecodeAssetInSecondaryDecoder = (uint8_t)bst.GetBits(1);
+
+		asset_cur_bitpos = bst.Tell();
+
+		if (asset_cur_bitpos - asset_start_bitpos < (uint32_t)(nuAssetDescriptFsize << 3))
+		{
+			bool bDRCMetadataRev2Present = (bst.GetBits(1) == 1) ? true : false;
+			if (bDRCMetadataRev2Present == true)
+			{
+				uint8_t DRCversion_Rev2 = (uint8_t)bst.GetBits(4);
+				// one DRC value for each block of 256 samples
+				uint8_t nRev2_DRCs = (uint8_t)(nuExSSFrameDurationCode / 256);
+				// assumes DRCversion_Rev2 == 1:
+				//uint8_t DRCCoeff_Rev2[16];
+				for (uint8_t subSubFrame = 0; subSubFrame < nRev2_DRCs; subSubFrame++)
+				{
+					//DRCCoeff_Rev2[subSubFrame] = dts_dynrng_to_db(bst.GetBits(8));
+					bst.SkipBits(8);
+				}
+			}
+
+			asset_cur_bitpos = bst.Tell();
+		}
+	}	// End for (int nAst = 0; nAst < nuNumAssets; nAst++)
+
+	if (stm_info.audio_info.bitrate == 0 &&
+		stm_info.audio_info.bits_per_sample == 0 &&
+		stm_info.audio_info.channel_mapping == 0 &&
+		stm_info.audio_info.sample_frequency == 0)
+		return -1;
+
+	audio_info = stm_info;
+
+	return 0;
+}
+
+int ParseCoreDTSHDAU(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
+{
+	int iRet = -1;
+
+	if (sync_code == DTS_SYNCWORD_CORE)
+	{
+		// If Core stream is hit, generate the audio information
+		if (g_cur_dtshd_stream_infos.size() > 0)
+		{
+			if (g_cur_dtshd_stream_infos.size() == 1)
+				audio_info = g_cur_dtshd_stream_infos.front();
+			else
+				audio_info = g_cur_dtshd_stream_infos.back();
+
+			g_cur_dtshd_stream_infos.clear();
+			iRet = 0;
+		}
+	}
+
+
+	try
+	{
+		int iRet2 = -1;
+		if (sync_code == DTS_SYNCWORD_CORE)
+		{
+			g_cur_dtshd_stream_infos.emplace_back();
+			iRet2 = ParseCoreDTSAU(PID, stream_type, sync_code, pBuf, cbSize, g_cur_dtshd_stream_infos.back());
+		}
+		else if (sync_code == DTS_SYNCWORD_SUBSTREAM)
+		{
+			g_cur_dtshd_stream_infos.emplace_back();
+			iRet2 = ParseDTSExSSAU(PID, stream_type, sync_code, pBuf, cbSize, g_cur_dtshd_stream_infos.back());
+		}
+
+		// The DTS-HD full AU is not complete, reset the previous parse information
+		// The first stm_info in g_cur_dtshd_stream_infos should be core DTS
+		if (iRet2 < 0)
+			g_cur_dtshd_stream_infos.clear();
+	}
+	catch (...)
+	{
+		return iRet;
+	}
+
+	return iRet;
+}
+
 int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize)
 {
 	unsigned char* p = pBuf;
@@ -376,11 +947,11 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	}
 	else if (DOLBY_AC3_AUDIO_STREAM == stream_type || DD_PLUS_AUDIO_STREAM == stream_type)
 	{
-		unsigned short sync_code = pBuf[0];
+		unsigned short sync_code = p[0];
 		while (cbLeft >= 8)
 		{
 			sync_code = (sync_code << 8) | p[1];
-			if (sync_code == 0x0B77)
+			if (sync_code == AC3_SYNCWORD)
 				break;
 
 			cbLeft--;
@@ -421,6 +992,42 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			iParseRet = 0;
 		}
 	}
+	else if (DTS_AUDIO_STREAM == stream_type)
+	{
+		uint32_t sync_code = p[0];
+		while (cbLeft >= 13)
+		{
+			sync_code = (sync_code << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+			if (sync_code == DTS_SYNCWORD_CORE)	// Only Support Big-Endian 32-bit sync code at present.
+				break;
+
+			cbLeft--;
+			p++;
+		}
+
+		if (ParseCoreDTSAU(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
+		{
+			iParseRet = 0;
+		}
+	}
+	else if (DTS_HD_EXCEPT_XLL_AUDIO_STREAM == stream_type)
+	{
+		uint32_t sync_code = p[0];
+		while (cbLeft >= 4)
+		{
+			sync_code = (sync_code << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+			if (sync_code == DTS_SYNCWORD_CORE || sync_code == DTS_SYNCWORD_SUBSTREAM)	// Only Support Big-Endian 32-bit sync code at present.
+				break;
+
+			cbLeft--;
+			p++;
+		}
+
+		if (ParseCoreDTSHDAU(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
+		{
+			iParseRet = 0;
+		}
+	}
 
 	if (iParseRet == 0)
 	{
@@ -454,6 +1061,18 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			printf("\tSample Frequency: %d (HZ).\r\n", stm_info.audio_info.sample_frequency);
 			printf("\tBits Per Sample: %d.\r\n", stm_info.audio_info.bits_per_sample);
 			printf("\tChannel Layout: %s.\r\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
+
+			if (stm_info.audio_info.bitrate != 0)
+			{
+				int k = 1000;
+				int m = k * k;
+				if (stm_info.audio_info.bitrate >= 1024 * 1024)
+					printf("\tBitrate: %d.%03d mbps.\r\n", stm_info.audio_info.bitrate / m, stm_info.audio_info.bitrate * 1000 / m % 1000);
+				else if(stm_info.audio_info.bitrate >= 1024)
+					printf("\tBitrate: %d.%03d kbps.\r\n", stm_info.audio_info.bitrate / k, stm_info.audio_info.bitrate * 1000 / k % 1000);
+				else
+					printf("\tBitrate: %d bps.\r\n", stm_info.audio_info.bitrate);
+			}
 		}
 	}
 
@@ -565,7 +1184,7 @@ int WriteWaveFileBuffer(FILE* fw, unsigned PID, int stream_type, unsigned char* 
 	// CHANNLE_LOC -> SPEAKER_LOC -> Channel Number
 	int speaker_ch_num = 0;
 	int Speaker_Channel_Numbers[32] = { -1 };
-	for (int i = SPEAKER_LOC_FRONT_LEFT; i < SPEAKER_LOC_MAX; i++)
+	for (int i = SPEAKER_POS_FRONT_LEFT; i < SPEAKER_POS_MAX; i++)
 		if (dwChannelMask&CHANNEL_BITMASK(i))
 			Speaker_Channel_Numbers[i] = speaker_ch_num++;
 

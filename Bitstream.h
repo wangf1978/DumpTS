@@ -69,6 +69,9 @@ public:
 
 	/*!	@brief Get bits value from the current bitstream. */
 	uint64_t			GetBits(int n);
+
+	template <typename T> 
+	void				GetBits(int n, T& val);
 	/*!	@brief Peek bits value without changing bitstream status
 		@remarks if bitstream is related with Ring-Chunk(type=BST_TYPE_RINGCHUNK), in the current chunk,
 		the left bits is not enough for peeking, the exception will be raised. */
@@ -91,6 +94,8 @@ public:
 	/*!	@brief Get one 64-bit signed integer from bit-stream. */
 	int64_t				GetLongLong();
 
+	uint32_t			Tell(int* left_bits_in_bst = NULL);
+
 protected:
 	int					GetAllLeftBits();
 	uint64_t			_GetBits(int n, bool bPeek = false, bool bThrowExceptionHitStartCode = false);
@@ -103,6 +108,11 @@ private:
 	AM_BST_CURSOR		cursor;
 	AM_BST_CURSOR		save_point;
 };
+
+template <typename T> void CBitstream::GetBits(int n, T& val)
+{
+	val = (T)GetBits(n);
+}
 
 template<class First, class Tuple, std::size_t N, std::size_t K = N>
 struct ArrayFiller {
