@@ -18,13 +18,13 @@ Use VS2015 to open DumpTS.sln to build it
 |:--|:----:|:--|
 |**--output**||the output dumped file path|
 |**--pid**|*0xhhhh*|the PID of dumped stream|
-|**--destpid**|*0xhhhh*|the PID of source stream will be placed with this PID|
+|**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
 |**--srcfmt**|*ts, m2ts, tts*|the source TS format, Including: ts, m2ts,if it is not specified, find the sync-word to decide it|
 |**--outputfmt**|*ts, m2ts, pes, es, wav, pcm*|the destination dumped format, including: ts, m2ts, pes, es and so on|
 |**--showpts**||print the pts of every elementary stream packet|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
-|**--showinfo**||print the media information of elementary stream, for example, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
+|**--showinfo**||print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
 |**--verbose**||print more message in the intermediate process|
  
 Here are some examples of command lines:  
