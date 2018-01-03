@@ -147,3 +147,4 @@ extern unsigned long Channel_Speaker_Mapping[22];
 extern std::vector<CHANNEL_LOC> dts_audio_channel_arragements[16];
 extern std::tuple<std::string/*Notation*/, std::string/*Desc*/, uint32_t/*ch_loc*/, uint8_t/*number of channels*/> dtshd_speaker_bitmask_table[16];
 extern std::vector<CHANNEL_LOC> aac_channel_configurations[8];
+extern std::vector<CHANNEL_LOC> mpega_channel_mode_layouts[4];

@@ -385,3 +385,17 @@ std::vector<CHANNEL_LOC> aac_channel_configurations[8] = {
 	/* 7 */{CH_LOC_CENTER, CH_LOC_LC, CH_LOC_RC, CH_LOC_LS, CH_LOC_RS, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_LFE}
 };
 
+std::vector<CHANNEL_LOC> mpega_channel_mode_layouts[4] = {
+	/*
+	Channel Mode
+	00 - Stereo
+	01 - Joint stereo (Stereo)
+	10 - Dual channel (2 mono channels)
+	11 - Single channel (Mono)
+	*/
+	{CH_LOC_LEFT, CH_LOC_RIGHT},
+	{CH_LOC_LEFT, CH_LOC_RIGHT},
+	{CH_MONO, CH_MONO},
+	{CH_MONO}
+};
+

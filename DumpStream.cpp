@@ -33,6 +33,7 @@ extern DUMP_STATUS g_dump_status;
 #define DTS_SYNCWORD_SUBSTREAM_CORE 0x02b09261
 
 #define AAC_SYNCWORD				0xFFF
+#define MPEGA_FRAME_SYNC			0x7FF
 
 struct AUDIO_INFO
 {
@@ -913,101 +914,186 @@ int ParseADTSFrame(unsigned short PID, int stream_type, unsigned long sync_code,
 {
 	int iRet = -1;
 
-	CBitstream bst(pBuf, cbSize << 3);
-
-	bst.SkipBits(12);
-
-	/*
-	adts_fixed_header
-	*/
-	uint8_t ID;
-	uint8_t layer;
-	uint8_t protection_absent;
-	uint8_t profile;
-	uint8_t sampling_frequency_index;
-	uint8_t private_bit;
-	uint8_t channel_configuration;
-	uint8_t original_copy;
-	uint8_t home;
-
-	bst.GetBits(1, ID);
-	bst.GetBits(2, layer);
-	bst.GetBits(1, protection_absent);
-	bst.GetBits(2, profile);
-	bst.GetBits(4, sampling_frequency_index);
-	bst.GetBits(1, private_bit);
-	bst.GetBits(3, channel_configuration);
-	bst.GetBits(1, original_copy);
-	bst.GetBits(1, home);
-
-	/*
-	adts_variable_header
-	*/
-	uint8_t copyright_identification_bit;
-	uint8_t copyright_identification_start;
-	uint16_t frame_length;
-	uint16_t adts_buffer_fullness;
-	uint8_t number_of_raw_data_blocks_in_frame;
-	
-	bst.GetBits(1, copyright_identification_bit);
-	bst.GetBits(1, copyright_identification_start);
-	bst.GetBits(13, frame_length);
-	bst.GetBits(11, adts_buffer_fullness);
-	bst.GetBits(2, number_of_raw_data_blocks_in_frame);
-
-	static uint32_t sampling_frequencies[] = {
-		96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000
-	};
-
-	audio_info.stream_coding_type = stream_type;
-
-	audio_info.audio_info.bits_per_sample = 16;
-	audio_info.audio_info.sample_frequency = sampling_frequencies[sampling_frequency_index];
-	audio_info.audio_info.bitrate = 0;
-
-	if (channel_configuration == 0)
+	try
 	{
+		CBitstream bst(pBuf, cbSize << 3);
+
+		bst.SkipBits(12);
+
 		/*
-		If channel_configuration is greater than 0, the channel configuration is given by the ¡®Default
-		bitstream index number¡¯ in Table 42, see subclause 8.5. If channel_configuration equals 0,
-		the channel configuration is not specified in the header and must be given by a program_config_element() 
-		following as first syntactic element in the first raw_data_block() after the header, or by the implicit 
-		configuration (see subclause 8.5) or must be known in the application (Table 8).
+		adts_fixed_header
 		*/
-		uint16_t crc_check;
-		if (number_of_raw_data_blocks_in_frame == 0)
+		uint8_t ID;
+		uint8_t layer;
+		uint8_t protection_absent;
+		uint8_t profile;
+		uint8_t sampling_frequency_index;
+		uint8_t private_bit;
+		uint8_t channel_configuration;
+		uint8_t original_copy;
+		uint8_t home;
+
+		bst.GetBits(1, ID);
+		bst.GetBits(2, layer);
+		bst.GetBits(1, protection_absent);
+		bst.GetBits(2, profile);
+		bst.GetBits(4, sampling_frequency_index);
+		bst.GetBits(1, private_bit);
+		bst.GetBits(3, channel_configuration);
+		bst.GetBits(1, original_copy);
+		bst.GetBits(1, home);
+
+		/*
+		adts_variable_header
+		*/
+		uint8_t copyright_identification_bit;
+		uint8_t copyright_identification_start;
+		uint16_t frame_length;
+		uint16_t adts_buffer_fullness;
+		uint8_t number_of_raw_data_blocks_in_frame;
+
+		bst.GetBits(1, copyright_identification_bit);
+		bst.GetBits(1, copyright_identification_start);
+		bst.GetBits(13, frame_length);
+		bst.GetBits(11, adts_buffer_fullness);
+		bst.GetBits(2, number_of_raw_data_blocks_in_frame);
+
+		static uint32_t sampling_frequencies[] = {
+			96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000
+		};
+
+		audio_info.stream_coding_type = stream_type;
+
+		audio_info.audio_info.bits_per_sample = 16;
+		audio_info.audio_info.sample_frequency = sampling_frequencies[sampling_frequency_index];
+		audio_info.audio_info.bitrate = 0;
+
+		if (channel_configuration == 0)
 		{
-			// Skip adts_error_check();
-			if (!protection_absent)
-				bst.GetBits(16, crc_check);
+			/*
+			If channel_configuration is greater than 0, the channel configuration is given by the ¡®Default
+			bitstream index number¡¯ in Table 42, see subclause 8.5. If channel_configuration equals 0,
+			the channel configuration is not specified in the header and must be given by a program_config_element()
+			following as first syntactic element in the first raw_data_block() after the header, or by the implicit
+			configuration (see subclause 8.5) or must be known in the application (Table 8).
+			*/
+			uint16_t crc_check;
+			if (number_of_raw_data_blocks_in_frame == 0)
+			{
+				// Skip adts_error_check();
+				if (!protection_absent)
+					bst.GetBits(16, crc_check);
+			}
+			else
+			{
+				uint16_t raw_data_block_position[4];
+				// Skip adts_header_error_check();
+				if (!protection_absent)
+				{
+					for (int i = 1; i <= number_of_raw_data_blocks_in_frame; i++)
+						bst.GetBits(16, raw_data_block_position[i]);
+					bst.GetBits(16, crc_check);
+				}
+			}
+
+			uint8_t id_sync_ele;
+			bst.GetBits(3, id_sync_ele);
+			if (id_sync_ele != ID_PCE)
+				return -1;
+
+
+
 		}
 		else
 		{
-			uint16_t raw_data_block_position[4];
-			// Skip adts_header_error_check();
-			if (!protection_absent)
-			{
-				for (int i = 1; i <= number_of_raw_data_blocks_in_frame; i++)
-					bst.GetBits(16, raw_data_block_position[i]);
-				bst.GetBits(16, crc_check);
-			}
+			audio_info.audio_info.channel_mapping = 0;
+			for (size_t i = 0; i < aac_channel_configurations[channel_configuration].size(); i++)
+				audio_info.audio_info.channel_mapping |= CHANNEL_BITMASK(aac_channel_configurations[channel_configuration][i]);
+
+			iRet = 0;
 		}
-
-		uint8_t id_sync_ele;
-		bst.GetBits(3, id_sync_ele);
-		if (id_sync_ele != ID_PCE)
-			return -1;
-
-
-
 	}
-	else
+	catch (...)
 	{
+		iRet = -1;
+	}
+
+	return iRet;
+}
+
+int ParseMPEGAudioFrame(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
+{
+	int iRet = -1;
+	uint8_t MPEG_Audio_VerID;
+	uint8_t LayerID;
+	uint8_t protection;
+	uint8_t bitrate_index;
+	uint8_t sampling_rate_frequency_index;
+	uint8_t padding;
+	uint8_t private_bit;
+	uint8_t channel_mode;
+	uint8_t mode_extension;
+	uint8_t copyright;
+	uint8_t original;
+	uint8_t emphasis;
+
+	static uint32_t bitrate_tab[16][2][3] = {
+		{ { 0, 0, 0 },{ 0, 0, 0 } },
+		{ { 32000, 32000, 32000 },{ 32000, 8000, 8000 } },
+		{ { 64000, 48000, 40000 },{ 48000, 16000, 16000 } },
+		{ { 96000, 56000, 48000 },{ 56000, 24000, 24000 } },
+		{ { 128000, 64000, 56000 },{ 64000, 32000, 32000 } },
+		{ { 160000, 80000, 64000 },{ 80000, 40000, 40000 } },
+		{ { 192000, 96000, 80000 },{ 96000, 48000, 48000 } },
+		{ { 224000, 112000, 96000 },{ 112000, 56000, 56000 } },
+		{ { 256000, 128000, 112000 },{ 128000, 64000, 64000 } },
+		{ { 288000, 160000, 128000 },{ 144000, 80000, 80000 } },
+		{ { 320000, 192000, 160000 },{ 160000, 96000, 96000 } },
+		{ { 352000, 224000, 192000 },{ 176000, 112000, 112000 } },
+		{ { 384000, 256000, 224000 },{ 192000, 128000, 128000 } },
+		{ { 416000, 320000, 256000 },{ 224000, 144000, 144000 } },
+		{ { 448000, 384000, 320000 },{ 256000, 160000, 160000 } },
+		{ { 0, 0, 0 },{ 0, 0, 0 } }
+	};
+
+	static uint32_t Sampling_rates[4][3] = {
+		{44100, 22050, 11025},
+		{48000, 24000, 12000},
+		{32000, 16000, 8000},
+		{0, 0, 0}
+	};
+
+	try
+	{
+		CBitstream bst(pBuf, cbSize << 3);
+
+		bst.SkipBits(11);
+		bst.GetBits(2, MPEG_Audio_VerID);
+		bst.GetBits(2, LayerID);
+		bst.GetBits(1, protection);
+		bst.GetBits(4, bitrate_index);
+		bst.GetBits(2, sampling_rate_frequency_index);
+		bst.GetBits(1, padding);
+		bst.GetBits(1, private_bit);
+		bst.GetBits(2, channel_mode);
+		bst.GetBits(2, mode_extension);
+		bst.GetBits(1, copyright);
+		bst.GetBits(1, original);
+		bst.GetBits(2, emphasis);
+
+		audio_info.stream_coding_type = stream_type;
+		audio_info.audio_info.bitrate = bitrate_tab[bitrate_index][MPEG_Audio_VerID == 3 ? 0 : 1][3 - LayerID];
+		audio_info.audio_info.bits_per_sample = 16;
+		audio_info.audio_info.sample_frequency = Sampling_rates[sampling_rate_frequency_index][MPEG_Audio_VerID == 3 ? 0 : (MPEG_Audio_VerID == 0 ? 2 : 1)];
 		audio_info.audio_info.channel_mapping = 0;
-		for (size_t i = 0; i < aac_channel_configurations[channel_configuration].size(); i++)
-			audio_info.audio_info.channel_mapping |= CHANNEL_BITMASK(aac_channel_configurations[channel_configuration][i]);
+		for (size_t i = 0; i < mpega_channel_mode_layouts[channel_mode].size(); i++)
+			audio_info.audio_info.channel_mapping |= CHANNEL_BITMASK(mpega_channel_mode_layouts[i][i]);
 
 		iRet = 0;
+	}
+	catch (...)
+	{
+		iRet = -1;
 	}
 
 	return iRet;
@@ -1160,7 +1246,24 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 		{
 			iParseRet = 0;
 		}
-		
+	}
+	else if (MPEG1_AUDIO_STREAM == stream_type || MPEG2_AUDIO_STREAM == stream_type)
+	{
+		unsigned short sync_code = p[0];
+		while (cbLeft >= 4)
+		{
+			sync_code = (sync_code << 8) | p[1];
+			if ((sync_code & 0xFFE0) == (MPEGA_FRAME_SYNC << 5))
+				break;
+
+			cbLeft--;
+			p++;
+		}
+
+		if (ParseMPEGAudioFrame(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
+		{
+			iParseRet = 0;
+		}
 	}
 
 	if (iParseRet == 0)
@@ -1196,7 +1299,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			printf("\tBits Per Sample: %d.\r\n", stm_info.audio_info.bits_per_sample);
 			printf("\tChannel Layout: %s.\r\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
 
-			if (stm_info.audio_info.bitrate != 0)
+			if (stm_info.audio_info.bitrate != 0 && stm_info.audio_info.bitrate != 0xFFFFFFFE)
 			{
 				int k = 1000;
 				int m = k * k;
@@ -1790,7 +1893,7 @@ int DumpOneStream()
 								printf("Program(PID:0X%X)\r\n", PID);
 								for (auto iter = stm_types.cbegin(); iter != stm_types.cend(); iter++, idxStm++)
 								{
-									printf("\tStream#%d, PID: 0X%X, stm_type: 0X%X\r\n", idxStm, iter->first, iter->second);
+									printf("\tStream#%d, PID: 0X%X, stm_type: 0X%X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
 								}
 								printf("\r\n");
 							}
