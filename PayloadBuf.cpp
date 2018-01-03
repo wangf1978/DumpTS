@@ -357,6 +357,11 @@ int CPayloadBuf::GetPMTInfo(unsigned short ES_PID, unsigned char& stream_type)
 	return 0;
 }
 
+unordered_map<unsigned short, unsigned char>& CPayloadBuf::GetStreamTypes()
+{
+	return m_stream_types;
+}
+
 void CPayloadBuf::Reset()
 {
 	slices.clear();

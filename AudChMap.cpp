@@ -347,3 +347,41 @@ std::vector<CHANNEL_LOC> dts_audio_channel_arragements[16] = {
 	/*0b001111*/{ CH_LOC_LC, CH_LOC_CENTER, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_SURROUND, CH_LOC_RS },
 };
 
+std::vector<CHANNEL_LOC> aac_channel_configurations[8] = {
+	/*
+	Default bitstream	number of speakers 	audio syntactic elements, 	default element to 
+	index number							listed in order received	speaker mapping
+	1					1					single_channel_element		center front speaker
+	2					2					channel_pair_element		left, right front speakers
+	3					3					single_channel_element(), 
+											channel_pair_element()		center front speaker/left, right front speakers
+	4					4					single_channel_element(),
+											channel_pair_element(),
+											single_channel_element() 	center front speaker/left, right center front speakers, rear surround
+	5					5					single_channel_element(), 
+											channel_pair_element(), 
+											channel_pair_element()		center front speaker/left, right front speakers, left surround, right surround rear speakers
+	6					5+1					single_channel_element(), 
+											channel_pair_element(), 
+											channel_pair_element(),
+											lfe _element()				center front speaker, left, right front speakers, 
+																		left surround, right surround rear speakers, front low frequency effects speaker
+	7					7+1					single_channel_element(),
+											channel_pair_element(),
+											channel_pair_element(),
+											channel_pair_element(),
+											lfe_element()				center front speaker, left, right center front speakers,
+																		left, right outside front speakers,
+																		left surround, right surround rear speakers, 
+																		front low frequency effects speaker
+	*/
+	/* 0 */{},
+	/* 1 */{CH_LOC_CENTER},
+	/* 2 */{CH_LOC_LEFT, CH_LOC_RIGHT},
+	/* 3 */{CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT},
+	/* 4 */{CH_LOC_CENTER, CH_LOC_LC, CH_LOC_RC, CH_LOC_CS},
+	/* 5 */{CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS},
+	/* 6 */{CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_LFE},
+	/* 7 */{CH_LOC_CENTER, CH_LOC_LC, CH_LOC_RC, CH_LOC_LS, CH_LOC_RS, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_LFE}
+};
+

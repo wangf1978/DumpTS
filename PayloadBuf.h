@@ -146,6 +146,8 @@ public:
 
 	int GetPMTInfo(unsigned short ES_PID, unsigned char& stream_type);
 
+	unordered_map<unsigned short, unsigned char>& GetStreamTypes();
+
 	void Reset();
 
 	int WriteBack(unsigned long off, unsigned char* pBuf, unsigned long cbSize);
