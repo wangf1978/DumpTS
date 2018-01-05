@@ -31,6 +31,7 @@ const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 extern int	RefactorTS();
 extern int	DumpOneStream();
 extern int	DumpPartialTS();
+extern int	DumpMP4();
 
 bool TryFitMPEGSysType(FILE* rfp, MPEG_SYSTEM_TYPE eMPEGSysType, unsigned short& packet_size, unsigned short& num_of_prefix_bytes, unsigned short& num_of_suffix_bytes, bool& bEncrypted)
 {
@@ -103,7 +104,7 @@ void ParseCommandLine(int argc, char* argv[])
 	g_params.insert({ "input", argv[1] });
 
 	std::string str_arg_prefixes[] = {
-		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose"
+		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox"
 	};
 
 	for (int iarg = 2; iarg < argc; iarg++)
@@ -117,7 +118,8 @@ void ParseCommandLine(int argc, char* argv[])
 			if (strArg.find(str_arg_prefixes[i] + "=") == 0)
 			{
 				string strVal = strArg.substr(str_arg_prefixes[i].length() + 1);
-				std::transform(strVal.begin(), strVal.end(), strVal.begin(), ::tolower);
+				if (strArg.compare("removebox") != 0)
+					std::transform(strVal.begin(), strVal.end(), strVal.begin(), ::tolower);
 				g_params.insert({ str_arg_prefixes[i],  strVal });
 				break;
 			}
@@ -131,7 +133,17 @@ void ParseCommandLine(int argc, char* argv[])
 	unordered_map<std::string, std::string>::const_iterator iter = g_params.cbegin();
 	for (; iter != g_params.cend(); iter++)
 	{
-		printf("%s : %s.\r\n", iter->first.c_str(), iter->second.c_str());
+		if (iter->second.length() == 0)
+		{
+			if (iter->first.compare("showpts") == 0 || 
+				iter->first.compare("showinfo") == 0 ||
+				iter->first.compare("verbose") == 0)
+				printf("%s : yes\r\n", iter->first.c_str());
+			else
+				printf("%s : %s\r\n", iter->first.c_str(), iter->second.c_str());
+		}
+		else
+			printf("%s : %s\r\n", iter->first.c_str(), iter->second.c_str());
 	}
 
 	// Set the default values
@@ -234,6 +246,14 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
+		else if (iter->second.compare("mp4") == 0)
+		{
+			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_MP4;
+			g_ts_fmtinfo.packet_size = 0xFFFF;
+			g_ts_fmtinfo.encrypted = false;
+			g_ts_fmtinfo.num_of_prefix_bytes = 0;
+			g_ts_fmtinfo.num_of_suffix_bytes = 0;
+		}
 	}
 
 	if (g_ts_fmtinfo.packet_size == 0)
@@ -314,6 +334,7 @@ void PrintHelp()
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\r\n");
 	printf("\t--srcfmt\t\tThe source TS format, including: ts, m2ts, if it is not specified, find the sync-word to decide it\r\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\r\n");
+	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\r\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\r\n");
 	printf("\t--stream_id_extension\t\tThe stream_id_extension in PES header of dumped stream\r\n");
@@ -323,6 +344,7 @@ void PrintHelp()
 	printf("Examples:\r\n");
 	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\r\n");
 	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\r\n");
+	printf("DumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\r\n");
 
 	return;
 }
@@ -365,7 +387,11 @@ int main(int argc, char* argv[])
 	}
 
 	// If the output format is ES/PES, and PID is also specified, go into the DumpOneStream mode
-	if (g_params.find("pid") != g_params.end())
+	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mp4") == 0)
+	{
+		nDumpRet = DumpMP4();
+	}
+	else if (g_params.find("pid") != g_params.end())
 	{
 		if (g_params.find("outputfmt") == g_params.end())
 			g_params["outputfmt"] = "es";

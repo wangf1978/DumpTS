@@ -5,6 +5,7 @@ DumpTS is a simple utility tool to process TS/M2TS stream file, which will provi
 - Re-factor a TS/M2TS stream file in place
 - Extract some elementary streams, and reconstruct a partial TS/M2TS file
 - Show media information of elementary streams
+- Show MP4 information, and provide some utility feature for MP4 reconstruction
 
 # How to build?
 
@@ -19,13 +20,14 @@ Use VS2015 to open DumpTS.sln to build it
 |**--output**||the output dumped file path|
 |**--pid**|*0xhhhh*|the PID of dumped stream|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
-|**--srcfmt**|*ts, m2ts, tts*|the source TS format, Including: ts, m2ts,if it is not specified, find the sync-word to decide it|
+|**--srcfmt**|*ts, m2ts, tts, mp4*|the source TS format, Including: ts, m2ts,if it is not specified, find the sync-word to decide it|
 |**--outputfmt**|*ts, m2ts, pes, es, wav, pcm*|the destination dumped format, including: ts, m2ts, pes, es and so on|
 |**--showpts**||print the pts of every elementary stream packet|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--showinfo**||print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
 |**--verbose**||print more message in the intermediate process|
+|**--removebox**|'xxxx,xxxx'|remove the box elements in MP4 file
  
 Here are some examples of command lines:  
 
@@ -44,3 +46,7 @@ DumpTS C:\00022.m2ts --output=c:\00022.mlp --pid=0x1100 --srcfmt=m2ts --outputfm
 --stream\_id\_extension=0x72  
 ```
 It will dump a MLP sub-stream from C:\00022.m2ts with the PID 0x1100 and stream\_id\_extension in PES: 0x72
+```
+DumpTS C:\\test.mp4 --showinfo --removebox='unkn'
+```
+Show the MP4 file box layout, and remove box with type 'unkn'
