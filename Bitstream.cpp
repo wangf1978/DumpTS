@@ -3,6 +3,10 @@
 #include <exception>
 #include <assert.h>
 
+CBitstream::CBitstream()
+	: CBitstream(NULL, 0)
+{}
+
 CBitstream::CBitstream(uint8_t* pBuf, size_t cbitSize)
 {
 	size_t cbSize = (cbitSize + 7) >> 3;
@@ -86,7 +90,7 @@ void CBitstream::_FillCurrentBits(bool bPeek)
 	}
 }
 
-uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bThrowExceptionHitStartCode)
+uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bFullBufferMode, bool bThrowExceptionHitStartCode)
 {
 	UNREFERENCED_PARAMETER(bThrowExceptionHitStartCode);
 
@@ -98,16 +102,27 @@ uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bThrowExceptionHitStartCod
 		assert(save_point.p == NULL);
 	}
 
-	int nAllLeftBits = GetAllLeftBits();
-	if (n > nAllLeftBits)
-		throw std::exception("invalid parameter, no enough data");
+	if (bFullBufferMode)
+	{
+		int nAllLeftBits = GetAllLeftBits();
+		if (n > nAllLeftBits)
+			throw std::exception("invalid parameter, no enough data");
 
-	if (cursor.bits_left == 0)
-		_UpdateCurBits();
+		if (cursor.bits_left == 0)
+			_UpdateCurBits();
 
-	// Activate a save_point for the current bit-stream cursor
-	if (bPeek)
-		save_point = cursor;
+		// Activate a save_point for the current bit-stream cursor
+		if (bPeek)
+			save_point = cursor;
+	}
+
+	if (!bFullBufferMode)
+	{
+		if (cursor.p == cursor.p_end && cursor.bits_left == 0)
+		{
+			_FillCurrentBits(bPeek);
+		}
+	}
 
 	while (n > 0 && cursor.bits_left > 0)
 	{
@@ -180,47 +195,7 @@ uint64_t CBitstream::PeekBits(int n)
 	return _GetBits(n, true);
 }
 
-uint8_t CBitstream::GetByte()
-{
-	return (uint8_t)GetBits(8);
-}
-
-uint16_t CBitstream::GetWord()
-{
-	return (uint16_t)GetBits(16);
-}
-
-uint32_t CBitstream::GetDWord()
-{
-	return (uint32_t)GetBits(32);
-}
-
-uint64_t CBitstream::GetQWord()
-{
-	return (uint64_t)GetBits(64);
-}
-
-int8_t CBitstream::GetChar()
-{
-	return (int8_t)GetBits(8);
-}
-
-int16_t CBitstream::GetShort()
-{
-	return (int16_t)GetBits(16);
-}
-
-int32_t CBitstream::GetLong()
-{
-	return (int32_t)GetBits(32);
-}
-
-int64_t CBitstream::GetLongLong()
-{
-	return (int64_t)GetBits(64);
-}
-
-uint32_t CBitstream::Tell(int* left_bits_in_bst)
+uint64_t CBitstream::Tell(uint64_t* left_bits_in_bst)
 {
 	if (cursor.p_start == NULL || cursor.p == NULL)
 	{
@@ -233,10 +208,184 @@ uint32_t CBitstream::Tell(int* left_bits_in_bst)
 	if (left_bits_in_bst != NULL)
 		*left_bits_in_bst = nAllLeftBits;
 
-	return (uint32_t)(8 * (cursor.p_end - cursor.p_start - cursor.start_offset) - nAllLeftBits);
+	return (uint64_t)(8 * (cursor.p_end - cursor.p_start - cursor.start_offset) - nAllLeftBits);
+}
+
+int CBitstream::Seek(uint64_t bit_pos)
+{
+	if (bit_pos > (cursor.p_end - cursor.p_start - cursor.start_offset) * 8)
+		return -1;
+
+	if (bit_pos == (uint64_t)-1LL)
+		bit_pos = (uint64_t)(cursor.p_end - cursor.p_start - cursor.start_offset) * 8;
+
+	uint8_t* ptr_dest = cursor.p_start + (bit_pos + cursor.start_offset * 8) / (sizeof(CURBITS_TYPE) * 8) * sizeof(CURBITS_TYPE);
+	size_t bytes_left = (size_t)(cursor.p_end - cursor.p);
+	size_t bits_left = std::min(bytes_left, sizeof(CURBITS_TYPE)) * 8 - (bit_pos + cursor.start_offset * 8) % (sizeof(CURBITS_TYPE) * 8);
+
+	cursor.p = ptr_dest;
+	_UpdateCurBits();
+	cursor.bits_left = bits_left;
+
+	return 0;
 }
 
 
 CBitstream::~CBitstream()
 {
+}
+
+CFileBitstream::CFileBitstream(const char* szFileName, int cache_size, int* ptr_ret)
+{
+	int iRet = -1;
+	if (cache_size < sizeof(int64_t))
+		goto done;
+
+	errno_t err_no = fopen_s(&m_fp, szFileName, "rb");
+	if (err_no != 0 || m_fp == NULL)
+		goto done;
+
+	if (_fseeki64(m_fp, -1, SEEK_END) != 0)
+		goto done;
+
+	m_filesize = _ftelli64(m_fp);
+	if (_fseeki64(m_fp, 0, SEEK_SET) != 0)
+		goto done;
+
+	cursor.p_start = new uint8_t[(cache_size + 3) / 4 * 4 + 4];
+	if (cursor.p_start == NULL) {
+		goto done;
+	}
+
+	cursor.start_offset = 0;
+	cursor.p = cursor.p_end = cursor.p_start;
+	cursor.buf_size = cache_size;
+	cursor.exclude_bits = 0;
+	cursor.curbits = 0;
+	cursor.bits_left = 0;
+	
+	iRet = 0;
+
+done:
+	if (ptr_ret)
+		*ptr_ret = iRet;
+
+	if (iRet < 0)
+	{
+		if (m_fp != NULL)
+		{
+			fclose(m_fp);
+			m_fp = NULL;
+		}
+	}
+}
+
+CFileBitstream::~CFileBitstream()
+{
+	if (m_fp != NULL)
+	{
+		fclose(m_fp);
+		m_fp = NULL;
+	}
+}
+
+uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
+{
+	/*
+	                                               ______ File position
+	                                              /
+	|______________________                      /_________________
+	                       |<-- Cache Buffer -->|
+                 p_start__/      \               \
+	                              \               \____ p_end
+	                               \_ p
+	*/
+
+	long long file_pos = _ftelli64(m_fp);
+
+	if (file_pos < 0 || file_pos < (cursor.p_end - cursor.p))
+		throw std::exception("invalid file position");
+
+	uint64_t byte_position = file_pos - (cursor.p_end - cursor.p);
+	uint64_t bitpos_in_curword = std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) - cursor.bits_left;
+
+	if (left_bits_in_bst)
+	{
+		int nAllLeftBits = GetAllLeftBits();
+		*left_bits_in_bst = nAllLeftBits + ((m_filesize - file_pos) << 3);
+	}
+
+	return (byte_position << 3) + bitpos_in_curword;
+}
+
+int CFileBitstream::Seek(uint64_t bitpos)
+{
+	/*
+	                                               ______ File position
+	                                              /
+	|______________________                      /_________________
+	                       |<-- Cache Buffer -->|
+                 p_start__/      \               \
+	                              \               \____ p_end
+	                               \_ p
+	*/
+	// At first check whether bitpos lies at the Cache Buffer or not
+	long long file_pos = _ftelli64(m_fp);
+
+	uint64_t file_pos_p_start = file_pos - (cursor.p_end - cursor.p_start);	// start_offset is always equal to 0
+	uint64_t file_pos_p_end = file_pos;
+
+	int iRet = -1;
+	if (bitpos >= (file_pos_p_start << 3) && bitpos < (file_pos_p_end << 3))
+	{
+		iRet = CBitstream::Seek(bitpos - (file_pos_p_start << 3));
+	}
+	else if (bitpos < (uint64_t)(m_filesize<<3))
+	{
+		// Calculate the correct file position
+		size_t align_bitcount = sizeof(CURBITS_TYPE)<<3;
+		uint64_t byte_file_pos = bitpos / align_bitcount;
+		if (_fseeki64(m_fp, byte_file_pos, SEEK_SET) != 0)
+			return -1;
+
+		cursor.p = cursor.p_end;
+		cursor.bits_left = 0;
+
+		_FillCurrentBits();
+
+		// Locate to bit position
+		cursor.bits_left = std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) - (bitpos % align_bitcount);
+	}
+
+	return iRet;
+}
+
+void CFileBitstream::_FillCurrentBits(bool bPeek)
+{
+	assert(cursor.bits_left == 0);
+
+	bool bExhaust = (cursor.p == cursor.p_end && cursor.bits_left == 0) ? true : false;
+	if (false == bExhaust)
+		return;
+
+	bool bEos = false;
+
+	size_t cbRead = fread(cursor.p_start, 1, cursor.buf_size, m_fp);
+	if (cbRead <= 0)
+		return;
+
+	bEos = feof(m_fp)?true:false;
+
+	if (bPeek)
+	{
+		// Activate a save point for future restore
+		save_point = cursor;
+	}
+
+	cursor.p = cursor.p_start;
+	cursor.p_end = cursor.p_start + cbRead;
+
+	_UpdateCurBits(bEos);
+
+	return;
 }

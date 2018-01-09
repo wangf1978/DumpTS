@@ -58,6 +58,7 @@ public:
 		uint8_t*			p_end;						// bitstream end pointer, [start_pointer, end_pointer - exclude_bits) contains valid data
 		uint8_t				exclude_bits;				// how many last bits are excluded in the last byte *(end_pointer-1)
 		uint8_t				reserved[3];
+		int					buf_size;
 		int					start_offset;
 		int					bits_left;					// How many bits left in "curbits"
 		CURBITS_TYPE		curbits;					// It is used for read/get operation
@@ -65,18 +66,22 @@ public:
 
 public:
 	CBitstream(uint8_t* pBuf, size_t cbitSize);
-	~CBitstream();
+	virtual ~CBitstream();
 
 	/*!	@brief Get bits value from the current bitstream. */
-	uint64_t			GetBits(int n);
+	virtual uint64_t	GetBits(int n);
 
-	template <typename T> 
-	void				GetBits(int n, T& val);
 	/*!	@brief Peek bits value without changing bitstream status
 		@remarks if bitstream is related with Ring-Chunk(type=BST_TYPE_RINGCHUNK), in the current chunk,
 		the left bits is not enough for peeking, the exception will be raised. */
-	uint64_t			PeekBits(int n);
-	int					SkipBits(int skip_bits);
+	virtual uint64_t	PeekBits(int n);
+	virtual int			SkipBits(int skip_bits);
+	/*!	@brief Return the position of bit-stream in unit of bits. */
+	virtual uint64_t	Tell(uint64_t* left_bits_in_bst = NULL);
+	/*!	@brief Seek to the absolute position in the specified bit-stream. */
+	virtual int			Seek(uint64_t bit_pos);
+
+
 	/*!	@brief Get one byte from bit-stream. */
 	uint8_t				GetByte();
 	/*!	@brief Get one 16-bit unsigned short integer/WORD from bit-stream. */
@@ -94,24 +99,90 @@ public:
 	/*!	@brief Get one 64-bit signed integer from bit-stream. */
 	int64_t				GetLongLong();
 
-	uint32_t			Tell(int* left_bits_in_bst = NULL);
+	template <typename T>
+	void				GetBits(int n, T& val);
 
 protected:
-	int					GetAllLeftBits();
-	uint64_t			_GetBits(int n, bool bPeek = false, bool bThrowExceptionHitStartCode = false);
-	void				_UpdateCurBits(bool bEos = false);
-	void				_Advance_InCacheBits(int n);
-	void				_FillCurrentBits(bool bPeek = false);
+	virtual int			GetAllLeftBits();
+	/*! Get or peek bits from the underlying buffer. 
+		@param bFullBufferMode if its value is true, it means that all data is already in the buffer. */
+	virtual uint64_t	_GetBits(int n, bool bPeek = false, bool bFullBufferMode=true, bool bThrowExceptionHitStartCode = false);
+	virtual void		_UpdateCurBits(bool bEos = false);
+	virtual void		_Advance_InCacheBits(int n);
+	virtual void		_FillCurrentBits(bool bPeek = false);
+	
 	void				CleanSavePoint() {save_point.p = NULL;}
 
-private:
+protected:
+	CBitstream();
+
+protected:
 	AM_BST_CURSOR		cursor;
 	AM_BST_CURSOR		save_point;
+};
+
+class CFileBitstream : public CBitstream
+{
+public:
+	CFileBitstream(const char* szFileName, int cache_size = 0, int* ptr_ret = NULL);
+	virtual ~CFileBitstream();
+
+	/*!	@brief Return the position of bit-stream in unit of bits. */
+	virtual uint64_t	Tell(uint64_t* left_bits_in_bst = NULL);
+	/*!	@brief Seek to the absolute position in the specified bit-stream. */
+	virtual int			Seek(uint64_t bit_pos);
+
+protected:
+	virtual void		_FillCurrentBits(bool bPeek = false);
+
+protected:
+	FILE*				m_fp;
+	int64_t				m_filesize;
 };
 
 template <typename T> void CBitstream::GetBits(int n, T& val)
 {
 	val = (T)GetBits(n);
+}
+
+inline uint8_t CBitstream::GetByte()
+{
+	return (uint8_t)GetBits(8);
+}
+
+inline uint16_t CBitstream::GetWord()
+{
+	return (uint16_t)GetBits(16);
+}
+
+inline uint32_t CBitstream::GetDWord()
+{
+	return (uint32_t)GetBits(32);
+}
+
+inline uint64_t CBitstream::GetQWord()
+{
+	return (uint64_t)GetBits(64);
+}
+
+inline int8_t CBitstream::GetChar()
+{
+	return (int8_t)GetBits(8);
+}
+
+inline int16_t CBitstream::GetShort()
+{
+	return (int16_t)GetBits(16);
+}
+
+inline int32_t CBitstream::GetLong()
+{
+	return (int32_t)GetBits(32);
+}
+
+inline int64_t CBitstream::GetLongLong()
+{
+	return (int64_t)GetBits(64);
 }
 
 template<class First, class Tuple, std::size_t N, std::size_t K = N>
