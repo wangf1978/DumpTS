@@ -114,6 +114,10 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 		{
 			if ((iRet = ReadFullBoxExceptBaseBox(fp, version, flags)) < 0)
 				return iRet;
+
+			uint8_t hdlr_buf[20];
+			if (fread_s(hdlr_buf, sizeof(hdlr_buf), 1, sizeof(hdlr_buf), fp) < sizeof(hdlr_buf))
+				return -1;
 		}
 		break;
 	}

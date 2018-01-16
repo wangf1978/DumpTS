@@ -53,14 +53,16 @@ enum CHANNEL_LOC
 	CH_LOC_RTS,
 	CH_LOC_LFE,
 	CH_LOC_LFE2,
-	CH_LOC_LHR,	// Height channel surround rear left loudspeaker
-	CH_LOC_RHR,	// Height channel surround rear right loudspeaker
-	CH_LOC_CHR,	// Height channel surround rear center loudspeaker
-	CH_LOC_LSS,	// Left side surround (Left Surround, directly to the side of the listener)
-	CH_LOC_RSS,	// Right side surround (Right Surround, directly to the side of the listener)
-	CH_LOC_LHS,	// Height channel surround rear left loudspeaker
-	CH_LOC_RHS, // Height channel surround right side loudspeaker
+	CH_LOC_LHR,				// Height channel surround rear left loudspeaker
+	CH_LOC_RHR,				// Height channel surround rear right loudspeaker
+	CH_LOC_CHR,				// Height channel surround rear center loudspeaker
+	CH_LOC_LSS,				// Left side surround (Left Surround, directly to the side of the listener)
+	CH_LOC_RSS,				// Right side surround (Right Surround, directly to the side of the listener)
+	CH_LOC_LHS,				// Height channel surround rear left loudspeaker
+	CH_LOC_RHS,				// Height channel surround right side loudspeaker
+	//
 	// Special channel signal
+	//
 	CH_MONO		= 0x80,		// mono channel
 	CH_SURROUND,			// Surround
 	CH_LR_SUM,				// L + R

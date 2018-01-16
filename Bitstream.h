@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <exception>
 
 #ifdef _BIG_ENDIAN_
 #define ENDIANUSHORT(src)           (uint16_t)src
@@ -75,7 +76,7 @@ public:
 		@remarks if bitstream is related with Ring-Chunk(type=BST_TYPE_RINGCHUNK), in the current chunk,
 		the left bits is not enough for peeking, the exception will be raised. */
 	virtual uint64_t	PeekBits(int n);
-	virtual int			SkipBits(int skip_bits);
+	virtual int64_t		SkipBits(int64_t skip_bits);
 	/*!	@brief Return the position of bit-stream in unit of bits. */
 	virtual uint64_t	Tell(uint64_t* left_bits_in_bst = NULL);
 	/*!	@brief Seek to the absolute position in the specified bit-stream. */
@@ -127,6 +128,7 @@ public:
 	CFileBitstream(const char* szFileName, int cache_size = 0, int* ptr_ret = NULL);
 	virtual ~CFileBitstream();
 
+	virtual int64_t		SkipBits(int64_t skip_bits);
 	/*!	@brief Return the position of bit-stream in unit of bits. */
 	virtual uint64_t	Tell(uint64_t* left_bits_in_bst = NULL);
 	/*!	@brief Seek to the absolute position in the specified bit-stream. */

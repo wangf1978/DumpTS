@@ -106,7 +106,7 @@ uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bFullBufferMode, bool bThr
 	{
 		int nAllLeftBits = GetAllLeftBits();
 		if (n > nAllLeftBits)
-			throw std::exception("invalid parameter, no enough data");
+			throw std::invalid_argument("invalid parameter, no enough data");
 
 		if (cursor.bits_left == 0)
 			_UpdateCurBits();
@@ -147,17 +147,17 @@ uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bFullBufferMode, bool bThr
 	}
 
 	if (n != 0)
-		throw std::exception("invalid parameter, no enough data");
+		throw std::out_of_range("invalid parameter, no enough data");
 
 	return nRet;
 }
 
-int CBitstream::SkipBits(int skip_bits)
+int64_t CBitstream::SkipBits(int64_t skip_bits)
 {
-	int ret_skip_bits = skip_bits;
+	int64_t ret_skip_bits = skip_bits;
 	while (skip_bits > 0 && cursor.p < cursor.p_end)
 	{
-		int nProcessed = std::min(skip_bits, cursor.bits_left);
+		int nProcessed = (int)std::min(skip_bits, (int64_t)cursor.bits_left);
 		_Advance_InCacheBits(nProcessed);
 
 		if (cursor.bits_left == 0)
@@ -176,7 +176,7 @@ int CBitstream::SkipBits(int skip_bits)
 uint64_t CBitstream::GetBits(int n)
 {
 	if (n > sizeof(uint64_t) * 8)
-		throw std::exception("invalid parameter");
+		throw std::invalid_argument("invalid parameter");
 
 	return _GetBits(n);
 }
@@ -184,7 +184,7 @@ uint64_t CBitstream::GetBits(int n)
 uint64_t CBitstream::PeekBits(int n)
 {
 	if (n > sizeof(uint64_t) * 8)
-		throw std::exception("invalid parameter");
+		throw std::invalid_argument("invalid parameter");
 
 	if (n == 0)
 		return 0;
@@ -289,6 +289,42 @@ CFileBitstream::~CFileBitstream()
 	}
 }
 
+int64_t CFileBitstream::SkipBits(int64_t skip_bits)
+{
+	// Check whether the current skip_bits does not exceed the cache buffer
+	int64_t file_pos = _ftelli64(m_fp);
+
+	if (file_pos < 0 || file_pos < (cursor.p_end - cursor.p))
+		throw std::out_of_range("invalid file position");
+
+	int64_t bitpos_in_cache_buffer = ((int64_t)std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE))<<3) - cursor.bits_left;
+	int64_t skippos_in_cache_buffer = bitpos_in_cache_buffer + skip_bits;
+
+	if (skippos_in_cache_buffer < 0 || skippos_in_cache_buffer >= ((int64_t)(cursor.p_end - cursor.p) << 3))
+	{
+		int64_t ret_skip_bits = skip_bits;
+		// Go through the Seek operation
+		int64_t skip_after_pos = ((file_pos - (cursor.p_end - cursor.p_start)) << 3) + skippos_in_cache_buffer;
+		if (skip_after_pos < 0)
+		{
+			ret_skip_bits += skip_after_pos;
+			skip_after_pos = 0;
+		}
+		else if (skip_after_pos >= (m_filesize << 3))
+		{
+			ret_skip_bits -= skip_after_pos - (m_filesize << 3);
+			skip_after_pos = (m_filesize << 3);
+		}
+
+		if (Seek((uint64_t)skip_after_pos) != 0)
+			throw std::ios_base::failure("failed to seek the specified bit-position");
+
+		return ret_skip_bits;
+	}
+	
+	return CBitstream::SkipBits(skip_bits);
+}
+
 uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
 {
 	/*
@@ -304,10 +340,10 @@ uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
 	long long file_pos = _ftelli64(m_fp);
 
 	if (file_pos < 0 || file_pos < (cursor.p_end - cursor.p))
-		throw std::exception("invalid file position");
+		throw std::out_of_range("invalid file position");
 
 	uint64_t byte_position = file_pos - (cursor.p_end - cursor.p);
-	uint64_t bitpos_in_curword = std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) - cursor.bits_left;
+	uint64_t bitpos_in_cache_buffer = (std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE))<<3) - cursor.bits_left;
 
 	if (left_bits_in_bst)
 	{
@@ -315,7 +351,7 @@ uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
 		*left_bits_in_bst = nAllLeftBits + ((m_filesize - file_pos) << 3);
 	}
 
-	return (byte_position << 3) + bitpos_in_curword;
+	return (byte_position << 3) + bitpos_in_cache_buffer;
 }
 
 int CFileBitstream::Seek(uint64_t bitpos)

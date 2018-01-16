@@ -45,6 +45,12 @@
     <ClCompile Include="DumpMP4.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ISO14496_12.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="combase.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StdAfx.h">
@@ -63,6 +69,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AudChMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ISO14496_12.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="combase.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

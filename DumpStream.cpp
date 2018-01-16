@@ -560,7 +560,7 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 		uint16_t nuAssetDescriptFsize;
 		uint8_t nuBitResolution = 0, nuMaxSampleRate = 0, nuTotalNumChs = 0, bOne2OneMapChannels2Speakers = 0;
 
-		uint32_t asset_start_bitpos = bst.Tell();
+		uint64_t asset_start_bitpos = bst.Tell();
 
 		bst.GetBits(9, nuAssetDescriptFsize); nuAssetDescriptFsize++;
 		bst.GetBits(3, nuAssetIndex);
@@ -665,7 +665,7 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 			}
 		} // End of if (bStaticFieldsPresent)
 
-		uint32_t asset_cur_bitpos = bst.Tell();
+		uint64_t asset_cur_bitpos = bst.Tell();
 
 		uint8_t nuDRCCode, nuDialNormCode, nuDRC2ChDmixCode, bMixMetadataPresent;
 		uint8_t bDRCCoefPresent = (uint8_t)bst.GetBits(1);
@@ -822,7 +822,7 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 
 		asset_cur_bitpos = bst.Tell();
 
-		if (asset_cur_bitpos - asset_start_bitpos < (uint32_t)(nuAssetDescriptFsize << 3))
+		if (asset_cur_bitpos - asset_start_bitpos < ((uint64_t)nuAssetDescriptFsize << 3))
 		{
 			bool bDRCMetadataRev2Present = (bst.GetBits(1) == 1) ? true : false;
 			if (bDRCMetadataRev2Present == true)
