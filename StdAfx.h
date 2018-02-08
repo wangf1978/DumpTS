@@ -53,6 +53,11 @@
 #define AMP_NOP1(p)							(void)0
 #endif
 
+#define AMP_ABS(A)							((A) < 0 ? (-(A)) : (A))
+#define AMP_ABS_MINUS(A, B)					((A)>=(B)?((A)-(B)):((B)-(A)))
+#define AMP_MIN(A, B)						((A) <= (B)?(A):(B))
+#define AMP_MAX(A, B)						((A) >= (B)?(A):(B))
+
 #define AMP_SAFERELEASE(p)					if(p){p->Release();p = NULL;}AMP_NOP1(p)
 #define AMP_SAFEASSIGN(p, v)				if(p){*(p) = (v);}AMP_NOP1(p)
 #define AMP_SAFEASSIGN1(p, v)				if(p){*(p) = (v); if(v)v->ProcAddRef();}AMP_NOP1(p)
@@ -80,17 +85,18 @@
 #define S_FALSE								1L
 #endif
 
-#define RET_CODE_SUCCESS				 0
-#define RET_CODE_ERROR					-1
+#define RET_CODE_SUCCESS					0
+#define RET_CODE_ERROR					   -1
 
 
-#define RET_CODE_HEADER_LOST			-2000			// Header information can't be retrieved.
-#define RET_CODE_BUFFER_TOO_SMALL		-2001			// Can't retrieve all information field of struct from the memory block
-#define RET_CODE_BUFFER_NOT_COMPATIBLE	-2002			// The loaded buffer is not compatible with spec.
-#define RET_CODE_BUFFER_NOT_FOUND		-2003
-#define RET_CODE_ERROR_CRC				-2004
+#define RET_CODE_HEADER_LOST			   -2000			// Header information can't be retrieved.
+#define RET_CODE_BUFFER_TOO_SMALL		   -2001			// Can't retrieve all information field of struct from the memory block
+#define RET_CODE_BUFFER_NOT_COMPATIBLE	   -2002			// The loaded buffer is not compatible with spec.
+#define RET_CODE_BUFFER_NOT_FOUND		   -2003
+#define RET_CODE_ERROR_CRC				   -2004
 
-#define RET_CODE_BOX_TOO_SMALL			-2100			// ISO 14496-12 box size is too small, and can't unpack the information according to spec
+#define RET_CODE_BOX_TOO_SMALL			   -2100			// ISO 14496-12 box size is too small, and can't unpack the information according to spec
+#define RET_CODE_BOX_INCOMPATIBLE		   -2101			// the current stream is incompatible with ISO 14496-12
 
 //{{AFX_INSERT_LOCATION}}
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.

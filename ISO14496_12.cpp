@@ -99,6 +99,7 @@ std::unordered_map<uint32_t, const char*> box_desces = {
 	{ 'sidx', "segment index" },
 	{ 'ssix', "subsegment index" },
 	{ 'prft', "producer reference time" },
+	{ 'rinf', "Restricted Scheme Information" }
 };
 
 namespace ISOMediaFile
@@ -120,75 +121,198 @@ namespace ISOMediaFile
 		switch ((box_header&UINT32_MAX))
 		{
 		case 'ftyp':
-			ptr_box = new FileTypeBox(); break;
+			ptr_box = new FileTypeBox();
+			break;
 		case 'pdin':
-			ptr_box = new ProgressiveDownloadInfoBox(); break;
+			ptr_box = new ProgressiveDownloadInfoBox();
+			break;
 		case 'moov':
-			ptr_box = new MovieBox(); break;
+			ptr_box = new MovieBox();
+			break;
 		case 'mvhd':
-			ptr_box = new MovieBox::MovieHeaderBox(); break;
+			ptr_box = new MovieBox::MovieHeaderBox();
+			break;
 		case 'trak':
-			ptr_box = new MovieBox::TrackBox(); break;
+			ptr_box = new MovieBox::TrackBox();
+			break;
 		case 'tkhd':
+			ptr_box = new MovieBox::TrackBox::TrackHeaderBox();
+			break;
 		case 'tref':
-		case 'trgr':
-		case 'edts':
+			ptr_box = new MovieBox::TrackBox::TrackReferenceBox();
+			break;
+		case 'trgr':	// Track Group Box
+			ptr_box = new MovieBox::TrackBox::TrackGroupBox();
+			break;
+		case 'edts':	// Edit Box
+			ptr_box = new MovieBox::TrackBox::EditBox();
+			break;
 		case 'elst':
+			ptr_box = new MovieBox::TrackBox::EditBox::EditListBox();
+			break;
 		case 'mdia':
+			ptr_box = new MovieBox::TrackBox::MediaBox();
+			break;
 		case 'mdhd':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaHeaderBox();
+			break;
 		case 'hdlr':
+			ptr_box = new HandlerBox();
+			break;
 		case 'minf':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox();
+			break;
 		case 'vmhd':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::VideoMediaHeaderBox();
+			break;
 		case 'smhd':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SoundMediaHeaderBox();
+			break;
 		case 'hmhd':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::HintMediaHeaderBox();
+			break;
 		case 'nmhd':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::NullMediaHeaderBox();
+			break;
 		case 'dinf':
+			ptr_box = new DataInformationBox();
+			break;
 		case 'dref':
+			ptr_box = new DataInformationBox::DataReferenceBox();
+			break;
 		case 'stbl':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox();
+			break;
 		case 'stsd':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox();
+			break;
 		case 'stts':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::TimeToSampleBox();
+			break;
 		case 'ctts':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionOffsetBox();
+			break;
 		case 'cslg':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionToDecodeBox();
+			break;
 		case 'stsc':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleToChunkBox();
+			break;
 		case 'stsz':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox();
+			break;
 		case 'stz2':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompactSampleSizeBox();
+			break;
 		case 'stco':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkOffsetBox();
+			break;
 		case 'co64':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkLargeOffsetBox();
+			break;
 		case 'stss':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SyncSampleBox();
+			break;
 		case 'stsh':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ShadowSyncSampleBox();
+			break;
 		case 'padb':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::PaddingBitsBox();
+			break;
 		case 'stdp':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::DegradationPriorityBox();
+			break;
 		case 'sdtp':
-		case 'sbgp':
+			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDependencyTypeBox();
+			break;
+		case 'sbgp':	// SampleToGroupBox
+			ptr_box = new SampleToGroupBox();
+			break;
 		case 'sgpd':
+			ptr_box = new SampleGroupDescriptionBox();
+			break;
 		case 'subs':
+			ptr_box = new SubSampleInformationBox();
+			break;
 		case 'saiz':
+			ptr_box = new SampleAuxiliaryInformationSizesBox();
+			break;
 		case 'saio':
+			ptr_box = new SampleAuxiliaryInformationOffsetsBox();
 		case 'udta':
+			ptr_box = new UserDataBox();
+			break;
 		case 'mvex':
+			ptr_box = new MovieBox::MovieExtendsBox();
+			break;
 		case 'mehd':
+			ptr_box = new MovieBox::MovieExtendsBox::MovieExtendsHeaderBox();
+			break;
 		case 'trex':
+			ptr_box = new MovieBox::MovieExtendsBox::TrackExtendsBox();
+			break;
 		case 'leva':
+			ptr_box = new MovieBox::MovieExtendsBox::LevelAssignmentBox();
+			break;
 		case 'moof':
+			ptr_box = new MovieFragmentBox();
+			break;
 		case 'mfhd':
+			ptr_box = new MovieFragmentBox::MovieFragmentHeaderBox();
+			break;
 		case 'traf':
+			ptr_box = new MovieFragmentBox::TrackFragmentBox();
+			break;
 		case 'tfhd':
+			ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackFragmentHeaderBox();
+			break;
 		case 'trun':
+			ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackRunBox();
+			break;
 		case 'tfdt':
+			ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackFragmentBaseMediaDecodeTimeBox();
+			break;
 		case 'mfra':
+			ptr_box = new MovieFragmentRandomAccessBox();
+			break;
 		case 'tfra':
+			ptr_box = new MovieFragmentRandomAccessBox::TrackFragmentRandomAccessBox();
+			break;
 		case 'mfro':
+			ptr_box = new MovieFragmentRandomAccessBox::MovieFragmentRandomAccessOffsetBox();
+			break;
 		case 'mdat':
+			ptr_box = new MediaDataBox();
+			break;
 		case 'free':
+			ptr_box = new FreeSpaceBox();
+			break;
 		case 'skip':
+			ptr_box = new FreeSpaceBox();
 		case 'cprt':
+			ptr_box = new UserDataBox::CopyrightBox();
+			break;
 		case 'tsel':
+			ptr_box = new UserDataBox::TrackSelectionBox();
+			break;
 		case 'strk':
+			ptr_box = new UserDataBox::SubTrack();
+			break;
 		case 'stri':
+			ptr_box = new UserDataBox::SubTrack::SubTrackInformation();
+			break;
 		case 'strd':
+			ptr_box = new UserDataBox::SubTrack::SubTrackDefinition();
+			break;
 		case 'meta':
+			ptr_box = new MetaBox();
+			break;
 		case 'iloc':
+			ptr_box = new MetaBox::ItemLocationBox();
+			break;
 		case 'ipro':
+			ptr_box = new MetaBox::ItemProtectionBox();
+			break;
 		case 'sinf':
 		case 'frma':
 		case 'schm':
@@ -212,6 +336,7 @@ namespace ISOMediaFile
 		case 'sidx':
 		case 'ssix':
 		case 'prft':
+		case 'rinf':
 		default:
 			ptr_box = new UnknownBox();
 		}

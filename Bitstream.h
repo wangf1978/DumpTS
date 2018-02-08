@@ -60,8 +60,8 @@ public:
 		uint8_t				exclude_bits;				// how many last bits are excluded in the last byte *(end_pointer-1)
 		uint8_t				reserved[3];
 		int					buf_size;
-		int					start_offset;
-		int					bits_left;					// How many bits left in "curbits"
+		int					start_offset;				// give the offset between the aligned address and aligned address which is the first byte of bitstream
+		int					bits_left;					// Indicate how many bits are left in "curbits"
 		CURBITS_TYPE		curbits;					// It is used for read/get operation
 	};
 
@@ -139,7 +139,8 @@ protected:
 
 protected:
 	FILE*				m_fp;
-	int64_t				m_filesize;
+	int64_t				m_filesize;		// the file size of current file
+	int64_t				m_filemappos;	// the file position which is mapped to the start address of cache buffer
 };
 
 template <typename T> void CBitstream::GetBits(int n, T& val)

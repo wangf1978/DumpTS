@@ -248,6 +248,7 @@ CFileBitstream::CFileBitstream(const char* szFileName, int cache_size, int* ptr_
 	if (_fseeki64(m_fp, -1, SEEK_END) != 0)
 		goto done;
 
+	m_filemappos = 0;
 	m_filesize = _ftelli64(m_fp);
 	if (_fseeki64(m_fp, 0, SEEK_SET) != 0)
 		goto done;
@@ -292,11 +293,6 @@ CFileBitstream::~CFileBitstream()
 int64_t CFileBitstream::SkipBits(int64_t skip_bits)
 {
 	// Check whether the current skip_bits does not exceed the cache buffer
-	int64_t file_pos = _ftelli64(m_fp);
-
-	if (file_pos < 0 || file_pos < (cursor.p_end - cursor.p))
-		throw std::out_of_range("invalid file position");
-
 	int64_t bitpos_in_cache_buffer = ((int64_t)std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE))<<3) - cursor.bits_left;
 	int64_t skippos_in_cache_buffer = bitpos_in_cache_buffer + skip_bits;
 
@@ -304,7 +300,7 @@ int64_t CFileBitstream::SkipBits(int64_t skip_bits)
 	{
 		int64_t ret_skip_bits = skip_bits;
 		// Go through the Seek operation
-		int64_t skip_after_pos = ((file_pos - (cursor.p_end - cursor.p_start)) << 3) + skippos_in_cache_buffer;
+		int64_t skip_after_pos = m_filemappos + skippos_in_cache_buffer;
 		if (skip_after_pos < 0)
 		{
 			ret_skip_bits += skip_after_pos;
@@ -366,10 +362,8 @@ int CFileBitstream::Seek(uint64_t bitpos)
 	                               \_ p
 	*/
 	// At first check whether bitpos lies at the Cache Buffer or not
-	long long file_pos = _ftelli64(m_fp);
-
-	uint64_t file_pos_p_start = file_pos - (cursor.p_end - cursor.p_start);	// start_offset is always equal to 0
-	uint64_t file_pos_p_end = file_pos;
+	uint64_t file_pos_p_start = m_filemappos;
+	uint64_t file_pos_p_end = file_pos_p_start + (cursor.p_end - cursor.p_start);
 
 	int iRet = -1;
 	if (bitpos >= (file_pos_p_start << 3) && bitpos < (file_pos_p_end << 3))
@@ -380,12 +374,14 @@ int CFileBitstream::Seek(uint64_t bitpos)
 	{
 		// Calculate the correct file position
 		size_t align_bitcount = sizeof(CURBITS_TYPE)<<3;
-		uint64_t byte_file_pos = bitpos / align_bitcount;
+		uint64_t byte_file_pos = bitpos / 8;
 		if (_fseeki64(m_fp, byte_file_pos, SEEK_SET) != 0)
 			return -1;
 
 		cursor.p = cursor.p_end;
 		cursor.bits_left = 0;
+
+		m_filemappos = byte_file_pos;
 
 		_FillCurrentBits();
 
