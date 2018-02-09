@@ -333,18 +333,17 @@ uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
 	                               \_ p
 	*/
 
-	long long file_pos = _ftelli64(m_fp);
-
-	if (file_pos < 0 || file_pos < (cursor.p_end - cursor.p))
+	ptrdiff_t cache_buf_size = cursor.p_end - cursor.p;
+	if (m_filemappos < 0)
 		throw std::out_of_range("invalid file position");
 
-	uint64_t byte_position = file_pos - (cursor.p_end - cursor.p);
-	uint64_t bitpos_in_cache_buffer = (std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE))<<3) - cursor.bits_left;
+	uint64_t byte_position = (uint64_t)m_filemappos;
+	uint64_t bitpos_in_cache_buffer = (std::min((size_t)cache_buf_size, sizeof(CURBITS_TYPE))<<3) - cursor.bits_left;
 
 	if (left_bits_in_bst)
 	{
 		int nAllLeftBits = GetAllLeftBits();
-		*left_bits_in_bst = nAllLeftBits + ((m_filesize - file_pos) << 3);
+		*left_bits_in_bst = nAllLeftBits + ((m_filesize - (m_filemappos + cache_buf_size)) << 3);
 	}
 
 	return (byte_position << 3) + bitpos_in_cache_buffer;

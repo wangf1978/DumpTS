@@ -1116,7 +1116,7 @@ namespace ISOMediaFile
 
 	/*
 	Box Types: 'schm'
-	Container: Protection Scheme Information Box (‘sinf’), Restricted Scheme Information Box ('rinf'),
+	Container: Protection Scheme Information Box (‘sinf?, Restricted Scheme Information Box ('rinf'),
 	or SRTP Process box ('srpp')
 	Mandatory: No
 	Quantity: Zero or one in 'sinf', depending on the protection structure; Exactly one in 'rinf' and 'srpp'
@@ -3652,7 +3652,7 @@ namespace ISOMediaFile
 
 			/*
 			Box Type: 'tfdt'
-			Container: Track Fragment box (‘traf’)
+			Container: Track Fragment box (‘traf?
 			Mandatory: No
 			Quantity: Zero or one
 			*/
