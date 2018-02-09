@@ -207,161 +207,6 @@ int CPayloadBuf::Process(std::unordered_map<int, int>& pid_maps)
 	return 0;
 }
 
-/*!	@breif Process PAT and PMT to get the stream information.
-@retval -1 buffer is too small
-@retval -2 CRC verification failure
-@retval -3 Unsupported or unimplemented */
-int CPayloadBuf::ProcessPMT(unordered_map<unsigned short, CPayloadBuf*>& pPMTPayloads)
-{
-	int iRet = -1;
-	unsigned long ulMappedSize = 0;
-	unsigned char* pBuf = buffer;
-
-	if (buffer_len < 4)
-		return -1;
-
-	unsigned char pointer_field = *pBuf;
-	unsigned char table_id;
-	ulMappedSize++;
-	ulMappedSize += pointer_field;
-
-	if (ulMappedSize < buffer_len)
-		table_id = pBuf[ulMappedSize];
-	else
-		return -1;
-
-	if (ulMappedSize + 3 > buffer_len)
-		return -1;
-
-	unsigned char* pSectionStart = &pBuf[ulMappedSize];
-	unsigned long ulSectionStart = ulMappedSize;
-
-	unsigned short section_length = (pBuf[ulMappedSize + 1] << 8 | pBuf[ulMappedSize + 2]) & 0XFFF;
-
-	// The maximum number of bytes in a section of a Rec. ITU-T H.222.0 | ISO/IEC 13818-1 defined PSI table is
-	// 1024 bytes. The maximum number of bytes in a private_section is 4096 bytes.
-	// The DSMCC section data is also 4096 (table_id from 0x38 to 0x3F)
-	if (section_length > ((pBuf[ulMappedSize] >= 0x40 && pBuf[ulMappedSize] <= 0xFE ||
-		pBuf[ulMappedSize] >= 0x38 && pBuf[ulMappedSize] <= 0x3F) ? 4093 : 1021))
-		return -3;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
-
-	if (ulMappedSize + 3 + section_length > buffer_len)
-		return -1;	// RET_CODE_BUFFER_TOO_SMALL;
-
-	unsigned char section_syntax_indicator = (pBuf[ulMappedSize + 1] >> 7) & 0x01;
-
-	if (table_id != TID_program_association_section && table_id != TID_TS_program_map_section)
-		return -3;	// Only support PAT or PMT
-
-	if ((table_id == TID_program_association_section || table_id == TID_TS_program_map_section) && !section_syntax_indicator)
-		return -3;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
-
-	if (section_syntax_indicator) {
-		F_CRC_InicializaTable();
-		if (F_CRC_CalculaCheckSum(pBuf + ulMappedSize, 3 + section_length) != 0) {
-			printf("[13818-1] current PSI section failed do check-sum.\r\n");
-			return -2;
-		}
-	}
-
-	if (ulMappedSize + 8 > buffer_len)
-		return -1;
-
-	ulMappedSize += 8;
-
-	if (m_PID == PID_PROGRAM_ASSOCIATION_TABLE && table_id == TID_program_association_section)
-	{
-		// check how many PMT entry exist in the current PAT
-		int num_of_PMTs = (section_length + ulSectionStart + 3 - ulMappedSize - 4) >> 2;
-		std::vector<unsigned short> PMT_PIDs;
-		PMT_PIDs.reserve(num_of_PMTs);
-
-		// 4 bytes of CRC32, 4 bytes of PAT entry
-		while (ulMappedSize + 4 + 4 <= 3 + section_length + ulSectionStart)
-		{
-			unsigned short program_number = (pBuf[ulMappedSize] << 8) | pBuf[ulMappedSize + 1];
-			unsigned short PMT_PID = (pBuf[ulMappedSize + 2] & 0x1f) << 8 | pBuf[ulMappedSize + 3];
-
-			if (program_number != 0)
-				PMT_PIDs.push_back(PMT_PID);
-
-			ulMappedSize += 4;
-		}
-
-		// Refresh the current PMT payloads
-		// If the current PID in PMT payloads does not belong to PAT, delete it
-		for (auto iter = pPMTPayloads.cbegin(); iter != pPMTPayloads.cend(); iter++)
-		{
-			auto PMT_iter = PMT_PIDs.cbegin();
-			for (; PMT_iter != PMT_PIDs.cend() && iter->first != *PMT_iter; PMT_iter++);
-
-			if (PMT_iter == PMT_PIDs.cend() && iter->first != PID_PROGRAM_ASSOCIATION_TABLE)
-			{
-				delete iter->second;
-				pPMTPayloads.erase(iter);
-			}
-		}
-
-		// If the PMT ID does not exist in pPMTPayloads, create it.
-		for (auto PMT_iter = PMT_PIDs.cbegin(); PMT_iter != PMT_PIDs.cend(); PMT_iter++)
-		{
-			if (pPMTPayloads.find(*PMT_iter) == pPMTPayloads.end())
-				pPMTPayloads[*PMT_iter] = new CPayloadBuf(*PMT_iter);
-		}
-
-		iRet = 0;
-	}
-	else if (table_id == TID_TS_program_map_section)
-	{
-		// Process the current PMT, and get the related information.
-		if (ulMappedSize + 4 > buffer_len)
-			return -1;
-
-		// Change PCR_PID
-		m_PCR_PID = (pBuf[ulMappedSize] & 0x1f) << 8 | pBuf[ulMappedSize + 1];
-
-		unsigned short program_info_length = (pBuf[ulMappedSize + 2] & 0xF) << 8 | pBuf[ulMappedSize + 3];
-		ulMappedSize += 4;
-
-		if (ulMappedSize + program_info_length > buffer_len)
-			return -1;
-
-		ulMappedSize += program_info_length;
-
-		// Reserve 4 bytes of CRC32 and 5 bytes of basic ES info (stream_type, reserved, elementary_PID, reserved and ES_info_length)
-		while (ulMappedSize + 5 + 4 <= 3 + section_length + ulSectionStart)
-		{
-			unsigned char stream_type = pBuf[ulMappedSize];
-			unsigned short ES_PID = (pBuf[ulMappedSize + 1] & 0x1f) << 8 | pBuf[ulMappedSize + 2];
-			m_stream_types[ES_PID] = stream_type;
-			unsigned short ES_info_length = (pBuf[ulMappedSize + 3] & 0xF) << 8 | pBuf[ulMappedSize + 4];
-
-			ulMappedSize += 5;
-			ulMappedSize += ES_info_length;
-		}
-
-		iRet = 0;
-	}
-	else
-		iRet = -3;
-
-	return iRet;
-}
-
-int CPayloadBuf::GetPMTInfo(unsigned short ES_PID, unsigned char& stream_type)
-{
-	if (m_stream_types.find(ES_PID) == m_stream_types.end())
-		return -1;
-
-	stream_type = m_stream_types[ES_PID];
-	return 0;
-}
-
-unordered_map<unsigned short, unsigned char>& CPayloadBuf::GetStreamTypes()
-{
-	return m_stream_types;
-}
-
 void CPayloadBuf::Reset()
 {
 	slices.clear();
@@ -411,4 +256,190 @@ int CPayloadBuf::WriteBack(unsigned long off, unsigned char* pBuf, unsigned long
 
 done:
 	return iRet;
+}
+
+CPSIBuf::CPSIBuf(PSI_PROCESS_CONTEXT* CtxPSIProcess, unsigned short PID)
+	: CPayloadBuf(PID)
+	, ctx_psi_process(CtxPSIProcess)
+	, version_number(0xFF)
+{
+
+}
+
+/*!	@breif Process PAT and PMT to get the stream information.
+@retval -1 buffer is too small
+@retval -2 CRC verification failure
+@retval -3 Unsupported or unimplemented */
+int CPSIBuf::ProcessPSI()
+{
+	int iRet = -1;
+	unsigned long ulMappedSize = 0;
+	unsigned char* pBuf = buffer;
+
+	if (buffer_len < 4)
+		return -1;
+
+	unordered_map<unsigned short, CPSIBuf*>& pPMTPayloads = *ctx_psi_process->pPSIPayloads;
+
+	ctx_psi_process->bChanged = false;
+
+	unsigned char pointer_field = *pBuf;
+	ulMappedSize++;
+	ulMappedSize += pointer_field;
+
+	if (ulMappedSize < buffer_len)
+		table_id = pBuf[ulMappedSize];
+	else
+		return -1;
+
+	if (ulMappedSize + 3 > buffer_len)
+		return -1;
+
+	unsigned char* pSectionStart = &pBuf[ulMappedSize];
+	unsigned long ulSectionStart = ulMappedSize;
+
+	unsigned short section_length = (pBuf[ulMappedSize + 1] << 8 | pBuf[ulMappedSize + 2]) & 0XFFF;
+
+	// The maximum number of bytes in a section of a Rec. ITU-T H.222.0 | ISO/IEC 13818-1 defined PSI table is
+	// 1024 bytes. The maximum number of bytes in a private_section is 4096 bytes.
+	// The DSMCC section data is also 4096 (table_id from 0x38 to 0x3F)
+	if (section_length > ((pBuf[ulMappedSize] >= 0x40 && pBuf[ulMappedSize] <= 0xFE ||
+		pBuf[ulMappedSize] >= 0x38 && pBuf[ulMappedSize] <= 0x3F) ? 4093 : 1021))
+		return -3;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
+
+	if (ulMappedSize + 3 + section_length > buffer_len)
+		return -1;	// RET_CODE_BUFFER_TOO_SMALL;
+
+	unsigned char section_syntax_indicator = (pBuf[ulMappedSize + 1] >> 7) & 0x01;
+
+	if (table_id != TID_program_association_section && table_id != TID_TS_program_map_section)
+		return -3;	// Only support PAT or PMT
+
+	if ((table_id == TID_program_association_section || table_id == TID_TS_program_map_section) && !section_syntax_indicator)
+		return -3;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
+
+	if (section_syntax_indicator) {
+		F_CRC_InicializaTable();
+		if (F_CRC_CalculaCheckSum(pBuf + ulMappedSize, 3 + section_length) != 0) {
+			printf("[13818-1] current PSI section failed do check-sum.\r\n");
+			return -2;
+		}
+	}
+
+	if (ulMappedSize + 8 > buffer_len)
+		return -1;
+
+	uint8_t current_next_indicator = pBuf[ulMappedSize + 5] & 0x1;
+	if (current_next_indicator == 0)
+		return 0;
+
+	uint8_t current_version_number = (pBuf[ulMappedSize + 5] >> 1) & 0x1F;
+	if (current_version_number != version_number)
+	{
+		ctx_psi_process->bChanged = true;
+		version_number = current_version_number;
+		section_number = pBuf[ulMappedSize + 6];
+		last_section_number = pBuf[ulMappedSize + 7];
+	}
+
+	ulMappedSize += 8;
+
+	if (m_PID == PID_PROGRAM_ASSOCIATION_TABLE && table_id == TID_program_association_section)
+	{
+		// check how many PMT entry exist in the current PAT
+		int num_of_PMTs = (section_length + ulSectionStart + 3 - ulMappedSize - 4) >> 2;
+		std::vector<std::tuple<unsigned short/* program number*/, unsigned short/*PMT PID*/>> PMT_PIDs;
+		PMT_PIDs.reserve(num_of_PMTs);
+
+		// 4 bytes of CRC32, 4 bytes of PAT entry
+		while (ulMappedSize + 4 + 4 <= 3 + section_length + ulSectionStart)
+		{
+			unsigned short program_number = (pBuf[ulMappedSize] << 8) | pBuf[ulMappedSize + 1];
+			unsigned short PMT_PID = (pBuf[ulMappedSize + 2] & 0x1f) << 8 | pBuf[ulMappedSize + 3];
+
+			if (program_number != 0)
+				PMT_PIDs.push_back({ program_number, PMT_PID });
+
+			ulMappedSize += 4;
+		}
+
+		// Refresh the current PMT payloads
+		// If the current PID in PMT payloads does not belong to PAT, delete it
+		for (auto iter = pPMTPayloads.cbegin(); iter != pPMTPayloads.cend(); iter++)
+		{
+			auto PMT_iter = PMT_PIDs.cbegin();
+			for (; PMT_iter != PMT_PIDs.cend() && iter->first != std::get<1>(*PMT_iter); PMT_iter++);
+
+			if (PMT_iter == PMT_PIDs.cend() && iter->first != PID_PROGRAM_ASSOCIATION_TABLE)
+			{
+				delete iter->second;
+				pPMTPayloads.erase(iter);
+			}
+		}
+
+		// If the PMT ID does not exist in pPMTPayloads, create it.
+		for (auto PMT_iter = PMT_PIDs.cbegin(); PMT_iter != PMT_PIDs.cend(); PMT_iter++)
+		{
+			if (pPMTPayloads.find(std::get<1>(*PMT_iter)) == pPMTPayloads.end())
+				pPMTPayloads[std::get<1>(*PMT_iter)] = new CPMTBuf(ctx_psi_process, std::get<1>(*PMT_iter), std::get<0>(*PMT_iter));
+		}
+
+		iRet = 0;
+	}
+	else if (table_id == TID_TS_program_map_section)
+	{
+		// Process the current PMT, and get the related information.
+		if (ulMappedSize + 4 > buffer_len)
+			return -1;
+
+		// Change PCR_PID
+		m_PCR_PID = (pBuf[ulMappedSize] & 0x1f) << 8 | pBuf[ulMappedSize + 1];
+
+		unsigned short program_info_length = (pBuf[ulMappedSize + 2] & 0xF) << 8 | pBuf[ulMappedSize + 3];
+		ulMappedSize += 4;
+
+		if (ulMappedSize + program_info_length > buffer_len)
+			return -1;
+
+		ulMappedSize += program_info_length;
+
+		// Reserve 4 bytes of CRC32 and 5 bytes of basic ES info (stream_type, reserved, elementary_PID, reserved and ES_info_length)
+		while (ulMappedSize + 5 + 4 <= 3 + section_length + ulSectionStart)
+		{
+			unsigned char stream_type = pBuf[ulMappedSize];
+			unsigned short ES_PID = (pBuf[ulMappedSize + 1] & 0x1f) << 8 | pBuf[ulMappedSize + 2];
+			m_stream_types[ES_PID] = stream_type;
+			unsigned short ES_info_length = (pBuf[ulMappedSize + 3] & 0xF) << 8 | pBuf[ulMappedSize + 4];
+
+			ulMappedSize += 5;
+			ulMappedSize += ES_info_length;
+		}
+
+		iRet = 0;
+	}
+	else
+		iRet = -3;
+
+	return iRet;
+}
+
+CPMTBuf::CPMTBuf(PSI_PROCESS_CONTEXT* CtxPSIProcess, unsigned short PID, unsigned short nProgramNumber)
+	: CPSIBuf(CtxPSIProcess, PID)
+	, program_number(nProgramNumber)
+{
+	table_id = TID_TS_program_map_section;
+}
+
+int CPMTBuf::GetPMTInfo(unsigned short ES_PID, unsigned char& stream_type)
+{
+	if (m_stream_types.find(ES_PID) == m_stream_types.end())
+		return -1;
+
+	stream_type = m_stream_types[ES_PID];
+	return 0;
+}
+
+unordered_map<unsigned short, unsigned char>& CPMTBuf::GetStreamTypes()
+{
+	return m_stream_types;
 }

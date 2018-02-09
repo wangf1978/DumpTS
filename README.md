@@ -30,6 +30,10 @@ Use VS2015 to open DumpTS.sln to build it
 |**--removebox**|'xxxx,xxxx'|remove the box elements in MP4 file
  
 Here are some examples of command lines:  
+```
+DumpTS c:\00001.m2ts --showinfo
+```
+it will show the PAT and PMT informations of 00001.m2ts
 
 ```
 DumpTS c:\00001.m2ts --output=c:\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts  

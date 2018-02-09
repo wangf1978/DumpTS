@@ -413,9 +413,27 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
+		if (g_params.find("output") == g_params.end())
+		{
+			// No output file is specified
+			// Check whether pid and showinfo is there
+			if (g_params.find("showinfo") != g_params.end())
+			{
+				g_params["pid"] = "0";
+				DumpOneStream();
+				goto done;
+			}
+			else
+			{
+				printf("Please specify a output file name with --output.\r\n");
+				goto done;
+			}
+		}
+
 		nDumpRet = RefactorTS();
 	}
 
+done:
 	return 0;
 }
 

@@ -44,6 +44,20 @@ using namespace std;
 #define DD_PLUS_SECONDARY_AUDIO_STREAM		0xA1
 #define DTS_HD_SECONDARY_AUDIO_STREAM		0xA2
 
+#define SESF_TELETEXT_STREAM				0x06
+#define TTML_STREAM							0x06
+
+/*
+	0x0A						Multi-protocol Encapsulation
+	0x0B						DSM-CC U-N Messages
+	0x0C						DSM-CC Stream Descriptors
+	0x0D						DSM-CC Sections (any type, including private data)
+*/
+#define DSMCC_TYPE_A						0x0A
+#define DSMCC_TYPE_B						0x0B
+#define DSMCC_TYPE_C						0x0C
+#define DSMCC_TYPE_D						0x0D
+
 #define STREAM_TYPE_NAMEA(st)	(\
 	(st) == MPEG2_VIDEO_STREAM?"MPEG2 Video":(\
 	(st) == MPEG4_AVC_VIDEO_STREAM?"MPEG4 AVC Video":(\
@@ -64,7 +78,12 @@ using namespace std;
 	(st) == DRA_AUDIO_STREAM?"DRA Audio":(\
 	(st) == DRA_EXTENSION_AUDIO_STREAM?"DRA Extension Audio":(\
 	(st) == DD_PLUS_SECONDARY_AUDIO_STREAM?"DD+ Secondary Audio":(\
-	(st) == DTS_HD_SECONDARY_AUDIO_STREAM?"DTS LBR Audio":"Unknown"))))))))))))))))))))
+	(st) == DTS_HD_SECONDARY_AUDIO_STREAM?"DTS LBR Audio":(\
+	(st) == SESF_TELETEXT_STREAM?"Teletext, ARIB subtitle or TTML":(\
+	(st) == DSMCC_TYPE_A?"DSM-CC Multi-protocol Encapsulation":(\
+	(st) == DSMCC_TYPE_B?"DSM-CC DSM-CC U-N Messages":(\
+	(st) == DSMCC_TYPE_C?"DSM-CC DSM-CC Stream Descriptors":(\
+	(st) == DSMCC_TYPE_D?"DSM-CC SM-CC Sections":"Unknown")))))))))))))))))))))))))
 
 enum MPEG_SYSTEM_TYPE
 {
@@ -115,6 +134,7 @@ struct PayloadBufSlice
 
 class CPayloadBuf
 {
+protected:
 	std::vector<PayloadBufSlice>	slices;
 	unsigned char*					buffer;
 	unsigned long					buffer_len;
@@ -139,19 +159,52 @@ public:
 	/*!	@brief Replace the PID with specified PID in the current TS packs */
 	int Process(std::unordered_map<int, int>& pid_maps);
 
+	void Reset();
+
+	int WriteBack(unsigned long off, unsigned char* pBuf, unsigned long cbSize);
+
+	unsigned short GetPID() { return m_PID; }
+};
+
+class CPSIBuf;
+
+struct PSI_PROCESS_CONTEXT
+{
+	unordered_map<unsigned short, CPSIBuf*>* pPSIPayloads;
+	bool bChanged;		// there are PSI changes since the previous process
+};
+
+class CPSIBuf: public CPayloadBuf
+{
+public:
+	uint8_t							table_id;
+	uint8_t							version_number;
+	uint8_t							section_number;
+	uint8_t							last_section_number;
+
+	PSI_PROCESS_CONTEXT*			ctx_psi_process;
+
+public:
+	CPSIBuf(PSI_PROCESS_CONTEXT* CtxPSIProcess, unsigned short PID);
+
 	/*!	@breif Process PAT and PMT to get the stream information.
-	@retval -1 incompatible buffer
-	@retval -2 CRC verification failure
-	@retval -3 Unsupported or unimplemented */
-	int ProcessPMT(unordered_map<unsigned short, CPayloadBuf*>& pPMTPayloads);
+		@retval -1 incompatible buffer
+		@retval -2 CRC verification failure
+		@retval -3 Unsupported or unimplemented */
+	int ProcessPSI();
+};
+
+class CPMTBuf : public CPSIBuf
+{
+public:
+	uint16_t						program_number;
+
+public:
+	CPMTBuf(PSI_PROCESS_CONTEXT* CtxPSIProcess, unsigned short PID, unsigned short nProgramNumber);
 
 	int GetPMTInfo(unsigned short ES_PID, unsigned char& stream_type);
 
 	unordered_map<unsigned short, unsigned char>& GetStreamTypes();
-
-	void Reset();
-
-	int WriteBack(unsigned long off, unsigned char* pBuf, unsigned long cbSize);
 };
 
 inline long long ConvertToLongLong(std::string& str)
@@ -165,7 +218,7 @@ inline long long ConvertToLongLong(std::string& str)
 		{
 			ret = std::stoll(str.substr(2), &idx, 16);
 		}
-		else if (str.compare(0, 1, "0") == 0)	// oct value
+		else if (str.length() > 1 && str.compare(0, 1, "0") == 0)	// oct value
 		{
 			ret = std::stoll(str.substr(1), &idx, 8);
 		}

@@ -1720,11 +1720,15 @@ int DumpOneStream()
 	int dumpopt = 0;
 	unsigned char* pes_buffer = new (std::nothrow) unsigned char[20 * 1024 * 1024];
 
-	unordered_map<unsigned short, CPayloadBuf*> pPSIBufs;
+	unordered_map<unsigned short, CPSIBuf*> pPSIBufs;
 	unordered_map<unsigned short, unsigned char> stream_types;
 	unordered_map<unsigned short, unordered_map<unsigned short, unsigned char>> prev_PMT_stream_types;
 
-	pPSIBufs[0] = new CPayloadBuf(PID_PROGRAM_ASSOCIATION_TABLE);
+	PSI_PROCESS_CONTEXT psi_process_ctx;
+	psi_process_ctx.pPSIPayloads = &pPSIBufs;
+	psi_process_ctx.bChanged = false;
+
+	pPSIBufs[0] = new CPSIBuf(&psi_process_ctx, PID_PROGRAM_ASSOCIATION_TABLE);
 
 	unsigned char buf[1024];
 
@@ -1834,12 +1838,15 @@ int DumpOneStream()
 			{
 				if (pPSIBufs.find(PID) != pPSIBufs.end())
 				{
-					if (pPSIBufs[PID]->ProcessPMT(pPSIBufs) == 0)
+					if (pPSIBufs[PID]->ProcessPSI() == 0)
 					{
 						// Update each PID stream type
-						unsigned char stream_type = 0xFF;
-						if (pPSIBufs[PID]->GetPMTInfo(sPID, stream_type) == 0)
-							stream_types[sPID] = stream_type;
+						if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+						{
+							unsigned char stream_type = 0xFF;
+							if (((CPMTBuf*)pPSIBufs[PID])->GetPMTInfo(sPID, stream_type) == 0)
+								stream_types[sPID] = stream_type;
+						}
 					}
 
 					pPSIBufs[PID]->Reset();
@@ -1875,7 +1882,7 @@ int DumpOneStream()
 			if (pPSIBufs[PID]->PushTSBuf(ts_pack_idx, buf, index, (unsigned char)g_ts_fmtinfo.packet_size) >= 0)
 			{
 				// Try to process PSI buffer
-				int nProcessPMTRet = pPSIBufs[PID]->ProcessPMT(pPSIBufs);
+				int nProcessPMTRet = pPSIBufs[PID]->ProcessPSI();
 				// If process PMT result is -1, it means the buffer is too small, don't reset the buffer.
 				if (nProcessPMTRet != -1)
 					pPSIBufs[PID]->Reset();
@@ -1884,38 +1891,70 @@ int DumpOneStream()
 				{
 					if (dumpopt & DUMP_MEDIA_INFO_VIEW)
 					{
-						unordered_map<unsigned short, unsigned char>& stm_types = pPSIBufs[PID]->GetStreamTypes();
-						if (prev_PMT_stream_types.find(PID) == prev_PMT_stream_types.end() || stm_types != prev_PMT_stream_types[PID])
+						if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
 						{
-							int idxStm = 0;
-							if (stm_types.size() > 0)
+							unordered_map<unsigned short, unsigned char>& stm_types = ((CPMTBuf*)pPSIBufs[PID])->GetStreamTypes();
+							if (prev_PMT_stream_types.find(PID) == prev_PMT_stream_types.end() || stm_types != prev_PMT_stream_types[PID])
 							{
-								printf("Program(PID:0X%X)\r\n", PID);
-								for (auto iter = stm_types.cbegin(); iter != stm_types.cend(); iter++, idxStm++)
+								int idxStm = 0;
+								int num_of_streams = stm_types.size();
+								if (num_of_streams > 0)
 								{
-									printf("\tStream#%d, PID: 0X%X, stm_type: 0X%X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+									printf("Program(PID:0X%04X)\r\n", PID);
+									
+									for (auto iter = stm_types.cbegin(); iter != stm_types.cend(); iter++, idxStm++)
+									{
+										if (num_of_streams < 10)
+											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+										else if (num_of_streams < 100)
+											printf("\tStream#%02d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+										else if (num_of_streams < 1000)
+											printf("\tStream#%03d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+										else
+											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+									}
+									printf("\r\n");
 								}
-								printf("\r\n");
-							}
 
-							prev_PMT_stream_types[PID] = stm_types;
+								prev_PMT_stream_types[PID] = stm_types;
+							}
+						}
+
+						// For PAT
+						if (PID == PID_PROGRAM_ASSOCIATION_TABLE)
+						{
+							if (psi_process_ctx.bChanged)
+							{
+								for (auto iter = pPSIBufs.begin(); iter != pPSIBufs.end(); iter++)
+								{
+									if ((*iter).second->table_id == TID_TS_program_map_section)
+									{
+										CPMTBuf* pPMTBuf = (CPMTBuf*)((*iter).second);
+										unsigned short nPID = pPMTBuf->GetPID();
+										printf("Program Number: %d, %s: 0X%X(%d).\n", pPMTBuf->program_number, pPMTBuf->program_number == 0 ? "Network_PID" : "program_map_PID", nPID, nPID);
+									}
+								}
+							}
 						}
 					}
 
-					// Update each PID stream type
-					unsigned char stream_type = 0xFF;
-					if (pPSIBufs[PID]->GetPMTInfo(sPID, stream_type) == 0)
+					if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
 					{
-						stream_types[sPID] = stream_type;
-
-						// Check whether it is a supported stream type or not
-						if ((dumpopt&DUMP_PCM) || (dumpopt&DUMP_WAV))
+						// Update each PID stream type
+						unsigned char stream_type = 0xFF;
+						if (((CPMTBuf*)pPSIBufs[PID])->GetPMTInfo(sPID, stream_type) == 0)
 						{
-							if (stream_type != HDMV_LPCM_AUDIO_STREAM)
+							stream_types[sPID] = stream_type;
+
+							// Check whether it is a supported stream type or not
+							if ((dumpopt&DUMP_PCM) || (dumpopt&DUMP_WAV))
 							{
-								printf("At present only support dumping pcm/wav data from LPCM audio stream.\r\n");
-								iRet = -1;
-								goto done;
+								if (stream_type != HDMV_LPCM_AUDIO_STREAM)
+								{
+									printf("At present only support dumping pcm/wav data from LPCM audio stream.\r\n");
+									iRet = -1;
+									goto done;
+								}
 							}
 						}
 					}
@@ -1976,7 +2015,7 @@ done:
 		pes_buffer = NULL;
 	}
 
-	for (std::unordered_map<unsigned short, CPayloadBuf*>::iterator iter = pPSIBufs.begin(); iter != pPSIBufs.end(); iter++)
+	for (auto iter = pPSIBufs.begin(); iter != pPSIBufs.end(); iter++)
 	{
 		delete iter->second;
 		iter->second = NULL;
