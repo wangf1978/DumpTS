@@ -334,10 +334,10 @@ void PrintHelp()
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\r\n");
 	printf("\t--srcfmt\t\tThe source TS format, including: ts, m2ts, if it is not specified, find the sync-word to decide it\r\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\r\n");
-	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4");
+	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\r\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\r\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\r\n");
-	printf("\t--stream_id_extension\t\tThe stream_id_extension in PES header of dumped stream\r\n");
+	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\r\n");
 	printf("\t--showinfo\t\tPrint the media information of elementary stream in TS/M2TS file\r\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\r\n");
 
