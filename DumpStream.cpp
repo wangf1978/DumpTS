@@ -1984,7 +1984,11 @@ int DumpOneStream()
 			if ((dump_ret = FlushPESBuffer(fw,
 				sPID, stream_types.find(sPID) == stream_types.end() ? -1 : stream_types[sPID],
 				pes_buffer, pes_buffer_len, dumpopt, raw_data_len, stream_id, stream_id_extension)) < 0)
-				printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
+			{
+				// At the last PES payload, don't show it except the verbose is set
+				if (g_verbose_level > 0)
+					printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
+			}
 		}
 
 		g_dump_status.num_of_processed_payloads++;

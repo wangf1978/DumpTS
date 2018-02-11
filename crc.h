@@ -44,8 +44,6 @@
 #define _crc_h
 
 
-
-
 //El valor CHECK es el resultado de realizar el calculo CRC para el char[] = "123456789";
 //The CHECK value is the result of making the checksum of the char[] = "123456789";
 /*
@@ -56,7 +54,7 @@ crc-8                   0x07                    False       0x00				0x00	       
 crc-8-darc              0x39	                True        0x00				0x00	            0x15
 crc-8-i-code            0x1D	                False       0xFD				0x00	            0x7E
 crc-8-itu               0x07	                False       0x55				0x55	            0xA1
-crc-8-maxim             0x131	                True        0x00				0x00	            0xA1
+crc-8-maxim             0x31	                True        0x00				0x00	            0xA1
 crc-8-rohc              0x07	                True        0xFF				0x00	            0xD0
 crc-8-wcdma             0x9B	                True        0x00				0x00	            0x25
 crc-16                  0x8005	                True        0x0000				0x0000	            0xBB3D
@@ -81,7 +79,7 @@ crc-aug-ccitt [1]		0x1021                  False       0x1D0F				0x0000         
 crc-24                  0x864CFB                False       0xB704CE	        0x000000	        0x21CF02
 crc-24-flexray-a		0x5D6DCB                False       0xFEDCBA	        0x000000	        0x7979BD
 crc-24-flexray-b		0x5D6DCB                False       0xABCDEF	        0x000000	        0x1F23B8
-crc-32                  0x04C11DB7              True        0x00000000	        0xFFFFFFFF	        0xCBF43926
+crc-32                  0x04C11DB7              True        0x00000000?	        0xFFFFFFFF	        0xCBF43926
 crc-32-bzip2            0x04C11DB7              False       0xFFFFFFFF	        0x00000000	        0xFC891918
 crc-32c                 0x1EDC6F41              True        0x00000000	        0xFFFFFFFF	        0xE3069283
 crc-32d                 0xA833982B              True        0x00000000	        0xFFFFFFFF	        0x87315576
@@ -97,12 +95,56 @@ crc-64-jones            0xAD93D23594C935A9		True        0xFFFFFFFFFFFFFFFF	0x000
 
 #include <stdint.h>
 
-
-
 #define TRUE    1
 #define FALSE   0
 
+enum CRC_TYPE
+{
+	CRC8,
+	CRC8_DARC,
+	CRC8_I_CODE,
+	CRC8_ITU,
+	CRC8_MAXIM,
+	CRC8_ROHC,
+	CRC8_WCDMA,
+	CRC16,
+	CRC16_BUYPASS,
+	CRC16_DDS_110,
+	CRC16_DECT,
+	CRC16_DNP,
+	CRC16_EN_13757,
+	CRC16_GENIBUS,
+	CRC16_MAXIM,
+	CRC16_MCRF4XX,
+	CRC16_RIELLO,
+	CRC16_T10_DIF,
+	CRC16_TELEDISK,
+	CRC16_USB,
+	X_25,
+	XMODEM,
+	MODBUS,
+	KERMIT,
+	CRC_CCITT_FALSE,
+	CRC_AUG_CCITT,
+	CRC24,
+	CRC24_FLEXRAY_A,
+	CRC24_FLEXRAY_B,
+	CRC32,
+	CRC32_BZIP2,
+	CRC32C,
+	CRC32D,
+	CRC32_MPEG,
+	POSIX,
+	CRC32Q,
+	JAMCRC,
+	XFER,
+	CRC64,
+	CRC64_WE,
+	CRC64_JONES,
+	CRC_MAX
+};
 
+typedef void*	CRC_HANDLE;
 
 //Indicate here the CRC algorithm that you want to use
 #define _CRC_32_MPEG
@@ -222,8 +264,13 @@ typedef uint32_t crc;
 #else
     void F_CRC_InicializaTable(void);
 #endif
-crc F_CRC_CalculaCheckSum(uint8_t const AF_Datos[], uint16_t VF_nBytes);
+crc			F_CRC_CalculaCheckSum(uint8_t const AF_Datos[], size_t VF_nBytes);
 
+uint64_t	CalcCRC(CRC_TYPE type, const uint8_t* pBuf, size_t cbSize);
+
+CRC_HANDLE	BeginCRC(CRC_TYPE type);
+void		ProcessCRC(CRC_HANDLE handle, const uint8_t* pBuf, size_t cbSize);
+uint64_t	EndCRC(CRC_HANDLE handle);
 
 
 #endif 

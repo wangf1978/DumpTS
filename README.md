@@ -26,8 +26,9 @@ Use VS2015 to open DumpTS.sln to build it
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--showinfo**||print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
+|**--removebox**||'xxxx,xxxx'|remove the box elements in MP4 file|
+|**--crc**||'crc-type, all'|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
 |**--verbose**||print more message in the intermediate process|
-|**--removebox**|'xxxx,xxxx'|remove the box elements in MP4 file
  
 Here are some examples of command lines:  
 ```

@@ -6,6 +6,7 @@
 #include "PayloadBuf.h"
 #include "DumpTS.h"
 #include "Bitstream.h"
+#include "crc.h"
 
 using namespace std;
 
@@ -104,7 +105,7 @@ void ParseCommandLine(int argc, char* argv[])
 	g_params.insert({ "input", argv[1] });
 
 	std::string str_arg_prefixes[] = {
-		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox"
+		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox", "crc"
 	};
 
 	for (int iarg = 2; iarg < argc; iarg++)
@@ -256,7 +257,7 @@ int PrepareParams()
 		}
 	}
 
-	if (g_ts_fmtinfo.packet_size == 0)
+	if (g_ts_fmtinfo.packet_size == 0 && g_params.find("crc") == g_params.end())
 	{
 		FILE* rfp = NULL;
 		errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
@@ -312,10 +313,15 @@ int PrepareDump()
 
 	g_dump_status.state = DUMP_STATE_INITIALIZE;
 
-	_fseeki64(rfp, -1, SEEK_END);
-	long long file_size = _ftelli64(rfp);
+	if (g_ts_fmtinfo.eMpegSys >= MPEG_SYSTEM_TS && g_ts_fmtinfo.eMpegSys <= MPEG_SYSTEM_BDAV)
+	{
+		_fseeki64(rfp, -1, SEEK_END);
+		long long file_size = _ftelli64(rfp);
 
-	g_dump_status.num_of_packs = file_size / g_ts_fmtinfo.packet_size;
+		g_dump_status.num_of_packs = file_size / g_ts_fmtinfo.packet_size;
+
+		_fseeki64(rfp, 0, SEEK_SET);
+	}
 
 	// Do other preparing or initializing things...
 
@@ -339,6 +345,7 @@ void PrintHelp()
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\r\n");
 	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\r\n");
 	printf("\t--showinfo\t\tPrint the media information of elementary stream in TS/M2TS file\r\n");
+	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\r\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\r\n");
 
 	printf("Examples:\r\n");
@@ -347,6 +354,93 @@ void PrintHelp()
 	printf("DumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\r\n");
 
 	return;
+}
+
+extern void PrintCRCList();
+extern CRC_TYPE GetCRCType(const char* szCRCName);
+extern uint8_t GetCRCWidth(CRC_TYPE type);
+extern const char* GetCRCName(CRC_TYPE type);
+
+void CalculateCRC()
+{
+	if (g_params.find("crc") == g_params.end())
+	{
+		printf("Please specify the crc type.\r\n");
+		return;
+	}
+
+	FILE* rfp = NULL;
+	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
+	if (errn != 0 || rfp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		return;
+	}
+
+	// try to find the CRC type in string
+	if (g_params["crc"] == "all")
+	{
+		for (int i = 0; i < CRC_MAX; i++)
+		{
+			CRC_HANDLE crc_handle = BeginCRC((CRC_TYPE)i);
+			if (crc_handle == NULL)
+			{
+				printf("Unsupported crc type: %s.\r\n", g_params["crc"].c_str());
+				continue;
+			}
+
+			uint8_t buf[2048];
+			while (!feof(rfp))
+			{
+				size_t nRead = 0;
+				if ((nRead = fread_s(buf, sizeof(buf), 1, sizeof(buf), rfp)) > 0)
+				{
+					ProcessCRC(crc_handle, buf, nRead);
+				}
+			}
+			_fseeki64(rfp, 0, SEEK_SET);
+
+			char szFmtStr[256];
+			sprintf_s(szFmtStr, sizeof(szFmtStr), "%%20s result: 0X%%0%dllX\r\n", (GetCRCWidth((CRC_TYPE)i) + 3) / 4);
+
+			printf((const char*)szFmtStr, GetCRCName((CRC_TYPE)i), EndCRC(crc_handle));
+		}
+
+		fclose(rfp);
+	}
+	else
+	{
+		CRC_TYPE crc_type = GetCRCType(g_params["crc"].c_str());
+
+		if (crc_type == CRC_MAX)
+		{
+			printf("Unsupported crc type: %s.\r\n", g_params["crc"].c_str());
+			return;
+		}
+
+		CRC_HANDLE crc_handle = BeginCRC(crc_type);
+		if (crc_handle == NULL)
+		{
+			printf("Unsupported crc type: %s.\r\n", g_params["crc"].c_str());
+			return;
+		}
+
+		uint8_t buf[2048];
+		while (!feof(rfp))
+		{
+			size_t nRead = 0;
+			if ((nRead = fread_s(buf, sizeof(buf), 1, sizeof(buf), rfp)) > 0)
+			{
+				ProcessCRC(crc_handle, buf, nRead);
+			}
+		}
+		fclose(rfp);
+
+		char szFmtStr[256];
+		sprintf_s(szFmtStr, sizeof(szFmtStr), "%%s result: 0X%%0%dllX\r\n", (GetCRCWidth(crc_type) + 3) / 4);
+
+		printf((const char*)szFmtStr, g_params["crc"].c_str(), EndCRC(crc_handle));
+	}
 }
 
 int main(int argc, char* argv[])
@@ -378,7 +472,6 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-
 	// Prepare the dump
 	if (PrepareDump() < 0)
 	{
@@ -387,7 +480,18 @@ int main(int argc, char* argv[])
 	}
 
 	// If the output format is ES/PES, and PID is also specified, go into the DumpOneStream mode
-	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mp4") == 0)
+	if (g_params.find("crc") != g_params.end())
+	{
+		if (g_params["crc"] == "")
+		{
+			PrintCRCList();
+		}
+		else
+		{
+			CalculateCRC();
+		}
+	}
+	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mp4") == 0)
 	{
 		nDumpRet = DumpMP4();
 	}
