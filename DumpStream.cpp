@@ -35,6 +35,8 @@ extern DUMP_STATUS g_dump_status;
 #define AAC_SYNCWORD				0xFFF
 #define MPEGA_FRAME_SYNC			0x7FF
 
+#define ADTS_HEADER_SIZE			7
+
 struct AUDIO_INFO
 {
 	unsigned long	sample_frequency;
@@ -1232,17 +1234,58 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	else if (AAC_AUDIO_STREAM == stream_type)
 	{
 		unsigned short sync_code = p[0];
-		while (cbLeft >= 8)
+		while (cbLeft >= ADTS_HEADER_SIZE)
 		{
-			sync_code = (sync_code << 8) | p[1];
-			if ((sync_code&0xFFF0) == (AAC_SYNCWORD<<4))
+			while (cbLeft >= 2 && ((sync_code = (sync_code << 8) | (*(p + 1))) & 0xFFF0) != (AAC_SYNCWORD << 4))
+			{
+				cbLeft--;
+				p++;
+			}
+
+			if (cbLeft < ADTS_HEADER_SIZE)
 				break;
 
-			cbLeft--;
-			p++;
+			// Check whether it is a real compatible ADTS header
+			uint64_t u32Val = *((uint32_t*)p);
+			ULONG_FIELD_ENDIAN(u32Val);
+
+			uint32_t ID = (u32Val >> 19) & 0x1;
+			uint32_t layer = (u32Val >> 17) & 03;
+			uint32_t protection_absent = (u32Val >> 16) & 0x1;
+			uint32_t profile_ObjectType = (u32Val >> 14) & 0x03;
+			uint32_t sample_frequency_index = (u32Val >> 10) & 0x0F;
+			uint32_t channel_configuration = (u32Val >> 6) & 0x07;
+			if (layer != 0 // Should be set to '00'
+				|| sample_frequency_index == 0x0F	// escape value
+				|| ID == 1 && profile_ObjectType == 3	// it is reserved for MPEG-2 AAC
+				|| sample_frequency_index == 0x0D || sample_frequency_index == 0x0E // reserved
+				)
+			{
+				// It is not a real ADTS header, continue finding it
+				cbLeft--;
+				p++;
+				continue;
+			}
+
+			unsigned short aac_frame_length = ((p[3] & 0x03) << 11) | (p[4] << 3) | ((p[5] >> 5) & 0x7);
+			unsigned char number_of_raw_data_blocks_in_frame = p[6] & 0x3;
+
+			if (cbLeft >= ADTS_HEADER_SIZE + 1 && number_of_raw_data_blocks_in_frame == 0)
+			{
+				uint8_t id_syn_ele = (p[7] >> 5) & 0x7;
+				if (id_syn_ele == 7)
+				{
+					// It is not a real ADTS header, continue finding it
+					cbLeft--;
+					p++;
+					continue;
+				}
+			}
+
+			break;
 		}
 
-		if (ParseADTSFrame(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
+		if (cbLeft >= ADTS_HEADER_SIZE && ParseADTSFrame(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
 		{
 			iParseRet = 0;
 		}
