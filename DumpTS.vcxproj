@@ -127,6 +127,7 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AMRingBuffer.cpp" />
     <ClCompile Include="AudChMap.cpp" />
     <ClCompile Include="Bitstream.cpp" />
     <ClCompile Include="combase.cpp" />
@@ -147,6 +148,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AMRingBuffer.h" />
     <ClInclude Include="AudChMap.h" />
     <ClInclude Include="Bitstream.h" />
     <ClInclude Include="combase.h" />

@@ -51,6 +51,9 @@
     <ClCompile Include="combase.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AMRingBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StdAfx.h">
@@ -75,6 +78,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="combase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AMRingBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

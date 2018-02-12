@@ -48,9 +48,9 @@
 #endif
 
 #ifdef _WIN32
-#define AMP_NOP1(p)							p
+#define CODE_NOP1(p)						p
 #else
-#define AMP_NOP1(p)							(void)0
+#define CODE_NOP1(p)						(void)0
 #endif
 
 #define AMP_ABS(A)							((A) < 0 ? (-(A)) : (A))
@@ -58,9 +58,12 @@
 #define AMP_MIN(A, B)						((A) <= (B)?(A):(B))
 #define AMP_MAX(A, B)						((A) >= (B)?(A):(B))
 
-#define AMP_SAFERELEASE(p)					if(p){p->Release();p = NULL;}AMP_NOP1(p)
-#define AMP_SAFEASSIGN(p, v)				if(p){*(p) = (v);}AMP_NOP1(p)
-#define AMP_SAFEASSIGN1(p, v)				if(p){*(p) = (v); if(v)v->ProcAddRef();}AMP_NOP1(p)
+#define AMP_SAFERELEASE(p)					if(p){p->Release();p = NULL;}CODE_NOP1(p)
+#define AMP_SAFEASSIGN(p, v)				if(p){*(p) = (v);}CODE_NOP1(p)
+#define AMP_SAFEASSIGN1(p, v)				if(p){*(p) = (v); if(v)v->ProcAddRef();}CODE_NOP1(p)
+
+#define AMP_SAFEDEL(p)						if(p){delete p;p = NULL;}AMP_NOP1(p)
+#define AMP_SAFEDELA(p)						if(p){delete [] p;p = NULL;}CODE_NOP1(p)
 
 #ifndef UNREFERENCED_PARAMETER
 #define UNREFERENCED_PARAMETER(P)          (P)
@@ -74,12 +77,10 @@
 #define DBG_UNREFERENCED_LOCAL_VARIABLE(V) (V)
 #endif
 
-
 // Portable error definition
 #ifdef __linux__
 #define E_NOINTERFACE						0x80004002L
 #define E_FAIL								0x80004005L
-
 
 #define S_OK								0L
 #define S_FALSE								1L
@@ -87,6 +88,11 @@
 
 #define RET_CODE_SUCCESS					0
 #define RET_CODE_ERROR					   -1
+#define RET_CODE_ERROR_NOTIMPL			   -2
+#define RET_CODE_ERROR_FILE_NOT_EXIST	   -3
+#define RET_CODE_ERROR_PERMISSION		   -6
+#define RET_CODE_INVALID_PARAMETER		   -7
+#define RET_CODE_OUTOFMEMORY			   -8
 
 
 #define RET_CODE_HEADER_LOST			   -2000			// Header information can't be retrieved.
