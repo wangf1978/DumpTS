@@ -335,10 +335,10 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 	{
 		ISOMediaFile::Box* ptr_parent = ptr_box->container;
 		memcpy(szLine + indent + (level - 1)*level_span, "|--", 3);
-		for (int i = level - 2; i >= 0 && ptr_parent != nullptr; i++)
+		for (int i = level - 2; i >= 0 && ptr_parent != nullptr; i--)
 		{
 			if (ptr_parent->next_sibling != nullptr)
-				memcpy(szLine + indent + (level - 2)*level_span, "|", 1);
+				memcpy(szLine + indent + i*level_span, "|", 1);
 			ptr_parent = ptr_parent->container;
 		}
 		szText = szLine + indent + 3 + (level - 1)*level_span;
@@ -354,9 +354,12 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 		char c1 = (ptr_box->type >> 16) & 0xFF;
 		char c2 = (ptr_box->type >> 8) & 0xFF;
 		char c3 = (ptr_box->type & 0xFF);
-		sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c' (size: %lld)\r\n",
-			isprint(c0) ? c0 : ' ', isprint(c1) ? c1 : ' ', isprint(c2) ? c2 : ' ', isprint(c3) ? c3 : ' ',
-			ptr_box->size);
+		if (isprint(c0) && isprint(c1) && isprint(c2) && isprint(c3))
+			sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c' (size: %lld)\r\n", c0, c1, c2, c3, ptr_box->size);
+		else
+			sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c'/%08Xh (size: %lld)\r\n",
+				isprint(c0) ? c0 : ' ', isprint(c1) ? c1 : ' ', isprint(c2) ? c2 : ' ', isprint(c3) ? c3 : ' ',
+				ptr_box->type, ptr_box->size);
 	}
 	else
 	{

@@ -115,317 +115,324 @@ namespace ISOMediaFile
 	{
 		int iRet = 0;
 		Box* ptr_box = NULL;
-		uint64_t box_header = bs.PeekBits(64);
-		switch ((box_header&UINT32_MAX))
+
+		try
 		{
-		case 'ftyp':
-			ptr_box = new FileTypeBox();
-			break;
-		case 'pdin':
-			ptr_box = new ProgressiveDownloadInfoBox();
-			break;
-		case 'moov':
-			ptr_box = new MovieBox();
-			break;
-		case 'mvhd':
-			ptr_box = new MovieBox::MovieHeaderBox();
-			break;
-		case 'trak':
-			ptr_box = new MovieBox::TrackBox();
-			break;
-		case 'tkhd':
-			ptr_box = new MovieBox::TrackBox::TrackHeaderBox();
-			break;
-		case 'tref':
-			ptr_box = new MovieBox::TrackBox::TrackReferenceBox();
-			break;
-		case 'trgr':	// Track Group Box
-			ptr_box = new MovieBox::TrackBox::TrackGroupBox();
-			break;
-		case 'edts':	// Edit Box
-			ptr_box = new MovieBox::TrackBox::EditBox();
-			break;
-		case 'elst':
-			ptr_box = new MovieBox::TrackBox::EditBox::EditListBox();
-			break;
-		case 'mdia':
-			ptr_box = new MovieBox::TrackBox::MediaBox();
-			break;
-		case 'mdhd':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaHeaderBox();
-			break;
-		case 'hdlr':
-			ptr_box = new HandlerBox();
-			break;
-		case 'minf':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox();
-			break;
-		case 'vmhd':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::VideoMediaHeaderBox();
-			break;
-		case 'smhd':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SoundMediaHeaderBox();
-			break;
-		case 'hmhd':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::HintMediaHeaderBox();
-			break;
-		case 'nmhd':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::NullMediaHeaderBox();
-			break;
-		case 'dinf':
-			ptr_box = new DataInformationBox();
-			break;
-		case 'dref':
-			ptr_box = new DataInformationBox::DataReferenceBox();
-			break;
-		case 'stbl':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox();
-			break;
-		case 'stsd':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox();
-			break;
-		case 'stts':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::TimeToSampleBox();
-			break;
-		case 'ctts':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionOffsetBox();
-			break;
-		case 'cslg':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionToDecodeBox();
-			break;
-		case 'stsc':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleToChunkBox();
-			break;
-		case 'stsz':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox();
-			break;
-		case 'stz2':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompactSampleSizeBox();
-			break;
-		case 'stco':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkOffsetBox();
-			break;
-		case 'co64':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkLargeOffsetBox();
-			break;
-		case 'stss':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SyncSampleBox();
-			break;
-		case 'stsh':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ShadowSyncSampleBox();
-			break;
-		case 'padb':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::PaddingBitsBox();
-			break;
-		case 'stdp':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::DegradationPriorityBox();
-			break;
-		case 'sdtp':
-			ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDependencyTypeBox();
-			break;
-		case 'sbgp':	// SampleToGroupBox
-			ptr_box = new SampleToGroupBox();
-			break;
-		case 'sgpd':
-			ptr_box = new SampleGroupDescriptionBox();
-			break;
-		case 'subs':
-			ptr_box = new SubSampleInformationBox();
-			break;
-		case 'saiz':
-			ptr_box = new SampleAuxiliaryInformationSizesBox();
-			break;
-		case 'saio':
-			ptr_box = new SampleAuxiliaryInformationOffsetsBox();
-		case 'udta':
-			ptr_box = new UserDataBox();
-			break;
-		case 'mvex':
-			ptr_box = new MovieBox::MovieExtendsBox();
-			break;
-		case 'mehd':
-			ptr_box = new MovieBox::MovieExtendsBox::MovieExtendsHeaderBox();
-			break;
-		case 'trex':
-			ptr_box = new MovieBox::MovieExtendsBox::TrackExtendsBox();
-			break;
-		case 'leva':
-			ptr_box = new MovieBox::MovieExtendsBox::LevelAssignmentBox();
-			break;
-		case 'moof':
-			ptr_box = new MovieFragmentBox();
-			break;
-		case 'mfhd':
-			ptr_box = new MovieFragmentBox::MovieFragmentHeaderBox();
-			break;
-		case 'traf':
-			ptr_box = new MovieFragmentBox::TrackFragmentBox();
-			break;
-		case 'tfhd':
-			ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackFragmentHeaderBox();
-			break;
-		case 'trun':
-			ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackRunBox();
-			break;
-		case 'tfdt':
-			ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackFragmentBaseMediaDecodeTimeBox();
-			break;
-		case 'mfra':
-			ptr_box = new MovieFragmentRandomAccessBox();
-			break;
-		case 'tfra':
-			ptr_box = new MovieFragmentRandomAccessBox::TrackFragmentRandomAccessBox();
-			break;
-		case 'mfro':
-			ptr_box = new MovieFragmentRandomAccessBox::MovieFragmentRandomAccessOffsetBox();
-			break;
-		case 'mdat':
-			ptr_box = new MediaDataBox();
-			break;
-		case 'free':
-			ptr_box = new FreeSpaceBox();
-			break;
-		case 'skip':
-			ptr_box = new FreeSpaceBox();
-		case 'cprt':
-			ptr_box = new UserDataBox::CopyrightBox();
-			break;
-		case 'tsel':
-			ptr_box = new UserDataBox::TrackSelectionBox();
-			break;
-		case 'strk':
-			ptr_box = new UserDataBox::SubTrack();
-			break;
-		case 'stri':
-			ptr_box = new UserDataBox::SubTrack::SubTrackInformation();
-			break;
-		case 'strd':
-			ptr_box = new UserDataBox::SubTrack::SubTrackDefinition();
-			break;
-		case 'meta':
-			// QT file metadata is different with ISO 14496-12 defintion
-			if (pContainer == RootBox())
+			uint64_t box_header = bs.PeekBits(64);
+			switch ((box_header&UINT32_MAX))
 			{
-				Box* ptr_child = pContainer->first_child;
-				while (ptr_child != nullptr && ptr_child->type == 'ftyp')
+			case 'ftyp':
+				ptr_box = new FileTypeBox();
+				break;
+			case 'pdin':
+				ptr_box = new ProgressiveDownloadInfoBox();
+				break;
+			case 'moov':
+				ptr_box = new MovieBox();
+				break;
+			case 'mvhd':
+				ptr_box = new MovieBox::MovieHeaderBox();
+				break;
+			case 'trak':
+				ptr_box = new MovieBox::TrackBox();
+				break;
+			case 'tkhd':
+				ptr_box = new MovieBox::TrackBox::TrackHeaderBox();
+				break;
+			case 'tref':
+				ptr_box = new MovieBox::TrackBox::TrackReferenceBox();
+				break;
+			case 'trgr':	// Track Group Box
+				ptr_box = new MovieBox::TrackBox::TrackGroupBox();
+				break;
+			case 'edts':	// Edit Box
+				ptr_box = new MovieBox::TrackBox::EditBox();
+				break;
+			case 'elst':
+				ptr_box = new MovieBox::TrackBox::EditBox::EditListBox();
+				break;
+			case 'mdia':
+				ptr_box = new MovieBox::TrackBox::MediaBox();
+				break;
+			case 'mdhd':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaHeaderBox();
+				break;
+			case 'hdlr':
+				ptr_box = new HandlerBox();
+				break;
+			case 'minf':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox();
+				break;
+			case 'vmhd':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::VideoMediaHeaderBox();
+				break;
+			case 'smhd':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SoundMediaHeaderBox();
+				break;
+			case 'hmhd':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::HintMediaHeaderBox();
+				break;
+			case 'nmhd':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::NullMediaHeaderBox();
+				break;
+			case 'dinf':
+				ptr_box = new DataInformationBox();
+				break;
+			case 'dref':
+				ptr_box = new DataInformationBox::DataReferenceBox();
+				break;
+			case 'stbl':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox();
+				break;
+			case 'stsd':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox();
+				break;
+			case 'stts':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::TimeToSampleBox();
+				break;
+			case 'ctts':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionOffsetBox();
+				break;
+			case 'cslg':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionToDecodeBox();
+				break;
+			case 'stsc':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleToChunkBox();
+				break;
+			case 'stsz':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox();
+				break;
+			case 'stz2':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompactSampleSizeBox();
+				break;
+			case 'stco':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkOffsetBox();
+				break;
+			case 'co64':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkLargeOffsetBox();
+				break;
+			case 'stss':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SyncSampleBox();
+				break;
+			case 'stsh':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ShadowSyncSampleBox();
+				break;
+			case 'padb':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::PaddingBitsBox();
+				break;
+			case 'stdp':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::DegradationPriorityBox();
+				break;
+			case 'sdtp':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDependencyTypeBox();
+				break;
+			case 'sbgp':	// SampleToGroupBox
+				ptr_box = new SampleToGroupBox();
+				break;
+			case 'sgpd':
+				ptr_box = new SampleGroupDescriptionBox();
+				break;
+			case 'subs':
+				ptr_box = new SubSampleInformationBox();
+				break;
+			case 'saiz':
+				ptr_box = new SampleAuxiliaryInformationSizesBox();
+				break;
+			case 'saio':
+				ptr_box = new SampleAuxiliaryInformationOffsetsBox();
+			case 'udta':
+				ptr_box = new UserDataBox();
+				break;
+			case 'mvex':
+				ptr_box = new MovieBox::MovieExtendsBox();
+				break;
+			case 'mehd':
+				ptr_box = new MovieBox::MovieExtendsBox::MovieExtendsHeaderBox();
+				break;
+			case 'trex':
+				ptr_box = new MovieBox::MovieExtendsBox::TrackExtendsBox();
+				break;
+			case 'leva':
+				ptr_box = new MovieBox::MovieExtendsBox::LevelAssignmentBox();
+				break;
+			case 'moof':
+				ptr_box = new MovieFragmentBox();
+				break;
+			case 'mfhd':
+				ptr_box = new MovieFragmentBox::MovieFragmentHeaderBox();
+				break;
+			case 'traf':
+				ptr_box = new MovieFragmentBox::TrackFragmentBox();
+				break;
+			case 'tfhd':
+				ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackFragmentHeaderBox();
+				break;
+			case 'trun':
+				ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackRunBox();
+				break;
+			case 'tfdt':
+				ptr_box = new MovieFragmentBox::TrackFragmentBox::TrackFragmentBaseMediaDecodeTimeBox();
+				break;
+			case 'mfra':
+				ptr_box = new MovieFragmentRandomAccessBox();
+				break;
+			case 'tfra':
+				ptr_box = new MovieFragmentRandomAccessBox::TrackFragmentRandomAccessBox();
+				break;
+			case 'mfro':
+				ptr_box = new MovieFragmentRandomAccessBox::MovieFragmentRandomAccessOffsetBox();
+				break;
+			case 'mdat':
+				ptr_box = new MediaDataBox();
+				break;
+			case 'free':
+				ptr_box = new FreeSpaceBox();
+				break;
+			case 'skip':
+				ptr_box = new FreeSpaceBox();
+			case 'cprt':
+				ptr_box = new UserDataBox::CopyrightBox();
+				break;
+			case 'tsel':
+				ptr_box = new UserDataBox::TrackSelectionBox();
+				break;
+			case 'strk':
+				ptr_box = new UserDataBox::SubTrack();
+				break;
+			case 'stri':
+				ptr_box = new UserDataBox::SubTrack::SubTrackInformation();
+				break;
+			case 'strd':
+				ptr_box = new UserDataBox::SubTrack::SubTrackDefinition();
+				break;
+			case 'meta':
+				// QT file metadata is different with ISO 14496-12 definition
+			{
+				Box* ptr_child = RootBox()->first_child;
+				while (ptr_child != nullptr && ptr_child->type != 'ftyp')
 					ptr_child = ptr_child->next_sibling;
 
 				if (ptr_child != nullptr && ((FileTypeBox*)ptr_child)->major_brand == 'qt  ')
 					ptr_box = new QTFF::MetaBox();
+				else
+					ptr_box = new MetaBox();
+			}
+			break;
+			case 'iloc':
+				ptr_box = new MetaBox::ItemLocationBox();
+				break;
+			case 'ipro':
+				ptr_box = new MetaBox::ItemProtectionBox();
+				break;
+			case 'sinf':
+				ptr_box = new ProtectionSchemeInfoBox();
+				break;
+			case 'frma':
+				ptr_box = new OriginalFormatBox();
+				break;
+			case 'schm':
+				ptr_box = new SchemeTypeBox();
+				break;
+			case 'schi':
+				ptr_box = new SchemeInformationBox();
+				break;
+			case 'iinf':
+				ptr_box = new MetaBox::ItemInfoBox();
+				break;
+			case 'xml ':
+				ptr_box = new MetaBox::XMLBox();
+				break;
+			case 'bxml':
+				ptr_box = new MetaBox::BinaryXMLBox();
+				break;
+			case 'pitm':
+				ptr_box = new MetaBox::PrimaryItemBox();
+				break;
+			case 'fiin':
+				ptr_box = new MetaBox::FDItemInformationBox();
+				break;
+			case 'paen':
+				ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry();
+				break;
+			case 'fire':
+				ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FileReservoirBox();
+				break;
+			case 'fpar':
+				ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FilePartitionBox();
+				break;
+			case 'fecr':
+				ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FECReservoirBox();
+				break;
+			case 'segr':
+				ptr_box = new MetaBox::FDItemInformationBox::FDSessionGroupBox();
+				break;
+			case 'gitn':
+				ptr_box = new MetaBox::FDItemInformationBox::GroupIdToNameBox();
+				break;
+			case 'idat':
+				ptr_box = new MetaBox::ItemDataBox();
+				break;
+			case 'iref':
+				ptr_box = new MetaBox::ItemReferenceBox();
+				break;
+			case 'meco':
+				ptr_box = new AdditionalMetadataContainerBox();
+				break;
+			case 'mere':
+				ptr_box = new AdditionalMetadataContainerBox::MetaboxRelationBox();
+				break;
+			case 'styp':
+				/*
+				Box Type: 'styp'
+				Container: File
+				Mandatory: No
+				Quantity: Zero or more
+				If segments are stored in separate files (e.g. on a standard HTTP server) it is recommended that these
+				'segment files' contain a segment-type box, which must be first if present, to enable identification of those files,
+				and declaration of the specifications with which they are compliant.
+
+				A segment type has the same format as an 'ftyp' box [4.3], except that it takes the box type 'styp'. The
+				brands within it may include the same brands that were included in the 'ftyp' box that preceded the
+				'moov' box, and may also include additional brands to indicate the compatibility of this segment with various
+				specification(s)
+				*/
+				ptr_box = new FileTypeBox();
+				break;
+			case 'sidx':
+				ptr_box = new SegmentIndexBox();
+				break;
+			case 'ssix':
+				ptr_box = new SubsegmentIndexBox();
+				break;
+			case 'prft':
+				ptr_box = new ProducerReferenceTimeBox();
+				break;
+			case 'rinf':
+				ptr_box = new RestrictedSchemeInfoBox();
+				break;
+			default:
+				ptr_box = new UnknownBox();
 			}
 
-			if (ptr_box == nullptr)
-				ptr_box = new MetaBox();
-			break;
-		case 'iloc':
-			ptr_box = new MetaBox::ItemLocationBox();
-			break;
-		case 'ipro':
-			ptr_box = new MetaBox::ItemProtectionBox();
-			break;
-		case 'sinf':
-			ptr_box = new ProtectionSchemeInfoBox();
-			break;
-		case 'frma':
-			ptr_box = new OriginalFormatBox();
-			break;
-		case 'schm':
-			ptr_box = new SchemeTypeBox();
-			break;
-		case 'schi':
-			ptr_box = new SchemeInformationBox();
-			break;
-		case 'iinf':
-			ptr_box = new MetaBox::ItemInfoBox();
-			break;
-		case 'xml ':
-			ptr_box = new MetaBox::XMLBox();
-			break;
-		case 'bxml':
-			ptr_box = new MetaBox::BinaryXMLBox();
-			break;
-		case 'pitm':
-			ptr_box = new MetaBox::PrimaryItemBox();
-			break;
-		case 'fiin':
-			ptr_box = new MetaBox::FDItemInformationBox();
-			break;
-		case 'paen':
-			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry();
-			break;
-		case 'fire':
-			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FileReservoirBox();
-			break;
-		case 'fpar':
-			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FilePartitionBox();
-			break;
-		case 'fecr':
-			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FECReservoirBox();
-			break;
-		case 'segr':
-			ptr_box = new MetaBox::FDItemInformationBox::FDSessionGroupBox();
-			break;
-		case 'gitn':
-			ptr_box = new MetaBox::FDItemInformationBox::GroupIdToNameBox();
-			break;
-		case 'idat':
-			ptr_box = new MetaBox::ItemDataBox();
-			break;
-		case 'iref':
-			ptr_box = new MetaBox::ItemReferenceBox();
-			break;
-		case 'meco':
-			ptr_box = new AdditionalMetadataContainerBox();
-			break;
-		case 'mere':
-			ptr_box = new AdditionalMetadataContainerBox::MetaboxRelationBox();
-			break;
-		case 'styp':
-			/*
-			Box Type: 'styp'
-			Container: File
-			Mandatory: No
-			Quantity: Zero or more
-			If segments are stored in separate files (e.g. on a standard HTTP server) it is recommended that these
-			'segment files' contain a segment-type box, which must be first if present, to enable identification of those files,
-			and declaration of the specifications with which they are compliant.
+			pContainer->AppendChildBox(ptr_box);
 
-			A segment type has the same format as an 'ftyp' box [4.3], except that it takes the box type 'styp'. The
-			brands within it may include the same brands that were included in the 'ftyp' box that preceded the
-			'moov' box, and may also include additional brands to indicate the compatibility of this segment with various
-			specification(s)		
-			*/
-			ptr_box = new FileTypeBox();
-			break;
-		case 'sidx':
-			ptr_box = new SegmentIndexBox();
-			break;
-		case 'ssix':
-			ptr_box = new SubsegmentIndexBox();
-			break;
-		case 'prft':
-			ptr_box = new ProducerReferenceTimeBox();
-			break;
-		case 'rinf':
-			ptr_box = new RestrictedSchemeInfoBox();
-			break;
-		default:
-			ptr_box = new UnknownBox();
+			if ((iRet = ptr_box->Unpack(bs)) < 0)
+			{
+				printf("Failed to load a box and its children from the current bitstream.\n");
+
+				AMP_SAFEASSIGN(ppBox, nullptr);
+				pContainer->RemoveChildBox(ptr_box);
+
+				return iRet;
+			}
+
+			AMP_SAFEASSIGN(ppBox, ptr_box);
 		}
-
-		pContainer->AppendChildBox(ptr_box);
-
-		if ((iRet = ptr_box->Unpack(bs)) < 0)
+		catch (std::exception& e)
 		{
-			printf("Failed to load a box and its children from the current bitstream.\n");
-
-			AMP_SAFEASSIGN(ppBox, nullptr);
-			pContainer->RemoveChildBox(ptr_box);
-
-			return iRet;
+			printf("exception: %s\r\n", e.what());
+			return -1;
 		}
-
-		AMP_SAFEASSIGN(ppBox, ptr_box);
 
 		return 0;
 	}

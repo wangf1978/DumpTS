@@ -630,8 +630,8 @@ namespace ISOMediaFile
 			}PACKED;
 			uint64_t	uint64_val;
 
-			Entry(uint32_t SampleCount, uint32_t GroupDescIdx)
-				:sample_count(SampleCount), group_description_index(GroupDescIdx) {
+			Entry(CBitstream& bs)
+				:sample_count(bs.GetDWord()), group_description_index(bs.GetDWord()) {
 			}
 		}PACKED;
 
@@ -686,7 +686,7 @@ namespace ISOMediaFile
 
 			while (left_bytes >= sizeof(Entry) && entries.size() < entry_count)
 			{
-				entries.emplace_back(bs.GetDWord(), bs.GetDWord());
+				entries.emplace_back(bs);
 				left_bytes -= sizeof(Entry);
 			}
 

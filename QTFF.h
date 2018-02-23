@@ -63,14 +63,14 @@ namespace QTFF
 				int32_t		Key_namespace;
 				std::string	Key_value;
 
-				Entry(int32_t keySize, int32_t keyNamespace)
-					: Key_size(keySize), Key_namespace(keyNamespace) {
+				Entry(CBitstream& bs)
+					: Key_size(bs.GetLong()), Key_namespace(bs.GetLong()) {
 					if (Key_size > 8)
-						Key_value.reserve(Key_size - 8);
+						Key_value.resize(Key_size - 8);
 				}
 			}PACKED;
 
-			int32_t				Entry_count;
+			uint32_t			Entry_count;
 			std::vector<Entry>	Entries;
 
 			virtual int Unpack(CBitstream& bs)
@@ -88,7 +88,7 @@ namespace QTFF
 					goto done;
 				}
 
-				Entry_count = bs.GetShort();
+				Entry_count = bs.GetDWord();
 				left_bytes -= sizeof(Entry_count);
 
 				if (Entry_count <= 0)
@@ -97,13 +97,14 @@ namespace QTFF
 				const size_t entry_header_size = sizeof(int32_t) + sizeof(int32_t);
 				while (left_bytes >= entry_header_size && Entries.size() < (size_t)Entry_count)
 				{
-					Entries.emplace_back(bs.GetLong(), bs.GetLong());
+					Entries.emplace_back(bs);
 
 					left_bytes -= entry_header_size;
 					if (left_bytes + entry_header_size >= Entries.back().Key_size)
 					{
-						bs.Read((uint8_t*)(&Entries.back().Key_value[0]), Entries.back().Key_size - entry_header_size);
-						left_bytes -= Entries.back().Key_size;
+						size_t key_value_size = (size_t)(Entries.back().Key_size - entry_header_size);
+						bs.Read((uint8_t*)(&Entries.back().Key_value[0]), key_value_size);
+						left_bytes -= key_value_size;
 					}
 				}
 
@@ -123,7 +124,7 @@ namespace QTFF
 					uint32_t		Type_Indicator;
 					uint32_t		Locale_Indicator;
 
-					virtual int Unpack(CBitstream& bs)
+					virtual int _Unpack(CBitstream& bs)
 					{
 						int iRet = RET_CODE_SUCCESS;
 
@@ -144,9 +145,16 @@ namespace QTFF
 						left_bytes -= sizeof(Type_Indicator) + sizeof(Locale_Indicator);
 
 					done:
+						return iRet;
+					}
+
+					virtual int Unpack(CBitstream& bs)
+					{
+						int iRet = _Unpack(bs);
 						SkipLeftBits(bs);
 						return iRet;
 					}
+
 				}PACKED;
 
 				struct DataAtom : public ValueAtom
@@ -157,7 +165,7 @@ namespace QTFF
 					{
 						int iRet = RET_CODE_SUCCESS;
 
-						iRet = ValueAtom::Unpack(bs);
+						iRet = ValueAtom::_Unpack(bs);
 						if (iRet < 0)
 							return iRet;
 
@@ -165,7 +173,7 @@ namespace QTFF
 						if (box_left_bytes > (size_t)-1)
 							goto done;
 
-						size_t left_bytes = (size_t)LeftBytes(bs);
+						size_t left_bytes = (size_t)box_left_bytes;
 						if (left_bytes > 0)
 						{
 							Value.resize(left_bytes);
