@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ISO14496_12.h"
+#include "QTFF.h"
 
 std::unordered_map<uint32_t, const char*> box_desces = {
 	{ 'ftyp', "file type and compatibility" },
@@ -302,7 +303,19 @@ namespace ISOMediaFile
 			ptr_box = new UserDataBox::SubTrack::SubTrackDefinition();
 			break;
 		case 'meta':
-			ptr_box = new MetaBox();
+			// QT file metadata is different with ISO 14496-12 defintion
+			if (pContainer == RootBox())
+			{
+				Box* ptr_child = pContainer->first_child;
+				while (ptr_child != nullptr && ptr_child->type == 'ftyp')
+					ptr_child = ptr_child->next_sibling;
+
+				if (ptr_child != nullptr && ((FileTypeBox*)ptr_child)->major_brand == 'qt  ')
+					ptr_box = new QTFF::MetaBox();
+			}
+
+			if (ptr_box == nullptr)
+				ptr_box = new MetaBox();
 			break;
 		case 'iloc':
 			ptr_box = new MetaBox::ItemLocationBox();

@@ -229,6 +229,46 @@ int PrepareParams()
 	g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_UNKNOWN;
 
 	auto iter = g_params.find("srcfmt");
+
+	if (iter == g_params.end())
+	{
+		// check the file extension
+		if (g_params.find("input") != g_params.end())
+		{
+			std::string& str_input_file_name = g_params["input"];
+			size_t nPos1 = str_input_file_name.rfind('\\');
+			size_t nPos2 = str_input_file_name.rfind('/');
+			
+			size_t file_name_start_pos = 0;
+			if (nPos1 == std::string::npos)
+			{
+				if (nPos2 != std::string::npos)
+					file_name_start_pos = nPos2 + 1;
+			}
+			else if (nPos2 == std::string::npos)
+				file_name_start_pos = nPos1 + 1;
+			else
+				file_name_start_pos = AMP_MAX(nPos1, nPos2) + 1;
+
+			std::string file_name = str_input_file_name.substr(file_name_start_pos);
+			size_t file_ext_start_pos = file_name.rfind('.');
+			if (file_ext_start_pos != std::string::npos)
+			{
+				std::string file_name_ext = file_name.substr(file_ext_start_pos);
+				if (_stricmp(file_name_ext.c_str(), ".m2ts") == 0)
+					g_params["srcfmt"] = "m2ts";
+				else if (_stricmp(file_name_ext.c_str(), ".ts") == 0)
+					g_params["srcfmt"] = "ts";
+				else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
+					g_params["srcfmt"] = "tts";
+				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 || _stricmp(file_name_ext.c_str(), ".mov") == 0)
+					g_params["srcfmt"] = "mp4";
+			}
+		}
+
+		iter = g_params.find("srcfmt");
+	}
+
 	if (iter != g_params.end())
 	{
 		if (iter->second.compare("m2ts") == 0)
