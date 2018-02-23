@@ -50,7 +50,6 @@
 
 class CBitstream
 {
-public:
 	// bit-stream cursor information, which is used to get/peek value from bit-stream
 	struct AM_BST_CURSOR
 	{
@@ -81,7 +80,8 @@ public:
 	virtual uint64_t	Tell(uint64_t* left_bits_in_bst = NULL);
 	/*!	@brief Seek to the absolute position in the specified bit-stream. */
 	virtual int			Seek(uint64_t bit_pos);
-
+	/*!	@brief Read data from the bit-stream */
+	virtual int			Read(uint8_t* buffer, size_t cbSize);
 
 	/*!	@brief Get one byte from bit-stream. */
 	uint8_t				GetByte();

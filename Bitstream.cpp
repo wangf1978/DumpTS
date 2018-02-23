@@ -12,11 +12,11 @@ CBitstream::CBitstream(uint8_t* pBuf, size_t cbitSize)
 	size_t cbSize = (cbitSize + 7) >> 3;
 
 	cursor.start_offset = ((intptr_t)pBuf & 3);
-	cursor.p = cursor.p_start = (uint8_t*)pBuf - cursor.start_offset;
-	cursor.p_end = pBuf + cbSize;
+	cursor.p = cursor.p_start = pBuf?((uint8_t*)pBuf - cursor.start_offset):nullptr;
+	cursor.p_end = pBuf?(pBuf + cbSize):nullptr;
 	cursor.bits_left = (sizeof(CURBITS_TYPE) - cursor.start_offset) * 8;
 
-	cursor.curbits = CURBITS_VALUE(cursor.p);
+	cursor.curbits = pBuf?CURBITS_VALUE(cursor.p):0;
 
 	if ((size_t)cursor.bits_left >= cbitSize)
 	{
@@ -115,8 +115,7 @@ uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bFullBufferMode, bool bThr
 		if (bPeek)
 			save_point = cursor;
 	}
-
-	if (!bFullBufferMode)
+	else
 	{
 		if (cursor.p == cursor.p_end && cursor.bits_left == 0)
 		{
@@ -230,6 +229,32 @@ int CBitstream::Seek(uint64_t bit_pos)
 	return 0;
 }
 
+int CBitstream::Read(uint8_t* buffer, size_t cbSize)
+{
+	if (cursor.bits_left % 8 != 0)
+		return RET_CODE_NEEDBYTEALIGN;
+
+	size_t orig_size = cbSize;
+	
+	do
+	{
+		uint8_t* p_start = cursor.p + AMP_MIN((cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) - cursor.bits_left / 8;
+
+		size_t skip_bytes = AMP_MIN((size_t)(cursor.p_end - cursor.p), cbSize);
+		if (cursor.p_end > p_start)
+		{
+			memcpy(buffer, p_start, skip_bytes);
+			buffer += skip_bytes;
+			cbSize -= skip_bytes;
+		}
+
+		if (SkipBits((int64_t)skip_bytes << 3) <= 0)
+			break;
+
+	} while (cbSize > 0);
+
+	return orig_size - cbSize;
+}
 
 CBitstream::~CBitstream()
 {
@@ -245,7 +270,7 @@ CFileBitstream::CFileBitstream(const char* szFileName, int cache_size, int* ptr_
 	if (err_no != 0 || m_fp == NULL)
 		goto done;
 
-	if (_fseeki64(m_fp, -1, SEEK_END) != 0)
+	if (_fseeki64(m_fp, 0, SEEK_END) != 0)
 		goto done;
 
 	m_filemappos = 0;
@@ -264,6 +289,8 @@ CFileBitstream::CFileBitstream(const char* szFileName, int cache_size, int* ptr_
 	cursor.exclude_bits = 0;
 	cursor.curbits = 0;
 	cursor.bits_left = 0;
+
+	_FillCurrentBits();
 	
 	iRet = 0;
 
@@ -293,14 +320,16 @@ CFileBitstream::~CFileBitstream()
 int64_t CFileBitstream::SkipBits(int64_t skip_bits)
 {
 	// Check whether the current skip_bits does not exceed the cache buffer
-	int64_t bitpos_in_cache_buffer = ((int64_t)std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE))<<3) - cursor.bits_left;
+	int nAllLeftBits = GetAllLeftBits();
+	ptrdiff_t cache_buf_size = cursor.p_end - cursor.p_start;
+	int64_t bitpos_in_cache_buffer = (int64_t)((cache_buf_size<<3) - nAllLeftBits);
 	int64_t skippos_in_cache_buffer = bitpos_in_cache_buffer + skip_bits;
 
 	if (skippos_in_cache_buffer < 0 || skippos_in_cache_buffer >= ((int64_t)(cursor.p_end - cursor.p) << 3))
 	{
 		int64_t ret_skip_bits = skip_bits;
 		// Go through the Seek operation
-		int64_t skip_after_pos = m_filemappos + skippos_in_cache_buffer;
+		int64_t skip_after_pos = (m_filemappos<<3) + skippos_in_cache_buffer;
 		if (skip_after_pos < 0)
 		{
 			ret_skip_bits += skip_after_pos;
@@ -324,29 +353,25 @@ int64_t CFileBitstream::SkipBits(int64_t skip_bits)
 uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
 {
 	/*
-	                                               ______ File position
-	                                              /
-	|______________________                      /_________________
+	 File map position____                         ______ File position
+	                      \                       /
+	|______________________\                     /_________________
 	                       |<-- Cache Buffer -->|
                  p_start__/      \               \
 	                              \               \____ p_end
 	                               \_ p
 	*/
 
-	ptrdiff_t cache_buf_size = cursor.p_end - cursor.p;
 	if (m_filemappos < 0)
 		throw std::out_of_range("invalid file position");
 
-	uint64_t byte_position = (uint64_t)m_filemappos;
-	uint64_t bitpos_in_cache_buffer = (std::min((size_t)cache_buf_size, sizeof(CURBITS_TYPE))<<3) - cursor.bits_left;
+	int nAllLeftBits = GetAllLeftBits();
+	ptrdiff_t cache_buf_size = cursor.p_end - cursor.p_start;
+	uint64_t bitpos_in_cache_buffer = (uint64_t)((cache_buf_size<<3) - nAllLeftBits);
 
-	if (left_bits_in_bst)
-	{
-		int nAllLeftBits = GetAllLeftBits();
-		*left_bits_in_bst = nAllLeftBits + ((m_filesize - (m_filemappos + cache_buf_size)) << 3);
-	}
+	AMP_SAFEASSIGN(left_bits_in_bst, nAllLeftBits + ((m_filesize - (m_filemappos + cache_buf_size)) << 3));
 
-	return (byte_position << 3) + bitpos_in_cache_buffer;
+	return (((uint64_t)m_filemappos) << 3) + bitpos_in_cache_buffer;
 }
 
 int CFileBitstream::Seek(uint64_t bitpos)
@@ -373,7 +398,7 @@ int CFileBitstream::Seek(uint64_t bitpos)
 	{
 		// Calculate the correct file position
 		size_t align_bitcount = sizeof(CURBITS_TYPE)<<3;
-		uint64_t byte_file_pos = bitpos / 8;
+		uint64_t byte_file_pos = (bitpos / align_bitcount * align_bitcount) >> 3;
 		if (_fseeki64(m_fp, byte_file_pos, SEEK_SET) != 0)
 			return -1;
 
@@ -385,7 +410,21 @@ int CFileBitstream::Seek(uint64_t bitpos)
 		_FillCurrentBits();
 
 		// Locate to bit position
-		cursor.bits_left = std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) - (bitpos % align_bitcount);
+		cursor.bits_left = (int)(std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) << 3) - (int)(bitpos % align_bitcount);
+
+		iRet = 0;
+	}
+	else if (bitpos == (uint64_t)(m_filesize << 3))
+	{
+		if (_fseeki64(m_fp, 0, SEEK_END) != 0)
+			return -1;
+
+		cursor.p = cursor.p_end;
+		cursor.bits_left = 0;
+
+		m_filemappos = m_filesize;
+
+		iRet = 0;
 	}
 
 	return iRet;
@@ -397,7 +436,10 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 
 	bool bExhaust = (cursor.p == cursor.p_end && cursor.bits_left == 0) ? true : false;
 	if (false == bExhaust)
+	{
+		CBitstream::_FillCurrentBits(bPeek);
 		return;
+	}
 
 	bool bEos = false;
 

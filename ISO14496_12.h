@@ -31,6 +31,7 @@ namespace ISOMediaFile
 	public:
 		virtual int Unpack(CBitstream& bs) = 0;
 		virtual int Pack(CBitstream& bs) = 0;
+		virtual int Clean() = 0;
 	};
 
 	struct Box: public CComUnknown, public IBox
@@ -42,7 +43,7 @@ namespace ISOMediaFile
 		uint64_t	start_bitpos = 0;
 
 		Box*		next_sibling = nullptr;
-		Box*		first_children = nullptr;
+		Box*		first_child = nullptr;
 		Box*		container = nullptr;
 
 		DECLARE_IUNKNOWN
@@ -66,17 +67,7 @@ namespace ISOMediaFile
 		Box(uint64_t box_size, uint32_t box_type) : size(box_size), type(box_type) {
 		}
 
-		virtual ~Box()
-		{
-			// delete all its children
-			Box* ptr_child = first_children;
-			while (ptr_child)
-			{
-				Box* ptr_front = ptr_child;
-				ptr_child = ptr_child->next_sibling;
-				delete ptr_front;
-			}
-		}
+		virtual ~Box() { Clean(); }
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -118,6 +109,22 @@ namespace ISOMediaFile
 			return -1;
 		}
 
+		virtual int Clean()
+		{
+			// delete all its children
+			Box* ptr_child = first_child;
+			while (ptr_child)
+			{
+				Box* ptr_front = ptr_child;
+				ptr_child = ptr_child->next_sibling;
+				delete ptr_front;
+			}
+
+			first_child = nullptr;
+
+			return 0;
+		}
+
 		void SkipLeftBits(CBitstream& bs)
 		{
 			uint64_t left_bytes = LeftBytes(bs);
@@ -142,13 +149,21 @@ namespace ISOMediaFile
 		inline void ReadString(CBitstream& bs, std::string& str)
 		{
 			uint64_t left_bytes = LeftBytes(bs);
-			for (uint64_t i = 0; i < left_bytes; i++)
-			{
-				char c = bs.GetChar();
-				if (c == '\0')
-					break;
 
-				str.push_back(c);
+			try
+			{
+				for (uint64_t i = 0; i < left_bytes; i++)
+				{
+					char c = bs.GetChar();
+					str.push_back(c);
+
+					if (c == '\0')
+						break;
+				}
+			}
+			catch (...)
+			{
+				return;
 			}
 		}
 
@@ -161,12 +176,12 @@ namespace ISOMediaFile
 			child->container = this;
 
 			// append the child to the last child
-			if (first_children == NULL)
-				first_children = child;
+			if (first_child == NULL)
+				first_child = child;
 			else
 			{
 				// find the last child
-				Box* ptr_child = first_children;
+				Box* ptr_child = first_child;
 				while (ptr_child->next_sibling)
 					ptr_child = ptr_child->next_sibling;
 
@@ -174,8 +189,28 @@ namespace ISOMediaFile
 			}
 		}
 
+		void RemoveChildBox(Box* child) noexcept
+		{
+			// Find this child from tree
+			if (first_child == nullptr)
+				return;
+
+			Box* ptr_child = first_child;
+			while (ptr_child->next_sibling != child && ptr_child->next_sibling != nullptr)
+				ptr_child = ptr_child->next_sibling;
+
+			Box* ptr_cur_box = ptr_child->next_sibling;
+			if (ptr_cur_box != nullptr)
+			{
+				ptr_child->next_sibling = ptr_cur_box->next_sibling;
+				ptr_cur_box->container = nullptr;
+
+				delete ptr_cur_box;
+			}
+		}
+
 		static Box*	RootBox();
-		static int	LoadBoxes(Box* pContainer, CBitstream& bs, Box** ppBox);
+		static int	LoadBoxes(Box* pContainer, CBitstream& bs, Box** ppBox = nullptr);
 		static void UnloadBoxes(Box* pBox);
 	}PACKED;
 
@@ -184,7 +219,7 @@ namespace ISOMediaFile
 		uint32_t	version : 8;
 		uint32_t	flags : 24;
 
-		virtual int Unpack(CBitstream bs)
+		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
 			if ((iRet = Box::Unpack(bs)) < 0)
@@ -203,7 +238,7 @@ namespace ISOMediaFile
 	// Unknown box type which is not defined ISO spec
 	struct UnknownBox : public Box
 	{
-		virtual int Unpack(CBitstream bs)
+		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
 			if ((iRet = Box::Unpack(bs)) < 0)
@@ -211,6 +246,57 @@ namespace ISOMediaFile
 
 			SkipLeftBits(bs);
 			return 0;
+		}
+	}PACKED;
+
+	struct ContainerBox : public Box
+	{
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+
+			if ((iRet = Box::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t left_box_size = LeftBytes(bs);
+
+			Box* ptr_box = nullptr;
+			uint64_t child_sum_size = 0;
+			while (child_sum_size < left_box_size && LoadBoxes(this, bs, &ptr_box) >= 0)
+			{
+				printf("box-type: %c%c%c%c(0X%X), size: 0X%llX\r\n", 
+					(ptr_box->type>>24)&0xFF, (ptr_box->type >> 16) & 0xFF, (ptr_box->type >> 8) & 0xFF, ptr_box->type& 0xFF, ptr_box->type, ptr_box->size);
+				child_sum_size += ptr_box->size;
+			}
+
+			SkipLeftBits(bs);
+
+			return iRet;
+		}
+
+	}PACKED;
+
+	struct ContainerFullBox : public FullBox
+	{
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+
+			if ((iRet = FullBox::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t left_box_size = LeftBytes(bs);
+
+			Box* ptr_box = nullptr;
+			uint64_t child_sum_size = 0;
+			while (child_sum_size < left_box_size && LoadBoxes(this, bs, &ptr_box) >= 0)
+			{
+				child_sum_size += ptr_box->size;
+			}
+
+			SkipLeftBits(bs);
+
+			return iRet;
 		}
 	}PACKED;
 
@@ -222,9 +308,9 @@ namespace ISOMediaFile
 	*/
 	struct FileTypeBox : public Box
 	{
-		uint32_t	major_brand;
-		uint32_t	minor_version;
-		uint32_t	compatible_brands[];
+		uint32_t				major_brand;
+		uint32_t				minor_version;
+		std::vector<uint32_t>	compatible_brands;
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -233,18 +319,35 @@ namespace ISOMediaFile
 			if ((iRet = Box::Unpack(bs)) < 0)
 				return iRet;
 
-			if (LeftBytes(bs) < sizeof(major_brand) + sizeof(minor_version))
+			uint64_t left_bytes = LeftBytes(bs);
+			if (left_bytes < sizeof(major_brand) + sizeof(minor_version))
 			{
-				SkipLeftBits(bs);
-				return RET_CODE_BOX_TOO_SMALL;
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
 			}
 
 			major_brand = bs.GetDWord();
 			minor_version = bs.GetDWord();
 
-			SkipLeftBits(bs);
+			left_bytes -= sizeof(major_brand) + sizeof(minor_version);
 
-			return 0;
+			try
+			{
+				while (left_bytes >= sizeof(uint32_t))
+				{
+					compatible_brands.push_back(bs.GetDWord());
+					left_bytes -= sizeof(uint32_t);
+				}
+			}
+			catch (...)
+			{
+				iRet = RET_CODE_SUCCESS;
+				goto done;
+			}
+
+		done:
+			SkipLeftBits(bs);
+			return iRet;
 		}
 	}PACKED;
 
@@ -278,8 +381,6 @@ namespace ISOMediaFile
 	*/
 	struct FreeSpaceBox : public Box
 	{
-		uint8_t		data[];
-
 		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
@@ -317,17 +418,25 @@ namespace ISOMediaFile
 			uint64_t left_bytes = LeftBytes(bs);
 			if (left_bytes >= sizeof(Info))
 			{
-				infos.resize((size_t)(left_bytes / sizeof(Info)));
-				for (size_t i = 0; i < infos.size(); i++)
+				try
 				{
-					infos[i].rate = bs.GetDWord();
-					infos[i].initial_delay = bs.GetDWord();
+					infos.resize((size_t)(left_bytes / sizeof(Info)));
+					for (size_t i = 0; i < infos.size(); i++)
+					{
+						infos[i].rate = bs.GetDWord();
+						infos[i].initial_delay = bs.GetDWord();
+					}
+				}
+				catch (...)
+				{
+					iRet = RET_CODE_SUCCESS;
+					goto done;
 				}
 			}
 
+		done:
 			SkipLeftBits(bs);
-
-			return 0;
+			return iRet;
 		}
 	}PACKED;
 
@@ -351,26 +460,23 @@ namespace ISOMediaFile
 			if ((iRet = FullBox::Unpack(bs)) < 0)
 				return iRet;
 
-			if (LeftBytes(bs) < sizeof(pre_defined) + sizeof(handler_type) + sizeof(reserved))
+			uint64_t left_bytes = LeftBytes(bs);
+			size_t unpack_size = sizeof(pre_defined) + sizeof(handler_type) + sizeof(reserved);
+			if (left_bytes < unpack_size)
 			{
-				SkipLeftBits(bs);
-				return RET_CODE_BOX_TOO_SMALL;
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
 			}
 
 			pre_defined = bs.GetDWord();
 			handler_type = bs.GetDWord();
 			for (int i = 0; i < _countof(reserved); i++)
 				reserved[i] = bs.GetDWord();
+			left_bytes -= unpack_size;
 
-			uint64_t left_bytes = LeftBytes(bs);
-			for (uint64_t i = 0; i < left_bytes; i++)
-			{
-				char c = bs.GetChar();
-				if (c == '\0')
-					break;
-				name.push_back(c);
-			}
+			ReadString(bs, name);
 
+		done:
 			SkipLeftBits(bs);
 			return 0;
 		}
@@ -382,7 +488,7 @@ namespace ISOMediaFile
 	Mandatory: Yes (required within 'minf' box) and No (optional within 'meta' box)
 	Quantity: Exactly one
 	*/
-	struct DataInformationBox : public Box
+	struct DataInformationBox : public ContainerBox
 	{
 		/*
 		Box Types: 'url ', 'urn ',  'dref'
@@ -390,7 +496,6 @@ namespace ISOMediaFile
 		Mandatory: Yes
 		Quantity: Exactly one
 		*/
-
 		struct DataEntryUrlBox : public FullBox
 		{
 			std::string location;
@@ -402,15 +507,7 @@ namespace ISOMediaFile
 				if ((iRet = FullBox::Unpack(bs)) < 0)
 					return iRet;
 
-				uint64_t left_bytes = LeftBytes(bs);
-				for (uint64_t i = 0; i < left_bytes; i++)
-				{
-					char c = bs.GetChar();
-					if (c == '\0')
-						break;
-
-					location.push_back(c);
-				}
+				ReadString(bs, location);
 
 				SkipLeftBits(bs);
 				return 0;
@@ -429,25 +526,8 @@ namespace ISOMediaFile
 				if ((iRet = FullBox::Unpack(bs)) < 0)
 					return iRet;
 
-				uint64_t left_bytes = LeftBytes(bs);
-				for (uint64_t i = 0; i < left_bytes; i++)
-				{
-					char c = bs.GetChar();
-					if (c == '\0')
-						break;
-
-					name.push_back(c);
-				}
-
-				left_bytes = LeftBytes(bs);
-				for (uint64_t i = 0; i < left_bytes; i++)
-				{
-					char c = bs.GetChar();
-					if (c == '\0')
-						break;
-
-					location.push_back(c);
-				}
+				ReadString(bs, name);
+				ReadString(bs, location);
 
 				SkipLeftBits(bs);
 				return 0;
@@ -456,10 +536,9 @@ namespace ISOMediaFile
 
 		struct DataReferenceBox : public FullBox
 		{
-			uint32_t			entry_count;
+			uint32_t			entry_count = 0;
 			std::vector<Box*>	data_entries;
 
-			DataReferenceBox() : entry_count(0) {}
 			~DataReferenceBox() {
 				for (size_t i = 0; i < data_entries.size(); i++)
 					if (data_entries[i] != NULL)
@@ -469,6 +548,7 @@ namespace ISOMediaFile
 			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = 0;
+				UnknownBox unknBox;
 
 				if ((iRet = FullBox::Unpack(bs)) < 0)
 					return iRet;
@@ -476,38 +556,61 @@ namespace ISOMediaFile
 				uint64_t left_bytes = LeftBytes(bs);
 				if (left_bytes < sizeof(entry_count))
 				{
-					SkipLeftBits(bs);
-					return RET_CODE_BOX_TOO_SMALL;
+					iRet = RET_CODE_BOX_TOO_SMALL;
+					goto done;
 				}
 
+				entry_count = bs.GetDWord();
 				left_bytes -= 4;
 
-				UnknownBox unknBox;
 				while (left_bytes >= MIN_BOX_SIZE)
 				{
 					Box* ptr_box = NULL;
 					uint64_t box_header = bs.PeekBits(64);
 					uint32_t box_type = (box_header&UINT32_MAX);
-					if (box_type == 'url ')
+ 					if (box_type == 'url ')
 						ptr_box = new DataEntryUrlBox();
 					else if (box_type == 'urn ')
 						ptr_box = new DataEntryUrnBox();
 					else
 						ptr_box = &unknBox;	// It's unexpected
 
-					ptr_box->Unpack(bs);
-					left_bytes = LeftBytes(bs);
+					if ((iRet = ptr_box->Unpack(bs)) < 0)
+						break;
+
+					left_bytes -= ptr_box->size;
 
 					if (box_type == 'url ' || box_type == 'urn ')
 						data_entries.push_back(ptr_box);
 				}
 
+			done:
 				SkipLeftBits(bs);
 				return 0;
 			};
 
 		}PACKED;
 
+		DataReferenceBox*	data_reference_box = nullptr;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = ContainerBox::Unpack(bs);
+			
+			if (iRet < 0)
+				return iRet;
+
+			Box* ptr_child = first_child;
+			while (ptr_child != nullptr)
+			{
+				if (ptr_child->type == 'dref')
+					data_reference_box = (DataReferenceBox*)ptr_child;
+
+				ptr_child = ptr_child->next_sibling;
+			}
+
+			return iRet;
+		}
 	}PACKED;
 
 	/*
@@ -526,6 +629,10 @@ namespace ISOMediaFile
 				uint32_t	group_description_index;
 			}PACKED;
 			uint64_t	uint64_val;
+
+			Entry(uint32_t SampleCount, uint32_t GroupDescIdx)
+				:sample_count(SampleCount), group_description_index(GroupDescIdx) {
+			}
 		}PACKED;
 
 		uint32_t	grouping_type;
@@ -546,42 +653,44 @@ namespace ISOMediaFile
 			uint64_t left_bytes = LeftBytes(bs);
 			if (left_bytes < sizeof(grouping_type))
 			{
-				SkipLeftBits(bs);
-				return RET_CODE_BOX_TOO_SMALL;
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
 			}
 
 			grouping_type = bs.GetDWord();
+			left_bytes -= sizeof(grouping_type);
+
 			if (version == 1)
 			{
-				left_bytes = LeftBytes(bs);
 				if (left_bytes < sizeof(v1))
 				{
-					SkipLeftBits(bs);
-					return RET_CODE_BOX_TOO_SMALL;
+					iRet = RET_CODE_BOX_TOO_SMALL;
+					goto done;
 				}
 
 				v1.grouping_type_parameter = bs.GetDWord();
+				left_bytes -= sizeof(uint32_t);
 			}
 
-			if ((left_bytes = LeftBytes(bs)) < sizeof(entry_count))
+			if (left_bytes < sizeof(entry_count))
 			{
-				SkipLeftBits(bs);
-				return RET_CODE_BOX_TOO_SMALL;
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
 			}
-			entry_count = bs.GetDWord();
 
-			if ((left_bytes = LeftBytes(bs)) < sizeof(Entry)*entry_count)
+			entry_count = bs.GetDWord();
+			left_bytes -= sizeof(uint32_t);
+
+			if (left_bytes < sizeof(Entry)*entry_count)
 				printf("The 'sbgp' box size is too small {size: %llu, entry_count: %lu}.\n", size, entry_count);
 
-			uint32_t actual_entry_count = (uint32_t)AMP_MIN(left_bytes / sizeof(Entry), (uint64_t)entry_count);
-			for (uint32_t i = 0; i < actual_entry_count; i++)
+			while (left_bytes >= sizeof(Entry) && entries.size() < entry_count)
 			{
-				Entry entry;
-				entry.sample_count = bs.GetDWord();
-				entry.group_description_index = bs.GetDWord();
-				entries.push_back(entry);
+				entries.emplace_back(bs.GetDWord(), bs.GetDWord());
+				left_bytes -= sizeof(Entry);
 			}
 
+		done:
 			SkipLeftBits(bs);
 			return 0;
 		};
@@ -615,49 +724,56 @@ namespace ISOMediaFile
 			uint64_t left_bytes = LeftBytes(bs);
 			if (left_bytes < sizeof(grouping_type))
 			{
-				SkipLeftBits(bs);
-				return RET_CODE_BOX_TOO_SMALL;
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
 			}
 
 			grouping_type = bs.GetDWord();
+			left_bytes -= sizeof(uint32_t);
 
 			if (version == 1)
 			{
-				if ((left_bytes = LeftBytes(bs)) < sizeof(default_length))
+				if (left_bytes < sizeof(default_length))
 				{
-					SkipLeftBits(bs);
-					return RET_CODE_BOX_TOO_SMALL;
+					iRet = RET_CODE_BOX_TOO_SMALL;
+					goto done;
 				}
 
 				default_length = bs.GetDWord();
+				left_bytes -= sizeof(uint32_t);
 			}
 
-			if ((left_bytes = LeftBytes(bs)) < sizeof(entry_count))
+			if (left_bytes < sizeof(entry_count))
 			{
-				SkipLeftBits(bs);
-				return RET_CODE_BOX_TOO_SMALL;
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
 			}
 
 			entry_count = bs.GetDWord();
+			left_bytes -= sizeof(uint32_t);
+
 			for (uint32_t i = 0; i < entry_count; i++)
 			{
 				Entry entry;
 				if (version == 1 && default_length == 0)
 				{
-					if ((left_bytes = LeftBytes(bs)) < sizeof(entry_count))
+					if (left_bytes < sizeof(entry_count))
 						break;
 
 					entry.description_length = bs.GetDWord();
+					left_bytes -= sizeof(uint32_t);
 				}
 				else
 					entry.description_length = default_length;
 
-				if ((left_bytes = LeftBytes(bs)) < entry.description_length)
+				if (left_bytes < entry.description_length)
 					break;
 
 				bs.SkipBits((uint64_t)entry.description_length << 3);
+				left_bytes -= (uint64_t)entry.description_length << 3;
 			}
 
+		done:
 			SkipLeftBits(bs);
 			return 0;
 		}
@@ -866,7 +982,7 @@ namespace ISOMediaFile
 	Mandatory: No
 	Quantity: Zero or one
 	*/
-	struct UserDataBox : public FullBox
+	struct UserDataBox : public ContainerBox
 	{
 		/*
 		Box Type: 'cprt'
@@ -954,7 +1070,7 @@ namespace ISOMediaFile
 		Mandatory: No
 		Quantity: Zero or more
 		*/
-		struct SubTrack : public Box
+		struct SubTrack : public ContainerBox
 		{
 			/*
 			Box Type: 'stri'
@@ -1060,27 +1176,67 @@ namespace ISOMediaFile
 
 			}PACKED;
 
+			SubTrackInformation*		subtrack_information = nullptr;
+			SubTrackDefinition*			subtrack_definition = nullptr;
+
 			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = 0;
 
-				if ((iRet = Box::Unpack(bs)) < 0)
+				if ((iRet = ContainerBox::Unpack(bs)) < 0)
 					return iRet;
 
-				SkipLeftBits(bs);
-				return 0;
+				Box* ptr_child = first_child;
+				while (ptr_child != nullptr)
+				{
+					switch (ptr_child->type)
+					{
+					case 'stri':
+						subtrack_information = (SubTrackInformation*)ptr_child;
+						break;
+					case 'strd':
+						subtrack_definition = (SubTrackDefinition*)ptr_child;
+						break;
+					}
+
+					ptr_child = ptr_child->next_sibling;
+				}
+
+				return iRet;
 			}
 		}PACKED;
+
+		std::vector<CopyrightBox*>		copyright_boxes;
+		TrackSelectionBox*				track_selection_box = nullptr;
+		std::vector<SubTrack*>			subtracks;
 
 		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
 
-			if ((iRet = FullBox::Unpack(bs)) < 0)
+			if ((iRet = ContainerBox::Unpack(bs)) < 0)
 				return iRet;
 
-			SkipLeftBits(bs);
-			return 0;
+			Box* ptr_child = first_child;
+			while (ptr_child != nullptr)
+			{
+				switch (ptr_child->type)
+				{
+				case 'cprt':
+					copyright_boxes.push_back((CopyrightBox*)ptr_child);
+					break;
+				case 'tsel':
+					track_selection_box = (TrackSelectionBox*)ptr_child;
+					break;
+				case 'strk':
+					subtracks.push_back((SubTrack*)ptr_child);
+					break;
+				}
+
+				ptr_child = ptr_child->next_sibling;
+			}
+
+			return iRet;
 		}
 	}PACKED;
 
@@ -1284,7 +1440,7 @@ namespace ISOMediaFile
 	Mandatory: No
 	Quantity: Zero or one (in File, 'moov', and 'trak'), One or more (in 'meco')
 	*/
-	struct MetaBox : public FullBox
+	struct MetaBox : public ContainerFullBox
 	{
 		/*
 		Box Type: 'xml ' or 'bxml'
@@ -1524,8 +1680,1068 @@ namespace ISOMediaFile
 
 		}PACKED;
 
+		/*
+		Box Type: 'iinf'
+		Container: Meta Box ('meta')
+		Mandatory: No
+		Quantity: Zero or one
+		*/
+		struct ItemInfoBox : public FullBox
+		{
+			struct ItemInfoExtension
+			{
+				virtual ~ItemInfoExtension(){}
+			}PACKED;
+
+			struct FDItemInfoExtension : public ItemInfoExtension
+			{
+				std::string				content_location;
+				std::string				content_MD5;
+				uint64_t				content_length;
+				uint64_t				transfer_length;
+				uint8_t					entry_count;
+				std::vector<uint32_t>	group_ids;
+			}PACKED;
+
+			struct ItemInfoEntryv0 : public FullBox
+			{
+				uint16_t				item_ID;
+				uint16_t				item_protection_index;
+				std::string				item_name;
+				std::string				content_type;
+				std::string				content_encoding;	// optional
+			}PACKED;
+
+			struct ItemInfoEntryv1 : public ItemInfoEntryv0
+			{
+				uint32_t				extension_type;
+				ItemInfoExtension*		item_info_extension;
+
+				ItemInfoEntryv1(): extension_type(0), item_info_extension(nullptr){}
+				virtual ~ItemInfoEntryv1() {
+					AMP_SAFEDEL(item_info_extension);
+				}
+			}PACKED;
+
+			struct ItemInfoEntryv2 : public FullBox
+			{
+				uint16_t				item_ID;
+				uint16_t				item_protection_index;
+				uint32_t				item_type;
+
+				std::string				item_name;
+
+				// item_type == 'mime'
+				std::string				content_type;
+				std::string				content_encoding;	// optional
+
+				// item_type == 'uri '
+				std::string				item_uri_type;
+			}PACKED;
+
+			uint16_t		entry_count;
+			uint16_t		last_entry_idx;
+			union
+			{
+				ItemInfoEntryv0*	item_info_entries_v0;
+				ItemInfoEntryv1*	item_info_entries_v1;
+				ItemInfoEntryv2*	item_info_entries_v2;
+			}PACKED;
+
+			virtual ~ItemInfoBox()
+			{
+				if (version == 0) {
+					AMP_SAFEDELA(item_info_entries_v0);
+				}
+				else if (version == 1) {
+					AMP_SAFEDELA(item_info_entries_v1);
+				}
+				else if (version == 2) {
+					AMP_SAFEDELA(item_info_entries_v2);
+				}
+			}
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = 0;
+
+				if ((iRet = FullBox::Unpack(bs)) < 0)
+					return iRet;
+
+				uint64_t left_bytes = LeftBytes(bs);
+				if (left_bytes < sizeof(entry_count))
+				{
+					SkipLeftBits(bs);
+					return RET_CODE_BOX_TOO_SMALL;
+				}
+
+				entry_count = bs.GetWord();
+				left_bytes -= sizeof(entry_count);
+
+				if (version == 0)
+					item_info_entries_v0 = new ItemInfoEntryv0[entry_count];
+				else if (version == 1)
+					item_info_entries_v1 = new ItemInfoEntryv1[entry_count];
+				else if (version == 2)
+					item_info_entries_v2 = new ItemInfoEntryv2[entry_count];
+
+				last_entry_idx = 0;
+				for (uint16_t i = 0; i < entry_count; i++)
+				{
+					if (version == 0 || version == 1)
+					{
+						if (left_bytes < sizeof(uint16_t) + sizeof(uint16_t) + 3/* 3 null terminator */)
+						{
+							printf("Not enough to fill one ItemInfoEntry v0/v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+							goto done;
+						}
+
+						ItemInfoEntryv0* entry = version == 0 
+							? &item_info_entries_v0[last_entry_idx] 
+							: (ItemInfoEntryv0*)(&item_info_entries_v1[last_entry_idx]);
+
+						entry->item_ID = bs.GetWord();
+						entry->item_protection_index = bs.GetWord();
+						ReadString(bs, entry->item_name);
+						ReadString(bs, entry->content_type);
+						ReadString(bs, entry->content_encoding);
+
+						left_bytes -= sizeof(entry->item_ID) + sizeof(entry->item_protection_index) + 
+							entry->item_name.length() + entry->content_type.length() + entry->content_encoding.length();
+					}
+
+					if (version == 1)
+					{
+						if (left_bytes < sizeof(uint32_t))
+						{
+							printf("Not enough to fill one ItemInfoEntry v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+							goto done;
+						}
+
+						item_info_entries_v1[last_entry_idx].extension_type = bs.GetDWord();
+						left_bytes -= sizeof(uint32_t);
+
+						if (item_info_entries_v1[last_entry_idx].extension_type == 'fdel')
+						{
+							if (left_bytes < 2/*2 null terminator*/)
+							{
+								printf("Not enough to fill FDItemInfoExtension of one ItemInfoEntry v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+								goto done;
+							}
+
+							FDItemInfoExtension* fd_item_info_extension = new FDItemInfoExtension();
+							item_info_entries_v1[last_entry_idx].item_info_extension = fd_item_info_extension;
+
+							ReadString(bs, fd_item_info_extension->content_location);
+							ReadString(bs, fd_item_info_extension->content_MD5);
+
+							left_bytes -= fd_item_info_extension->content_location.length();
+							left_bytes -= fd_item_info_extension->content_MD5.length();
+
+							if (left_bytes < sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint8_t))
+							{
+								printf("Not enough to fill FDItemInfoExtension of one ItemInfoEntry v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+								goto done;
+							}
+
+							fd_item_info_extension->content_length = bs.GetQWord();
+							fd_item_info_extension->transfer_length = bs.GetQWord();
+							fd_item_info_extension->entry_count = bs.GetByte();
+
+							left_bytes -= sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint8_t);
+
+							while (left_bytes >= sizeof(uint32_t) && fd_item_info_extension->group_ids.size() < fd_item_info_extension->entry_count)
+							{
+								fd_item_info_extension->group_ids.push_back(bs.GetDWord());
+								left_bytes -= sizeof(uint32_t);
+							}
+
+							if (fd_item_info_extension->group_ids.size() < fd_item_info_extension->entry_count)
+								goto done;
+						}
+						else
+						{
+							printf("Unsupported extension_type: 0X%08X.\r\n", item_info_entries_v1[last_entry_idx].extension_type);
+							goto done;
+						}
+					}
+
+					if (version == 2)
+					{
+						if (left_bytes < sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + 1/*item_name null terminator*/)
+						{
+							printf("Not enough to fill one ItemInfoEntry v2, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+							goto done;
+						}
+
+						item_info_entries_v2[last_entry_idx].item_ID = bs.GetWord();
+						item_info_entries_v2[last_entry_idx].item_protection_index = bs.GetWord();
+						item_info_entries_v2[last_entry_idx].item_type = bs.GetDWord();
+
+						ReadString(bs, item_info_entries_v2[last_entry_idx].item_name);
+
+						left_bytes -= sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + item_info_entries_v2[last_entry_idx].item_name.length();
+
+						if (item_info_entries_v2[last_entry_idx].item_type == 'mime')
+						{
+							ReadString(bs, item_info_entries_v2[last_entry_idx].content_type);
+							ReadString(bs, item_info_entries_v2[last_entry_idx].content_encoding);
+
+							left_bytes -= item_info_entries_v2[last_entry_idx].content_type.length() +
+								item_info_entries_v2[last_entry_idx].content_encoding.length();
+						}
+						else if (item_info_entries_v2[last_entry_idx].item_type == 'uri ')
+						{
+							ReadString(bs, item_info_entries_v2[last_entry_idx].item_uri_type);
+
+							left_bytes -= item_info_entries_v2[last_entry_idx].item_uri_type.length();
+						}
+					}
+
+					last_entry_idx++;
+				}
+
+			done:
+				SkipLeftBits(bs);
+				return 0;
+			}
+
+		}PACKED;
+
+		/*
+		Box Type: 'fiin'
+		Container: Meta Box ('meta')
+		Mandatory: No
+		Quantity: Zero or one
+		*/
+		struct FDItemInformationBox : public FullBox
+		{
+			struct PartitionEntry : public Box
+			{
+				/*
+				Box Type: 'fpar'
+				Container: Partition Entry ('paen')
+				Mandatory: Yes
+				Quantity: Exactly one
+				*/
+				struct FilePartitionBox : public FullBox
+				{
+					uint16_t		item_ID;
+					uint16_t		packet_payload_size;
+					uint8_t			reserved = 0;
+					uint8_t			FEC_encoding_ID;
+					uint16_t		FEC_instance_ID;
+					uint16_t		max_source_block_length;
+					uint16_t		encoding_symbol_length;
+					uint16_t		max_number_of_encoding_symbols;
+					std::string		scheme_specific_info;
+					uint16_t		entry_count;
+					std::vector<std::tuple<uint16_t/*block_count*/, uint32_t/*block_size*/>>
+									entries;
+
+					virtual int Unpack(CBitstream& bs)
+					{
+						int iRet = 0;
+
+						if ((iRet = FullBox::Unpack(bs)) < 0)
+							return iRet;
+
+						uint64_t left_bytes = LeftBytes(bs);
+						auto unpack_size = sizeof(item_ID) + sizeof(packet_payload_size) + sizeof(reserved) + sizeof(FEC_encoding_ID) +
+							sizeof(FEC_instance_ID) + sizeof(max_source_block_length) + sizeof(encoding_symbol_length) + sizeof(max_number_of_encoding_symbols);
+						if (left_bytes < unpack_size)
+						{
+							SkipLeftBits(bs);
+							return RET_CODE_BOX_TOO_SMALL;
+						}
+
+						item_ID = bs.GetWord();
+						packet_payload_size = bs.GetWord();
+						reserved = bs.GetByte();
+						FEC_encoding_ID = bs.GetByte();
+						FEC_instance_ID = bs.GetWord();;
+						max_source_block_length = bs.GetWord();
+						encoding_symbol_length = bs.GetWord();
+						max_number_of_encoding_symbols = bs.GetWord();
+
+						left_bytes -= unpack_size;
+
+						ReadString(bs, scheme_specific_info);
+
+						left_bytes -= scheme_specific_info.length();
+
+						if (left_bytes < sizeof(entry_count))
+						{
+							SkipLeftBits(bs);
+							return RET_CODE_BOX_TOO_SMALL;
+						}
+
+						unpack_size = sizeof(uint16_t) + sizeof(uint32_t);
+						while (left_bytes >= unpack_size && entries.size() < entry_count)
+						{
+							entries.push_back({ bs.GetWord(), bs.GetDWord() });
+							left_bytes -= unpack_size;
+						}
+
+						SkipLeftBits(bs);
+						return 0;
+					}
+
+				}PACKED;
+
+				/*
+				Box Type: 'fecr'
+				Container: Partition Entry ('paen')
+				Mandatory: No
+				Quantity: Zero or One
+				*/
+				struct FECReservoirBox : public FullBox
+				{
+					uint16_t		entry_count;
+					std::vector<std::tuple<uint16_t/*item_ID*/, uint32_t/*symbol_count*/>>
+									entries;
+
+					virtual int Unpack(CBitstream& bs)
+					{
+						int iRet = 0;
+
+						if ((iRet = FullBox::Unpack(bs)) < 0)
+							return iRet;
+
+						uint64_t left_bytes = LeftBytes(bs);
+						if (left_bytes < sizeof(entry_count))
+						{
+							SkipLeftBits(bs);
+							return RET_CODE_BOX_TOO_SMALL;
+						}
+
+						entry_count = bs.GetWord();
+						left_bytes -= sizeof(entry_count);
+
+						auto unpack_size = sizeof(uint16_t) + sizeof(uint32_t);
+						while (left_bytes >= unpack_size && entries.size() < entry_count)
+						{
+							entries.push_back({ bs.GetWord(), bs.GetDWord() });
+							left_bytes -= unpack_size;
+						}
+
+						SkipLeftBits(bs);
+						return 0;
+					}
+				}PACKED;
+
+				/*
+				Box Type: 'fire'
+				Container: Partition Entry ('paen')
+				Mandatory: No
+				Quantity: Zero or One
+				*/
+				struct FileReservoirBox : public FullBox
+				{
+					uint32_t		entry_count;
+					std::unordered_map<uint16_t, uint32_t>
+									entries;
+
+					virtual int Unpack(CBitstream& bs)
+					{
+						int iRet = 0;
+
+						if ((iRet = FullBox::Unpack(bs)) < 0)
+							return iRet;
+
+						uint64_t left_bytes = LeftBytes(bs);
+						if (left_bytes < sizeof(entry_count))
+						{
+							SkipLeftBits(bs);
+							return RET_CODE_BOX_TOO_SMALL;
+						}
+
+						entry_count = bs.GetWord();
+						left_bytes -= sizeof(entry_count);
+
+						auto unpack_size = sizeof(uint16_t) + sizeof(uint32_t);
+						while (left_bytes >= unpack_size && entries.size() < entry_count)
+						{
+							entries[bs.GetWord()] = bs.GetDWord();
+							left_bytes -= unpack_size;
+						}
+
+						SkipLeftBits(bs);
+						return 0;
+					}
+
+				}PACKED;
+
+				FilePartitionBox	blocks_and_symbols;
+				FECReservoirBox*	FEC_symbol_locations; //optional
+				FileReservoirBox*	File_symbol_locations; //optional
+
+				PartitionEntry()
+					: FEC_symbol_locations(nullptr)
+					, File_symbol_locations(nullptr){
+				}
+
+				virtual ~PartitionEntry()
+				{
+					AMP_SAFEDEL(FEC_symbol_locations);
+					AMP_SAFEDEL(File_symbol_locations);
+				}
+
+				virtual int Unpack(CBitstream& bs)
+				{
+					int iRet = 0;
+
+					if ((iRet = Box::Unpack(bs)) < 0)
+						return iRet;
+
+					if ((iRet = blocks_and_symbols.Unpack(bs)) < 0)
+						return iRet;
+
+					uint64_t left_bytes = LeftBytes(bs);
+					if (left_bytes < MIN_FULLBOX_SIZE)
+						goto done;
+
+					FEC_symbol_locations = new FECReservoirBox();
+					FEC_symbol_locations->container = this;
+					if (FEC_symbol_locations->Unpack(bs) < 0)
+					{
+						delete FEC_symbol_locations;
+						FEC_symbol_locations = NULL;
+						goto done;
+					}
+
+					if ((left_bytes-=FEC_symbol_locations->size) < MIN_FULLBOX_SIZE)
+						goto done;
+
+					File_symbol_locations = new FileReservoirBox();
+					File_symbol_locations->container = this;
+					if (File_symbol_locations->Unpack(bs) < 0)
+					{
+						delete File_symbol_locations;
+						File_symbol_locations = NULL;
+						goto done;
+					}
+
+				done:
+					SkipLeftBits(bs);
+					return iRet;
+				}
+
+			}PACKED; // PartionEntry
+
+			/*
+			Box Type: 'segr'
+			Container: FD Information Box ('fiin')
+			Mandatory: No
+			Quantity: Zero or One
+			*/
+			struct FDSessionGroupBox : public Box
+			{
+				struct SessionGroup
+				{
+					uint8_t					entry_count;
+					std::vector<uint32_t>	group_IDs;
+					uint16_t				num_channels_in_session_group;
+					std::vector<uint32_t>	hint_track_ids;
+				}PACKED;
+
+				uint16_t					num_session_groups;
+				std::vector<SessionGroup>	session_groups;
+
+				virtual int Unpack(CBitstream& bs)
+				{
+					int iRet = 0;
+
+					if ((iRet = Box::Unpack(bs)) < 0)
+						return iRet;
+
+					uint64_t left_bytes = LeftBytes(bs);
+					if (left_bytes < sizeof(num_session_groups))
+					{
+						SkipLeftBits(bs);
+						return RET_CODE_BOX_TOO_SMALL;
+					}
+
+					num_session_groups = bs.GetWord();
+					left_bytes -= sizeof(num_session_groups);
+
+					for (uint16_t session_group_id = 0; session_group_id < num_session_groups; session_group_id++)
+					{
+						uint8_t entry_count = 0;
+						if (left_bytes < sizeof(uint8_t))
+							break;
+
+						entry_count = bs.GetByte();
+						left_bytes -= sizeof(entry_count);
+
+						if (left_bytes < entry_count * sizeof(uint32_t))
+							break;
+
+						session_groups.emplace_back();
+						auto back = session_groups.back();
+						for (uint8_t i = 0; i < entry_count; i++)
+							back.group_IDs.push_back(bs.GetDWord());
+
+						left_bytes -= entry_count * sizeof(uint32_t);
+
+						if (left_bytes < sizeof(uint16_t))
+						{
+							session_groups.pop_back();
+							break;
+						}
+
+						back.num_channels_in_session_group = bs.GetWord();
+						left_bytes -= sizeof(uint16_t);
+
+						while (left_bytes >= sizeof(uint32_t) && back.hint_track_ids.size() < back.num_channels_in_session_group)
+						{
+							back.hint_track_ids.push_back(bs.GetDWord());
+							left_bytes -= sizeof(uint32_t);
+						}
+					}
+
+					SkipLeftBits(bs);
+					return 0;
+				}
+
+			}PACKED; // FDSessionGroupBox
+
+			/*
+			Box Type: 'gitn'
+			Container: FD Information Box ('fiin')
+			Mandatory: No
+			Quantity: Zero or One
+			*/
+			struct GroupIdToNameBox : public FullBox
+			{
+				uint16_t		entry_count;
+				std::unordered_map<uint32_t, std::string>	
+								entries;
+
+				virtual int Unpack(CBitstream& bs)
+				{
+					int iRet = 0;
+
+					if ((iRet = Box::Unpack(bs)) < 0)
+						return iRet;
+
+					uint64_t left_bytes = LeftBytes(bs);
+					if (left_bytes < sizeof(entry_count))
+					{
+						SkipLeftBits(bs);
+						return RET_CODE_BOX_TOO_SMALL;
+					}
+
+					entry_count = bs.GetWord();
+					left_bytes -= sizeof(entry_count);
+
+					while (LeftBytes(bs) >= sizeof(uint32_t) && entries.size() < entry_count)
+						ReadString(bs, entries[bs.GetDWord()]);
+
+					SkipLeftBits(bs);
+					return 0;
+				}
+
+			}PACKED; // GroupIdToNameBox
+
+			uint16_t						entry_count;
+			std::vector<PartitionEntry*>	partition_entries;
+			FDSessionGroupBox*				session_info; //optional
+			GroupIdToNameBox*				group_id_to_name; //optional
+
+			FDItemInformationBox()
+				: session_info(nullptr)
+				, group_id_to_name(nullptr){
+			}
+
+			virtual ~FDItemInformationBox()
+			{
+				for (auto v : partition_entries)
+					delete v;
+			}
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = 0;
+
+				if ((iRet = FullBox::Unpack(bs)) < 0)
+					return iRet;
+
+				uint64_t left_bytes = LeftBytes(bs);
+				if (left_bytes < sizeof(entry_count))
+				{
+					SkipLeftBits(bs);
+					return RET_CODE_BOX_TOO_SMALL;
+				}
+
+				entry_count = bs.GetWord();
+				left_bytes -= sizeof(uint16_t);
+
+				while (left_bytes >= MIN_BOX_SIZE && partition_entries.size() < entry_count)
+				{
+					partition_entries.emplace_back();
+					auto pPE = partition_entries.back() = new PartitionEntry();
+
+					if (pPE->Unpack(bs) < 0)
+					{
+						delete pPE;
+						partition_entries.pop_back();
+						break;
+					}
+
+					left_bytes -= pPE->size;
+				}
+
+				if (partition_entries.size() < entry_count)
+					goto done;
+
+				if (left_bytes < MIN_BOX_SIZE)
+					goto done;
+
+				session_info = new FDSessionGroupBox();
+				session_info->container = this;
+				if (session_info->Unpack(bs) < 0)
+				{
+					delete session_info;
+					session_info = NULL;
+					goto done;
+				}
+
+				if ((left_bytes -= session_info->size) < MIN_FULLBOX_SIZE)
+					goto done;
+
+				group_id_to_name = new GroupIdToNameBox();
+				group_id_to_name->container = this;
+				if (group_id_to_name->Unpack(bs) < 0)
+				{
+					delete group_id_to_name;
+					group_id_to_name = NULL;
+					goto done;
+				}
+
+			done:
+				SkipLeftBits(bs);
+				return iRet;
+			}
+
+		}PACKED; // FDItemInformationBox
+
+		/*
+		Box Type: 'idat'
+		Container: Metadata box ('meta')
+		Mandatory: No
+		Quantity: Zero or one
+		*/
+		struct ItemDataBox : public Box
+		{
+			std::vector<uint8_t>	data;
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = 0;
+
+				if ((iRet = Box::Unpack(bs)) < 0)
+					return iRet;
+
+				// Don't read the bitstream to data to save memory
+
+				SkipLeftBits(bs);
+				return iRet;
+			}
+		}PACKED;
+
+		/*
+		Box Type: 'iref'
+		Container: Metadata box ('meta')
+		Mandatory: No
+		Quantity: Zero or one
+		*/
+		struct ItemReferenceBox : public FullBox
+		{
+			struct SingleItemTypeReferenceBox : public Box
+			{
+				uint16_t				from_item_ID;
+				uint16_t				reference_count;
+				std::vector<uint16_t>	to_item_IDs;
+
+				virtual int Unpack(CBitstream& bs)
+				{
+					int iRet = 0;
+
+					if ((iRet = Box::Unpack(bs)) < 0)
+						return iRet;
+
+					uint64_t left_bytes = LeftBytes(bs);
+					if (left_bytes < sizeof(uint16_t) + sizeof(uint16_t))
+					{
+						iRet = RET_CODE_BOX_TOO_SMALL;
+						goto done;
+					}
+
+					from_item_ID = bs.GetWord();
+					reference_count = bs.GetWord();
+					left_bytes -= sizeof(uint16_t) + sizeof(uint16_t);
+
+					while (left_bytes >= sizeof(uint16_t) && reference_count < to_item_IDs.size())
+					{
+						to_item_IDs.push_back(bs.GetWord());
+						left_bytes -= sizeof(uint16_t);
+					}
+
+				done:
+					SkipLeftBits(bs);
+					return iRet;
+				}
+			}PACKED;
+
+			std::vector<SingleItemTypeReferenceBox*>	references;
+
+			virtual ~ItemReferenceBox()
+			{
+				for (auto v : references)
+					delete v;
+			}
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = 0;
+
+				if ((iRet = FullBox::Unpack(bs)) < 0)
+					return iRet;
+
+				uint64_t left_bytes = LeftBytes(bs);
+				while (left_bytes >= MIN_BOX_SIZE)
+				{
+					auto ref = new SingleItemTypeReferenceBox();
+					ref->container = this;
+					if (ref->Unpack(bs) < 0)
+					{
+						delete ref;
+						break;
+					}
+
+					references.push_back(ref);
+				}
+
+				SkipLeftBits(bs);
+				return iRet;
+			}
+		}PACKED; // ItemReferenceBox
+
+		HandlerBox*			handler_box = nullptr;
+		DataInformationBox*	data_inforamtion_box = nullptr;
+		XMLBox*				xml_box = nullptr;
+		BinaryXMLBox*		binary_xml_box = nullptr;
+		ItemLocationBox*	item_location_box = nullptr;
+		PrimaryItemBox*		primary_item_box = nullptr;
+		ItemProtectionBox*	item_protection_box = nullptr;
+		ItemInfoBox*		item_info_box = nullptr;
+		FDItemInformationBox*
+							FD_item_information_box = nullptr;
+		ItemDataBox*		item_data_box = nullptr;
+		ItemReferenceBox*	item_reference_box = nullptr;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = ContainerFullBox::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			Box* ptr_child = first_child;
+			while (ptr_child != nullptr)
+			{
+				switch (ptr_child->type)
+				{
+				case 'hdlr':
+					handler_box = (HandlerBox*)ptr_child;
+					break;
+				case 'dinf':
+					data_inforamtion_box = (DataInformationBox*)ptr_child;
+					break;
+				case 'iloc':
+					item_location_box = (ItemLocationBox*)ptr_child;
+					break;
+				case 'ipro':
+					item_protection_box = (ItemProtectionBox*)ptr_child;
+					break;
+				case 'iinf':
+					item_info_box = (ItemInfoBox*)ptr_child;
+					break;
+				case 'xml ':
+					xml_box = (XMLBox*)ptr_child;
+					break;
+				case 'bxml':
+					binary_xml_box = (BinaryXMLBox*)ptr_child;
+					break;
+				case 'pitm':
+					primary_item_box = (PrimaryItemBox*)ptr_child;
+					break;
+				case 'fiin':
+					FD_item_information_box = (FDItemInformationBox*)ptr_child;
+					break;
+				case 'idat':
+					item_data_box = (ItemDataBox*)ptr_child;
+					break;
+				case 'iref':
+					item_reference_box = (ItemReferenceBox*)ptr_child;
+					break;
+				}
+				ptr_child = ptr_child->next_sibling;
+			}
+
+			return iRet;
+		}
+
 	}PACKED;
 
+	/*
+	Box Type: 'meco'
+	Container: File, Movie Box ('moov'), or Track Box ('trak')
+	Mandatory: No
+	Quantity: Zero or one
+	*/
+	struct AdditionalMetadataContainerBox : public ContainerBox
+	{
+		/*
+		Box Type: 'mere'
+		Container: Additional Metadata Container Box ('meco')
+		Mandatory: No
+		Quantity: Zero or more
+		*/
+		struct MetaboxRelationBox : public FullBox
+		{
+			uint32_t	first_metabox_handler_type;
+			uint32_t	second_metabox_handler_type;
+			uint8_t		metabox_relation;
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = 0;
+
+				if ((iRet = FullBox::Unpack(bs)) < 0)
+					return iRet;
+
+				uint64_t left_bytes = LeftBytes(bs);
+				if (left_bytes < sizeof(first_metabox_handler_type) + sizeof(second_metabox_handler_type) + sizeof(metabox_relation))
+				{
+					iRet = RET_CODE_BOX_TOO_SMALL;
+					goto done;
+				}
+
+				first_metabox_handler_type = bs.GetDWord();
+				second_metabox_handler_type = bs.GetDWord();
+				metabox_relation = bs.GetDWord();
+
+			done:
+				SkipLeftBits(bs);
+				return iRet;
+			}
+
+		}PACKED;
+
+		std::vector<MetaboxRelationBox*>	metabox_relation_boxes;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = ContainerBox::Unpack(bs);
+
+			if (iRet < 0)
+				return iRet;
+
+			Box* ptr_child = first_child;
+			while (ptr_child != nullptr)
+			{
+				switch (ptr_child->type)
+				{
+				case 'mere':
+					metabox_relation_boxes.push_back((MetaboxRelationBox*)ptr_child);
+					break;
+				}
+
+				ptr_child = ptr_child->next_sibling;
+			}
+
+			return iRet;
+		}
+
+	}PACKED;
+
+	/*
+	Box Type: 'sidx'
+	Container: File
+	Mandatory: No
+	Quantity: Zero or more
+	*/
+	struct SegmentIndexBox : public FullBox
+	{
+		struct Reference
+		{
+			uint32_t	reference_type : 1;
+			uint32_t	referenced_size : 31;
+			uint32_t	subsegment_duration;
+			uint32_t	starts_with_SAPL : 1;
+			uint32_t	SAP_type : 3;
+			uint32_t	SAP_delta_time : 28;
+		}PACKED;
+
+		uint32_t				reference_ID;
+		uint32_t				timescale;
+
+		uint64_t				earliest_presentation_time;
+		uint64_t				first_offset;
+
+		uint16_t				reserved = 0;
+		uint16_t				reference_count;
+		std::vector<Reference>	references;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+
+			if ((iRet = Box::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t left_bytes = LeftBytes(bs);
+			auto unpack_size = sizeof(reference_ID) + sizeof(timescale) + (version == 1 ? (sizeof(uint64_t) * 2) : (sizeof(uint32_t) * 2)) + sizeof(reserved) + sizeof(reference_count);
+			if (left_bytes < unpack_size)
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			reference_ID = bs.GetDWord();
+			timescale = bs.GetDWord();
+
+			earliest_presentation_time = version == 1 ? bs.GetQWord() : bs.GetDWord();
+			first_offset = version == 1 ? bs.GetQWord() : bs.GetDWord();
+
+			reserved = bs.GetWord();
+			reference_count = bs.GetWord();
+
+			left_bytes -= unpack_size;
+
+			while (left_bytes >= sizeof(Reference) && references.size() < reference_count)
+			{
+				references.emplace_back();
+				auto back = references.back();
+				back.reference_type = (uint32_t)bs.GetBits(1);
+				back.referenced_size = (uint32_t)bs.GetBits(31);
+				back.subsegment_duration = bs.GetDWord();
+				back.starts_with_SAPL = (uint32_t)bs.GetBits(1);
+				back.SAP_type = (uint32_t)bs.GetBits(3);
+				back.SAP_delta_time = (uint32_t)bs.GetBits(28);
+				left_bytes -= sizeof(Reference);
+			}
+
+		done:
+			SkipLeftBits(bs);
+			return iRet;
+		}
+	}PACKED;
+
+	/*
+	Box Type: 'ssix'
+	Container: File
+	Mandatory: No
+	Quantity: Zero or more
+	*/
+	struct SubsegmentIndexBox : public FullBox
+	{
+		struct Segment
+		{
+			struct Range
+			{
+				uint32_t		level : 8;
+				uint32_t		range_size : 24;
+			}PACKED;
+
+			uint32_t			ranges_count;
+			std::vector<Range>	ranges;
+		}PACKED;
+
+		uint32_t				segment_count;
+		std::vector<Segment>	segments;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+
+			if ((iRet = FullBox::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t left_bytes = LeftBytes(bs);
+			if (left_bytes < sizeof(segment_count))
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			segment_count = bs.GetDWord();
+			left_bytes -= sizeof(segment_count);
+
+			while (left_bytes >= sizeof(uint32_t) && segments.size() < segment_count)
+			{
+				segments.emplace_back();
+				auto back = segments.back();
+
+				back.ranges_count = bs.GetDWord();
+				left_bytes -= sizeof(uint32_t);
+
+				while (left_bytes >= sizeof(Segment::Range) && back.ranges.size() < back.ranges_count)
+				{
+					back.ranges.emplace_back();
+					back.ranges.back().level = bs.GetByte();
+					back.ranges.back().range_size = (uint32_t)bs.GetBits(24);
+					left_bytes -= sizeof(Segment::Range);
+				}
+
+				if (back.ranges.size() < back.ranges_count)
+					break;
+			}
+
+		done:
+			SkipLeftBits(bs);
+			return iRet;
+		}
+	};
+
+	/*
+	Box Type: 'prft'
+	Container: File
+	Mandatory: No
+	Quantity: Zero or more
+	*/
+	struct ProducerReferenceTimeBox: public FullBox
+	{
+		uint32_t		reference_track_ID;
+		uint64_t		ntp_timestamp;
+		uint64_t		media_time;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+
+			if ((iRet = FullBox::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t left_bytes = LeftBytes(bs);
+			auto unpack_size = sizeof(reference_track_ID) + sizeof(ntp_timestamp) + version == 1 ? sizeof(uint64_t) : sizeof(uint32_t);
+			if (left_bytes < unpack_size)
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			reference_track_ID = bs.GetDWord();
+			ntp_timestamp = bs.GetQWord();
+			media_time = (version == 1 ? bs.GetQWord() : bs.GetDWord());
+
+		done:
+			SkipLeftBits(bs);
+			return iRet;
+		}
+
+	}PACKED;
 
 	/*
 	Box Type: 'moov'
@@ -1533,7 +2749,7 @@ namespace ISOMediaFile
 	Mandatory: Yes
 	Quantity: Exactly one
 	*/
-	struct MovieBox : public Box
+	struct MovieBox : public ContainerBox
 	{
 		/*
 		Box Type: 'mvhd'
@@ -1614,7 +2830,7 @@ namespace ISOMediaFile
 		Mandatory: Yes
 		Quantity: One or more
 		*/
-		struct TrackBox : public Box
+		struct TrackBox : public ContainerBox
 		{
 			/*
 			Box Type: 'tkhd'
@@ -1879,7 +3095,6 @@ namespace ISOMediaFile
 				{
 					int iRet = 0;
 
-					uint64_t start_bitpos = bs.Tell();
 					if ((iRet = Box::Unpack(bs)) < 0)
 						return iRet;
 
@@ -1897,8 +3112,14 @@ namespace ISOMediaFile
 			Mandatory: Yes
 			Quantity: Exactly one
 			*/
-			struct MediaBox : public Box
+			struct MediaBox : public ContainerBox
 			{
+				/*
+				Box Type: 'mdhd'
+				Container: Media Box ('mdia')
+				Mandatory: Yes
+				Quantity: Exactly one
+				*/
 				struct MediaHeaderBox : public FullBox
 				{
 					union
@@ -1964,10 +3185,10 @@ namespace ISOMediaFile
 				Mandatory: Yes
 				Quantity: Exactly one
 				*/
-				struct MediaInformationBox : public Box
+				struct MediaInformationBox : public ContainerBox
 				{
 					/*
-					Box Types: 'mhd' 'mhd' 'mhd' 'mhd'
+					Box Types: 'vmhd', 'smhd', 'hmhd', 'nmhd'
 					Container: Media Information Box ('minf')
 					Mandatory: Yes
 					Quantity: Exactly one specific media header shall be present
@@ -2078,7 +3299,7 @@ namespace ISOMediaFile
 					Mandatory: Yes
 					Quantity: Exactly one
 					*/
-					struct SampleTableBox : public Box
+					struct SampleTableBox : public ContainerBox
 					{
 						/*
 						Box Types: 'stsd'
@@ -2109,7 +3330,8 @@ namespace ISOMediaFile
 
 								data_reference_index = bs.GetWord();
 
-								SkipLeftBits(bs);
+								// This is a base class, can't skip left bits
+								//SkipLeftBits(bs);
 								return 0;
 							}
 						}PACKED;
@@ -2625,7 +3847,7 @@ namespace ISOMediaFile
 								auto ptr_mdia_container = container->container->container;
 
 								// find hdlr box
-								Box* ptr_mdia_child = ptr_mdia_container->first_children;
+								Box* ptr_mdia_child = ptr_mdia_container->first_child;
 								while (ptr_mdia_child != nullptr)
 								{
 									if (ptr_mdia_child->type == 'hdlr')
@@ -3203,7 +4425,7 @@ namespace ISOMediaFile
 									goto done;
 								}
 
-								Box* pChild = container->first_children;
+								Box* pChild = container->first_child;
 								while (pChild != nullptr && pChild->type != 'stsz' && pChild->type != 'stz2')
 									pChild = pChild->next_sibling;
 
@@ -3272,7 +4494,7 @@ namespace ISOMediaFile
 									goto done;
 								}
 
-								Box* pChild = container->first_children;
+								Box* pChild = container->first_child;
 								while (pChild != nullptr && pChild->type != 'stsz' && pChild->type != 'stz2')
 									pChild = pChild->next_sibling;
 
@@ -3305,10 +4527,241 @@ namespace ISOMediaFile
 							}
 						}PACKED;
 
+						SampleDescriptionBox*		sample_description_box;
+						TimeToSampleBox*			time_to_sample_box;
+						CompositionOffsetBox*		composition_offset_box;
+						CompositionToDecodeBox*		composition_to_decode_box;
+						SampleToChunkBox*			sample_to_chunk_box;
+						SampleSizeBox*				sample_size_box;
+						CompactSampleSizeBox*		compact_sample_size_box;
+						ChunkOffsetBox*				chunk_offset_box;
+						ChunkLargeOffsetBox*		chunk_large_offset_box;
+						SyncSampleBox*				sync_sample_box;
+						ShadowSyncSampleBox*		shadow_sync_sample_box;
+						PaddingBitsBox*				padding_bits_box;
+						DegradationPriorityBox*		degradation_priority_box;
+						SampleDependencyTypeBox*	sample_dependency_type_box;
+						std::vector<SampleToGroupBox*>
+													sample_to_group_boxes;
+						std::vector<SampleGroupDescriptionBox*>
+													sample_group_description_boxes;
+						SubSampleInformationBox*	subsample_information_box;
+						std::vector<SampleAuxiliaryInformationSizesBox*>
+													sample_aux_information_size_boxes;
+						std::vector<SampleAuxiliaryInformationOffsetsBox*>
+													sample_aux_information_offset_boxes;
+
+						virtual int Unpack(CBitstream& bs)
+						{
+							int iRet = ContainerBox::Unpack(bs);
+							if (iRet < 0)
+								return iRet;
+
+							Box* ptr_child = first_child;
+							while (ptr_child != nullptr)
+							{
+								switch (ptr_child->type)
+								{
+								case 'stsd':
+									sample_description_box = (SampleDescriptionBox*)ptr_child;
+									break;
+								case 'stts':
+									time_to_sample_box = (TimeToSampleBox*)ptr_child;
+									break;
+								case 'ctts':
+									composition_offset_box = (CompositionOffsetBox*)ptr_child;
+									break;
+								case 'cslg':
+									composition_to_decode_box = (CompositionToDecodeBox*)ptr_child;
+									break;
+								case 'stsc':
+									sample_to_chunk_box = (SampleToChunkBox*)ptr_child;
+									break;
+								case 'stsz':
+									sample_size_box = (SampleSizeBox*)ptr_child;
+									break;
+								case 'stz2':
+									compact_sample_size_box = (CompactSampleSizeBox*)ptr_child;
+									break;
+								case 'stco':
+									chunk_offset_box = (ChunkOffsetBox*)ptr_child;
+									break;
+								case 'co64':
+									chunk_large_offset_box = (ChunkLargeOffsetBox*)ptr_child;
+									break;
+								case 'stss':
+									sync_sample_box = (SyncSampleBox*)ptr_child;
+									break;
+								case 'stsh':
+									shadow_sync_sample_box = (ShadowSyncSampleBox*)ptr_child;
+									break;
+								case 'padb':
+									padding_bits_box = (PaddingBitsBox*)ptr_child;
+									break;
+								case 'stdp':
+									degradation_priority_box = (DegradationPriorityBox*)ptr_child;
+									break;
+								case 'sdtp':
+									sample_dependency_type_box = (SampleDependencyTypeBox*)ptr_child;
+									break;
+								case 'sbgp':
+									sample_to_group_boxes.push_back((SampleToGroupBox*)ptr_child);
+									break;
+								case 'sgpd':
+									sample_group_description_boxes.push_back((SampleGroupDescriptionBox*)ptr_child);
+									break;
+								case 'subs':
+									subsample_information_box = (SubSampleInformationBox*)ptr_child;
+									break;
+								case 'saiz':
+									sample_aux_information_size_boxes.push_back((SampleAuxiliaryInformationSizesBox*)ptr_child);
+									break;
+								case 'saio':
+									sample_aux_information_offset_boxes.push_back((SampleAuxiliaryInformationOffsetsBox*)ptr_child);
+									break;
+								}
+
+								ptr_child = ptr_child->next_sibling;
+							}
+
+							return iRet;
+						}
+
 					}PACKED;
 
+					VideoMediaHeaderBox*		video_media_header_box;
+					SoundMediaHeaderBox*		sound_media_header_box;
+					HintMediaHeaderBox*			hint_media_header_box;
+					NullMediaHeaderBox*			null_media_header_box;
+					DataInformationBox*			data_information_box;
+					SampleTableBox*				sample_table_box;
+
+					virtual int Unpack(CBitstream& bs)
+					{
+						int iRet = ContainerBox::Unpack(bs);
+
+						if (iRet < 0)
+							return iRet;
+
+						Box* ptr_child = first_child;
+						while (ptr_child != nullptr)
+						{
+							switch (ptr_child->type)
+							{
+							case 'vmhd':
+								video_media_header_box = (VideoMediaHeaderBox*)ptr_child;
+								break;
+							case 'smhd':
+								sound_media_header_box = (SoundMediaHeaderBox*)ptr_child;
+								break;
+							case 'hmhd':
+								hint_media_header_box = (HintMediaHeaderBox*)ptr_child;
+								break;
+							case 'nmhd':
+								null_media_header_box = (NullMediaHeaderBox*)ptr_child;
+								break;
+							case 'dinf':
+								data_information_box = (DataInformationBox*)ptr_child;
+								break;
+							case 'stbl':
+								sample_table_box = (SampleTableBox*)ptr_child;
+								break;
+							}
+
+							ptr_child = ptr_child->next_sibling;
+						}
+
+						SkipLeftBits(bs);
+
+						return iRet;
+					}
+
 				}PACKED;
+
+				MediaHeaderBox*		media_header_box;
+				HandlerBox*			handler_box;
+				MediaInformationBox*
+									media_information_box;
+
+				virtual int Unpack(CBitstream& bs)
+				{
+					int iRet = ContainerBox::Unpack(bs);
+
+					if (iRet < 0)
+						return iRet;
+
+					Box* ptr_child = first_child;
+					while (ptr_child != nullptr)
+					{
+						switch (ptr_child->type)
+						{
+						case 'mdhd':
+							media_header_box = (MediaHeaderBox*)ptr_child;
+							break;
+						case 'hdlr':
+							handler_box = (HandlerBox*)ptr_child;
+							break;
+						case 'minf':
+							media_information_box = (MediaInformationBox*)ptr_child;
+							break;
+						}
+
+						ptr_child = ptr_child->next_sibling;
+					}
+
+					SkipLeftBits(bs);
+
+					return iRet;
+				}
 			}PACKED;
+
+			TrackHeaderBox*			track_header_box;
+			TrackReferenceBox*		track_reference_box;
+			TrackGroupBox*			track_group_box;
+			EditBox*				edit_box;
+			MediaBox*				media_box;
+			UserDataBox*			user_data_box;
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = ContainerBox::Unpack(bs);
+
+				if (iRet < 0)
+					return iRet;
+
+				// Update the quick access references
+				Box* ptr_child = first_child;
+				while (ptr_child != nullptr)
+				{
+					switch (ptr_child->type)
+					{
+					case 'tkhd':
+						track_header_box = (TrackHeaderBox*)ptr_child;
+						break;
+					case 'tref':
+						track_reference_box = (TrackReferenceBox*)ptr_child;
+						break;
+					case 'trgr':
+						track_group_box = (TrackGroupBox*)ptr_child;
+						break;
+					case 'edts':
+						edit_box = (EditBox*)ptr_child;
+						break;
+					case 'mdia':
+						media_box = (MediaBox*)ptr_child;
+						break;
+					case 'udta':
+						user_data_box = (UserDataBox*)ptr_child;
+						break;
+					}
+
+					ptr_child = ptr_child->next_sibling;
+				}
+
+				SkipLeftBits(bs);
+
+				return iRet;
+			}
 
 		}PACKED;
 
@@ -3318,7 +4771,7 @@ namespace ISOMediaFile
 		Mandatory: No
 		Quantity: Zero or one
 		*/
-		struct MovieExtendsBox : public Box
+		struct MovieExtendsBox : public ContainerBox
 		{
 			/*
 			Box Type: 'mehd'
@@ -3470,24 +4923,85 @@ namespace ISOMediaFile
 
 			}PACKED;
 
+			MovieExtendsHeaderBox*			movie_extends_header_box;
+			std::vector<TrackExtendsBox*>	track_extends_boxes;
+			LevelAssignmentBox*				level_assignment_box;
+
+			MovieExtendsBox()
+				: movie_extends_header_box(nullptr)
+				, level_assignment_box(nullptr) {
+			}
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = ContainerBox::Unpack(bs);
+				if (iRet < 0)
+					return iRet;
+
+				Box* ptr_child = first_child;
+				while (ptr_child != nullptr)
+				{
+					switch (ptr_child->type)
+					{
+					case 'mehd':
+						movie_extends_header_box = (MovieExtendsHeaderBox*)ptr_child;
+						break;
+					case 'trex':
+						track_extends_boxes.push_back((TrackExtendsBox*)ptr_child);
+						break;
+					case 'leva':
+						level_assignment_box = (LevelAssignmentBox*)ptr_child;
+						break;
+					}
+
+					ptr_child = ptr_child->next_sibling;
+				}
+
+				return iRet;
+			}
 		}PACKED;
 
-		MovieHeaderBox* ptr_movie_header_box;
-		std::vector<TrackBox> track_boxes;
+		MovieHeaderBox*			movie_header_box = nullptr;					// Movie header
+		std::vector<TrackBox*>	track_boxes;								// Track boxes
+		MovieExtendsBox*		movie_extends_box = nullptr;				// Movie extends Box
+		UserDataBox*			user_data_box = nullptr;					// User data box
+		MetaBox*				meta_box = nullptr;							// Meta box
+		AdditionalMetadataContainerBox*
+								additional_metadata_container_box = nullptr;// Additional metadata container box
 
-		MovieBox()
-			: ptr_movie_header_box(NULL)
+		virtual int Unpack(CBitstream& bs)
 		{
-		}
+			int iRet = ContainerBox::Unpack(bs);
 
-		virtual int Unpack(CBitstream bs)
-		{
-			int iRet = 0;
-			if ((iRet = Box::Unpack(bs)) < 0)
+			if (iRet < 0)
 				return iRet;
 
-			SkipLeftBits(bs);
-			return 0;
+			// Update the quick access references
+			Box* ptr_child = first_child;
+			while (ptr_child != nullptr)
+			{
+				if (ptr_child->type == 'mvhd')
+					movie_header_box = (MovieHeaderBox*)ptr_child;
+
+				if (ptr_child->type == 'trak')
+					track_boxes.push_back((TrackBox*)ptr_child);
+
+				if (ptr_child->type == 'mvex')
+					movie_extends_box = (MovieExtendsBox*)ptr_child;
+
+				if (ptr_child->type == 'udta')
+					user_data_box = (UserDataBox*)ptr_child;
+
+				if (ptr_child->type == 'meta')
+					meta_box = (MetaBox*)ptr_child;
+
+				if (ptr_child->type == 'meco')
+					additional_metadata_container_box = (AdditionalMetadataContainerBox*)ptr_child;
+
+				ptr_child = ptr_child->next_sibling;
+			}
+
+			return iRet;
 		}
 
 	}PACKED;
@@ -3498,7 +5012,7 @@ namespace ISOMediaFile
 	Mandatory: No
 	Quantity: Zero or more
 	*/
-	struct MovieFragmentBox : public Box
+	struct MovieFragmentBox : public ContainerBox
 	{
 		/*
 		Box Type: 'mfhd'
@@ -3510,7 +5024,7 @@ namespace ISOMediaFile
 		{
 			uint32_t	sequence_number;
 
-			virtual int Unpack(CBitstream bs)
+			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = 0;
 				if ((iRet = FullBox::Unpack(bs)) < 0)
@@ -3535,7 +5049,7 @@ namespace ISOMediaFile
 		Mandatory: No
 		Quantity: Zero or more
 		*/
-		struct TrackFragmentBox : public Box
+		struct TrackFragmentBox : public ContainerBox
 		{
 			/*
 			Box Type: 'tfhd'
@@ -3552,7 +5066,7 @@ namespace ISOMediaFile
 				uint32_t	default_sample_size;
 				uint32_t	default_sample_flags;
 
-				virtual int Unpack(CBitstream bs)
+				virtual int Unpack(CBitstream& bs)
 				{
 					int iRet = 0;
 					if ((iRet = FullBox::Unpack(bs)) < 0)
@@ -3609,7 +5123,7 @@ namespace ISOMediaFile
 
 				std::vector<Sample>	samples;
 
-				virtual int Unpack(CBitstream bs)
+				virtual int Unpack(CBitstream& bs)
 				{
 					int iRet = 0;
 					if ((iRet = FullBox::Unpack(bs)) < 0)
@@ -3660,7 +5174,7 @@ namespace ISOMediaFile
 			{
 				uint64_t	baseMediaDecodeTime;
 
-				virtual int Unpack(CBitstream bs)
+				virtual int Unpack(CBitstream& bs)
 				{
 					int iRet = 0;
 					if ((iRet = FullBox::Unpack(bs)) < 0)
@@ -3680,25 +5194,81 @@ namespace ISOMediaFile
 				}
 			}PACKED;
 
-			virtual int Unpack(CBitstream bs)
+			TrackFragmentHeaderBox*			track_fragment_header_box = nullptr;
+			std::vector<TrackRunBox*>		track_run_boxes;
+			TrackFragmentBaseMediaDecodeTimeBox*
+											track_fragment_base_media_decode_time_box = nullptr;
+			std::vector<SampleToGroupBox*>	sample_to_group_boxes;
+			std::vector<SampleGroupDescriptionBox*>
+											sample_group_description_boxes;
+			SubSampleInformationBox*		subsample_information_box = nullptr;
+			std::vector<SampleAuxiliaryInformationSizesBox*>
+											sample_aux_informtion_sizes_boxes;
+			std::vector<SampleAuxiliaryInformationOffsetsBox*>
+											sample_aux_information_offsets_boxes;
+
+			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = 0;
-				if ((iRet = Box::Unpack(bs)) < 0)
+				if ((iRet = ContainerBox::Unpack(bs)) < 0)
 					return iRet;
 
-				SkipLeftBits(bs);
-				return 0;
+				Box* ptr_child = first_child;
+				while (ptr_child != nullptr)
+				{
+					switch (ptr_child->type)
+					{
+					case 'tfhd':
+						track_fragment_header_box = (TrackFragmentHeaderBox*)ptr_child;
+						break;
+					case 'trun':
+						track_run_boxes.push_back((TrackRunBox*)ptr_child);
+						break;
+					case 'tfdt':
+						track_fragment_base_media_decode_time_box = (TrackFragmentBaseMediaDecodeTimeBox*)ptr_child;
+						break;
+					case 'sbgp':
+						sample_to_group_boxes.push_back((SampleToGroupBox*)ptr_child);
+						break;
+					case 'sgpd':
+						sample_group_description_boxes.push_back((SampleGroupDescriptionBox*)ptr_child);
+						break;
+					case 'subs':
+						subsample_information_box = (SubSampleInformationBox*)ptr_child;
+						break;
+					case 'saiz':
+						sample_aux_informtion_sizes_boxes.push_back((SampleAuxiliaryInformationSizesBox*)ptr_child);
+						break;
+					case 'saio':
+						sample_aux_information_offsets_boxes.push_back((SampleAuxiliaryInformationOffsetsBox*)ptr_child);
+						break;
+					}
+
+					ptr_child = ptr_child->next_sibling;
+				}
+
+				return iRet;
 			}
 		}PACKED;
 
-		virtual int Unpack(CBitstream bs)
+		MovieFragmentHeaderBox*			movie_fragment_header_box = nullptr;
+		std::vector<TrackFragmentBox*>	track_fragment_boxes;
+
+		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
-			if ((iRet = Box::Unpack(bs)) < 0)
+			if ((iRet = ContainerBox::Unpack(bs)) < 0)
 				return iRet;
 
-			SkipLeftBits(bs);
-			return 0;
+			Box* ptr_child = first_child;
+			while (ptr_child != nullptr)
+			{
+
+
+				ptr_child = ptr_child->next_sibling;
+			}
+
+			return iRet;
 		}
 	}PACKED;
 
@@ -3708,7 +5278,7 @@ namespace ISOMediaFile
 	Mandatory: No
 	Quantity: Zero or one
 	*/
-	struct MovieFragmentRandomAccessBox : public Box
+	struct MovieFragmentRandomAccessBox : public ContainerBox
 	{
 		/*
 		Box Type: 'tfra'
@@ -3737,7 +5307,7 @@ namespace ISOMediaFile
 
 			std::vector<Entry>	entries;
 
-			virtual int Unpack(CBitstream bs)
+			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = 0;
 				if ((iRet = FullBox::Unpack(bs)) < 0)
@@ -3796,7 +5366,7 @@ namespace ISOMediaFile
 		{
 			uint32_t	size;
 
-			virtual int Unpack(CBitstream bs)
+			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = 0;
 				if ((iRet = FullBox::Unpack(bs)) < 0)
@@ -3815,14 +5385,32 @@ namespace ISOMediaFile
 			}
 		}PACKED;
 
-		virtual int Unpack(CBitstream bs)
+		std::vector<TrackFragmentRandomAccessBox*>	track_fragment_random_access_boxes;
+		MovieFragmentRandomAccessOffsetBox*			movie_fragment_random_access_offset_boxes = nullptr;
+
+		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
-			if ((iRet = Box::Unpack(bs)) < 0)
+			if ((iRet = ContainerBox::Unpack(bs)) < 0)
 				return iRet;
 
-			SkipLeftBits(bs);
-			return 0;
+			Box* ptr_child = first_child;
+			while (ptr_child != nullptr)
+			{
+				switch (ptr_child->type)
+				{
+				case 'tfra':
+					track_fragment_random_access_boxes.push_back((TrackFragmentRandomAccessBox*)ptr_child);
+					break;
+				case 'mfro':
+					movie_fragment_random_access_offset_boxes = (MovieFragmentRandomAccessOffsetBox*)ptr_child;
+					break;
+				}
+
+				ptr_child = ptr_child->next_sibling;
+			}
+
+			return iRet;
 		}
 	}PACKED;
 }

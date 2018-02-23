@@ -112,9 +112,6 @@ namespace ISOMediaFile
 
 	int Box::LoadBoxes(Box* pContainer, CBitstream& bs, Box** ppBox)
 	{
-		if (ppBox == NULL)
-			return -1;
-
 		int iRet = 0;
 		Box* ptr_box = NULL;
 		uint64_t box_header = bs.PeekBits(64);
@@ -314,47 +311,108 @@ namespace ISOMediaFile
 			ptr_box = new MetaBox::ItemProtectionBox();
 			break;
 		case 'sinf':
+			ptr_box = new ProtectionSchemeInfoBox();
+			break;
 		case 'frma':
+			ptr_box = new OriginalFormatBox();
+			break;
 		case 'schm':
+			ptr_box = new SchemeTypeBox();
+			break;
 		case 'schi':
+			ptr_box = new SchemeInformationBox();
+			break;
 		case 'iinf':
+			ptr_box = new MetaBox::ItemInfoBox();
+			break;
 		case 'xml ':
+			ptr_box = new MetaBox::XMLBox();
+			break;
 		case 'bxml':
+			ptr_box = new MetaBox::BinaryXMLBox();
+			break;
 		case 'pitm':
+			ptr_box = new MetaBox::PrimaryItemBox();
+			break;
 		case 'fiin':
+			ptr_box = new MetaBox::FDItemInformationBox();
+			break;
 		case 'paen':
+			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry();
+			break;
 		case 'fire':
+			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FileReservoirBox();
+			break;
 		case 'fpar':
+			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FilePartitionBox();
+			break;
 		case 'fecr':
+			ptr_box = new MetaBox::FDItemInformationBox::PartitionEntry::FECReservoirBox();
+			break;
 		case 'segr':
+			ptr_box = new MetaBox::FDItemInformationBox::FDSessionGroupBox();
+			break;
 		case 'gitn':
+			ptr_box = new MetaBox::FDItemInformationBox::GroupIdToNameBox();
+			break;
 		case 'idat':
+			ptr_box = new MetaBox::ItemDataBox();
+			break;
 		case 'iref':
+			ptr_box = new MetaBox::ItemReferenceBox();
+			break;
 		case 'meco':
+			ptr_box = new AdditionalMetadataContainerBox();
+			break;
 		case 'mere':
+			ptr_box = new AdditionalMetadataContainerBox::MetaboxRelationBox();
+			break;
 		case 'styp':
+			/*
+			Box Type: 'styp'
+			Container: File
+			Mandatory: No
+			Quantity: Zero or more
+			If segments are stored in separate files (e.g. on a standard HTTP server) it is recommended that these
+			'segment files' contain a segment-type box, which must be first if present, to enable identification of those files,
+			and declaration of the specifications with which they are compliant.
+
+			A segment type has the same format as an 'ftyp' box [4.3], except that it takes the box type 'styp'. The
+			brands within it may include the same brands that were included in the 'ftyp' box that preceded the
+			'moov' box, and may also include additional brands to indicate the compatibility of this segment with various
+			specification(s)		
+			*/
+			ptr_box = new FileTypeBox();
+			break;
 		case 'sidx':
+			ptr_box = new SegmentIndexBox();
+			break;
 		case 'ssix':
+			ptr_box = new SubsegmentIndexBox();
+			break;
 		case 'prft':
+			ptr_box = new ProducerReferenceTimeBox();
+			break;
 		case 'rinf':
+			ptr_box = new RestrictedSchemeInfoBox();
+			break;
 		default:
 			ptr_box = new UnknownBox();
 		}
 
-		ptr_box->container = pContainer;
+		pContainer->AppendChildBox(ptr_box);
 
 		if ((iRet = ptr_box->Unpack(bs)) < 0)
 		{
 			printf("Failed to load a box and its children from the current bitstream.\n");
 
-			*ppBox = NULL;
-			
-			ptr_box->container = NULL;
-			delete ptr_box;
+			AMP_SAFEASSIGN(ppBox, nullptr);
+			pContainer->RemoveChildBox(ptr_box);
+
 			return iRet;
 		}
 
-		*ppBox = ptr_box;
+		AMP_SAFEASSIGN(ppBox, ptr_box);
 
 		return 0;
 	}

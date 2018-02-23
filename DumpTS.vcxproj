@@ -141,6 +141,7 @@
     <ClCompile Include="ISO14496_12.cpp" />
     <ClCompile Include="PartitialTS.cpp" />
     <ClCompile Include="PayloadBuf.cpp" />
+    <ClCompile Include="QTFF.cpp" />
     <ClCompile Include="RefactorTS.cpp" />
     <ClCompile Include="StdAfx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -155,7 +156,9 @@
     <ClInclude Include="crc.h" />
     <ClInclude Include="DumpTS.h" />
     <ClInclude Include="ISO14496_12.h" />
+    <ClInclude Include="ISO14496_15.h" />
     <ClInclude Include="PayloadBuf.h" />
+    <ClInclude Include="QTFF.h" />
     <ClInclude Include="StdAfx.h" />
   </ItemGroup>
   <ItemGroup>

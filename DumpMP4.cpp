@@ -7,6 +7,7 @@
 #include "Bitstream.h"
 #include <assert.h>
 #include <filesystem>
+#include "ISO14496_12.h"
 
 using namespace std;
 
@@ -219,7 +220,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 		else
 		{
 			// Overlapped, merge them together
-			prev_hole = { s1, std::max(e1, e2) };
+			prev_hole = { s1, AMP_MAX(e1, e2) };
 		}
 	}
 
@@ -261,7 +262,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 		size_t cbLeft = (size_t)(std::get<1>(slice) - std::get<0>(slice));
 		size_t cbRead = 0;
 		while (cbLeft > 0) {
-			if ((cbRead = fread_s(buf, cache_size, 1, std::min(cache_size, cbLeft), fp)) <= 0)
+			if ((cbRead = fread_s(buf, cache_size, 1, AMP_MIN(cache_size, cbLeft), fp)) <= 0)
 			{
 				iRet = -1;
 				break;
@@ -317,9 +318,74 @@ done:
 	return iRet;
 }
 
+void PrintTree(ISOMediaFile::Box* ptr_box, int level)
+{
+	if (ptr_box == nullptr)
+		return;
+
+	size_t line_chars = level * 5 + 128;
+	char* szLine = new char[line_chars];
+	memset(szLine, ' ', line_chars);
+	
+	const int indent = 2;
+	const int level_span = 5;
+
+	char* szText = nullptr;
+	if (level >= 1)
+	{
+		ISOMediaFile::Box* ptr_parent = ptr_box->container;
+		memcpy(szLine + indent + (level - 1)*level_span, "|--", 3);
+		for (int i = level - 2; i >= 0 && ptr_parent != nullptr; i++)
+		{
+			if (ptr_parent->next_sibling != nullptr)
+				memcpy(szLine + indent + (level - 2)*level_span, "|", 1);
+			ptr_parent = ptr_parent->container;
+		}
+		szText = szLine + indent + 3 + (level - 1)*level_span;
+	}
+	else
+		szText = szLine + indent;
+
+	if (ptr_box->container == nullptr)
+		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
+	else if (ptr_box->type != 'uuid')
+	{
+		char c0 = (ptr_box->type >> 24) & 0xFF;
+		char c1 = (ptr_box->type >> 16) & 0xFF;
+		char c2 = (ptr_box->type >> 8) & 0xFF;
+		char c3 = (ptr_box->type & 0xFF);
+		sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c' (size: %lld)\r\n",
+			isprint(c0) ? c0 : ' ', isprint(c1) ? c1 : ' ', isprint(c2) ? c2 : ' ', isprint(c3) ? c3 : ' ',
+			ptr_box->size);
+	}
+	else
+	{
+		sprintf_s(szText, line_chars - (szText - szLine), "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X (size: %lld)\r\n",
+			ptr_box->usertype[0x0], ptr_box->usertype[0x1], ptr_box->usertype[0x2], ptr_box->usertype[0x3], 
+			ptr_box->usertype[0x4], ptr_box->usertype[0x5], ptr_box->usertype[0x6], ptr_box->usertype[0x7],
+			ptr_box->usertype[0x8], ptr_box->usertype[0x9], ptr_box->usertype[0xa], ptr_box->usertype[0xb], 
+			ptr_box->usertype[0xc], ptr_box->usertype[0xd], ptr_box->usertype[0xe], ptr_box->usertype[0xf], 
+			ptr_box->size);
+	}
+
+	printf(szLine);
+
+	delete[] szLine;
+
+	auto ptr_child = ptr_box->first_child;
+	while(ptr_child != nullptr)
+	{
+		PrintTree(ptr_child, level + 1);
+		ptr_child = ptr_child->next_sibling;
+	}
+
+	return;
+}
+
 int ShowBoxInfo()
 {
 	int iRet = -1;
+#if 0
 	FILE* fp = NULL;
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -338,7 +404,14 @@ int ShowBoxInfo()
 done:
 	if (fp != NULL)
 		fclose(fp);
+#else
+	CFileBitstream bs(g_params["input"].c_str(), 4096, &iRet);
 
+	ISOMediaFile::Box* root_box = ISOMediaFile::Box::RootBox();
+	while (ISOMediaFile::Box::LoadBoxes(root_box, bs) >= 0);
+
+	PrintTree(root_box, 0);
+#endif
 	return iRet;
 }
 

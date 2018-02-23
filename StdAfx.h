@@ -62,7 +62,7 @@
 #define AMP_SAFEASSIGN(p, v)				if(p){*(p) = (v);}CODE_NOP1(p)
 #define AMP_SAFEASSIGN1(p, v)				if(p){*(p) = (v); if(v)v->ProcAddRef();}CODE_NOP1(p)
 
-#define AMP_SAFEDEL(p)						if(p){delete p;p = NULL;}AMP_NOP1(p)
+#define AMP_SAFEDEL(p)						if(p){delete p;p = NULL;}CODE_NOP1(p)
 #define AMP_SAFEDELA(p)						if(p){delete [] p;p = NULL;}CODE_NOP1(p)
 
 #ifndef UNREFERENCED_PARAMETER
@@ -94,6 +94,8 @@
 #define RET_CODE_INVALID_PARAMETER		   -7
 #define RET_CODE_OUTOFMEMORY			   -8
 
+#define RET_CODE_NEEDMOREINPUT			   -1000
+#define RET_CODE_NEEDBYTEALIGN			   -1001
 
 #define RET_CODE_HEADER_LOST			   -2000			// Header information can't be retrieved.
 #define RET_CODE_BUFFER_TOO_SMALL		   -2001			// Can't retrieve all information field of struct from the memory block
