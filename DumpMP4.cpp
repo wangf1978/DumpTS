@@ -354,12 +354,29 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 		char c1 = (ptr_box->type >> 16) & 0xFF;
 		char c2 = (ptr_box->type >> 8) & 0xFF;
 		char c3 = (ptr_box->type & 0xFF);
+		int cbWritten = 0;
 		if (isprint(c0) && isprint(c1) && isprint(c2) && isprint(c3))
-			sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c' (size: %lld)\r\n", c0, c1, c2, c3, ptr_box->size);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c' (size: %lld)", c0, c1, c2, c3, ptr_box->size);
 		else
-			sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c'/%08Xh (size: %lld)\r\n",
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c'/%08Xh (size: %lld)",
 				isprint(c0) ? c0 : ' ', isprint(c1) ? c1 : ' ', isprint(c2) ? c2 : ' ', isprint(c3) ? c3 : ' ',
 				ptr_box->type, ptr_box->size);
+
+		szText += cbWritten;
+
+		if (ptr_box->type == 'hdlr')
+		{
+			ISOMediaFile::HandlerBox* ptr_handler_box = (ISOMediaFile::HandlerBox*)ptr_box;
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s",
+				ptr_handler_box->handler_type == 'vide' ? " -- Video track" : (
+					ptr_handler_box->handler_type == 'soun' ? " -- Audio track" : (
+						ptr_handler_box->handler_type == 'hint' ? " -- Hint track" : (
+							ptr_handler_box->handler_type == 'meta' ? " -- Timed Metadata track" : (
+								ptr_handler_box->handler_type == 'auxv' ? " -- Auxiliary Video track" : " -- Unknown")))));
+			szText += cbWritten;
+		}
+
+		sprintf_s(szText, line_chars - (szText - szLine), "\r\n");
 	}
 	else
 	{

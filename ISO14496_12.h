@@ -3222,8 +3222,8 @@ namespace ISOMediaFile
 
 					struct SoundMediaHeaderBox : public FullBox
 					{
-						uint16_t	balance;
-						uint16_t	reserved[3];
+						uint16_t	balance = 0;
+						uint16_t	reserved = 0;
 
 						virtual int Unpack(CBitstream& bs)
 						{
@@ -3232,15 +3232,15 @@ namespace ISOMediaFile
 							if ((iRet = FullBox::Unpack(bs)) < 0)
 								return iRet;
 
-							if (LeftBytes(bs) < sizeof(balance) + sizeof(reserved))
+							uint64_t left_bytes = LeftBytes(bs);
+							if (left_bytes < sizeof(balance) + sizeof(reserved))
 							{
 								SkipLeftBits(bs);
 								return RET_CODE_BOX_TOO_SMALL;
 							}
 
 							balance = bs.GetWord();
-							for (size_t i = 0; i < _countof(reserved); i++)
-								reserved[i] = bs.GetWord();
+							reserved = bs.GetWord();
 
 							SkipLeftBits(bs);
 							return 0;
