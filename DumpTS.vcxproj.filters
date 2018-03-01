@@ -57,6 +57,12 @@
     <ClCompile Include="QTFF.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ISO14496_15.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ISO14496_1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StdAfx.h">
@@ -90,6 +96,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="QTFF.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ISO14496_1.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
