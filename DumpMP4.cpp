@@ -364,16 +364,82 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 
 		szText += cbWritten;
 
-		if (ptr_box->type == 'hdlr')
+		if (ptr_box->type == 'hdlr' && ptr_box->container && ptr_box->container->type == 'mdia')
 		{
 			ISOMediaFile::HandlerBox* ptr_handler_box = (ISOMediaFile::HandlerBox*)ptr_box;
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s",
-				ptr_handler_box->handler_type == 'vide' ? " -- Video track" : (
-					ptr_handler_box->handler_type == 'soun' ? " -- Audio track" : (
-						ptr_handler_box->handler_type == 'hint' ? " -- Hint track" : (
-							ptr_handler_box->handler_type == 'meta' ? " -- Timed Metadata track" : (
-								ptr_handler_box->handler_type == 'auxv' ? " -- Auxiliary Video track" : " -- Unknown")))));
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- %s track",
+				handle_type_names.find(ptr_handler_box->handler_type) != handle_type_names.end() ? handle_type_names[ptr_handler_box->handler_type] : "Unknown");
 			szText += cbWritten;
+		}
+
+		if (ptr_box->type == 'stsd')
+		{
+			if (ptr_box->container && ptr_box->container && ptr_box->container->container &&
+				ptr_box->container->type == 'stbl' && 
+				ptr_box->container->container->type == 'minf' &&
+				ptr_box->container->container->container->type == 'mdia')
+			{
+				auto ptr_mdia_container = ptr_box->container->container->container;
+
+				// find hdlr box
+				ISOMediaFile::Box* ptr_mdia_child = ptr_mdia_container->first_child;
+				while (ptr_mdia_child != nullptr)
+				{
+					if (ptr_mdia_child->type == 'hdlr')
+						break;
+					ptr_mdia_child = ptr_mdia_child->next_sibling;
+				}
+
+				if (ptr_mdia_child != nullptr)
+				{
+					uint32_t handler_type = dynamic_cast<ISOMediaFile::HandlerBox*>(ptr_mdia_child)->handler_type;
+
+					auto ptr_sd = (ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox*)ptr_box;
+					for (uint32_t i = 0; i < ptr_sd->SampleEntries.size(); i++)
+					{
+						if (handler_type == 'vide')
+						{
+							auto ptrVisualSampleEntry = (ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry*)ptr_sd->SampleEntries[i];
+							if (i > 0)
+								*(szText++) = ',';
+							else
+							{
+								cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- ");
+								szText += cbWritten;
+							}
+							memcpy(szText, (const char*)ptrVisualSampleEntry->compressorname, ptrVisualSampleEntry->compressorname_size);
+							szText += ptrVisualSampleEntry->compressorname_size;
+
+							cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "@%dx%d", ptrVisualSampleEntry->width, ptrVisualSampleEntry->height);
+							szText += cbWritten;
+
+						}
+						else if (handler_type == 'soun')
+						{
+							auto ptrAudioSampleEntry = (ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::AudioSampleEntry*)ptr_sd->SampleEntries[i];
+							if (i > 0)
+								*(szText++) = ',';
+							else
+							{
+								cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- ");
+								szText += cbWritten;
+							}
+							char c0 = (ptrAudioSampleEntry->type >> 24) & 0xFF;
+							char c1 = (ptrAudioSampleEntry->type >> 16) & 0xFF;
+							char c2 = (ptrAudioSampleEntry->type >> 8) & 0xFF;
+							char c3 = (ptrAudioSampleEntry->type & 0xFF);
+
+							*szText++ = isprint(c0) ? c0 : '.';
+							*szText++ = isprint(c1) ? c1 : '.';
+							*szText++ = isprint(c2) ? c2 : '.';
+							*szText++ = isprint(c3) ? c3 : '.';
+
+							cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "@%dHZ", ptrAudioSampleEntry->samplerate>>16);
+							szText += cbWritten;
+						}
+					}
+				}
+			}
 		}
 
 		sprintf_s(szText, line_chars - (szText - szLine), "\r\n");

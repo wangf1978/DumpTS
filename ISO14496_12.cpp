@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ISO14496_12.h"
+#include "ISO14496_15.h"
 #include "QTFF.h"
 
 std::unordered_map<uint32_t, const char*> box_desces = {
@@ -101,6 +102,20 @@ std::unordered_map<uint32_t, const char*> box_desces = {
 	{ 'ssix', "subsegment index" },
 	{ 'prft', "producer reference time" },
 	{ 'rinf', "Restricted Scheme Information" }
+};
+
+std::unordered_map<uint32_t, const char*> handle_type_names = {
+	{ 'soun', "Audio" },
+	{ 'vide', "Video" },
+	{ 'hint', "Hint" },
+	{ 'meta', "Metadata" },
+	{ 'avc1', "MPEG4-AVC" },
+	{ 'avc2', "MPEG4-AVC" },
+	{ 'avc3', "MPEG4-AVC" },
+	{ 'avc4', "MPEG4-AVC" },
+	{ 'hvc1', "HEVC" },
+	{ 'hev1', "HEVC" },
+	{'alis', "file alias"}
 };
 
 namespace ISOMediaFile
@@ -440,5 +455,109 @@ namespace ISOMediaFile
 	void Box::UnloadBoxes(Box* pBox)
 	{
 
+	}
+
+	int MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox::Unpack(CBitstream& bs)
+	{
+		int iRet = 0;
+
+		if ((iRet = FullBox::Unpack(bs)) < 0)
+			return iRet;
+
+		uint64_t left_bytes = LeftBytes(bs);
+		if (left_bytes < sizeof(entry_count))
+		{
+			SkipLeftBits(bs);
+			return RET_CODE_BOX_TOO_SMALL;
+		}
+
+		entry_count = bs.GetDWord();
+		left_bytes -= sizeof(entry_count);
+
+		// Try to get handler_type from its container
+		if (container == nullptr)
+		{
+			printf("The current 'stsd' box has no container box unexpectedly.\n");
+			return RET_CODE_ERROR;
+		}
+
+		if (container->type != 'stbl')
+		{
+			printf("The current 'stsd' box does NOT lie at a 'stbl' box container.\n");
+			return RET_CODE_ERROR;
+		}
+
+		if (container->container == nullptr || container->container->type != 'minf' ||
+			container->container->container == nullptr || container->container->container->type != 'mdia')
+		{
+			printf("Can't find the 'mdia' ancestor of the current 'stsd' box.\n");
+			return RET_CODE_ERROR;
+		}
+
+		auto ptr_mdia_container = container->container->container;
+
+		// find hdlr box
+		Box* ptr_mdia_child = ptr_mdia_container->first_child;
+		while (ptr_mdia_child != nullptr)
+		{
+			if (ptr_mdia_child->type == 'hdlr')
+				break;
+			ptr_mdia_child = ptr_mdia_child->next_sibling;
+		}
+
+		if (ptr_mdia_child == nullptr)
+		{
+			printf("Can't find 'hdlr' box for the current 'stsd' box.\n");
+			return RET_CODE_ERROR;
+		}
+
+		handler_type = dynamic_cast<HandlerBox*>(ptr_mdia_child)->handler_type;
+
+		for (uint32_t i = 0; i < entry_count; i++)
+		{
+			if (left_bytes < MIN_BOX_SIZE)
+				break;
+
+			uint64_t box_header = bs.PeekBits(64);
+			
+			Box* pBox = nullptr;
+			switch (handler_type)
+			{
+			case 'soun':	// for audio tracks
+				pBox = new AudioSampleEntry();
+				break;
+			case 'vide':	// for video tracks
+				switch ((box_header&UINT32_MAX))
+				{
+				case 'hvc1':
+				case 'hev1':
+					pBox = new HEVCSampleEntry();
+					break;
+				default:
+					pBox = new VisualSampleEntry();
+				}
+				break;
+			case 'hint':	// Hint track
+				pBox = new HintSampleEntry();
+				break;
+			case 'meta':	// Metadata track
+				pBox = new MetaDataSampleEntry();
+				break;
+
+			default:
+				pBox = new UnknownBox();
+			}
+
+			pBox->container = this;
+
+			pBox->Unpack(bs);
+
+			SampleEntries.push_back(pBox);
+
+			left_bytes -= pBox->size;
+		}
+
+		SkipLeftBits(bs);
+		return 0;
 	}
 }

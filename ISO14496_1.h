@@ -97,11 +97,12 @@ namespace MPEG4System
 
 			tag = bs.GetByte();
 			left_bits -= 8;
+			header_size++;
 
 			uint8_t nextByte = 0, sizeByte = 0;
 			do
 			{
-				if (left_bits < 8 || header_size >= 4)
+				if (left_bits < 8 || header_size >= 5)
 					return RET_CODE_ERROR;
 
 				nextByte = (uint8_t)bs.GetBits(1);

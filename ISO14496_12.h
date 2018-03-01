@@ -20,6 +20,7 @@
 #endif
 
 extern std::unordered_map<uint32_t, const char*> box_desces;
+extern std::unordered_map<uint32_t, const char*> handle_type_names;
 
 #define MIN_BOX_SIZE			8
 #define MIN_FULLBOX_SIZE		12
@@ -3681,7 +3682,7 @@ namespace ISOMediaFile
 									delete ptr_pasp;
 							}
 
-							virtual int Unpack(CBitstream& bs)
+							int _Unpack(CBitstream& bs)
 							{
 								int iRet = 0;
 
@@ -3733,10 +3734,7 @@ namespace ISOMediaFile
 												break;
 										}
 										else
-										{
-											UnknownBox unknBox;
-											unknBox.Unpack(bs);
-										}
+											break;
 
 										left_bytes = LeftBytes(bs);
 									}
@@ -3746,8 +3744,14 @@ namespace ISOMediaFile
 									// continue since these 2 fields are optional
 								}
 
-								SkipLeftBits(bs);
 								return 0;
+							}
+
+							virtual int Unpack(CBitstream& bs)
+							{
+								int iRet = _Unpack(bs);
+								SkipLeftBits(bs);
+								return iRet;
 							}
 						}PACKED;
 
@@ -3809,91 +3813,7 @@ namespace ISOMediaFile
 								}
 							}
 
-							virtual int Unpack(CBitstream& bs)
-							{
-								int iRet = 0;
-
-								if ((iRet = FullBox::Unpack(bs)) < 0)
-									return iRet;
-
-								if (LeftBytes(bs) < sizeof(entry_count))
-								{
-									SkipLeftBits(bs);
-									return RET_CODE_BOX_TOO_SMALL;
-								}
-
-								entry_count = bs.GetDWord();
-
-								// Try to get handler_type from its container
-								if (container == nullptr)
-								{
-									printf("The current 'stsd' box has no container box unexpectedly.\n");
-									return RET_CODE_ERROR;
-								}
-
-								if (container->type != 'stbl')
-								{
-									printf("The current 'stsd' box does NOT lie at a 'stbl' box container.\n");
-									return RET_CODE_ERROR;
-								}
-
-								if (container->container == nullptr || container->container->type != 'minf' ||
-									container->container->container == nullptr || container->container->container->type != 'mdia')
-								{
-									printf("Can't find the 'mdia' ancestor of the current 'stsd' box.\n");
-									return RET_CODE_ERROR;
-								}
-
-								auto ptr_mdia_container = container->container->container;
-
-								// find hdlr box
-								Box* ptr_mdia_child = ptr_mdia_container->first_child;
-								while (ptr_mdia_child != nullptr)
-								{
-									if (ptr_mdia_child->type == 'hdlr')
-										break;
-									ptr_mdia_child = ptr_mdia_child->next_sibling;
-								}
-
-								if (ptr_mdia_child == nullptr)
-								{
-									printf("Can't find 'hdlr' box for the current 'stsd' box.\n");
-									return RET_CODE_ERROR;
-								}
-
-								handler_type = dynamic_cast<HandlerBox*>(ptr_mdia_child)->handler_type;
-
-								for (uint32_t i = 0; i < entry_count; i++)
-								{
-									Box* pBox = nullptr;
-									switch (handler_type)
-									{
-									case 'soun':	// for audio tracks
-										pBox = new AudioSampleEntry();
-										break;
-									case 'vide':	// for video tracks
-										pBox = new VisualSampleEntry();
-										break;
-									case 'hint':	// Hint track
-										pBox = new HintSampleEntry();
-										break;
-									case 'meta':	// Metadata track
-										pBox = new MetaDataSampleEntry();
-										break;
-									default:
-										pBox = new UnknownBox();
-									}
-
-									pBox->container = this;
-
-									pBox->Unpack(bs);
-
-									SampleEntries.push_back(pBox);
-								}
-
-								SkipLeftBits(bs);
-								return 0;
-							}
+							virtual int Unpack(CBitstream& bs);
 						}PACKED;
 
 						/*
