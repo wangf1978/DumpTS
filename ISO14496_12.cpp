@@ -533,6 +533,14 @@ namespace ISOMediaFile
 				case 'hev1':
 					pBox = new HEVCSampleEntry();
 					break;
+				case 'avc1':
+				case 'avc3':
+					pBox = new AVCSampleEntry();
+					break;
+				case 'avc2':
+				case 'avc4':
+					pBox = new AVC2SampleEntry();
+					break;
 				default:
 					pBox = new VisualSampleEntry();
 				}

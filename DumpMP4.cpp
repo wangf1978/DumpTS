@@ -374,7 +374,7 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 
 		if (ptr_box->type == 'stsd')
 		{
-			if (ptr_box->container && ptr_box->container && ptr_box->container->container &&
+			if (ptr_box->container && ptr_box->container->container && ptr_box->container->container->container &&
 				ptr_box->container->type == 'stbl' && 
 				ptr_box->container->container->type == 'minf' &&
 				ptr_box->container->container->container->type == 'mdia')
