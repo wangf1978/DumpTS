@@ -4078,26 +4078,28 @@ namespace ISOMediaFile
 								if ((iRet = FullBox::Unpack(bs)) < 0)
 									return iRet;
 
-								if (LeftBytes(bs) < sizeof(sample_size) + sizeof(sample_count))
+								uint64_t left_bytes = LeftBytes(bs);
+								if (left_bytes < sizeof(sample_size) + sizeof(sample_count))
 								{
-									SkipLeftBits(bs);
-									return RET_CODE_BOX_TOO_SMALL;
+									iRet = RET_CODE_BOX_TOO_SMALL;
+									goto done;
 								}
 
 								sample_size = bs.GetDWord();
 								sample_count = bs.GetDWord();
+								left_bytes -= sizeof(sample_size) + sizeof(sample_count);
 
 								if (sample_size == 0)
 								{
-									if (LeftBytes(bs) < sample_count * sizeof(uint32_t))
-									{
-										for (uint32_t i = 0; i < sample_count; i++)
-											entry_size.push_back(bs.GetDWord());
-									}
+									uint32_t actual_sample_count = AMP_MIN((uint32_t)(left_bytes>>2), sample_count);
+									entry_size.resize(actual_sample_count);
+									for (uint32_t i = 0; i < sample_count; i++)
+										entry_size[i] = bs.GetDWord();
 								}
 
+							done:
 								SkipLeftBits(bs);
-								return 0;
+								return iRet;
 							}
 						}PACKED;
 

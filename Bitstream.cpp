@@ -90,7 +90,7 @@ void CBitstream::_FillCurrentBits(bool bPeek)
 	}
 }
 
-uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bFullBufferMode, bool bThrowExceptionHitStartCode)
+uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bThrowExceptionHitStartCode)
 {
 	UNREFERENCED_PARAMETER(bThrowExceptionHitStartCode);
 
@@ -102,26 +102,12 @@ uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bFullBufferMode, bool bThr
 		assert(save_point.p == NULL);
 	}
 
-	if (bFullBufferMode)
-	{
-		int nAllLeftBits = GetAllLeftBits();
-		if (n > nAllLeftBits)
-			throw std::invalid_argument("invalid parameter, no enough data");
+	if (cursor.bits_left == 0)
+		_UpdateCurBits();
 
-		if (cursor.bits_left == 0)
-			_UpdateCurBits();
-
-		// Activate a save_point for the current bit-stream cursor
-		if (bPeek)
-			save_point = cursor;
-	}
-	else
-	{
-		if (cursor.p == cursor.p_end && cursor.bits_left == 0)
-		{
-			_FillCurrentBits(bPeek);
-		}
-	}
+	// Activate a save_point for the current bit-stream cursor
+	if (bPeek)
+		save_point = cursor;
 
 	while (n > 0 && cursor.bits_left > 0)
 	{
@@ -434,7 +420,7 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 {
 	assert(cursor.bits_left == 0);
 
-	bool bExhaust = (cursor.p == cursor.p_end && cursor.bits_left == 0) ? true : false;
+	bool bExhaust = (cursor.p + sizeof(CURBITS_TYPE) >= cursor.p_end && cursor.bits_left == 0) ? true : false;
 	if (false == bExhaust)
 	{
 		CBitstream::_FillCurrentBits(bPeek);
@@ -443,6 +429,7 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 
 	bool bEos = false;
 
+	m_filemappos = _ftelli64(m_fp);
 	size_t cbRead = fread(cursor.p_start, 1, cursor.buf_size, m_fp);
 	if (cbRead <= 0)
 		return;

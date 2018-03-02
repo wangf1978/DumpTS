@@ -107,7 +107,7 @@ protected:
 	virtual int			GetAllLeftBits();
 	/*! Get or peek bits from the underlying buffer. 
 		@param bFullBufferMode if its value is true, it means that all data is already in the buffer. */
-	virtual uint64_t	_GetBits(int n, bool bPeek = false, bool bFullBufferMode=true, bool bThrowExceptionHitStartCode = false);
+	virtual uint64_t	_GetBits(int n, bool bPeek = false, bool bThrowExceptionHitStartCode = false);
 	virtual void		_UpdateCurBits(bool bEos = false);
 	virtual void		_Advance_InCacheBits(int n);
 	virtual void		_FillCurrentBits(bool bPeek = false);
@@ -120,6 +120,7 @@ protected:
 protected:
 	AM_BST_CURSOR		cursor;
 	AM_BST_CURSOR		save_point;
+
 };
 
 class CFileBitstream : public CBitstream
