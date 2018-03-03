@@ -4403,16 +4403,18 @@ namespace ISOMediaFile
 								if ((iRet = FullBox::Unpack(bs)) < 0)
 									return iRet;
 
+								uint64_t left_bytes = LeftBytes(bs);
+
 								// Find 'stsz' or 'stz2', and then get sample count
 								if (container == nullptr)
 								{
-									printf("No container box for the current 'sdtp' box.\n");
+									printf("[Box][sdtp] No container box for the current 'sdtp' box.\n");
 									goto done;
 								}
 
 								if (container->type != 'stbl')
 								{
-									printf("The 'sdtp' box container box is not in 'stbl' box.\n");
+									printf("[Box][sdtp] The 'sdtp' box container box is not in 'stbl' box.\n");
 									goto done;
 								}
 
@@ -4422,17 +4424,19 @@ namespace ISOMediaFile
 
 								if (pChild == nullptr)
 								{
-									printf("Can't find 'stsz' or 'stz2' box to get sample count.\n");
+									printf("[Box][sdtp] Can't find 'stsz' or 'stz2' box to get sample count.\n");
 									goto done;
 								}
 
-								uint32_t sample_count = 0;
+								if (left_bytes > UINT32_MAX)
+									goto done;
+
+								uint32_t sample_count = (uint32_t)left_bytes;
 								if (pChild->type == 'stsz')
 									sample_count = ((SampleSizeBox*)pChild)->sample_count;
 								else if (pChild->type == 'stz2')
 									sample_count = ((CompactSampleSizeBox*)pChild)->sample_count;
 
-								uint64_t left_bytes = LeftBytes(bs);
 								for (uint32_t i = 0; i < (uint32_t)AMP_MIN((uint64_t)sample_count, left_bytes); i++)
 								{
 									Entry entry;

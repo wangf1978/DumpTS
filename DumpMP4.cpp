@@ -364,6 +364,32 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 
 		szText += cbWritten;
 
+		if (ptr_box->type == 'trak')
+		{
+			ISOMediaFile::MovieBox::TrackBox* ptr_trackbox = (ISOMediaFile::MovieBox::TrackBox*)ptr_box;
+			if (ptr_trackbox->track_header_box != nullptr)
+			{
+				ISOMediaFile::MovieBox* ptr_moviebox = (ISOMediaFile::MovieBox*)ptr_box->container;
+
+				uint32_t track_ID = ptr_trackbox->track_header_box->version == 1 ? ptr_trackbox->track_header_box->v1.track_ID : ptr_trackbox->track_header_box->v0.track_ID;
+				uint64_t duration = ptr_trackbox->track_header_box->version == 1 ? ptr_trackbox->track_header_box->v1.duration : ptr_trackbox->track_header_box->v0.duration;
+
+				if (ptr_moviebox != nullptr && ptr_moviebox->container != nullptr)
+				{
+					ISOMediaFile::MovieBox::MovieHeaderBox* ptr_moviehdr = ptr_moviebox->movie_header_box;
+					uint32_t timescale = ptr_moviehdr->version == 1 ? ptr_moviehdr->v1.timescale : ptr_moviehdr->v0.timescale;
+
+					cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- track_ID: %d, duration: %llu.%03llus",
+						track_ID, duration / timescale, duration*1000/timescale%1000);
+				}
+				else
+				{
+					cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- track_ID: %d", track_ID);
+				}
+				szText += cbWritten;
+			}
+		}
+
 		if (ptr_box->type == 'hdlr' && ptr_box->container && ptr_box->container->type == 'mdia')
 		{
 			ISOMediaFile::HandlerBox* ptr_handler_box = (ISOMediaFile::HandlerBox*)ptr_box;

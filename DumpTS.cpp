@@ -121,12 +121,12 @@ void ParseCommandLine(int argc, char* argv[])
 				string strVal = strArg.substr(str_arg_prefixes[i].length() + 1);
 				if (strArg.compare("removebox") != 0)
 					std::transform(strVal.begin(), strVal.end(), strVal.begin(), ::tolower);
-				g_params.insert({ str_arg_prefixes[i],  strVal });
+				g_params[str_arg_prefixes[i]] = strVal;
 				break;
 			}
-			else if (strArg.find(str_arg_prefixes[i]) == 0)
+			else if (strArg == str_arg_prefixes[i])
 			{
-				g_params.insert({ str_arg_prefixes[i], "" });
+				g_params[str_arg_prefixes[i]] = "";
 			}
 		}
 	}
