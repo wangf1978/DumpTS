@@ -105,7 +105,7 @@ void ParseCommandLine(int argc, char* argv[])
 	g_params.insert({ "input", argv[1] });
 
 	std::string str_arg_prefixes[] = {
-		"output", "pid", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox", "crc"
+		"output", "pid", "trackid", "boxtype", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox", "crc"
 	};
 
 	for (int iarg = 2; iarg < argc; iarg++)
@@ -261,7 +261,10 @@ int PrepareParams()
 					g_params["srcfmt"] = "ts";
 				else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
 					g_params["srcfmt"] = "tts";
-				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 || _stricmp(file_name_ext.c_str(), ".mov") == 0)
+				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 || 
+					_stricmp(file_name_ext.c_str(), ".mov") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".m4a") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".m4v") == 0)
 					g_params["srcfmt"] = "mp4";
 			}
 		}
@@ -377,6 +380,7 @@ void PrintHelp()
 	printf("Usage: DumpTS.exe TSSourceFileName [OPTION]...\r\n");
 	printf("\t--output\t\tThe output dumped file path\r\n");
 	printf("\t--pid\t\t\tThe PID of dumped stream\r\n");
+	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\r\n");
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\r\n");
 	printf("\t--srcfmt\t\tThe source TS format, including: ts, m2ts, if it is not specified, find the sync-word to decide it\r\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\r\n");
@@ -392,6 +396,7 @@ void PrintHelp()
 	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\r\n");
 	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\r\n");
 	printf("DumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\r\n");
+	printf("DumpTS c:\\test.mp4 --output=c:\\test.hevc --trackid=0\r\n");
 
 	return;
 }

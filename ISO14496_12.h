@@ -4425,17 +4425,20 @@ namespace ISOMediaFile
 								if (pChild == nullptr)
 								{
 									printf("[Box][sdtp] Can't find 'stsz' or 'stz2' box to get sample count.\n");
-									goto done;
+									//goto done;
 								}
 
 								if (left_bytes > UINT32_MAX)
 									goto done;
 
 								uint32_t sample_count = (uint32_t)left_bytes;
-								if (pChild->type == 'stsz')
-									sample_count = ((SampleSizeBox*)pChild)->sample_count;
-								else if (pChild->type == 'stz2')
-									sample_count = ((CompactSampleSizeBox*)pChild)->sample_count;
+								if (pChild != nullptr)
+								{
+									if (pChild->type == 'stsz')
+										sample_count = ((SampleSizeBox*)pChild)->sample_count;
+									else if (pChild->type == 'stz2')
+										sample_count = ((CompactSampleSizeBox*)pChild)->sample_count;
+								}
 
 								for (uint32_t i = 0; i < (uint32_t)AMP_MIN((uint64_t)sample_count, left_bytes); i++)
 								{
