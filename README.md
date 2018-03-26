@@ -40,7 +40,7 @@ it will show the PAT and PMT informations of 00001.m2ts
 ```
 DumpTS c:\00001.m2ts --output=c:\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts  
 ```
-It will dump a hevc es stream with PID 0x1011 from the m2ts stream file: c:\00001.m2ts, and print its print of every frame.
+It will dump a hevc es stream with PID 0x1011 from the m2ts stream file: c:\00001.m2ts, and print the PTS of every frame.
 
 ```
 DumpTS C:\test.ts --output=c:\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts  
