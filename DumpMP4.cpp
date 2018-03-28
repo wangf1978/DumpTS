@@ -563,9 +563,46 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 	return;
 }
 
-int ShowBoxInfo(ISOMediaFile::Box* root_box)
+ISOMediaFile::Box* FindBox(ISOMediaFile::Box* ptr_box, uint32_t track_id, uint32_t box_type)
 {
-	int iRet = -1;
+	if (ptr_box == nullptr)
+		return nullptr;
+	ISOMediaFile::Box* ptr_ret_box = nullptr;
+	ISOMediaFile::Box* ptr_child_box = ptr_box->first_child;
+	while (ptr_child_box != nullptr)
+	{
+		if (track_id != UINT32_MAX && ptr_child_box->type == 'tkhd' && ptr_child_box->container != NULL && ptr_child_box->container->type == 'trak')
+		{
+			// check its track-id
+			ISOMediaFile::MovieBox::TrackBox::TrackHeaderBox* ptr_trackhdr_box = (ISOMediaFile::MovieBox::TrackBox::TrackHeaderBox*)ptr_child_box;
+			if (ptr_trackhdr_box->version == 1 && ptr_trackhdr_box->v1.track_ID == track_id ||
+				ptr_trackhdr_box->version == 0 && ptr_trackhdr_box->v0.track_ID == track_id)
+			{
+				if (box_type != UINT32_MAX)
+					return FindBox(ptr_trackhdr_box->container, UINT32_MAX, box_type);
+
+				return ptr_trackhdr_box->container;
+			}
+
+			ptr_child_box = ptr_child_box->next_sibling;
+			continue;
+		}
+
+		if (track_id == UINT32_MAX && box_type == ptr_child_box->type)
+			return ptr_child_box;
+
+		if ((ptr_ret_box = FindBox(ptr_child_box, track_id, box_type)) != nullptr)
+			return ptr_ret_box;
+
+		ptr_child_box = ptr_child_box->next_sibling;
+	}
+
+	return nullptr;
+};
+
+int ShowBoxInfo(ISOMediaFile::Box* root_box, ISOMediaFile::Box* ptr_box)
+{
+	int iRet = RET_CODE_SUCCESS;
 #if 0
 	FILE* fp = NULL;
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
@@ -586,239 +623,294 @@ done:
 	if (fp != NULL)
 		fclose(fp);
 #else
-	if (g_params.find("trackid") == g_params.end())
+	if (g_params.find("trackid") == g_params.end() || ptr_box == nullptr)
+	{
 		PrintTree(root_box, 0);
+		return iRet;
+	}
+
+	uint32_t box_type = ptr_box->type;
+	if (box_type == 'trak')
+		PrintTree(ptr_box, 0);
 	else
 	{
-		// Try to filter the box with the specified track-id and box-type under the track container box
-		long long track_id = ConvertToLongLong(g_params["trackid"]);
-		if (track_id <= 0 || track_id > UINT32_MAX)
+		printf("=========================='%s' box information======================\n", g_params["boxtype"].c_str());
+		if (box_type == 'stsc')
 		{
-			printf("The specified track-id is out of range.\r\n");
-			return -1;
-		}
-
-		// Convert box-type to integer characters
-		uint32_t box_type = UINT32_MAX;	// invalid box type
-		if (g_params.find("boxtype") != g_params.end())
-		{
-			std::string& strBoxType = g_params["boxtype"];
-			if (strBoxType.length() < 4)
-			{
-				printf("The specified box-type is not a FOURCC string.\r\n");
-				return -1;
-			}
-
-			box_type = strBoxType[0] << 24 | strBoxType[1] << 16 | strBoxType[2] << 8 | strBoxType[3];
-		}
-
-		// Locate the track box
-		std::function<ISOMediaFile::Box*(ISOMediaFile::Box*, uint32_t, uint32_t)> FindBox;
-		FindBox = [&FindBox](ISOMediaFile::Box* ptr_box, uint32_t track_id, uint32_t box_type) -> ISOMediaFile::Box* {
-			if (ptr_box == nullptr)
-				return nullptr;
-			ISOMediaFile::Box* ptr_ret_box = nullptr;
-			ISOMediaFile::Box* ptr_child_box = ptr_box->first_child;
-			while (ptr_child_box != nullptr)
-			{
-				if (track_id != UINT32_MAX && ptr_child_box->type == 'tkhd' && ptr_child_box->container != NULL && ptr_child_box->container->type == 'trak')
-				{
-					// check its track-id
-					ISOMediaFile::MovieBox::TrackBox::TrackHeaderBox* ptr_trackhdr_box = (ISOMediaFile::MovieBox::TrackBox::TrackHeaderBox*)ptr_child_box;
-					if (ptr_trackhdr_box->version == 1 && ptr_trackhdr_box->v1.track_ID == track_id ||
-						ptr_trackhdr_box->version == 0 && ptr_trackhdr_box->v0.track_ID == track_id)
-					{
-						if (box_type != UINT32_MAX)
-							return FindBox(ptr_trackhdr_box->container, UINT32_MAX, box_type);
-
-						return ptr_trackhdr_box->container;
-					}
-
-					continue;
-				}
-
-				if (track_id == UINT32_MAX && box_type == ptr_child_box->type)
-					return ptr_child_box;
-
-				if ((ptr_ret_box = FindBox(ptr_child_box, track_id, box_type)) != nullptr)
-					return ptr_ret_box;
-
-				ptr_child_box = ptr_child_box->next_sibling;
-			}
-
-			return nullptr;
-		};
-
-		auto ptr_box = FindBox(root_box, (uint32_t)track_id, box_type);
-		if (ptr_box == nullptr)
-		{
-			if (box_type == UINT32_MAX)
-				printf("Can't find the track box with the specified track-id: %lld.\r\n", track_id);
-			else
-				printf("Can't find the box with box-type: %s in the track-box with track-id: %lld.\r\n", g_params["boxtype"].c_str(), track_id);
-			return -1;
-		}
-
-		if (box_type == UINT32_MAX)
-			PrintTree(ptr_box, 0);
-		else
-		{
-			printf("=========================='%s' box information======================\n", g_params["boxtype"].c_str());
-			if (box_type == 'stsc')
-			{
-				ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleToChunkBox* pSampleToChunkBox =
-					(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleToChunkBox*)ptr_box;
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleToChunkBox* pSampleToChunkBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleToChunkBox*)ptr_box;
 				
-				printf("Entry Count: %d.\n", pSampleToChunkBox->entry_count);
-				printf("--Entry_ID-------First Chunk------Samples Per Chunk----Sample Description Index--\n");
-				for (uint32_t i = 0; i < pSampleToChunkBox->entry_infos.size(); i++)
-				{
-					printf("  #%06d     % 10d       % 10d      %10d\n", i+1, 
-						pSampleToChunkBox->entry_infos[i].first_chunk, 
-						pSampleToChunkBox->entry_infos[i].samples_per_chunk, 
-						pSampleToChunkBox->entry_infos[i].sample_description_index);
-				}
-			}
-			else if (box_type == 'stco')
+			printf("Entry Count: %d.\n", pSampleToChunkBox->entry_count);
+			printf("--Entry_ID-------First Chunk------Samples Per Chunk----Sample Description Index--\n");
+			for (uint32_t i = 0; i < pSampleToChunkBox->entry_infos.size(); i++)
 			{
-				ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkOffsetBox* pChunkOffsetBox =
-					(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkOffsetBox*)ptr_box;
-
-				printf("Entry Count: %d.\n", pChunkOffsetBox->entry_count);
-				printf("--- Chunk ID ------------- Chunk Offset --\n");
-				for (size_t i = 0; i < pChunkOffsetBox->chunk_offset.size(); i++)
-				{
-					printf(" #% -10d             % 10d\n", i+1, pChunkOffsetBox->chunk_offset[i]);
-				}
+				printf("  #%06d     % 10d       % 10d      %10d\n", i+1, 
+					pSampleToChunkBox->entry_infos[i].first_chunk, 
+					pSampleToChunkBox->entry_infos[i].samples_per_chunk, 
+					pSampleToChunkBox->entry_infos[i].sample_description_index);
 			}
-			else if (box_type == 'co64')
-			{
-				ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkLargeOffsetBox* pLargeChunkOffsetBox =
-					(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkLargeOffsetBox*)ptr_box;
+		}
+		else if (box_type == 'stco')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkOffsetBox* pChunkOffsetBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkOffsetBox*)ptr_box;
 
-				printf("Entry Count: %d.\n", pLargeChunkOffsetBox->entry_count);
-				printf("--- Chunk ID ------------- Chunk Offset --\n");
-				for (size_t i = 0; i < pLargeChunkOffsetBox->chunk_offset.size(); i++)
-				{
-					printf(" #% -10d             % 10lld\n", i+1, pLargeChunkOffsetBox->chunk_offset[i]);
-				}
+			printf("Entry Count: %d.\n", pChunkOffsetBox->entry_count);
+			printf("--- Chunk ID ------------- Chunk Offset --\n");
+			for (size_t i = 0; i < pChunkOffsetBox->chunk_offset.size(); i++)
+			{
+				printf(" #% -10d             % 10d\n", i+1, pChunkOffsetBox->chunk_offset[i]);
 			}
-			else if (box_type == 'stsz')
-			{
-				ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox* pSampleSizeBox =
-					(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox*)ptr_box;
+		}
+		else if (box_type == 'co64')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkLargeOffsetBox* pLargeChunkOffsetBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ChunkLargeOffsetBox*)ptr_box;
 
-				printf("Default sample size: %lu\n", pSampleSizeBox->sample_size);
-				printf("The number of samples in the current track: %lu\n", pSampleSizeBox->sample_count);
-				if (pSampleSizeBox->sample_size == 0)
-				{
-					printf("-- Sample ID ------------- Sample Size --\n");
-					for (size_t i = 0; i < pSampleSizeBox->entry_size.size(); i++)
-						printf("  #% -10d            % 10d\n", i+1, pSampleSizeBox->entry_size[i]);
-				}
+			printf("Entry Count: %d.\n", pLargeChunkOffsetBox->entry_count);
+			printf("--- Chunk ID ------------- Chunk Offset --\n");
+			for (size_t i = 0; i < pLargeChunkOffsetBox->chunk_offset.size(); i++)
+			{
+				printf(" #% -10d             % 10lld\n", i+1, pLargeChunkOffsetBox->chunk_offset[i]);
 			}
-			else if (box_type == 'stsd')
-			{
-				ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox* pSampleDescBox =
-					(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox*)ptr_box;
+		}
+		else if (box_type == 'stsz')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox* pSampleSizeBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox*)ptr_box;
 
-				printf("entry count: %d\n", pSampleDescBox->entry_count);
-				for (size_t i = 0; i < pSampleDescBox->SampleEntries.size(); i++)
+			printf("Default sample size: %lu\n", pSampleSizeBox->sample_size);
+			printf("The number of samples in the current track: %lu\n", pSampleSizeBox->sample_count);
+			if (pSampleSizeBox->sample_size == 0)
+			{
+				printf("-- Sample ID ------------- Sample Size --\n");
+				for (size_t i = 0; i < pSampleSizeBox->entry_size.size(); i++)
+					printf("  #% -10d            % 10d\n", i+1, pSampleSizeBox->entry_size[i]);
+			}
+		}
+		else if (box_type == 'stsd')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox* pSampleDescBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox*)ptr_box;
+
+			printf("entry count: %d\n", pSampleDescBox->entry_count);
+			for (size_t i = 0; i < pSampleDescBox->SampleEntries.size(); i++)
+			{
+				if (pSampleDescBox->handler_type == 'vide')
 				{
-					if (pSampleDescBox->handler_type == 'vide')
+					ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry* pVisualSampleEntry =
+						(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry*)pSampleDescBox->SampleEntries[i];
+					printf("Resolution: %dx%d\n", pVisualSampleEntry->width, pVisualSampleEntry->height);
+					printf("Compressorname: %s\n", (char*)pVisualSampleEntry->compressorname);
+					printf("Depth: %d bits/pixel\n", pVisualSampleEntry->depth);
+
+					if (pVisualSampleEntry->type == 'hvc1' || pVisualSampleEntry->type == 'hev1' || pVisualSampleEntry->type == 'hvcC')
 					{
-						ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry* pVisualSampleEntry =
-							(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry*)pSampleDescBox->SampleEntries[i];
-						printf("Resolution: %dx%d\n", pVisualSampleEntry->width, pVisualSampleEntry->height);
-						printf("Compressorname: %s\n", (char*)pVisualSampleEntry->compressorname);
-						printf("Depth: %d bits/pixel\n", pVisualSampleEntry->depth);
-
-						if (pVisualSampleEntry->type == 'hvc1' || pVisualSampleEntry->type == 'hev1' || pVisualSampleEntry->type == 'hvcC')
-						{
-							ISOMediaFile::HEVCSampleEntry* pHEVCSampleEntry = (ISOMediaFile::HEVCSampleEntry*)pVisualSampleEntry;
-							printf("Coding name: '%c%c%c%c'\n", pVisualSampleEntry->type >> 24, (pVisualSampleEntry->type >> 16) & 0xFF, (pVisualSampleEntry->type >> 8) & 0xFF, pVisualSampleEntry->type & 0xFF);
+						ISOMediaFile::HEVCSampleEntry* pHEVCSampleEntry = (ISOMediaFile::HEVCSampleEntry*)pVisualSampleEntry;
+						printf("Coding name: '%c%c%c%c'\n", pVisualSampleEntry->type >> 24, (pVisualSampleEntry->type >> 16) & 0xFF, (pVisualSampleEntry->type >> 8) & 0xFF, pVisualSampleEntry->type & 0xFF);
 							
-							auto config = pHEVCSampleEntry->config;
-							printf("configurationVersion: %d\n", config->HEVCConfig->configurationVersion);
-							printf("general_profile_space: %d\n", config->HEVCConfig->general_profile_space);
-							printf("general_tier_flag: %d\n", config->HEVCConfig->general_tier_flag);
-							printf("general_profile_idc: %d\n", config->HEVCConfig->general_profile_idc);
-							printf("general_profile_compatibility_flags: 0X%X\n", config->HEVCConfig->general_profile_compatibility_flags);
-							printf("general_constraint_indicator_flags: 0X%llX\n", config->HEVCConfig->general_constraint_indicator_flags);
-							printf("general_level_idc: %d\n", config->HEVCConfig->general_level_idc);
-							printf("min_spatial_segmentation_idc: %d\n", config->HEVCConfig->min_spatial_segmentation_idc);
-							printf("parallelismType: %d\n", config->HEVCConfig->parallelismType);
-							printf("chroma_format_idc: %d\n", config->HEVCConfig->chroma_format_idc);
-							printf("bit_depth_luma_minus8: %d\n", config->HEVCConfig->bit_depth_luma_minus8);
-							printf("bit_depth_chroma_minus8: %d\n", config->HEVCConfig->bit_depth_chroma_minus8);
-							printf("avgFrameRate: %d\n", config->HEVCConfig->avgFrameRate);
-							printf("constantFrameRate: %d\n", config->HEVCConfig->constantFrameRate);
-							printf("numTemporalLayers: %d\n", config->HEVCConfig->numTemporalLayers);
-							printf("temporalIdNested: %d\n", config->HEVCConfig->temporalIdNested);
-							printf("lengthSizeMinusOne: %d\n", config->HEVCConfig->lengthSizeMinusOne);
-							printf("numOfArrays: %d\n", config->HEVCConfig->numOfArrays);
-							for (int j = 0; j < config->HEVCConfig->numOfArrays; j++)
+						auto config = pHEVCSampleEntry->config;
+						printf("configurationVersion: %d\n", config->HEVCConfig->configurationVersion);
+						printf("general_profile_space: %d\n", config->HEVCConfig->general_profile_space);
+						printf("general_tier_flag: %d\n", config->HEVCConfig->general_tier_flag);
+						printf("general_profile_idc: %d\n", config->HEVCConfig->general_profile_idc);
+						printf("general_profile_compatibility_flags: 0X%X\n", config->HEVCConfig->general_profile_compatibility_flags);
+						printf("general_constraint_indicator_flags: 0X%llX\n", config->HEVCConfig->general_constraint_indicator_flags);
+						printf("general_level_idc: %d\n", config->HEVCConfig->general_level_idc);
+						printf("min_spatial_segmentation_idc: %d\n", config->HEVCConfig->min_spatial_segmentation_idc);
+						printf("parallelismType: %d\n", config->HEVCConfig->parallelismType);
+						printf("chroma_format_idc: %d\n", config->HEVCConfig->chroma_format_idc);
+						printf("bit_depth_luma_minus8: %d\n", config->HEVCConfig->bit_depth_luma_minus8);
+						printf("bit_depth_chroma_minus8: %d\n", config->HEVCConfig->bit_depth_chroma_minus8);
+						printf("avgFrameRate: %d\n", config->HEVCConfig->avgFrameRate);
+						printf("constantFrameRate: %d\n", config->HEVCConfig->constantFrameRate);
+						printf("numTemporalLayers: %d\n", config->HEVCConfig->numTemporalLayers);
+						printf("temporalIdNested: %d\n", config->HEVCConfig->temporalIdNested);
+						printf("lengthSizeMinusOne: %d\n", config->HEVCConfig->lengthSizeMinusOne);
+						printf("numOfArrays: %d\n", config->HEVCConfig->numOfArrays);
+						for (int j = 0; j < config->HEVCConfig->numOfArrays; j++)
+						{
+							printf("Array#%d\n", j);
+							printf("\tarray_completeness[%d]: %d\n", j, config->HEVCConfig->nalArray[j]->array_completeness);
+							printf("\tNAL_unit_type[%d]: %d (%s)\n", j, config->HEVCConfig->nalArray[j]->NAL_unit_type, h265_nal_unit_type_names[config->HEVCConfig->nalArray[j]->NAL_unit_type]);
+							printf("\tnumNalus[%d]: %d\n", j, config->HEVCConfig->nalArray[j]->numNalus);
+							for (int k = 0; k < config->HEVCConfig->nalArray[j]->numNalus; k++)
 							{
-								printf("Array#%d\n", j);
-								printf("\tarray_completeness[%d]: %d\n", j, config->HEVCConfig->nalArray[j]->array_completeness);
-								printf("\tNAL_unit_type[%d]: %d (%s)\n", j, config->HEVCConfig->nalArray[j]->NAL_unit_type, h265_nal_unit_type_names[config->HEVCConfig->nalArray[j]->NAL_unit_type]);
-								printf("\tnumNalus[%d]: %d\n", j, config->HEVCConfig->nalArray[j]->numNalus);
-								for (int k = 0; k < config->HEVCConfig->nalArray[j]->numNalus; k++)
+								printf("\t\tnalUnitLength[%d][%d]: %d\n", j, k, config->HEVCConfig->nalArray[j]->Nalus[k]->nalUnitLength);
+								printf("\t\t      00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F\n");
+								printf("\t\t      ----------------------------------------------------------------\n");
+								for (int idx = 0; idx < config->HEVCConfig->nalArray[j]->Nalus[k]->nalUnitLength; idx++)
 								{
-									printf("\t\tnalUnitLength[%d][%d]: %d\n", j, k, config->HEVCConfig->nalArray[j]->Nalus[k]->nalUnitLength);
-									printf("\t\t      00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F\n");
-									printf("\t\t      ----------------------------------------------------------------\n");
-									for (int idx = 0; idx < config->HEVCConfig->nalArray[j]->Nalus[k]->nalUnitLength; idx++)
-									{
-										if (idx % 16 == 0)
-											printf("\t\t %03X  ", idx);
+									if (idx % 16 == 0)
+										printf("\t\t %03X  ", idx);
 
-										printf("%02X  ", config->HEVCConfig->nalArray[j]->Nalus[k]->nalUnit[idx]);
-										if ((idx + 1) % 8 == 0)
-											printf("  ");
+									printf("%02X  ", config->HEVCConfig->nalArray[j]->Nalus[k]->nalUnit[idx]);
+									if ((idx + 1) % 8 == 0)
+										printf("  ");
 
-										if ((idx + 1) % 16 == 0)
-											printf("\n");
-									}
-
-									printf("\n\n");
+									if ((idx + 1) % 16 == 0)
+										printf("\n");
 								}
+
+								printf("\n\n");
 							}
 						}
 					}
 				}
 			}
-			else if (box_type == 'sdtp')
-			{
-				ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDependencyTypeBox* pSampleDepTypeBox
-					= (ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDependencyTypeBox*)ptr_box;
-				ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox* pSampleTableBox
-					= (ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox*)ptr_box->container;
+		}
+		else if (box_type == 'sdtp')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDependencyTypeBox* pSampleDepTypeBox
+				= (ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDependencyTypeBox*)ptr_box;
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox* pSampleTableBox
+				= (ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox*)ptr_box->container;
 
-				if (pSampleTableBox != nullptr && pSampleTableBox->sample_size_box != nullptr)
+			if (pSampleTableBox != nullptr && pSampleTableBox->sample_size_box != nullptr)
+			{
+				uint32_t sample_count = pSampleTableBox->sample_size_box->sample_count;
+				printf("== Sample ID === Leading ===== Depends On ==== Depended On ==== Redundancy ==\n");
+				for (uint32_t i = 0; i < sample_count; i++)
 				{
-					uint32_t sample_count = pSampleTableBox->sample_size_box->sample_count;
-					printf("== Sample ID === Leading ===== Depends On ==== Depended On ==== Redundancy ==\n");
-					for (uint32_t i = 0; i < sample_count; i++)
-					{
-						printf("   #% -10d      %d         %s        %s         %s\n", 
-							i+1,
-							pSampleDepTypeBox->entries[i].is_leading,
-							pSampleDepTypeBox->entries[i].sample_depends_on == 1 ? "Non-I-Frame" : (pSampleDepTypeBox->entries[i].sample_depends_on == 2 ? "    I-Frame" : "    Unknown"),
-							pSampleDepTypeBox->entries[i].sample_is_depended_on == 1 ? "    Yes" : (pSampleDepTypeBox->entries[i].sample_is_depended_on == 2 ? "     No" : "Unknown"),
-							pSampleDepTypeBox->entries[i].sample_has_redundancy == 1 ? "    Yes" : (pSampleDepTypeBox->entries[i].sample_has_redundancy == 2 ? "     No" : "Unknown"));
-					}
+					printf("   #% -10d      %d         %s        %s         %s\n", 
+						i+1,
+						pSampleDepTypeBox->entries[i].is_leading,
+						pSampleDepTypeBox->entries[i].sample_depends_on == 1 ? "Non-I-Frame" : (pSampleDepTypeBox->entries[i].sample_depends_on == 2 ? "    I-Frame" : "    Unknown"),
+						pSampleDepTypeBox->entries[i].sample_is_depended_on == 1 ? "    Yes" : (pSampleDepTypeBox->entries[i].sample_is_depended_on == 2 ? "     No" : "Unknown"),
+						pSampleDepTypeBox->entries[i].sample_has_redundancy == 1 ? "    Yes" : (pSampleDepTypeBox->entries[i].sample_has_redundancy == 2 ? "     No" : "Unknown"));
 				}
 			}
+		}
+		else if (box_type == 'ctts')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionOffsetBox* pCompositionOffsetBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionOffsetBox*)ptr_box;
+			printf("entry count: %lu\n", pCompositionOffsetBox->entry_count);
+			printf("== Entry ID ===== Sample Count ========= Sample Offset ==\n");
+			for (uint32_t i = 0; i < pCompositionOffsetBox->entries.size(); i++)
+			{
+				if (pCompositionOffsetBox->version == 1)
+					printf("   #% -10lu      % -10lu            % -10d\n", i + 1, pCompositionOffsetBox->entries[i].v1.sample_count, pCompositionOffsetBox->entries[i].v1.sample_offset);
+				else if (pCompositionOffsetBox->version == 0)
+					printf("   #% -10lu      % -10lu            % -10d\n", i + 1, pCompositionOffsetBox->entries[i].v0.sample_count, pCompositionOffsetBox->entries[i].v0.sample_offset);
+			}
+		}
+		else if (box_type == 'stts')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::TimeToSampleBox* pTimeToSampleBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::TimeToSampleBox*)ptr_box;
+			ISOMediaFile::MovieBox::TrackBox::MediaBox* pMediaBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox*)ptr_box->container->container->container;
+			uint32_t timescale = 0;
+			if (pMediaBox && pMediaBox->media_header_box)
+				timescale = pMediaBox->media_header_box->version == 0 ? pMediaBox->media_header_box->v0.timescale : (
+					pMediaBox->media_header_box->version == 1 ? pMediaBox->media_header_box->v1.timescale : 0);
+
+			printf("entry count: %d\n", pTimeToSampleBox->entry_count);
+			printf("== Entry ID ===== Sample Count ========= Sample Delta ==\n");
+			for (uint32_t i = 0; i < pTimeToSampleBox->entries.size(); i++)
+				if (timescale == 0)
+					printf("  #% -10lu      % -10lu          % 10lu\n", i + 1, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta);
+				else
+					printf("  #% -10lu      % -10lu          % 10lu(%d.%03ds)\n", i + 1, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta,
+						pTimeToSampleBox->entries[i].sample_delta / timescale, pTimeToSampleBox->entries[i].sample_delta * 1000 / timescale % 1000);
+		}
+		else if (box_type == 'cslg')
+		{
+			ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionToDecodeBox* pCompositionToDecodeBox =
+				(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionToDecodeBox*)ptr_box;
+			printf("compositionToDTSShift: %d\n", pCompositionToDecodeBox->compositionToDTSShift);
+			printf("leastDecodeToDisplayDelta: %d\n", pCompositionToDecodeBox->leastDecodeToDisplayDelta);
+			printf("greatestDecodeToDisplayDelta: %d\n", pCompositionToDecodeBox->greatestDecodeToDisplayDelta);
+			printf("compositionStartTime: %d\n", pCompositionToDecodeBox->compositionStartTime);
+			printf("compositionEndTime: %d\n", pCompositionToDecodeBox->compositionEndTime);
 		}
 	}
 #endif
 	return iRet;
 }
 
-int DumpMP4OneStream(ISOMediaFile::Box* root_box)
+int DumpMP4Sample(uint32_t sample_id, uint64_t sample_offset, uint32_t sample_size, int key_sample)
 {
-	int iRet = -1;
+	printf("Sample#%08d, sample offset: %llu, sample size: %lu, key sample: %d\n", sample_id, sample_offset, sample_size, key_sample);
+	return -1;
+}
+
+int DumpMP4OneStream(ISOMediaFile::Box* root_box, ISOMediaFile::Box* track_box)
+{
+	int iRet = RET_CODE_SUCCESS;
+	FILE *fp = NULL, *fw = NULL;
+
+	if (track_box == nullptr && track_box->type != 'trak')
+	{
+		printf("No available 'trak' box.\n");
+		return iRet;
+	}
+
+	ISOMediaFile::MovieBox::TrackBox* pTrackBox = (ISOMediaFile::MovieBox::TrackBox*)track_box;
+
+	if (pTrackBox->media_box == nullptr ||
+		pTrackBox->media_box->media_information_box == nullptr ||
+		pTrackBox->media_box->media_information_box->sample_table_box == nullptr)
+	{
+		printf("No 'stbl' box.\n");
+		return iRet;
+	}
+
+	auto pSampleTableBox = pTrackBox->media_box->media_information_box->sample_table_box;
+	auto pSampleToChunkBox = pSampleTableBox->sample_to_chunk_box;
+	auto pCompactSampleSizeBox = pSampleTableBox->compact_sample_size_box;
+	auto pSampleSizeBox = pSampleTableBox->sample_size_box;
+	auto pChunkLargeOffsetBox = pSampleTableBox->chunk_large_offset_box;
+	auto pChunkOffsetBox = pSampleTableBox->chunk_offset_box;
+
+	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
+	if (errn != 0 || fp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		goto done;
+	}
+
+	if (g_params.find("output") != g_params.end())
+	{
+		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
+		if (errn != 0 || fw == NULL)
+		{
+			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
+			goto done;
+		}
+	}
+
+	uint32_t sample_id = 0;
+	try
+	{
+		for (uint32_t entry_id = 0; entry_id < pSampleToChunkBox->entry_infos.size(); entry_id++)
+		{
+			for (uint32_t chunkid = pSampleToChunkBox->entry_infos[entry_id].first_chunk;
+				chunkid < ((entry_id == pSampleToChunkBox->entry_infos.size() - 1) ? (pSampleToChunkBox->entry_infos[entry_id].first_chunk + 1) : pSampleToChunkBox->entry_infos[entry_id + 1].first_chunk);
+				chunkid++)
+			{
+				// Calculate the sample offset and sample size
+				uint64_t sample_offset = pChunkLargeOffsetBox == nullptr ? pChunkOffsetBox->chunk_offset[chunkid-1] : pChunkLargeOffsetBox->chunk_offset[chunkid-1];
+				for (uint32_t idx = 0; idx < pSampleToChunkBox->entry_infos[entry_id].samples_per_chunk; idx++)
+				{
+					uint32_t sample_size = pCompactSampleSizeBox ? pCompactSampleSizeBox->entry_size[sample_id] : pSampleSizeBox->entry_size[sample_id];
+					DumpMP4Sample(sample_id, sample_offset, sample_size, 0);
+
+					sample_id++;
+					sample_offset += sample_size;
+				}
+			}
+		}
+
+		iRet = RET_CODE_SUCCESS;
+	}
+	catch (...)
+	{
+		iRet = RET_CODE_ERROR;
+	}
+	
+done:
 
 	return iRet;
 }
@@ -837,9 +929,45 @@ int DumpMP4()
 	ISOMediaFile::Box* root_box = ISOMediaFile::Box::RootBox();
 	while (ISOMediaFile::Box::LoadBoxes(root_box, bs) >= 0);
 
+	ISOMediaFile::Box* ptr_box = nullptr;
+	if (g_params.find("trackid") != g_params.end())
+	{
+		// Try to filter the box with the specified track-id and box-type under the track container box
+		long long track_id = ConvertToLongLong(g_params["trackid"]);
+		if (track_id <= 0 || track_id > UINT32_MAX)
+		{
+			printf("The specified track-id is out of range.\r\n");
+			return -1;
+		}
+
+		// Convert box-type to integer characters
+		uint32_t box_type = UINT32_MAX;	// invalid box type
+		if (g_params.find("boxtype") != g_params.end() && g_params["boxtype"].length() > 0)
+		{
+			std::string& strBoxType = g_params["boxtype"];
+			if (strBoxType.length() < 4)
+			{
+				printf("The specified box-type is not a FOURCC string.\r\n");
+				return -1;
+			}
+
+			box_type = strBoxType[0] << 24 | strBoxType[1] << 16 | strBoxType[2] << 8 | strBoxType[3];
+		}
+
+		// Locate the track box
+		if ((ptr_box = FindBox(root_box, (uint32_t)track_id, box_type)) == nullptr)
+		{
+			if (box_type == UINT32_MAX)
+				printf("Can't find the track box with the specified track-id: %lld.\r\n", track_id);
+			else
+				printf("Can't find the box with box-type: %s in the track-box with track-id: %lld.\r\n", g_params["boxtype"].c_str(), track_id);
+			return -1;
+		}
+	}
+
 	if (g_params.find("showinfo") != g_params.end())
 	{
-		iRet = ShowBoxInfo(root_box);
+		iRet = ShowBoxInfo(root_box, ptr_box);
 	}
 
 	if (g_params.find("removebox") != g_params.end())
@@ -909,11 +1037,10 @@ int DumpMP4()
 			g_params["outputfmt"] = "es";
 
 		std::string& str_output_fmt = g_params["outputfmt"];
-		std::string& str_trackid = g_params["trackid"];
 
 		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 		{
-			iRet = DumpMP4OneStream(root_box);
+			iRet = DumpMP4OneStream(root_box, ptr_box);
 		}
 		else if (str_output_fmt.compare("ts") == 0 || str_output_fmt.compare("m2ts") == 0)
 		{

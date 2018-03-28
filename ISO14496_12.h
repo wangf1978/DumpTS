@@ -3918,6 +3918,7 @@ namespace ISOMediaFile
 										entry.v0.sample_count = bs.GetDWord();
 										entry.v0.sample_offset = bs.GetLong();
 									}
+									entries.push_back(entry);
 
 									left_bytes -= sizeof(Entry);
 								}
