@@ -419,10 +419,10 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
 	else if (ptr_box->type != 'uuid')
 	{
-		char c0 = (ptr_box->type >> 24) & 0xFF;
-		char c1 = (ptr_box->type >> 16) & 0xFF;
-		char c2 = (ptr_box->type >> 8) & 0xFF;
-		char c3 = (ptr_box->type & 0xFF);
+		int c0 = (ptr_box->type >> 24) & 0xFF;
+		int c1 = (ptr_box->type >> 16) & 0xFF;
+		int c2 = (ptr_box->type >> 8) & 0xFF;
+		int c3 = (ptr_box->type & 0xFF);
 		int cbWritten = 0;
 		if (isprint(c0) && isprint(c1) && isprint(c2) && isprint(c3))
 			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c' (size: %lld)", c0, c1, c2, c3, ptr_box->size);
