@@ -28,6 +28,7 @@ Use VS2015 to open DumpTS.sln to build it
 |**--showinfo**||print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
 |**--removebox**|'xxxx,xxxx'|remove the box elements in MP4 file|
 |**--trackid**|'xx'|the track ID|
+|**--boxtype**|xxxx|the box type FOURCC|
 |**--crc**|'crc-type, all'|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
 |**--verbose**||print more message in the intermediate process|
  
@@ -60,3 +61,7 @@ Show the MP4 file box layout, and remove box with type 'unkn'
 DumpTS C:\\tes.mp4 --output=c:\test.hevc --trackid=1 --outputfmt=es
 ```
 Dump the track#1 of test.mp4, and save its elementary stream data to file test.hevc, the VSP, SPS and PPS will be merged into elementary stream data.
+```
+DumpTS C:\\test.mp4 --trackid=1 --boxtype=stsd --showinfo
+```
+Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-depth and so on
