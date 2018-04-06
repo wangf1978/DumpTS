@@ -388,6 +388,7 @@ void PrintHelp()
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\r\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\r\n");
 	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\r\n");
+	printf("\t--boxtype\t\tthe box type FOURCC\r\n");
 	printf("\t--showinfo\t\tPrint the media information of elementary stream in TS/M2TS file\r\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\r\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\r\n");

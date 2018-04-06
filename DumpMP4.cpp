@@ -174,6 +174,27 @@ int extract_hdlr(FILE* fp)
 	return 0;
 }
 
+int CopyBoxTypeName(char* szText, int ccSize, uint32_t box_type)
+{
+	if (szText == NULL)
+		return -1;
+
+	int ccLeft = 4, ccSizeLeft = ccSize;
+	while (ccSize > 0 && ccLeft > 0)
+	{
+		int c = (int)(box_type >> ((ccLeft - 1) << 3)) & 0xFF;
+		*szText = isprint(c) ? (char)c : ' ';
+		szText++;
+		ccSizeLeft--;
+		ccLeft--;
+	}
+
+	if (ccSizeLeft > 0)
+		*szText = '\0';
+
+	return ccSize - ccSizeLeft;
+}
+
 int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes_Layout* box_layouts=NULL, int32_t verbose=0)
 {
 	int iRet = 0;
@@ -484,18 +505,7 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
 	else if (ptr_box->type != 'uuid')
 	{
-		int c0 = (ptr_box->type >> 24) & 0xFF;
-		int c1 = (ptr_box->type >> 16) & 0xFF;
-		int c2 = (ptr_box->type >> 8) & 0xFF;
-		int c3 = (ptr_box->type & 0xFF);
-		int cbWritten = 0;
-		if (isprint(c0) && isprint(c1) && isprint(c2) && isprint(c3))
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c' (size: %lld)", c0, c1, c2, c3, ptr_box->size);
-		else
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "'%c%c%c%c'/%08Xh (size: %lld)",
-				isprint(c0) ? c0 : ' ', isprint(c1) ? c1 : ' ', isprint(c2) ? c2 : ' ', isprint(c3) ? c3 : ' ',
-				ptr_box->type, ptr_box->size);
-
+		int cbWritten = CopyBoxTypeName(szText, line_chars - (szText - szLine), ptr_box->type);
 		szText += cbWritten;
 
 		if (ptr_box->type == 'trak')
@@ -567,8 +577,16 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 								cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- ");
 								szText += cbWritten;
 							}
-							memcpy(szText, (const char*)ptrVisualSampleEntry->compressorname, ptrVisualSampleEntry->compressorname_size);
-							szText += ptrVisualSampleEntry->compressorname_size;
+							
+							if (ptrVisualSampleEntry->compressorname_size > 0)
+							{
+								memcpy(szText, (const char*)ptrVisualSampleEntry->compressorname, ptrVisualSampleEntry->compressorname_size);
+								szText += ptrVisualSampleEntry->compressorname_size;
+							}
+							else
+							{
+								szText += CopyBoxTypeName(szText, line_chars - (szText - szLine), ptrVisualSampleEntry->type);
+							}
 
 							cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "@%dx%d", ptrVisualSampleEntry->width, ptrVisualSampleEntry->height);
 							szText += cbWritten;
@@ -584,18 +602,8 @@ void PrintTree(ISOMediaFile::Box* ptr_box, int level)
 								cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- ");
 								szText += cbWritten;
 							}
-							char c0 = (ptrAudioSampleEntry->type >> 24) & 0xFF;
-							char c1 = (ptrAudioSampleEntry->type >> 16) & 0xFF;
-							char c2 = (ptrAudioSampleEntry->type >> 8) & 0xFF;
-							char c3 = (ptrAudioSampleEntry->type & 0xFF);
-
-							*szText++ = isprint(c0) ? c0 : '.';
-							*szText++ = isprint(c1) ? c1 : '.';
-							*szText++ = isprint(c2) ? c2 : '.';
-							*szText++ = isprint(c3) ? c3 : '.';
-
-							cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "@%dHZ", ptrAudioSampleEntry->samplerate>>16);
-							szText += cbWritten;
+							szText += CopyBoxTypeName(szText, line_chars - (szText - szLine), ptrAudioSampleEntry->type);
+							szText += sprintf_s(szText, line_chars - (szText - szLine), "@%dHZ", ptrAudioSampleEntry->samplerate >> 16);
 						}
 					}
 				}
