@@ -1,7 +1,8 @@
 # What is DumpTS?
 DumpTS is a simple utility tool to process TS/M2TS stream file, which will provide these kinds of features:
 
-- Dump one elementary stream or PSI sections from m2ts/ts stream file
+- Dump the elementary stream data or PSI sections data from TS(m2ts/ts/tts/...) stream file
+- Dump the elementary stream data of one track from ISOBMFF(.mp4/.mov/.m4a/...) stream file
 - Re-factor a TS/M2TS stream file in place
 - Extract some elementary streams, and reconstruct a partial TS/M2TS file
 - Show media information of elementary streams
@@ -17,20 +18,20 @@ Use VS2015 to open DumpTS.sln to build it
 
 |Option|Value|Description|
 |:--|:----:|:--|
-|**--output**||the output dumped file path|
+|**--output**|*filename*|the output dumped file path|
 |**--pid**|*0xhhhh*|the PID of dumped stream|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
 |**--srcfmt**|*ts, m2ts, tts, mp4*|the source TS format, Including: ts, m2ts,if it is not specified, find the sync-word to decide it|
 |**--outputfmt**|*ts, m2ts, pes, es, wav, pcm*|the destination dumped format, including: ts, m2ts, pes, es and so on|
-|**--showpts**||print the pts of every elementary stream packet|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
-|**--showinfo**||print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
-|**--removebox**|'xxxx,xxxx'|remove the box elements in MP4 file|
-|**--trackid**|'xx'|the track ID of a ISOBMFF file|
-|**--boxtype**|xxxx|the box type FOURCC|
-|**--crc**|'crc-type, all'|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
-|**--verbose**||print more message in the intermediate process|
+|**--removebox**|*xxxx*|remove the box elements in MP4 file|
+|**--trackid**|*xx*|the track ID of a ISOBMFF file|
+|**--boxtype**|*xxxx*|the box type FOURCC|
+|**--crc**|*crc-type, all*|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
+|**--showpts**|*N/A*.|print the pts of every elementary stream packet|
+|**--showinfo**|*N/A*|print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
+|**--verbose**|*0~n*|print more message in the intermediate process|
  
 Here are some examples of command lines:  
 ```
