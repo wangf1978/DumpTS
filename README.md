@@ -3,6 +3,7 @@ DumpTS is a simple utility tool to process TS/M2TS stream file, which will provi
 
 - Dump the elementary stream data or PSI sections data from TS(m2ts/ts/tts/...) stream file
 - Dump the elementary stream data of one track from ISOBMFF(.mp4/.mov/.m4a/...) stream file
+- Dump the elementary stream data of one track from Matroska based file format(.mkv/.webm/...) stream file
 - Re-factor a TS/M2TS stream file in place
 - Extract some elementary streams, and reconstruct a partial TS/M2TS file
 - Show media information of elementary streams
@@ -21,7 +22,7 @@ Use VS2015 to open DumpTS.sln to build it
 |**--output**|*filename*|the output dumped file path|
 |**--pid**|*0xhhhh*|the PID of dumped stream|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
-|**--srcfmt**|*ts, m2ts, tts, mp4*|the source TS format, Including: ts, m2ts,if it is not specified, find the sync-word to decide it|
+|**--srcfmt**|*ts, m2ts, tts, mp4, mkv*|the source media format, Including: ts, m2ts, mp4 and mkv,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...|
 |**--outputfmt**|*ts, m2ts, pes, es, wav, pcm*|the destination dumped format, including: ts, m2ts, pes, es and so on|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
@@ -66,3 +67,7 @@ Dump the track#1 of test.mp4, and save its elementary stream data to file test.h
 DumpTS C:\\test.mp4 --trackid=1 --boxtype=stsd --showinfo
 ```
 Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-depth and so on
+```
+DumpTS C:\\av1.webm --showinfo
+```
+Show the tree view for the EBML elements of av1.webm
