@@ -98,6 +98,7 @@ enum MPEG_SYSTEM_TYPE
 	MPEG_SYSTEM_BDMV = 7,			// BDMV transport stream
 	MPEG_SYSTEM_BDAV = 8,			// BDAV transport stream
 	MPEG_SYSTEM_MP4 = 9,			// ISO MP4
+	MPEG_SYSTEM_MATROSKA = 10,		// Matroska based file-format
 	MPEG_SYSTEM_MAX
 };
 

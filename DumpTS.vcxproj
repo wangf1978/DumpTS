@@ -138,9 +138,11 @@
     <ClCompile Include="DumpMP4.cpp" />
     <ClCompile Include="DumpStream.cpp" />
     <ClCompile Include="DumpTS.cpp" />
+    <ClCompile Include="DumpMKV.cpp" />
     <ClCompile Include="ISO14496_1.cpp" />
     <ClCompile Include="ISO14496_12.cpp" />
     <ClCompile Include="ISO14496_15.cpp" />
+    <ClCompile Include="Matroska.cpp" />
     <ClCompile Include="PartitialTS.cpp" />
     <ClCompile Include="PayloadBuf.cpp" />
     <ClCompile Include="QTFF.cpp" />
@@ -157,6 +159,7 @@
     <ClInclude Include="combase.h" />
     <ClInclude Include="crc.h" />
     <ClInclude Include="DumpTS.h" />
+    <ClInclude Include="Matroska.h" />
     <ClInclude Include="ISO14496_1.h" />
     <ClInclude Include="ISO14496_12.h" />
     <ClInclude Include="ISO14496_15.h" />

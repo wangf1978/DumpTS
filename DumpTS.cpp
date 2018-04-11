@@ -33,6 +33,7 @@ extern int	RefactorTS();
 extern int	DumpOneStream();
 extern int	DumpPartialTS();
 extern int	DumpMP4();
+extern int  DumpMKV();
 
 bool TryFitMPEGSysType(FILE* rfp, MPEG_SYSTEM_TYPE eMPEGSysType, unsigned short& packet_size, unsigned short& num_of_prefix_bytes, unsigned short& num_of_suffix_bytes, bool& bEncrypted)
 {
@@ -261,11 +262,14 @@ int PrepareParams()
 					g_params["srcfmt"] = "ts";
 				else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
 					g_params["srcfmt"] = "tts";
-				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 || 
+				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mov") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".m4a") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".m4v") == 0)
 					g_params["srcfmt"] = "mp4";
+				else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".webm") == 0)
+					g_params["srcfmt"] = "mkv";
 			}
 		}
 
@@ -293,6 +297,14 @@ int PrepareParams()
 		else if (iter->second.compare("mp4") == 0)
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_MP4;
+			g_ts_fmtinfo.packet_size = 0xFFFF;
+			g_ts_fmtinfo.encrypted = false;
+			g_ts_fmtinfo.num_of_prefix_bytes = 0;
+			g_ts_fmtinfo.num_of_suffix_bytes = 0;
+		}
+		else if (iter->second.compare("mkv") == 0)
+		{
+			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_MATROSKA;
 			g_ts_fmtinfo.packet_size = 0xFFFF;
 			g_ts_fmtinfo.encrypted = false;
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
@@ -382,7 +394,7 @@ void PrintHelp()
 	printf("\t--pid\t\t\tThe PID of dumped stream\r\n");
 	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\r\n");
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\r\n");
-	printf("\t--srcfmt\t\tThe source TS format, including: ts, m2ts, if it is not specified, find the sync-word to decide it\r\n");
+	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4 and mkv, if it is not specified, find the sync-word to decide it\r\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\r\n");
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\r\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\r\n");
@@ -540,6 +552,10 @@ int main(int argc, char* argv[])
 	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mp4") == 0)
 	{
 		nDumpRet = DumpMP4();
+	}
+	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mkv") == 0)
+	{
+		nDumpRet = DumpMKV();
 	}
 	else if (g_params.find("pid") != g_params.end())
 	{
