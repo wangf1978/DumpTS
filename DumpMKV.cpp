@@ -67,6 +67,14 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%lld", ((Matroska::SignedIntegerElement*)ptr_element)->iVal);
 			break;
 		case Matroska::EBML_DT_DATE:
+			{
+				struct tm tmVal;
+				if (localtime_s(&tmVal, &((Matroska::DateElement*)ptr_element)->timeVal) == 0)
+					cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%d-%02d-%02d %02dh:%02dh:%02d", 
+						tmVal.tm_year + 1900, tmVal.tm_mon + 1, tmVal.tm_mday, tmVal.tm_hour, tmVal.tm_min, tmVal.tm_sec);
+				else
+					cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "Unknown date-time");
+			}
 			break;
 		case Matroska::EBML_DT_ASCII_STRING:
 			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s", ((Matroska::ASCIIStringElement*)ptr_element)->szVal);
@@ -75,6 +83,7 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s", ((Matroska::UTF8StringElement*)ptr_element)->szUTF8);
 			break;
 		case Matroska::EBML_DT_FLOAT:
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%f", ((Matroska::FloatElement*)ptr_element)->fVal);
 			break;
 		}
 

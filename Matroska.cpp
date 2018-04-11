@@ -804,7 +804,7 @@ namespace Matroska
 			EBML_DT_UNSIGNED_INTEGER,1,0,0
 		},
 		{
-			"CueClusterPosition", 0x71, 4,
+			"CueClusterPosition", 0xF1, 4,
 			EBML_VER_1 | EBML_VER_2 | EBML_VER_3 | EBML_VER_4 | EBML_VER_WEBM,
 			EBML_DT_UNSIGNED_INTEGER,1,0,0
 		},
@@ -1235,7 +1235,7 @@ namespace Matroska
 						}
 					}
 					else
-						printf("[Matroska] Unexpected element_ID: 0X%X.", u32ID);
+						printf("[Matroska] Unexpected element_ID: 0X%X.\n", u32ID);
 				}
 			}
 

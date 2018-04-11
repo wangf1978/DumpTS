@@ -343,7 +343,7 @@ namespace Matroska
 				}PACKED Val;
 
 				Val.u32Val = bs.GetDWord();
-				fVal = Val.u32Val;
+				fVal = Val.fVal;
 			}
 			else if (Size == 8)
 			{
