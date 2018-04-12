@@ -144,10 +144,10 @@ namespace Matroska
 			for(uint8_t i=0;i<nLeadingZeros;i++)
 				Size = (((uint64_t)Size) << 8) | (uint8_t)bs.GetBits(8);
 
-			// Convert Size to real size value
-
 			start_bitpos = bs.Tell();
 			AMP_Assert(start_bitpos % 8 == 0);
+
+			//printf("ID: 0X%X, Size: %lld(0X%llX), LeftBytes: %lld\n", ID, Size, Size, LeftBytes(bs));
 
 			return 0;
 		}

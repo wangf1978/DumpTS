@@ -429,10 +429,11 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 
 	size_t cbRead = 0;
 	bool bEos = feof(m_fp) ? true : false;
+	
+	m_filemappos = _ftelli64(m_fp);
 
 	if (!bEos)
 	{
-		m_filemappos = _ftelli64(m_fp);
 		cbRead = fread(cursor.p_start, 1, cursor.buf_size, m_fp);
 		if (cbRead <= 0)
 			return;
