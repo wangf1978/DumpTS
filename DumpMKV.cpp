@@ -42,23 +42,25 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 	else
 		szText = szLine + indent;
 
+	int32_t desc_idx = ptr_element->GetDescIdx();
+
 	if (ptr_element->container == nullptr)
 		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
-	else if (ptr_element->desc_idx < 0 || ptr_element->desc_idx >= _countof(Matroska::EBML_element_descriptors))
+	else if (desc_idx < 0 || desc_idx >= _countof(Matroska::EBML_element_descriptors))
 		sprintf_s(szText, line_chars - (szText - szLine), "Unknown Element(0X%X)\r\n", ptr_element->ID);
 	else
 	{
 		int cbWritten = 0;
-		if (Matroska::EBML_element_descriptors[ptr_element->desc_idx].data_type == Matroska::EBML_DT_MASTER)
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s", Matroska::EBML_element_descriptors[ptr_element->desc_idx].Element_Name);
+		if (Matroska::EBML_element_descriptors[desc_idx].data_type == Matroska::EBML_DT_MASTER)
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s", Matroska::EBML_element_descriptors[desc_idx].Element_Name);
 		else
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s: ", Matroska::EBML_element_descriptors[ptr_element->desc_idx].Element_Name);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s: ", Matroska::EBML_element_descriptors[desc_idx].Element_Name);
 
 		if (cbWritten > 0)
 			szText += cbWritten;
 
 		cbWritten = -1;
-		switch (Matroska::EBML_element_descriptors[ptr_element->desc_idx].data_type)
+		switch (Matroska::EBML_element_descriptors[desc_idx].data_type)
 		{
 		case Matroska::EBML_DT_UNSIGNED_INTEGER:
 			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%llu", ((Matroska::UnsignedIntegerElement*)ptr_element)->uVal);

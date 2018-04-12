@@ -1119,6 +1119,14 @@ namespace Matroska
 		return &root;
 	}
 
+	int32_t EBMLElement::GetDescIdx()
+	{
+		if (g_mapIDDesc.find(ID) == g_mapIDDesc.end())
+			return -1;
+
+		return (int32_t)g_mapIDDesc[ID];
+	}
+
 	inline void InitializeElementIDAndDescriptorMap()
 	{
 		if (g_mapIDDesc.size() > 0)
@@ -1214,7 +1222,8 @@ namespace Matroska
 				else
 				{
 					// Check the container's level
-					int32_t levelContainer = EBML_element_descriptors[pContainer->desc_idx].Level;
+					int32_t desc_idx = pContainer->GetDescIdx();
+					int32_t levelContainer = EBML_element_descriptors[desc_idx].Level;
 					if (g_mapIDDesc.find(u32ID) != g_mapIDDesc.end())
 					{
 						idxDesc = g_mapIDDesc[u32ID];
@@ -1274,7 +1283,6 @@ namespace Matroska
 			else
 				ptr_element = new UnknownEBMLElement();
 
-			ptr_element->desc_idx = idxDesc;
 			pContainer->AppendChild(ptr_element);
 
 			if ((iRet = ptr_element->Unpack(bs)) < 0)

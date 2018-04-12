@@ -78,10 +78,6 @@ namespace Matroska
 		uint32_t		ID;
 		uint64_t		Size;
 
-		int32_t			desc_idx = -1;
-
-		uint64_t		start_bitpos = 0;	// the start bit-position of data area
-
 		EBMLElement*	next_sibling = nullptr;
 		EBMLElement*	first_child = nullptr;
 		EBMLElement*	container = nullptr;
@@ -108,6 +104,8 @@ namespace Matroska
 		}
 
 		virtual ~EBMLElement() { Clean(); }
+
+		int32_t GetDescIdx();
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -144,10 +142,7 @@ namespace Matroska
 			for(uint8_t i=0;i<nLeadingZeros;i++)
 				Size = (((uint64_t)Size) << 8) | (uint8_t)bs.GetBits(8);
 
-			start_bitpos = bs.Tell();
-			AMP_Assert(start_bitpos % 8 == 0);
-
-			//printf("ID: 0X%X, Size: %lld(0X%llX), LeftBytes: %lld\n", ID, Size, Size, LeftBytes(bs));
+			//printf("ID: 0X%X, Size: %lld(0X%llX)\n", ID, Size, Size);
 
 			return 0;
 		}
@@ -169,24 +164,6 @@ namespace Matroska
 			}
 
 			first_child = nullptr;
-
-			return 0;
-		}
-
-		void SkipLeftBits(CBitstream& bs)
-		{
-			uint64_t left_bytes = LeftBytes(bs);
-			if (left_bytes > 0)
-				bs.SkipBits(left_bytes << 3);
-		}
-
-		uint64_t LeftBytes(CBitstream& bs)
-		{
-			uint64_t unpack_bits = bs.Tell() - start_bitpos;
-			AMP_Assert(unpack_bits % 8 == 0);
-
-			if (Size > ((unpack_bits) >> 3))
-				return (Size - ((unpack_bits) >> 3));
 
 			return 0;
 		}
@@ -238,6 +215,7 @@ namespace Matroska
 		}
 
 		EBML_DATA_TYPE DateType() {
+			int32_t desc_idx = GetDescIdx();
 			if (desc_idx < 0 || desc_idx >= _countof(EBML_element_descriptors))
 				return EBML_DT_UNKNOWN;
 
@@ -257,7 +235,9 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
-			SkipLeftBits(bs);
+			if (Size > 0)
+				bs.SkipBits(Size << 3);
+
 			return 0;
 		}
 	};
@@ -272,6 +252,7 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
+			uint64_t cbLeft = Size;
 			if (Size > 8 || Size <= 0)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
@@ -286,9 +267,11 @@ namespace Matroska
 				if (iVal&signMask)
 					iVal = iVal - (signMask << 1);
 			}
+			cbLeft = 0;
 
 		done:
-			SkipLeftBits(bs);
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 			return iRet;
 		}
 	};
@@ -303,6 +286,7 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
+			uint64_t cbLeft = Size;
 			if (Size > 8 || Size <= 0)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
@@ -311,9 +295,11 @@ namespace Matroska
 			}
 
 			uVal = bs.GetBits((uint8_t)Size << 3);
+			cbLeft = 0;
 
 		done:
-			SkipLeftBits(bs);
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 			return iRet;
 		}
 	};
@@ -328,6 +314,7 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
+			uint64_t cbLeft = Size;
 			if (Size != 4 && Size != 8)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
@@ -344,6 +331,7 @@ namespace Matroska
 
 				Val.u32Val = bs.GetDWord();
 				fVal = Val.fVal;
+				cbLeft -= 4;
 			}
 			else if (Size == 8)
 			{
@@ -354,10 +342,12 @@ namespace Matroska
 
 				Val.u64Val = bs.GetQWord();
 				fVal = Val.fVal;
+				cbLeft -= 8;
 			}
 
 		done:
-			SkipLeftBits(bs);
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 			return iRet;
 		}
 	};
@@ -372,6 +362,7 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
+			uint64_t cbLeft = Size;
 			if (Size >= UINT32_MAX)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
@@ -389,9 +380,11 @@ namespace Matroska
 
 			memset(szVal, 0, (uint32_t)(Size + 1));
 			bs.Read((uint8_t*)szVal, (uint32_t)Size);
+			cbLeft = 0;
 
 		done:
-			SkipLeftBits(bs);
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 			return iRet;
 		}
 	};
@@ -406,6 +399,7 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
+			uint64_t cbLeft = Size;
 			if (Size >= UINT32_MAX)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
@@ -423,9 +417,11 @@ namespace Matroska
 
 			memset(szUTF8, 0, (uint32_t)(Size + 1));
 			bs.Read((uint8_t*)szUTF8, (uint32_t)Size);
+			cbLeft = 0;
 
 		done:
-			SkipLeftBits(bs);
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 			return iRet;
 		}
 	};
@@ -441,6 +437,8 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
+			uint64_t cbLeft = Size;
+
 			if (Size < 8)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
@@ -449,6 +447,7 @@ namespace Matroska
 			}
 
 			ns_since_20010101_midnight = (int64_t)bs.GetQWord();
+			cbLeft -= 8;
 
 			// Convert it to standard c/c++ time_t
 			struct tm UTC20010101Midnight;
@@ -474,7 +473,8 @@ namespace Matroska
 	#endif
 
 		done:
-			SkipLeftBits(bs);
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 			return iRet;
 		}
 	};
@@ -487,7 +487,8 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
-			SkipLeftBits(bs);
+			if (Size > 0)
+				bs.SkipBits(Size << 3);
 			return 0;
 		}
 	};
@@ -500,17 +501,25 @@ namespace Matroska
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
 				return iRet;
 
+			uint64_t start_bitpos = bs.Tell();
+			AMP_Assert(start_bitpos % 8 == 0);
+
 			// Try to load all its children elements
-			while (LeftBytes(bs) >= 2)
+			uint64_t cbLeft = Size;
+			while (cbLeft >= 2)
 			{
 				if (LoadEBMLElements(this, bs) < 0)
 				{
 					printf("[Matroska] Failed to load its sub-elements of the next lower level.\n");
 					break;
 				}
+
+				uint64_t cbParsed = (bs.Tell() - start_bitpos) >> 3;
+				cbLeft = Size > cbParsed ? (Size - cbParsed) : 0;
 			}
 
-			SkipLeftBits(bs);
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 			return 0;
 		}
 	};
@@ -525,6 +534,11 @@ namespace Matroska
 
 			return 0;
 		}
+	};
+
+	struct SimpleBlockElement : public BinaryElement
+	{
+		
 	};
 
 } // namespace Matroska
