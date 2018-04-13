@@ -536,6 +536,17 @@ namespace Matroska
 		}
 	};
 
+	struct SimpleBlock
+	{
+		uint32_t	track_number : 8;
+		uint32_t	timecode : 16;
+		uint32_t	Keyframe : 1;
+		uint32_t	reserved : 3;
+		uint32_t	Invisible : 1;
+		uint32_t	Lacing : 2;
+		uint32_t	Discardable : 1;
+	}PACKED;
+
 	struct SimpleBlockElement : public BinaryElement
 	{
 		

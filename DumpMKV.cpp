@@ -47,14 +47,16 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 	if (ptr_element->container == nullptr)
 		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
 	else if (desc_idx < 0 || desc_idx >= _countof(Matroska::EBML_element_descriptors))
-		sprintf_s(szText, line_chars - (szText - szLine), "Unknown Element(0X%X)\r\n", ptr_element->ID);
+		sprintf_s(szText, line_chars - (szText - szLine), "Unknown Element(0X%X), size: %lld\r\n", ptr_element->ID, ptr_element->Size);
 	else
 	{
 		int cbWritten = 0;
 		if (Matroska::EBML_element_descriptors[desc_idx].data_type == Matroska::EBML_DT_MASTER)
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s", Matroska::EBML_element_descriptors[desc_idx].Element_Name);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size: %lld)", 
+				Matroska::EBML_element_descriptors[desc_idx].Element_Name, ptr_element->Size);
 		else
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s: ", Matroska::EBML_element_descriptors[desc_idx].Element_Name);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size: %lld): ", 
+				Matroska::EBML_element_descriptors[desc_idx].Element_Name, ptr_element->Size);
 
 		if (cbWritten > 0)
 			szText += cbWritten;
