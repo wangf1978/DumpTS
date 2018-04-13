@@ -1497,7 +1497,7 @@ int DumpMP4()
 		{
 			iRet = DumpMP4OneStream(root_box, ptr_box);
 		}
-		else if (str_output_fmt.compare("ts") == 0 || str_output_fmt.compare("m2ts") == 0)
+		else if (str_output_fmt.compare("mp4") == 0)
 		{
 			iRet = DumpMP4Partial(root_box);
 		}

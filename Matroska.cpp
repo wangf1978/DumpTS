@@ -1080,12 +1080,12 @@ namespace Matroska
 		{
 			"TagLanguage", 0x447A, 4,
 			EBML_VER_1 | EBML_VER_2 | EBML_VER_3 | EBML_VER_4,
-			EBML_DT_MASTER,1,0,0
+			EBML_DT_ASCII_STRING,1,0,0
 		},
 		{
 			"TagDefault", 0x4484, 4,
 			EBML_VER_1 | EBML_VER_2 | EBML_VER_3 | EBML_VER_4,
-			EBML_DT_ASCII_STRING,1,0,0
+			EBML_DT_UNSIGNED_INTEGER,1,0,0
 		},
 		{
 			"TagString", 0x4487, 4,
@@ -1119,12 +1119,12 @@ namespace Matroska
 		return &root;
 	}
 
-	int32_t EBMLElement::GetDescIdx()
+	int32_t EBMLElement::GetDescIdx(uint32_t ElementID)
 	{
-		if (g_mapIDDesc.find(ID) == g_mapIDDesc.end())
+		if (g_mapIDDesc.find(ElementID) == g_mapIDDesc.end())
 			return -1;
 
-		return (int32_t)g_mapIDDesc[ID];
+		return (int32_t)g_mapIDDesc[ElementID];
 	}
 
 	inline void InitializeElementIDAndDescriptorMap()
@@ -1222,7 +1222,7 @@ namespace Matroska
 				else
 				{
 					// Check the container's level
-					int32_t desc_idx = pContainer->GetDescIdx();
+					int32_t desc_idx = pContainer->GetDescIdx(pContainer->ID);
 					int32_t levelContainer = EBML_element_descriptors[desc_idx].Level;
 					if (g_mapIDDesc.find(u32ID) != g_mapIDDesc.end())
 					{
@@ -1274,7 +1274,16 @@ namespace Matroska
 					ptr_element = new MasterElement();
 					break;
 				case EBML_DT_BINARY:
-					ptr_element = new BinaryElement();
+				{
+					switch (u32ID)
+					{
+					case 0xA3:
+						ptr_element = new SimpleBlockElement();
+						break;
+					default:
+						ptr_element = new BinaryElement();
+					}
+				}
 					break;
 				default:
 					ptr_element = new UnknownEBMLElement();

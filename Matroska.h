@@ -105,42 +105,43 @@ namespace Matroska
 
 		virtual ~EBMLElement() { Clean(); }
 
-		int32_t GetDescIdx();
+		static int32_t GetDescIdx(uint32_t ElementID);
+
+		static uint64_t UnpackUnsignedIntVal(CBitstream&bs, uint8_t max_octs = 8, bool unPackVal=true)
+		{
+			uint8_t nLeadingZeros = 0;
+			uint64_t u64Val = bs.GetByte();
+			for (uint8_t i = 0; i < max_octs; i++)
+				if ((u64Val&(1ULL << (7 - i))) == 0)
+					nLeadingZeros++;
+				else
+					break;
+
+			if (nLeadingZeros >= max_octs)	// Unexpected
+				return UINT64_MAX;
+
+			if (unPackVal)
+				u64Val &= ~(1 << (7 - nLeadingZeros));
+
+			for (uint8_t i = 0; i<nLeadingZeros; i++)
+				u64Val = (((uint64_t)u64Val) << 8) | (uint8_t)bs.GetBits(8);
+
+			return u64Val;
+		}
 
 		virtual int Unpack(CBitstream& bs)
 		{
 			// Read the element ID
-			uint8_t nLeadingZeros = 0;
-
-			ID = bs.GetByte();
-			for (uint8_t i = 0; i < 4; i++)
-				if ((ID&(1 << (7 - i))) == 0)
-					nLeadingZeros++;
-				else
-					break;
-
-			if (nLeadingZeros >= 4)	// Unexpected
+			uint64_t u64Val = UnpackUnsignedIntVal(bs, 4, false);
+			if (u64Val == UINT64_MAX)
 				return -1;
 
-			for (uint8_t i = 0; i<nLeadingZeros; i++)
-				ID = (((uint64_t)ID) << 8) | (uint8_t)bs.GetBits(8);
+			ID = (uint32_t)u64Val;
 
-			// Read the element size
-			Size = bs.GetByte();
-			nLeadingZeros = 0;
-			for (uint8_t i = 0; i < 8; i++)
-				if ((Size&(1ULL << (7 - i))) == 0)
-					nLeadingZeros++;
-				else
-					break;
-
-			if (nLeadingZeros >= 8)	// Unexpected
+			if ((u64Val = UnpackUnsignedIntVal(bs)) == UINT64_MAX)
 				return -1;
 
-			Size &= ~(1 << (7 - nLeadingZeros));
-
-			for(uint8_t i=0;i<nLeadingZeros;i++)
-				Size = (((uint64_t)Size) << 8) | (uint8_t)bs.GetBits(8);
+			Size = u64Val;
 
 			//printf("ID: 0X%X, Size: %lld(0X%llX)\n", ID, Size, Size);
 
@@ -215,7 +216,7 @@ namespace Matroska
 		}
 
 		EBML_DATA_TYPE DateType() {
-			int32_t desc_idx = GetDescIdx();
+			int32_t desc_idx = GetDescIdx(ID);
 			if (desc_idx < 0 || desc_idx >= _countof(EBML_element_descriptors))
 				return EBML_DT_UNKNOWN;
 
@@ -536,7 +537,7 @@ namespace Matroska
 		}
 	};
 
-	struct SimpleBlock
+	struct SimpleBlockHeader
 	{
 		uint32_t	track_number : 8;
 		uint32_t	timecode : 16;
@@ -545,11 +546,59 @@ namespace Matroska
 		uint32_t	Invisible : 1;
 		uint32_t	Lacing : 2;
 		uint32_t	Discardable : 1;
+
+		uint8_t		num_frames;
 	}PACKED;
 
 	struct SimpleBlockElement : public BinaryElement
 	{
-		
+		uint64_t			start_offset;
+		SimpleBlockHeader	simple_block_hdr;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			if ((iRet = EBMLElement::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t start_bitpos = bs.Tell();
+			AMP_Assert(start_bitpos % 8 == 0);
+			start_offset = start_bitpos / 8;
+
+			uint64_t cbLeft = Size;
+
+			uint64_t u64Val = UnpackUnsignedIntVal(bs);
+			if (u64Val == UINT64_MAX)
+			{
+				iRet = RET_CODE_BOX_INCOMPATIBLE;
+				goto done;
+			}
+
+			if (u64Val >= 0x80)
+			{
+				printf("[Matroska] At present, only support 127 tracks at maximum.\n");
+				iRet = RET_CODE_ERROR_NOTIMPL;
+				goto done;
+			}
+
+			simple_block_hdr.track_number = (uint8_t)u64Val;
+			simple_block_hdr.timecode = bs.GetWord();
+			simple_block_hdr.Keyframe = (uint8_t)bs.GetBits(1);
+			simple_block_hdr.reserved = (uint8_t)bs.GetBits(3);
+			simple_block_hdr.Invisible = (uint8_t)bs.GetBits(1);
+			simple_block_hdr.Lacing = (uint8_t)bs.GetBits(2);
+			simple_block_hdr.Discardable = (uint8_t)bs.GetBits(1);
+
+			simple_block_hdr.num_frames = (uint8_t)bs.GetByte();
+
+			cbLeft -= (bs.Tell() - start_bitpos) >> 3;
+
+		done:
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
+
+			return iRet;
+		}
 	};
 
 } // namespace Matroska
