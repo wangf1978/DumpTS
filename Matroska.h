@@ -546,8 +546,6 @@ namespace Matroska
 		uint32_t	Invisible : 1;
 		uint32_t	Lacing : 2;
 		uint32_t	Discardable : 1;
-
-		uint8_t		num_frames;
 	}PACKED;
 
 	struct SimpleBlockElement : public BinaryElement
