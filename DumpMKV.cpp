@@ -148,87 +148,77 @@ int ShowMKVInfo(Matroska::EBMLElement* root, Matroska::EBMLElement* ptr_element)
 	return iRet;
 }
 
-// @retval -1, failed to find the element
-// @retval 0, find one element meet the condition 
-// @retval 1, cease the recursive find
-int FindEBMLElementByElementID(Matroska::EBMLElement* ptr_element, uint32_t element_id, uint32_t track_id, std::vector<Matroska::EBMLElement*>& result)
+int DumpMKVFrameData(FILE* fp, FILE* fw, Matroska::SimpleBlockElement* ptr_simple_block, uint8_t frameIdxInBlock, uint32_t frameSize, const char* szCodecID, void* codec_priv_obj = nullptr)
 {
-	int iRet = -1;
-	if (ptr_element == nullptr)
-		return -1;
-
-	Matroska::EBMLElement* ptr_child = ptr_element->first_child;
-
-	while (ptr_child != nullptr)
+	uint8_t buf[2048];
+	uint32_t cbLeftSize = frameSize;
+	do
 	{
-		if (element_id != UINT32_MAX && ptr_child->ID == element_id)
+		size_t cbRead = (size_t)AMP_MIN(cbLeftSize, 2048ULL);
+		if ((cbRead = fread(buf, 1, cbRead, fp)) == 0)
+			break;
+
+		if (NULL != fw)
+			fwrite(buf, 1, cbRead, fw);
+
+		cbLeftSize -= cbRead;
+	} while (cbLeftSize > 0);
+
+	return 0;
+}
+
+int DumpMKVAVCFrameData(FILE* fp, FILE* fw, Matroska::SimpleBlockElement* ptr_simple_block, uint8_t frameIdxInBlock, uint32_t frameSize, const char* szCodecID, void* codec_priv_obj = nullptr)
+{
+	/*
+	|------------------------------------------->   NAL_UNIT Payload  <----------------------------------------------------|
+	|--4 bytes for NAL_unit size--|---------------------------NAL Unit data------------------------------------------------|
+
+	|------------------------------------------->   H.264(MPEG4/AVC frame)   <---------------------------------------------|
+	|--- NAL_UNIT payload ---|--- NAL_UNIT payload ---|--- NAL_UNIT payload ---|--- NAL_UNIT payload ---|..........
+	*/
+	uint8_t start_prefix_code[4] = { 0, 0, 0, 1 };
+
+	if (frameIdxInBlock == 0)
+	{
+		// For H264/HEVC, need convert the payload buffer to annex B format
+		if (ptr_simple_block->simple_block_hdr.Keyframe)
 		{
-			if (element_id == 0xA3)	// For SimpleBlock
+			// Writing parameter sets into at the beginning of every key-frame
+			if (_stricmp(szCodecID, "V_MPEG4/ISO/AVC") == 0)
 			{
-				// Need filter the track_id in advance
-				auto pSimpleBlock = (Matroska::SimpleBlockElement*)ptr_child;
-				if (pSimpleBlock->simple_block_hdr.track_number == track_id && track_id != UINT32_MAX || track_id == UINT32_MAX)
+				auto pAVCConfigRecord = (ISOMediaFile::AVCDecoderConfigurationRecord*)codec_priv_obj;
+				if (pAVCConfigRecord != nullptr)
 				{
-					result.push_back(ptr_child);
-					iRet = 0;
+					for (size_t i = 0; i < pAVCConfigRecord->sequenceParameterSetNALUnits.size(); i++)
+					{
+						if (fw != NULL)
+						{
+							fwrite(start_prefix_code, 1, 4, fw);
+							fwrite(&pAVCConfigRecord->sequenceParameterSetNALUnits[i]->nalUnit[0], 1, pAVCConfigRecord->sequenceParameterSetNALUnits[i]->nalUnit.size(), fw);
+						}
+					}
+
+					for (size_t i = 0; i < pAVCConfigRecord->pictureParameterSetNALUnits.size(); i++)
+					{
+						if (fw != NULL)
+						{
+							fwrite(start_prefix_code, 1, 4, fw);
+							fwrite(&pAVCConfigRecord->pictureParameterSetNALUnits[i]->nalUnit[0], 1, pAVCConfigRecord->pictureParameterSetNALUnits[i]->nalUnit.size(), fw);
+						}
+					}
 				}
 			}
-			else
-			{
-				result.push_back(ptr_child);
-				// Check whether it is multiple or not
-				int idx = Matroska::EBMLElement::GetDescIdx(element_id);
-				if (idx == -1 ||
-					Matroska::EBML_element_descriptors[idx].bMultiple == 0)
-					return 1;
-				else
-					iRet = 0;
-			}
 		}
-
-		if (FindEBMLElementByElementID(ptr_child, element_id, track_id, result) == 1)
-			return 1;
-
-		ptr_child = ptr_child->next_sibling;
 	}
-
-	return iRet;
+	return -1;
 }
 
-// @retval -1, failed to find the element
-// @retval 0, find one element meet the condition 
-// @retval 1, cease the recursive find
-int FindEBMLElementByTrackID(Matroska::EBMLElement* ptr_element, uint32_t track_id, uint32_t element_id, std::vector<Matroska::EBMLElement*>& result)
+int DumpMKVHEVCFrameData(FILE* fp, FILE* fw, Matroska::SimpleBlockElement* ptr_simple_block, uint8_t frameIdxInBlock, uint32_t frameSize, const char* szCodecID, void* codec_priv_obj = nullptr)
 {
-	int iRet = -1;
-	if (ptr_element == nullptr)
-		return -1;
-
-	Matroska::EBMLElement* ptr_child = ptr_element->first_child;
-
-	while (ptr_child != nullptr)
-	{
-		if (track_id != UINT32_MAX && ptr_child->ID == 0xD7 && ((Matroska::UnsignedIntegerElement*)ptr_child)->uVal == track_id)
-		{
-			if (element_id == UINT32_MAX)
-				result.push_back(ptr_child->container);
-			else
-				// From the current Track to find the element_id
-				FindEBMLElementByElementID(ptr_child->container, element_id, UINT32_MAX, result);
-
-			return 1;
-		}
-
-		if (FindEBMLElementByTrackID(ptr_child, track_id, element_id, result) == 1)
-			return 1;
-
-		ptr_child = ptr_child->next_sibling;
-	}
-
-	return iRet;
+	return -1;
 }
 
-int DumpMKVSimpleBlock(FILE* fp, FILE* fw, Matroska::SimpleBlockElement* ptr_simple_block)
+int DumpMKVSimpleBlock(FILE* fp, FILE* fw, Matroska::SimpleBlockElement* ptr_simple_block, const char* szCodecID, void* codec_priv_obj=nullptr)
 {
 	if (ptr_simple_block == NULL)
 		return -1;
@@ -343,23 +333,24 @@ int DumpMKVSimpleBlock(FILE* fp, FILE* fw, Matroska::SimpleBlockElement* ptr_sim
 
 	frame_sizes.push_back(cbLeftSize - total_frame_size);
 
-	// For H264/HEVC, need convert the payload buffer to annex B format
+	bool bIsAVCPayload = false;
+	bool bIsHEVCPayload = false;
+	if (szCodecID != nullptr)
+	{
+		if (_stricmp(szCodecID, "V_MPEG4/ISO/AVC") == 0)
+			bIsAVCPayload = true;
+		else if (_stricmp(szCodecID, "V_MPEGH/ISO/HEVC") == 0)
+			bIsHEVCPayload = true;
+	}
 
-	uint8_t buf[2048];
 	for (uint8_t i = 0; i <= num_frames_minus1; i++)
 	{
-		
-		do
-		{
-			size_t cbRead = (size_t)AMP_MIN(cbLeftSize, 2048ULL);
-			if ((cbRead = fread(buf, 1, cbRead, fp)) == 0)
-				break;
-
-			if (NULL != fw)
-				fwrite(buf, 1, cbRead, fw);
-
-			cbLeftSize -= cbRead;
-		} while (cbLeftSize > 0);
+		if (bIsAVCPayload)
+			DumpMKVAVCFrameData(fp, fw, ptr_simple_block, i, frame_sizes[i], szCodecID, codec_priv_obj);
+		else if (bIsHEVCPayload)
+			DumpMKVHEVCFrameData(fp, fw, ptr_simple_block, i, frame_sizes[i], szCodecID, codec_priv_obj);
+		else
+			DumpMKVFrameData(fp, fw, ptr_simple_block, i, frame_sizes[i], szCodecID, codec_priv_obj);
 	}
 
 	return 0;
@@ -374,6 +365,9 @@ int DumpMKVOneStream(Matroska::EBMLElement* root, Matroska::EBMLElement* track, 
 {
 	int iRet = RET_CODE_SUCCESS;
 	FILE *fp = NULL, *fw = NULL;
+	void* codec_priv_obj = nullptr;
+	std::vector<Matroska::EBMLElement*> results;
+	const char* szCodecID = nullptr;
 
 	if (track == nullptr || track->ID != 0xAE)
 	{
@@ -382,7 +376,7 @@ int DumpMKVOneStream(Matroska::EBMLElement* root, Matroska::EBMLElement* track, 
 	}
 
 	std::vector<Matroska::EBMLElement*> clusters;
-	FindEBMLElementByElementID(root, 0x1F43B675, track_id, clusters);
+	root->FindEBMLElementByElementID(0x1F43B675, track_id, clusters);
 
 	if (clusters.size() == 0)
 	{
@@ -407,19 +401,42 @@ int DumpMKVOneStream(Matroska::EBMLElement* root, Matroska::EBMLElement* track, 
 		}
 	}
 
+	track->FindEBMLElementByElementID(0x86, UINT32_MAX, results);
+
+	if (results.size() > 0)
+	{
+		Matroska::ASCIIStringElement* codecIDElement = (Matroska::ASCIIStringElement*)results[0];
+		szCodecID = codecIDElement->szVal;
+	}
+
+	// Generate the codec_priv_obj
+	track->FindEBMLElementByElementID(0x63A2, UINT32_MAX, results);
+	if (results.size() > 0)
+	{
+		auto pCodecPrivElement = (Matroska::CodecPrivateElement*)results[0];
+		if (_stricmp(szCodecID, "V_MPEG4/ISO/AVC") == 0)
+		{
+			codec_priv_obj = new ISOMediaFile::AVCDecoderConfigurationRecord();
+			pCodecPrivElement->UnpacksAsAVC((ISOMediaFile::AVCDecoderConfigurationRecord*)codec_priv_obj);
+		}
+		else if (_stricmp(szCodecID, "V_MPEGH/ISO/HEVC") == 0)
+		{
+			codec_priv_obj = new ISOMediaFile::HEVCDecoderConfigurationRecord();
+			pCodecPrivElement->UnpackAsHEVC((ISOMediaFile::HEVCDecoderConfigurationRecord*)codec_priv_obj);
+		}
+		else
+			codec_priv_obj = (void*)pCodecPrivElement;
+	}
+
 	for (auto cluster : clusters)
 	{
 		Matroska::EBMLElement* ptr_child = cluster->first_child;
 		while (ptr_child != nullptr)
 		{
 			if (ptr_child->ID == 0xA3)	// SimpleBlock
-			{
-				DumpMKVSimpleBlock(fp, fw, (Matroska::SimpleBlockElement*)ptr_child);
-			}
+				DumpMKVSimpleBlock(fp, fw, (Matroska::SimpleBlockElement*)ptr_child, szCodecID, codec_priv_obj);
 			else if (ptr_child->ID == 0xA0)	// BlockGroup
-			{
 				DumpMKVBlockGroup(fp, fw, ptr_child);
-			}
 
 			ptr_child = ptr_child->next_sibling;
 		}
@@ -430,6 +447,14 @@ done:
 		fclose(fp);
 	if (fw != NULL)
 		fclose(fp);
+
+	if (szCodecID != nullptr && codec_priv_obj != nullptr)
+	{
+		if (_stricmp(szCodecID, "V_MPEG4/ISO/AVC") == 0)
+			delete (ISOMediaFile::AVCDecoderConfigurationRecord*)codec_priv_obj;
+		else if (_stricmp(szCodecID, "V_MPEGH/ISO/HEVC") == 0)
+			delete (ISOMediaFile::HEVCDecoderConfigurationRecord*)codec_priv_obj;
+	}
 
 	return iRet;
 }
@@ -480,10 +505,10 @@ int DumpMKV()
 	if (track_id != -1LL || element_id != -1LL)
 	{
 		// Try to find the track element
-		FindEBMLElementByTrackID(root, (uint32_t)track_id, (uint32_t)element_id, result);
+		root->FindEBMLElementByTrackID((uint32_t)track_id, (uint32_t)element_id, result);
 
 		if (result.size() == 0)
-			FindEBMLElementByElementID(root, (uint32_t)element_id, (uint32_t)track_id, result);
+			root->FindEBMLElementByElementID((uint32_t)element_id, (uint32_t)track_id, result);
 	}
 
 	if (g_params.find("showinfo") != g_params.end())

@@ -106,6 +106,13 @@
 #define RET_CODE_BOX_TOO_SMALL			   -2100			// ISO 14496-12 box size is too small, and can't unpack the information according to spec
 #define RET_CODE_BOX_INCOMPATIBLE		   -2101			// the current stream is incompatible with ISO 14496-12
 
+enum FLAG_VALUE
+{
+	FLAG_UNSET = 0,
+	FLAG_SET = 1,
+	FLAG_UNKNOWN = 2,
+};
+
 //{{AFX_INSERT_LOCATION}}
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 

@@ -38,7 +38,6 @@ namespace ISOMediaFile
 		}
 	}PACKED;
 
-
 	struct MPEG4ExtensionDescriptorsBox : public Box
 	{
 		std::vector<MPEG4System::BaseDescriptor*>	Descrs;
@@ -505,6 +504,32 @@ namespace ISOMediaFile
 		}
 
 	}PACKED;
+
+	struct AVCSampleRepacker
+	{
+		FILE*		m_fpSrc;
+		FILE*		m_fpDst;
+		ISOMediaFile::AVCDecoderConfigurationRecord*
+					m_AVCConfigRecord;
+
+		AVCSampleRepacker(FILE* fp, FILE* fw, ISOMediaFile::AVCDecoderConfigurationRecord* pAVCConfigRecord)
+			: m_fpSrc(fp), m_fpDst(fw), m_AVCConfigRecord(pAVCConfigRecord){}
+
+		int	RepackSamplePayloadToAnnexBByteStream(uint64_t frame_start_pos, uint32_t frame_size, FLAG_VALUE keyframe);
+	};
+
+	struct HEVCSampleRepacker
+	{
+		FILE*		m_fpSrc;
+		FILE*		m_fpDst;
+		ISOMediaFile::HEVCDecoderConfigurationRecord*
+					m_HEVCConfigRecord;
+
+		HEVCSampleRepacker(FILE* fp, FILE* fw, ISOMediaFile::HEVCDecoderConfigurationRecord* pHEVCConfigRecord)
+			: m_fpSrc(fp), m_fpDst(fw), m_HEVCConfigRecord(pHEVCConfigRecord) {}
+
+		int	RepackSamplePayloadToAnnexBByteStream(uint64_t frame_start_pos, uint32_t frame_size, FLAG_VALUE keyframe);
+	};
 
 } // namespace  ISOMediaFile
 

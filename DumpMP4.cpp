@@ -1006,7 +1006,6 @@ int DumpMP4Sample(ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBo
 					break;
 				}
 			}
-
 		}
 	}
 
