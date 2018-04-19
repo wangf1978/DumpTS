@@ -1,13 +1,20 @@
-# What is DumpTS?
-DumpTS is a simple utility tool to process TS/M2TS stream file, which will provide these kinds of features:
+# Terminology
+- **TS**: transport stream, the file extension is normally *.ts, .tts, .m2ts, .mts*
+- **ISOBMFF**: ISO-based Media File Format, the file extension is normally *.mp4, .mov, m4a, m4v, .m4s*
+- **Matroska**: a multimedia container formats based on EBML (Extensible Binary Meta Language), the file extension is normally *.mkv, .mka, .mk3d and .webm*
 
-- Dump the elementary stream data or PSI sections data from TS(m2ts/ts/tts/...) stream file
-- Dump the elementary stream data of one track from ISOBMFF(.mp4/.mov/.m4a/...) stream file
-- Dump the elementary stream data of one track from Matroska based file format(.mkv/.webm/...) stream file
-- Re-factor a TS/M2TS stream file in place
-- Extract some elementary streams, and reconstruct a partial TS/M2TS file
+# What is DumpTS?
+DumpTS is a simple utility tool to process the multimedia files with main-stream multimedia container formats, which will provide these kinds of features:
+
+- Extract the elementary stream data or PSI sections data from TS file
+- Extract the elementary stream data of one track from ISOBMFF file
+- Extract the elementary stream data of one track from Matroska file
 - Show media information of elementary streams
-- Show MP4 information, and provide some utility feature for MP4 reconstruction
+- Show the information for the specified box in ISOBMFF stream file, and provide some utility feature for ISOBMFF file reconstruction
+- Show the information for the specified EBML element in Matrsoska file 
+- Re-factor a TS stream file in place
+- Extract some elementary streams, and reconstruct a partial TS file
+
 
 # How to build?
 
@@ -71,3 +78,7 @@ Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-d
 DumpTS C:\\av1.webm --showinfo
 ```
 Show the tree view for the EBML elements of av1.webm
+```
+DumpTS e:\tearsofsteel_4sec0025_3840x2160.y4m-20000.av1.webm --trackid=1 --output=e:\tearsofsteel_4sec0025_4K.av1
+```
+Extract av1 video stream from .webm file
