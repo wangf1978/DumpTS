@@ -268,6 +268,8 @@ int PrepareParams()
 					_stricmp(file_name_ext.c_str(), ".m4v") == 0)
 					g_params["srcfmt"] = "mp4";
 				else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".mka") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".mk3d") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".webm") == 0)
 					g_params["srcfmt"] = "mkv";
 			}

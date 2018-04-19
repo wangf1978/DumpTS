@@ -1203,6 +1203,8 @@ namespace Matroska
 				return -1;
 
 			u32ID = (uint32_t)bs.PeekBits((nLeadingZeros + 1) << 3);
+			
+			//printf("Element ID: 0X%X, file offset: %lld(0X%llX).\n", u32ID, bs.Tell()/8, bs.Tell()/8);
 
 			int32_t idxDesc = -1;
 
@@ -1248,6 +1250,15 @@ namespace Matroska
 				}
 			}
 
+			if (u32ID == 0xA3)	// For Simple Block
+			{
+				return ((ClusterElement*)pContainer)->LoadSimpleBlock(bs);
+			}
+			else if (u32ID == 0xA0)	// For Block Group
+			{
+				return ((ClusterElement*)pContainer)->LoadBlockGroup(bs);
+			}
+
 			if (idxDesc >= 0)
 			{
 				switch (EBML_element_descriptors[idxDesc].data_type)
@@ -1271,15 +1282,19 @@ namespace Matroska
 					ptr_element = new DateElement();
 					break;
 				case EBML_DT_MASTER:
-					ptr_element = new MasterElement();
+					switch (u32ID)
+					{
+					case MATROSKA_CLUSTER_ID:
+						ptr_element = new ClusterElement();
+						break;
+					default:
+						ptr_element = new MasterElement();
+					}
 					break;
 				case EBML_DT_BINARY:
 				{
 					switch (u32ID)
 					{
-					case 0xA3:
-						ptr_element = new SimpleBlockElement();
-						break;
 					case 0x63A2:
 						ptr_element = new CodecPrivateElement();
 						break;
@@ -1327,7 +1342,7 @@ namespace Matroska
 	// @retval -1, failed to find the element
 	// @retval 0, find one element meet the condition 
 	// @retval 1, cease the recursive find
-	int EBMLElement::FindEBMLElementByElementID(uint32_t element_id, uint32_t track_id, std::vector<EBMLElement*>& result)
+	int EBMLElement::FindEBMLElementByElementID(uint32_t element_id, std::vector<EBMLElement*>& result)
 	{
 		int iRet = -1;
 		Matroska::EBMLElement* ptr_child = first_child;
@@ -1336,30 +1351,17 @@ namespace Matroska
 		{
 			if (element_id != UINT32_MAX && ptr_child->ID == element_id)
 			{
-				if (element_id == 0xA3)	// For SimpleBlock
-				{
-					// Need filter the track_id in advance
-					auto pSimpleBlock = (Matroska::SimpleBlockElement*)ptr_child;
-					if (pSimpleBlock->simple_block_hdr.track_number == track_id && track_id != UINT32_MAX || track_id == UINT32_MAX)
-					{
-						result.push_back(ptr_child);
-						iRet = 0;
-					}
-				}
+				result.push_back(ptr_child);
+				// Check whether it is multiple or not
+				int idx = Matroska::EBMLElement::GetDescIdx(element_id);
+				if (idx == -1 ||
+					Matroska::EBML_element_descriptors[idx].bMultiple == 0)
+					return 1;
 				else
-				{
-					result.push_back(ptr_child);
-					// Check whether it is multiple or not
-					int idx = Matroska::EBMLElement::GetDescIdx(element_id);
-					if (idx == -1 ||
-						Matroska::EBML_element_descriptors[idx].bMultiple == 0)
-						return 1;
-					else
-						iRet = 0;
-				}
+					iRet = 0;
 			}
 
-			if (ptr_child->FindEBMLElementByElementID(element_id, track_id, result) == 1)
+			if (ptr_child->FindEBMLElementByElementID(element_id, result) == 1)
 				return 1;
 
 			ptr_child = ptr_child->next_sibling;
@@ -1384,7 +1386,7 @@ namespace Matroska
 					result.push_back(ptr_child->container);
 				else
 					// From the current Track to find the element_id
-					ptr_child->container->FindEBMLElementByElementID(element_id, UINT32_MAX, result);
+					ptr_child->container->FindEBMLElementByElementID(element_id, result);
 
 				return 1;
 			}

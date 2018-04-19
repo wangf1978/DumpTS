@@ -26,6 +26,17 @@
 
 #define INVALID_EBML_ID					UINT32_MAX
 
+#define MATROSKA_EBML_ID				0x1A45DFA3
+#define MATROSKA_SEGMENT_ID				0x18538067
+#define MATROSKA_SEEKHEAD_ID			0x114D9B74
+#define MATROSKA_INFO_ID				0x1549A966
+#define MATROSKA_CLUSTER_ID				0x1F43B675
+#define MATROSKA_TRACKS_ID				0x1654AE6B
+#define MATROSKA_CUES_ID				0x1C53BB6B
+#define MATROSKA_ATTACHMENTS_ID			0x1941A469
+#define MATROSKA_CHAPTERS_ID			0x1043A770
+#define MATROSKA_TAGS_ID				0x1254C367
+
 namespace Matroska
 {
 	enum EBML_DATA_TYPE
@@ -108,7 +119,7 @@ namespace Matroska
 
 		static int32_t GetDescIdx(uint32_t ElementID);
 
-		static uint64_t UnpackUnsignedIntVal(CBitstream&bs, uint8_t max_octs = 8, bool unPackVal=true)
+		static uint64_t UnpackUnsignedIntVal(CBitstream&bs, uint8_t max_octs = 8, bool unPackVal=true, uint8_t* pcbValLen=nullptr)
 		{
 			uint8_t nLeadingZeros = 0;
 			uint64_t u64Val = bs.GetByte();
@@ -126,6 +137,40 @@ namespace Matroska
 
 			for (uint8_t i = 0; i<nLeadingZeros; i++)
 				u64Val = (((uint64_t)u64Val) << 8) | (uint8_t)bs.GetBits(8);
+
+			if (pcbValLen != nullptr)
+				*pcbValLen = nLeadingZeros + 1;
+
+			return u64Val;
+		}
+
+		static uint64_t UnpackUnsignedIntVal(FILE* fp, uint8_t max_octs = 8, bool unPackVal = true)
+		{
+			uint8_t nLeadingZeros = 0;
+			uint8_t u8Byte;
+			if (fread(&u8Byte, 1, 1, fp) != 1)
+				return UINT64_MAX;
+
+			uint64_t u64Val = u8Byte;
+			for (uint8_t i = 0; i < max_octs; i++)
+				if ((u64Val&(1ULL << (7 - i))) == 0)
+					nLeadingZeros++;
+				else
+					break;
+
+			if (nLeadingZeros >= max_octs)	// Unexpected
+				return UINT64_MAX;
+
+			if (unPackVal)
+				u64Val &= ~(1 << (7 - nLeadingZeros));
+
+			for (uint8_t i = 0; i < nLeadingZeros; i++)
+			{
+				if (fread(&u8Byte, 1, 1, fp) != 1)
+					return UINT64_MAX;
+
+				u64Val = (((uint64_t)u64Val) << 8) | u8Byte;
+			}
 
 			return u64Val;
 		}
@@ -224,7 +269,7 @@ namespace Matroska
 			return (EBML_DATA_TYPE)EBML_element_descriptors[desc_idx].data_type;
 		}
 
-		int FindEBMLElementByElementID(uint32_t element_id, uint32_t track_id, std::vector<EBMLElement*>& result);
+		int FindEBMLElementByElementID(uint32_t element_id, std::vector<EBMLElement*>& result);
 		int FindEBMLElementByTrackID(uint32_t track_id, uint32_t element_id, std::vector<EBMLElement*>& result);
 
 		static RootElement*	Root();
@@ -461,21 +506,17 @@ namespace Matroska
 			UTC20010101Midnight.tm_mday = 1;
 
 			time_t timeUTC20010101Midnight = -1;
-	#ifdef _WIN32
+#ifdef _WIN32
 			if ((timeUTC20010101Midnight = _mkgmtime(&UTC20010101Midnight)) == -1)
-			{
-				_tprintf(_T("Failed to generate UTC time value for 2001-01-01T00:00:00,000000000 UTC.\n"));
-				timeVal = -1;
-			}
-
-			timeVal = timeUTC20010101Midnight + ns_since_20010101_midnight / 1000000000LL;
-	#else
+#else
 			if ((timeUTC20010101Midnight = timegm(&UTC20010101Midnight)) <= 0)
+#endif
 			{
 				printf("Failed to generate UTC time value for 2001-01-01T00:00:00,000000000 UTC\n");
 				timeVal = -1;
 			}
-	#endif
+
+			timeVal = timeUTC20010101Midnight + ns_since_20010101_midnight / 1000000000LL;
 
 		done:
 			if (cbLeft > 0)
@@ -541,19 +582,268 @@ namespace Matroska
 		}
 	};
 
-	struct SimpleBlockHeader
+	// Save memory for BlockGroup or SimpleBlock index
+	struct ClusterBlockMapForOneTrack
 	{
-		uint32_t	track_number : 8;
-		uint32_t	timecode : 16;
-		uint32_t	Keyframe : 1;
-		uint32_t	reserved : 3;
-		uint32_t	Invisible : 1;
-		uint32_t	Lacing : 2;
-		uint32_t	Discardable : 1;
+		struct BlockCoarse
+		{
+			uint32_t	ref_to_Block_fine_id;
+			uint32_t	Byte_Pos_Block_Coarse;
+
+			BlockCoarse(uint64_t file_pos, uint32_t fine_id) {
+				Byte_Pos_Block_Coarse = (uint32_t)((file_pos >> 25)&UINT32_MAX);
+				ref_to_Block_fine_id = fine_id;
+			}
+		}PACKED;
+
+		struct BlockFine
+		{
+			uint32_t	is_simple_block : 1;
+			uint32_t	is_keyframe : 1;
+			uint32_t	is_invisible : 1;
+			uint32_t	is_discardable : 1;
+			uint32_t	reserved : 3;
+			uint32_t	Byte_Pos_Block_fine : 25;
+
+			BlockFine(uint64_t file_pos, bool bSimpleBlock, bool bKeyframe, bool bInvisible, bool bDiscardable) {
+				is_simple_block = bSimpleBlock ? 1 : 0;
+				is_keyframe = bKeyframe ? 1 : 0;
+				is_invisible = bInvisible ? 1 : 0;
+				is_discardable = bDiscardable ? 1 : 0;
+				Byte_Pos_Block_fine = file_pos & 0x1FFFFFF;
+			}
+		}PACKED;
+
+		std::vector<BlockCoarse>	Block_coarses;
+		std::vector<BlockFine>		Block_fines;
+
+		int64_t GetBytePos(uint32_t Block_id)
+		{
+			if (Block_id >= Block_fines.size())
+				return -1LL;
+
+			size_t  BC_id = (size_t)-1;
+			for (size_t i = 0; i < Block_coarses.size(); i++)
+			{
+				if (Block_id < Block_coarses[i].ref_to_Block_fine_id)
+				{
+					BC_id = i < 1 ? 0 : (i - 1);
+					break;
+				}
+			}
+			if (BC_id == (size_t)-1)
+				BC_id = Block_coarses.size() - 1;
+
+			return (((int64_t)Block_coarses[BC_id].Byte_Pos_Block_Coarse)<<25) | Block_fines[Block_id].Byte_Pos_Block_fine;
+		}
+
+		int AppendBlock(uint64_t file_pos, bool bSimpleBlock, bool bKeyframe, bool bInvisible, bool bDiscardable)
+		{
+			Block_fines.emplace_back(file_pos, bSimpleBlock, bKeyframe, bInvisible, bDiscardable);
+
+			if (Block_coarses.size() == 0 || Block_coarses.back().Byte_Pos_Block_Coarse != (uint32_t)((file_pos >> 25)&UINT32_MAX))
+				Block_coarses.emplace_back(file_pos, Block_fines.size() - 1);
+
+			return RET_CODE_SUCCESS;
+		}
+	};
+
+	struct ClusterElement : public MasterElement
+	{
+		std::unordered_map<uint8_t, ClusterBlockMapForOneTrack*> TrackBlockMaps;
+
+		virtual ~ClusterElement(){
+			auto iter = TrackBlockMaps.cbegin();
+			for (; iter != TrackBlockMaps.cend(); iter++)
+				delete iter->second;
+			TrackBlockMaps.clear();
+		}
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			if ((iRet = EBMLElement::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t start_bitpos = bs.Tell();
+			AMP_Assert(start_bitpos % 8 == 0);
+
+			// Try to load all its children elements
+			uint64_t cbLeft = Size;
+			while (cbLeft >= 2)
+			{
+				if (LoadEBMLElements(this, bs) < 0)
+				{
+					printf("[Matroska] Failed to load its sub-elements of the next lower level.\n");
+					break;
+				}
+
+				uint64_t cbParsed = (bs.Tell() - start_bitpos) >> 3;
+				cbLeft = Size > cbParsed ? (Size - cbParsed) : 0;
+			}
+
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
+			return 0;
+		}
+
+		int LoadSimpleBlock(CBitstream& bs)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			uint64_t block_start_pos = bs.Tell();
+			assert(block_start_pos % 8 == 0);
+
+			//printf("-- SimpleBlock file offset: 0X%llX.\n", block_start_pos / 8);
+
+			uint32_t ID = (uint32_t)UnpackUnsignedIntVal(bs, 4, false);
+			if (ID != 0xA3)
+				return RET_CODE_BOX_INCOMPATIBLE;
+
+			uint64_t Size = UnpackUnsignedIntVal(bs);
+			if (Size == UINT64_MAX)
+				return RET_CODE_BOX_INCOMPATIBLE;
+
+			uint64_t cbLeft = Size;
+
+			uint64_t u64Val = UnpackUnsignedIntVal(bs);
+			if (u64Val == UINT64_MAX)
+			{
+				iRet = RET_CODE_BOX_INCOMPATIBLE;
+				goto done;
+			}
+
+			if (u64Val >= 0x80)
+			{
+				printf("[Matroska] At present, only support 127 tracks at maximum.\n");
+				iRet = RET_CODE_ERROR_NOTIMPL;
+				goto done;
+			}
+
+			if (TrackBlockMaps.find((uint8_t)u64Val) == TrackBlockMaps.end())
+				TrackBlockMaps[(uint8_t)u64Val] = new ClusterBlockMapForOneTrack();
+
+			auto BlockMap = TrackBlockMaps[(uint8_t)u64Val];
+
+			bs.SkipBits(16);
+			bool bKeyframe = bs.GetBits(1)?true:false;
+			bs.SkipBits(3);
+			bool bInvisible = (uint8_t)bs.GetBits(1)?true:false;
+			bs.SkipBits(2);
+			bool bDiscardable = (uint8_t)bs.GetBits(1)?true:false;
+
+			BlockMap->AppendBlock(block_start_pos/8, true, bKeyframe, bInvisible, bDiscardable);
+
+			cbLeft -= 4;
+
+		done:
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
+
+			return iRet;
+		}
+
+		int LoadBlockGroup(CBitstream& bs)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			uint64_t block_start_pos = bs.Tell();
+			assert(block_start_pos % 8 == 0);
+
+			uint32_t ID = (uint32_t)UnpackUnsignedIntVal(bs, 4, false);
+			if (ID != 0xA0)
+				return RET_CODE_BOX_INCOMPATIBLE;
+
+			uint64_t Size = UnpackUnsignedIntVal(bs);
+			if (Size == UINT64_MAX)
+				return RET_CODE_BOX_INCOMPATIBLE;
+
+			int64_t cbLeft = Size;
+
+			uint32_t Child_ID = UINT32_MAX;
+			uint64_t Child_Size = UINT64_MAX;
+			do
+			{
+				uint8_t cbValLen = 0;
+				if ((Child_ID = (uint32_t)EBMLElement::UnpackUnsignedIntVal(bs, 4, false, &cbValLen)) == UINT32_MAX)
+					break;
+
+				cbLeft -= cbValLen;
+
+				if ((Child_Size = EBMLElement::UnpackUnsignedIntVal(bs, 8, true, &cbValLen)) == UINT64_MAX)
+					break;
+
+				cbLeft -= cbValLen;
+
+				if (Child_ID != 0xA1)
+				{
+					if (bs.SkipBits(Child_Size << 3) != (Child_Size << 3))
+						break;
+
+					cbLeft -= Child_Size;
+				}
+			} while (Child_ID != 0xA1 && cbLeft > 0);
+
+			if (Child_ID != 0xA1 || Child_Size == UINT64_MAX)
+			{
+				printf("[Matroska] Failed to find the Block element under BlockGroup element.\n");
+				iRet = RET_CODE_BOX_INCOMPATIBLE;
+				goto done;
+			}
+
+			if (Child_Size < 4)
+				goto done;
+
+			uint64_t u64Val = UnpackUnsignedIntVal(bs);
+			if (u64Val == UINT64_MAX)
+			{
+				iRet = RET_CODE_BOX_INCOMPATIBLE;
+				goto done;
+			}
+
+			if (u64Val >= 0x80)
+			{
+				printf("[Matroska] At present, only support 127 tracks at maximum.\n");
+				iRet = RET_CODE_ERROR_NOTIMPL;
+				goto done;
+			}
+
+			if (TrackBlockMaps.find((uint8_t)u64Val) == TrackBlockMaps.end())
+				TrackBlockMaps[(uint8_t)u64Val] = new ClusterBlockMapForOneTrack();
+
+			auto BlockMap = TrackBlockMaps[(uint8_t)u64Val];
+
+			bs.SkipBits(16);
+			bool bKeyframe = bs.GetBits(1) ? true : false;
+			bs.SkipBits(3);
+			bool bInvisible = (uint8_t)bs.GetBits(1) ? true : false;
+			bs.SkipBits(2);
+			bool bDiscardable = (uint8_t)bs.GetBits(1) ? true : false;
+
+			BlockMap->AppendBlock(block_start_pos/8, true, bKeyframe, bInvisible, bDiscardable);
+
+			cbLeft -= 4;
+
+		done:
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
+
+			return iRet;
+		}
+
 	}PACKED;
 
 	struct SimpleBlockElement : public BinaryElement
 	{
+		struct SimpleBlockHeader
+		{
+			uint32_t	track_number : 8;
+			uint32_t	timecode : 16;
+			uint32_t	Keyframe : 1;
+			uint32_t	reserved : 3;
+			uint32_t	Invisible : 1;
+			uint32_t	Lacing : 2;
+			uint32_t	Discardable : 1;
+		}PACKED;
+
 		uint64_t			start_offset;
 		SimpleBlockHeader	simple_block_hdr;
 
@@ -561,51 +851,106 @@ namespace Matroska
 		{
 			int iRet = 0;
 			if ((iRet = EBMLElement::Unpack(bs)) < 0)
-return iRet;
+				return iRet;
 
-uint64_t start_bitpos = bs.Tell();
-AMP_Assert(start_bitpos % 8 == 0);
+			uint64_t start_bitpos = bs.Tell();
+			AMP_Assert(start_bitpos % 8 == 0);
 
-uint64_t cbLeft = Size;
+			uint64_t cbLeft = Size;
 
-uint64_t u64Val = UnpackUnsignedIntVal(bs);
-if (u64Val == UINT64_MAX)
-{
-	iRet = RET_CODE_BOX_INCOMPATIBLE;
-	goto done;
-}
+			uint64_t u64Val = UnpackUnsignedIntVal(bs);
+			if (u64Val == UINT64_MAX)
+			{
+				iRet = RET_CODE_BOX_INCOMPATIBLE;
+				goto done;
+			}
 
-if (u64Val >= 0x80)
-{
-	printf("[Matroska] At present, only support 127 tracks at maximum.\n");
-	iRet = RET_CODE_ERROR_NOTIMPL;
-	goto done;
-}
+			if (u64Val >= 0x80)
+			{
+				printf("[Matroska] At present, only support 127 tracks at maximum.\n");
+				iRet = RET_CODE_ERROR_NOTIMPL;
+				goto done;
+			}
 
-simple_block_hdr.track_number = (uint8_t)u64Val;
-simple_block_hdr.timecode = bs.GetWord();
-simple_block_hdr.Keyframe = (uint8_t)bs.GetBits(1);
-simple_block_hdr.reserved = (uint8_t)bs.GetBits(3);
-simple_block_hdr.Invisible = (uint8_t)bs.GetBits(1);
-simple_block_hdr.Lacing = (uint8_t)bs.GetBits(2);
-simple_block_hdr.Discardable = (uint8_t)bs.GetBits(1);
+			simple_block_hdr.track_number = (uint8_t)u64Val;
+			simple_block_hdr.timecode = bs.GetWord();
+			simple_block_hdr.Keyframe = (uint8_t)bs.GetBits(1);
+			simple_block_hdr.reserved = (uint8_t)bs.GetBits(3);
+			simple_block_hdr.Invisible = (uint8_t)bs.GetBits(1);
+			simple_block_hdr.Lacing = (uint8_t)bs.GetBits(2);
+			simple_block_hdr.Discardable = (uint8_t)bs.GetBits(1);
 
-uint64_t end_bitpos = bs.Tell();
-start_offset = end_bitpos / 8;
+			uint64_t end_bitpos = bs.Tell();
+			start_offset = end_bitpos / 8;
 
-cbLeft -= (end_bitpos - start_bitpos) >> 3;
+			cbLeft -= (end_bitpos - start_bitpos) >> 3;
 
-done:
-if (cbLeft > 0)
-bs.SkipBits(cbLeft << 3);
+		done:
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
 
-return iRet;
+			return iRet;
 		}
 	};
 
 	struct Block : public BinaryElement
 	{
+		struct BlockHeader
+		{
+			uint32_t	track_number : 8;
+			uint32_t	timecode : 16;
+			uint32_t	reserved_0 : 4;
+			uint32_t	Invisible : 1;
+			uint32_t	Lacing : 2;
+			uint32_t	reserved_1 : 1;
+		}PACKED;
 
+		uint64_t			start_offset;
+		BlockHeader			block_hdr;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			if ((iRet = EBMLElement::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t start_bitpos = bs.Tell();
+			AMP_Assert(start_bitpos % 8 == 0);
+
+			uint64_t cbLeft = Size;
+
+			uint64_t u64Val = UnpackUnsignedIntVal(bs);
+			if (u64Val == UINT64_MAX)
+			{
+				iRet = RET_CODE_BOX_INCOMPATIBLE;
+				goto done;
+			}
+
+			if (u64Val >= 0x80)
+			{
+				printf("[Matroska] At present, only support 127 tracks at maximum.\n");
+				iRet = RET_CODE_ERROR_NOTIMPL;
+				goto done;
+			}
+
+			block_hdr.track_number = (uint8_t)u64Val;
+			block_hdr.timecode = bs.GetWord();
+			block_hdr.reserved_0 = (uint8_t)bs.GetBits(4);
+			block_hdr.Invisible = (uint8_t)bs.GetBits(1);
+			block_hdr.Lacing = (uint8_t)bs.GetBits(2);
+			block_hdr.reserved_1 = (uint8_t)bs.GetBits(1);
+
+			uint64_t end_bitpos = bs.Tell();
+			start_offset = end_bitpos / 8;
+
+			cbLeft -= (end_bitpos - start_bitpos) >> 3;
+
+		done:
+			if (cbLeft > 0)
+				bs.SkipBits(cbLeft << 3);
+
+			return iRet;
+		}
 	};
 
 	struct CodecPrivateElement : public BinaryElement
@@ -645,13 +990,13 @@ return iRet;
 
 		int UnpacksAsAVC(ISOMediaFile::AVCDecoderConfigurationRecord* avcConfigRecord)
 		{
-			CBitstream bstCodecPriv(m_ptrCodecPrivData, (size_t)Size);
+			CBitstream bstCodecPriv(m_ptrCodecPrivData, (size_t)Size<<3);
 			return avcConfigRecord->Unpack(bstCodecPriv, Size);
 		}
 
 		int UnpackAsHEVC(ISOMediaFile::HEVCDecoderConfigurationRecord* hevcConfigRecord)
 		{
-			CBitstream bstCodecPriv(m_ptrCodecPrivData, (size_t)Size);
+			CBitstream bstCodecPriv(m_ptrCodecPrivData, (size_t)Size<<3);
 			return hevcConfigRecord->Unpack(bstCodecPriv);
 		}
 	};

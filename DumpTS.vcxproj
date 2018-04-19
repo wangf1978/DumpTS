@@ -139,6 +139,7 @@
     <ClCompile Include="DumpStream.cpp" />
     <ClCompile Include="DumpTS.cpp" />
     <ClCompile Include="DumpMKV.cpp" />
+    <ClCompile Include="ESRepacker.cpp" />
     <ClCompile Include="ISO14496_1.cpp" />
     <ClCompile Include="ISO14496_12.cpp" />
     <ClCompile Include="ISO14496_15.cpp" />
@@ -156,9 +157,11 @@
     <ClInclude Include="AMRingBuffer.h" />
     <ClInclude Include="AudChMap.h" />
     <ClInclude Include="Bitstream.h" />
+    <ClInclude Include="CodecID.h" />
     <ClInclude Include="combase.h" />
     <ClInclude Include="crc.h" />
     <ClInclude Include="DumpTS.h" />
+    <ClInclude Include="ESRepacker.h" />
     <ClInclude Include="Matroska.h" />
     <ClInclude Include="ISO14496_1.h" />
     <ClInclude Include="ISO14496_12.h" />

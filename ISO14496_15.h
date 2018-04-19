@@ -21,6 +21,71 @@
 #define PACKED __attribute__ ((__packed__))
 #endif
 
+enum class AVC_NAL_UNIT_TYPE
+{
+	CS_NON_IDR_PIC = 1,		// Coded slice of a non-IDR picture
+	CSD_PARTITION_A = 2,	// Coded slice data partition A
+	CSD_PARTITION_B = 3,	// Coded slice data partition B
+	CSD_PARTITION_C = 4,	// Coded slice data partition C
+	CS_IDR_PIC = 5,			// Coded slice of an IDR picture
+	SEI_NUT = 6,			// Supplemental enhancement information
+	SPS_NUT = 7,			// Sequence	parameter set
+	PPS_NUT = 8,			// Picture parameter set
+	AUD_NUT = 9,			// Access unit delimiter
+	EOS_NUT = 10,			// End of Sequence
+	EOB_NUT = 11,			// End of stream
+	FD_NUT = 12,			// Filler data
+	SPS_EXT_NUT = 13,		// Sequence parameter set extension
+	PREFIX_NUT = 14,		// Prefix NAL unit
+	SUB_SPS_NUT = 15,		// Subset sequence parameter set
+	SL_WO_PARTITION = 19,	// Coded slice of an auxiliary coded picture without partitioning
+	SL_EXT = 20,			// Coded slice extension
+	SL_EXT_DVIEW = 21,		// Coded slice extension for depth view components
+};
+
+enum class HEVC_NAL_UNIT_TYPE
+{
+	TRAIL_N = 0,
+	TRAIL_R = 1,
+	TSA_N = 2,
+	TSA_R = 3,
+	STSA_N = 4,
+	STSA_R = 5,
+	RADL_N = 6,
+	RADL_R = 7,
+	RASL_N = 8,
+	RASL_R = 9,
+	RSV_VCL_N10 = 10,
+	RSV_VCL_N12 = 12,
+	RSV_VCL_N14 = 14,
+	RSV_VCL_R11 = 11,
+	RSV_VCL_R13 = 13,
+	RSV_VCL_R15 = 15,
+	BLA_W_LP = 16,
+	BLA_W_RADL = 17,
+	BLA_N_LP = 18,
+	IDR_W_RADL = 19,
+	IDR_N_LP = 20,
+	CRA_NUT = 21,
+	RSV_IRAP_VCL22 = 22,
+	RSV_IRAP_VCL23 = 23,
+	RSV_VCL24 = 24,
+	RSV_VCL31 = 31,
+	VPS_NUT = 32,
+	SPS_NUT = 33,
+	PPS_NUT = 34,
+	AUD_NUT = 35,
+	EOS_NUT = 36,
+	EOB_NUT = 37,
+	FD_NUT = 38,
+	PREFIX_SEI_NUT = 39,
+	SUFFIX_SEI_NUT = 40,
+	RSV_NVCL41 = 41,
+	RSV_NVCL47 = 47,
+	UNSPEC48 = 48,
+	UNSPEC63 = 63,
+};
+
 namespace ISOMediaFile
 {
 	struct NALUnitSegment
@@ -505,30 +570,44 @@ namespace ISOMediaFile
 
 	}PACKED;
 
-	struct AVCSampleRepacker
+	struct INALAUSampleRepacker
 	{
+		virtual	int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe) = 0;
+	};
+
+	struct NALAUSampleRepackerBase : public INALAUSampleRepacker
+	{
+		virtual int Seek(uint64_t src_sample_file_offset);
+		virtual	int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
+
 		FILE*		m_fpSrc;
 		FILE*		m_fpDst;
+
+		NALAUSampleRepackerBase(FILE* fp, FILE* fw) :m_fpSrc(fp), m_fpDst(fw) {
+		}
+	};
+
+	struct AVCSampleRepacker: public NALAUSampleRepackerBase
+	{
 		ISOMediaFile::AVCDecoderConfigurationRecord*
 					m_AVCConfigRecord;
 
 		AVCSampleRepacker(FILE* fp, FILE* fw, ISOMediaFile::AVCDecoderConfigurationRecord* pAVCConfigRecord)
-			: m_fpSrc(fp), m_fpDst(fw), m_AVCConfigRecord(pAVCConfigRecord){}
+			: NALAUSampleRepackerBase(fp, fw), m_AVCConfigRecord(pAVCConfigRecord){}
 
-		int	RepackSamplePayloadToAnnexBByteStream(uint64_t frame_start_pos, uint32_t frame_size, FLAG_VALUE keyframe);
+		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 	};
 
-	struct HEVCSampleRepacker
+	struct HEVCSampleRepacker : public NALAUSampleRepackerBase
 	{
-		FILE*		m_fpSrc;
-		FILE*		m_fpDst;
+
 		ISOMediaFile::HEVCDecoderConfigurationRecord*
 					m_HEVCConfigRecord;
 
 		HEVCSampleRepacker(FILE* fp, FILE* fw, ISOMediaFile::HEVCDecoderConfigurationRecord* pHEVCConfigRecord)
-			: m_fpSrc(fp), m_fpDst(fw), m_HEVCConfigRecord(pHEVCConfigRecord) {}
+			: NALAUSampleRepackerBase(fp, fw), m_HEVCConfigRecord(pHEVCConfigRecord) {}
 
-		int	RepackSamplePayloadToAnnexBByteStream(uint64_t frame_start_pos, uint32_t frame_size, FLAG_VALUE keyframe);
+		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 	};
 
 } // namespace  ISOMediaFile

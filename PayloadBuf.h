@@ -212,21 +212,27 @@ inline long long ConvertToLongLong(std::string& str)
 {
 	size_t idx = 0;
 	long long ret = -1LL;
-	if (str.length() > 0)
+	try
 	{
-		// Check whether it is a valid PID value or not
-		if (str.compare(0, 2, "0x") == 0)	// hex value
+		if (str.length() > 0)
 		{
-			ret = std::stoll(str.substr(2), &idx, 16);
+			// Check whether it is a valid PID value or not
+			if (str.compare(0, 2, "0x") == 0)	// hex value
+			{
+				ret = std::stoll(str.substr(2), &idx, 16);
+			}
+			else if (str.length() > 1 && str.compare(0, 1, "0") == 0)	// oct value
+			{
+				ret = std::stoll(str.substr(1), &idx, 8);
+			}
+			else
+			{
+				ret = std::stoll(str, &idx, 10);
+			}
 		}
-		else if (str.length() > 1 && str.compare(0, 1, "0") == 0)	// oct value
-		{
-			ret = std::stoll(str.substr(1), &idx, 8);
-		}
-		else
-		{
-			ret = std::stoll(str, &idx, 10);
-		}
+	}
+	catch (...)
+	{
 	}
 
 	return idx > 0 ? ret : -1LL;
