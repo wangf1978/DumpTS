@@ -6,14 +6,11 @@
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files with main-stream multimedia container formats, which will provide these kinds of features:
 
-- Extract the elementary stream data or PSI sections data from TS file
-- Extract the elementary stream data of one track from ISOBMFF file
-- Extract the elementary stream data of one track from Matroska file
-- Show media information of elementary streams
-- Show the information for the specified box in ISOBMFF stream file, and provide some utility feature for ISOBMFF file reconstruction
-- Show the information for the specified EBML element in Matrsoska file 
-- Re-factor a TS stream file in place
-- Extract some elementary streams, and reconstruct a partial TS file
+- Extract and repack the elementary stream data or PSI sections data from *TS, ISOBMFF and Matroska* file
+- Show media information of elementary streams, *ISOBMFF* box and *Matroska EBML* element
+- Re-factor a *TS* stream file in place
+- Extract some elementary streams, and reconstruct a partial *TS* file
+- Provide some utility feature for *ISOBMFF* file reconstruction
 
 
 # How to build?
