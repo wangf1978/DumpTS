@@ -59,7 +59,7 @@ It will re-factor the file: c:\test.ts, and replace the PID 0x100 with 0x1011 in
 
 ```
 DumpTS C:\00022.m2ts --output=c:\00022.mlp --pid=0x1100 --srcfmt=m2ts --outputfmt=es 
---stream\_id\_extension=0x72  
+--stream_id_extension=0x72  
 ```
 It will dump a MLP sub-stream from C:\00022.m2ts with the PID 0x1100 and stream\_id\_extension in PES: 0x72
 ```
