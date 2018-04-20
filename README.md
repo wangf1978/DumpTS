@@ -36,6 +36,9 @@ Use VS2015 to open DumpTS.sln to build it
 |**--crc**|*crc-type, all*|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
 |**--showpts**|*N/A*.|print the pts of every elementary stream packet|
 |**--showinfo**|*N/A*|print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
+|**--listcrc**||List all CRC types supported in this program|
+|**--listmp4box**||List box types and descriptions defined in ISO-14496 spec|
+|**--listmkvEBML**||List EBML elements defined in Matroska spec|
 |**--verbose**|*0~n*|print more message in the intermediate process|
  
 Here are some examples of command lines:  
