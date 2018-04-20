@@ -19,14 +19,24 @@
 #define PACKED __attribute__ ((__packed__))
 #endif
 
-extern std::unordered_map<uint32_t, const char*> box_desces;
-extern std::unordered_map<uint32_t, const char*> handle_type_names;
-
 #define MIN_BOX_SIZE			8
 #define MIN_FULLBOX_SIZE		12
 
-namespace ISOMediaFile
+namespace ISOBMFF
 {
+	struct BOX_DESCRIPTOR
+	{
+		uint32_t	box_type;
+		uint8_t		mandatory;
+		uint8_t		level;
+	};
+
+	extern std::unordered_map<uint32_t, const char*> box_desces;
+	extern std::unordered_map<uint32_t, const char*> handle_type_names;
+	extern BOX_DESCRIPTOR box_descriptors[97];
+
+	void PrintISOBMFFBox(int64_t box_type = -1LL);
+
 	class IBox: public IUnknown
 	{
 	public:

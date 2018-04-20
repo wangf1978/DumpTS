@@ -7,6 +7,7 @@
 #include "DumpTS.h"
 #include "Bitstream.h"
 #include "crc.h"
+#include "Matroska.h"
 
 using namespace std;
 
@@ -391,27 +392,30 @@ done:
 
 void PrintHelp()
 {
-	printf("Usage: DumpTS.exe TSSourceFileName [OPTION]...\r\n");
-	printf("\t--output\t\tThe output dumped file path\r\n");
-	printf("\t--pid\t\t\tThe PID of dumped stream\r\n");
-	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\r\n");
-	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\r\n");
-	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4 and mkv, if it is not specified, find the sync-word to decide it\r\n");
-	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\r\n");
-	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\r\n");
-	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\r\n");
-	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\r\n");
-	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\r\n");
-	printf("\t--boxtype\t\tthe box type FOURCC\r\n");
-	printf("\t--showinfo\t\tPrint the media information of elementary stream in TS/M2TS file\r\n");
-	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\r\n");
-	printf("\t--verbose\t\tPrint the intermediate information during media processing\r\n");
+	printf("Usage: DumpTS.exe [SourceMediaFile] [OPTION]...\n");
+	printf("\t--output\t\tThe output dumped file path\n");
+	printf("\t--pid\t\t\tThe PID of dumped stream\n");
+	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\n");
+	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\n");
+	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4 and mkv, if it is not specified, find the sync-word to decide it\n");
+	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\n");
+	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
+	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
+	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\n");
+	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\n");
+	printf("\t--boxtype\t\tthe box type FOURCC\n");
+	printf("\t--showinfo\t\tPrint the media information of summary, layout or elementary stream in TS/ISOBMFF/Matroska file\n");
+	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
+	printf("\t--listcrc\t\tList all crc types and exit\n");
+	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
+	printf("\t--listmkvebml\t\tShow EBML elements defined in Matroska specification and exit\n");
+	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
 
-	printf("Examples:\r\n");
-	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\r\n");
-	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\r\n");
-	printf("DumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\r\n");
-	printf("DumpTS c:\\test.mp4 --output=c:\\test.hevc --trackid=0\r\n");
+	printf("Examples:\n");
+	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
+	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\n");
+	printf("DumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\n");
+	printf("DumpTS c:\\test.mp4 --output=c:\\test.hevc --trackid=0\n");
 
 	return;
 }
@@ -513,6 +517,22 @@ int main(int argc, char* argv[])
 	{
 		PrintHelp();
 		return -1;
+	}
+
+	if (_stricmp(argv[1], "--listcrc") == 0)
+	{
+		PrintCRCList();
+		return 0;
+	}
+	else if (_stricmp(argv[1], "--listmp4box") == 0)
+	{
+		ISOBMFF::PrintISOBMFFBox(-1LL);
+		return 0;
+	}
+	else if (_stricmp(argv[1], "--listmkvEBML") == 0)
+	{
+		Matroska::PrintEBMLElements(INVALID_EBML_ID);
+		return 0;
 	}
 
 	// Parse the command line

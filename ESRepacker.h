@@ -82,9 +82,9 @@ struct ES_REPACK_CONFIG
 	CODEC_ID		codec_id;
 	union
 	{
-		ISOMediaFile::AVCDecoderConfigurationRecord*
+		ISOBMFF::AVCDecoderConfigurationRecord*
 					pAVCConfigRecord;
-		ISOMediaFile::HEVCDecoderConfigurationRecord*
+		ISOBMFF::HEVCDecoderConfigurationRecord*
 					pHEVCConfigRecord;
 		void*		pCodecPrivObj;
 	};
@@ -146,7 +146,7 @@ private:
 	union
 	{
 		void* m_external_repacker;
-		ISOMediaFile::INALAUSampleRepacker* m_NALAURepacker;
+		ISOBMFF::INALAUSampleRepacker* m_NALAURepacker;
 	};
 };
 

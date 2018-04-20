@@ -86,7 +86,7 @@ enum class HEVC_NAL_UNIT_TYPE
 	UNSPEC63 = 63,
 };
 
-namespace ISOMediaFile
+namespace ISOBMFF
 {
 	struct NALUnitSegment
 	{
@@ -290,7 +290,7 @@ namespace ISOMediaFile
 		}
 	}PACKED;
 
-	struct AVCSampleEntry : public ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
+	struct AVCSampleEntry : public ISOBMFF::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
 	{
 		AVCConfigurationBox*			config = nullptr;
 		MPEG4ExtensionDescriptorsBox*	descr = nullptr;
@@ -336,7 +336,7 @@ namespace ISOMediaFile
 		}
 	}PACKED;
 
-	struct AVC2SampleEntry : public ISOMediaFile::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
+	struct AVC2SampleEntry : public ISOBMFF::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
 	{
 		AVCConfigurationBox*			avcconfig = nullptr;
 		MPEG4ExtensionDescriptorsBox*	descr = nullptr;
@@ -589,10 +589,10 @@ namespace ISOMediaFile
 
 	struct AVCSampleRepacker: public NALAUSampleRepackerBase
 	{
-		ISOMediaFile::AVCDecoderConfigurationRecord*
+		ISOBMFF::AVCDecoderConfigurationRecord*
 					m_AVCConfigRecord;
 
-		AVCSampleRepacker(FILE* fp, FILE* fw, ISOMediaFile::AVCDecoderConfigurationRecord* pAVCConfigRecord)
+		AVCSampleRepacker(FILE* fp, FILE* fw, ISOBMFF::AVCDecoderConfigurationRecord* pAVCConfigRecord)
 			: NALAUSampleRepackerBase(fp, fw), m_AVCConfigRecord(pAVCConfigRecord){}
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
@@ -601,16 +601,16 @@ namespace ISOMediaFile
 	struct HEVCSampleRepacker : public NALAUSampleRepackerBase
 	{
 
-		ISOMediaFile::HEVCDecoderConfigurationRecord*
+		ISOBMFF::HEVCDecoderConfigurationRecord*
 					m_HEVCConfigRecord;
 
-		HEVCSampleRepacker(FILE* fp, FILE* fw, ISOMediaFile::HEVCDecoderConfigurationRecord* pHEVCConfigRecord)
+		HEVCSampleRepacker(FILE* fp, FILE* fw, ISOBMFF::HEVCDecoderConfigurationRecord* pHEVCConfigRecord)
 			: NALAUSampleRepackerBase(fp, fw), m_HEVCConfigRecord(pHEVCConfigRecord) {}
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 	};
 
-} // namespace  ISOMediaFile
+} // namespace  ISOBMFF
 
 #ifdef _MSC_VER
 #pragma pack(pop)

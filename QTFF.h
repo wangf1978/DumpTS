@@ -21,9 +21,9 @@ namespace QTFF
 	/*
 		QT Metadata structure is incompatible with ISO 14496-12
 	*/
-	struct MetaBox : public ISOMediaFile::Box
+	struct MetaBox : public ISOBMFF::Box
 	{
-		struct MetaDataHeaderAtom : public ISOMediaFile::FullBox
+		struct MetaDataHeaderAtom : public ISOBMFF::FullBox
 		{
 			uint32_t		nextItemID;
 
@@ -31,7 +31,7 @@ namespace QTFF
 			{
 				int iRet = RET_CODE_SUCCESS;
 
-				iRet = ISOMediaFile::FullBox::Unpack(bs);
+				iRet = ISOBMFF::FullBox::Unpack(bs);
 				if (iRet < 0)
 					return iRet;
 
@@ -55,7 +55,7 @@ namespace QTFF
 		/*
 			https://developer.apple.com/library/content/documentation/QuickTime/QTFF/Metadata/Metadata.html#//apple_ref/doc/uid/TP40000939-CH1-SW1
 		*/
-		struct MetaDataItemKeysAtom : public ISOMediaFile::FullBox
+		struct MetaDataItemKeysAtom : public ISOBMFF::FullBox
 		{
 			struct Entry
 			{
@@ -77,7 +77,7 @@ namespace QTFF
 			{
 				int iRet = RET_CODE_SUCCESS;
 
-				iRet = ISOMediaFile::FullBox::Unpack(bs);
+				iRet = ISOBMFF::FullBox::Unpack(bs);
 				if (iRet < 0)
 					return iRet;
 
@@ -115,11 +115,11 @@ namespace QTFF
 
 		}PACKED;
 
-		struct MetaDataItemListAtom : public ISOMediaFile::Box
+		struct MetaDataItemListAtom : public ISOBMFF::Box
 		{
-			struct MetadataItemAtom: public ISOMediaFile::Box
+			struct MetadataItemAtom: public ISOBMFF::Box
 			{
-				struct ValueAtom : public ISOMediaFile::Box
+				struct ValueAtom : public ISOBMFF::Box
 				{
 					uint32_t		Type_Indicator;
 					uint32_t		Locale_Indicator;
@@ -128,7 +128,7 @@ namespace QTFF
 					{
 						int iRet = RET_CODE_SUCCESS;
 
-						iRet = ISOMediaFile::Box::Unpack(bs);
+						iRet = ISOBMFF::Box::Unpack(bs);
 						if (iRet < 0)
 							return iRet;
 
@@ -186,7 +186,7 @@ namespace QTFF
 					}
 				}PACKED;
 
-				struct ItemInformationAtom : public ISOMediaFile::FullBox
+				struct ItemInformationAtom : public ISOBMFF::FullBox
 				{
 					uint32_t		Item_ID;
 
@@ -194,7 +194,7 @@ namespace QTFF
 					{
 						int iRet = RET_CODE_SUCCESS;
 
-						iRet = ISOMediaFile::FullBox::Unpack(bs);
+						iRet = ISOBMFF::FullBox::Unpack(bs);
 						if (iRet < 0)
 							return iRet;
 
@@ -214,7 +214,7 @@ namespace QTFF
 					}
 				}PACKED;
 
-				struct NameAtom : public ISOMediaFile::FullBox
+				struct NameAtom : public ISOBMFF::FullBox
 				{
 					std::string		Name;
 
@@ -222,7 +222,7 @@ namespace QTFF
 					{
 						int iRet = RET_CODE_SUCCESS;
 
-						iRet = ISOMediaFile::FullBox::Unpack(bs);
+						iRet = ISOBMFF::FullBox::Unpack(bs);
 						if (iRet < 0)
 							return iRet;
 
@@ -239,7 +239,7 @@ namespace QTFF
 				{
 					int iRet = RET_CODE_SUCCESS;
 
-					iRet = ISOMediaFile::Box::Unpack(bs);
+					iRet = ISOBMFF::Box::Unpack(bs);
 					if (iRet < 0)
 						return iRet;
 
@@ -260,7 +260,7 @@ namespace QTFF
 							ptr_box = new DataAtom();
 							break;
 						default:
-							ptr_box = new ISOMediaFile::UnknownBox();
+							ptr_box = new ISOBMFF::UnknownBox();
 							break;
 						}
 
@@ -305,7 +305,7 @@ namespace QTFF
 			{
 				int iRet = RET_CODE_SUCCESS;
 
-				iRet = ISOMediaFile::Box::Unpack(bs);
+				iRet = ISOBMFF::Box::Unpack(bs);
 				if (iRet < 0)
 					return iRet;
 
@@ -337,7 +337,7 @@ namespace QTFF
 			}
 		}PACKED;
 
-		struct CountryListAtom : public ISOMediaFile::FullBox
+		struct CountryListAtom : public ISOBMFF::FullBox
 		{
 			struct Entry
 			{
@@ -355,7 +355,7 @@ namespace QTFF
 
 			virtual int Unpack(CBitstream& bs)
 			{
-				int iRet = ISOMediaFile::FullBox::Unpack(bs);
+				int iRet = ISOBMFF::FullBox::Unpack(bs);
 				if (iRet < 0)
 					return iRet;
 
@@ -390,7 +390,7 @@ namespace QTFF
 
 		}PACKED;
 
-		struct LanguageListAtom : public ISOMediaFile::FullBox
+		struct LanguageListAtom : public ISOBMFF::FullBox
 		{
 			struct Entry
 			{
@@ -408,7 +408,7 @@ namespace QTFF
 
 			virtual int Unpack(CBitstream& bs)
 			{
-				int iRet = ISOMediaFile::FullBox::Unpack(bs);
+				int iRet = ISOBMFF::FullBox::Unpack(bs);
 				if (iRet < 0)
 					return iRet;
 
@@ -443,7 +443,7 @@ namespace QTFF
 
 		}PACKED;
 
-		ISOMediaFile::HandlerBox*	handler_atom = nullptr;
+		ISOBMFF::HandlerBox*	handler_atom = nullptr;
 		MetaDataHeaderAtom*			header_atom = nullptr;
 		MetaDataItemKeysAtom*		item_keys_atom = nullptr;
 		MetaDataItemListAtom*		item_list_atom = nullptr;
@@ -452,7 +452,7 @@ namespace QTFF
 
 		virtual int Unpack(CBitstream& bs)
 		{
-			int iRet = ISOMediaFile::Box::Unpack(bs);
+			int iRet = ISOBMFF::Box::Unpack(bs);
 			if (iRet < 0)
 				return iRet;
 
@@ -497,7 +497,7 @@ namespace QTFF
 						goto done;
 
 				if (ptr_box->type == 'hdlr')
-					handler_atom = (ISOMediaFile::HandlerBox*)ptr_box;
+					handler_atom = (ISOBMFF::HandlerBox*)ptr_box;
 				else if (ptr_box->type == 'mhdr')
 					header_atom = (MetaDataHeaderAtom*)ptr_box;
 				else if (ptr_box->type == 'keys')

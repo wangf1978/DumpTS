@@ -1101,7 +1101,7 @@ namespace Matroska
 	};
 
 	uint32_t g_level_0_element_IDs[] = {
-		0x1A45DFA3, 0x18538067
+		MATROSKA_EBML_ID, MATROSKA_SEGMENT_ID
 	};
 
 	uint32_t g_global_element_IDs[] = {
@@ -1112,6 +1112,105 @@ namespace Matroska
 	std::unordered_map<uint32_t, size_t>	g_mapLevel0IDDesc;
 	std::unordered_map<uint32_t, size_t>	g_mapGlobalIDDesc;
 	std::unordered_map<uint32_t, uint32_t>	g_mapParentIDs;
+
+	struct EBMLIDTree
+	{
+		uint32_t		ID = INVALID_EBML_ID;
+		EBMLIDTree*		parent = nullptr;
+		EBMLIDTree*		first_child = nullptr;
+		EBMLIDTree*		next_sibling = nullptr;
+
+		EBMLIDTree() {}
+		EBMLIDTree(uint32_t EBML_ID):ID(EBML_ID){}
+
+		~EBMLIDTree()
+		{
+			// delete all its children
+			EBMLIDTree* ptr_child = first_child;
+			while (ptr_child)
+			{
+				EBMLIDTree* ptr_front = ptr_child;
+				ptr_child = ptr_child->next_sibling;
+				delete ptr_front;
+			}
+
+			first_child = nullptr;
+		}
+
+		void AppendChild(EBMLIDTree* child) noexcept
+		{
+			// Before appending the child box into the current box, the client must ensure
+			// it is has already detached from the original box tree
+			assert(child->parent == nullptr && child->next_sibling == nullptr);
+
+			child->parent = this;
+
+			// append the child to the last child
+			if (first_child == NULL)
+				first_child = child;
+			else
+			{
+				// find the last child
+				EBMLIDTree* ptr_child = first_child;
+				while (ptr_child->next_sibling)
+					ptr_child = ptr_child->next_sibling;
+
+				ptr_child->next_sibling = child;
+			}
+		}
+
+		EBMLIDTree* FindDescendant(uint32_t EBMLID)
+		{
+			if (first_child == nullptr)
+				return nullptr;
+
+			EBMLIDTree* ptr_ret = nullptr;
+			EBMLIDTree* ptr_child = first_child;
+			do
+			{
+				if (ptr_child->ID == EBMLID)
+					return ptr_child;
+
+				if ((ptr_ret = FindDescendant(EBMLID)) != nullptr)
+					return ptr_ret;
+
+				ptr_child = ptr_child->next_sibling;
+			} while (ptr_child != nullptr);
+
+			return nullptr;
+		}
+
+		int GetMaxTreeWidth(int level)
+		{
+			if (first_child == nullptr)
+			{
+				const int indent = 2;
+				const int level_span = 5;
+
+				int cur_char_width = indent;
+
+				if (level >= 1)
+					cur_char_width += 3 + (level - 1)*level_span;
+
+				if (g_mapIDDesc.find(ID) != g_mapIDDesc.end())
+					cur_char_width += strlen(EBML_element_descriptors[g_mapIDDesc[ID]].Element_Name);
+
+				return cur_char_width;
+			}
+
+			int max_tree_char_width = 0;
+			EBMLIDTree* ptr_child = first_child;
+			do
+			{
+				int width = ptr_child->GetMaxTreeWidth(level + 1);
+				if (max_tree_char_width < width)
+					max_tree_char_width = width;
+				ptr_child = ptr_child->next_sibling;
+			} while (ptr_child != nullptr);
+
+			return max_tree_char_width;
+		}
+	};
 
 	RootElement* EBMLElement::Root()
 	{
@@ -1150,35 +1249,163 @@ namespace Matroska
 
 			// Level is from lower to bigger
 			if (EBML_element_descriptors[i].Level < level)
-			{
 				for (int32_t idxLevel = EBML_element_descriptors[i].Level; idxLevel < level; idxLevel++)
-				{
-					for (int l = 0; l < EBML_element_descriptors[g_mapIDDesc[parent_IDs.back()]].Level; l++)
-						printf("  ");
-					printf("<--%08Xh %s\n", EBML_element_descriptors[g_mapIDDesc[parent_IDs.back()]].EBML_ID, EBML_element_descriptors[g_mapIDDesc[parent_IDs.back()]].Element_Name);
 					parent_IDs.pop_back();
-				}
-			}
 
 			g_mapParentIDs[EBML_element_descriptors[i].EBML_ID] = parent_IDs.back();
 
 			// Enter into the new master element
 			if (EBML_element_descriptors[i].data_type == EBML_DT_MASTER)
-			{
-				for (int l = 0; l < EBML_element_descriptors[i].Level; l++)
-					printf("  ");
-				printf("-->%08Xh %s\n", EBML_element_descriptors[i].EBML_ID, EBML_element_descriptors[i].Element_Name);
 				parent_IDs.push_back(EBML_element_descriptors[i].EBML_ID);
-			}
-			else
-			{
-				for (int l = 0; l < EBML_element_descriptors[i].Level; l++)
-					printf("  ");
-				printf("---%08Xh %s\n", EBML_element_descriptors[i].EBML_ID, EBML_element_descriptors[i].Element_Name);
-			}
 
 			level = EBML_element_descriptors[i].Level;
 		}
+	}
+
+	void PrintEBMLTree(EBMLIDTree* ptr_element, int level, int column_widths[])
+	{
+		size_t line_chars = level * 5 + 160;
+		char* szLine = new char[line_chars];
+		memset(szLine, ' ', line_chars);
+
+		const int indent = 2;
+		const int level_span = 5;
+
+		char* szText = nullptr;
+		if (level >= 1)
+		{
+			Matroska::EBMLIDTree* ptr_parent = ptr_element->parent;
+			memcpy(szLine + indent + (level - 1)*level_span, "|--", 3);
+			for (int i = level - 2; i >= 0 && ptr_parent != nullptr; i--)
+			{
+				if (ptr_parent->next_sibling != nullptr)
+					memcpy(szLine + indent + i*level_span, "|", 1);
+				ptr_parent = ptr_parent->parent;
+			}
+			szText = szLine + indent + 3 + (level - 1)*level_span;
+		}
+		else
+			szText = szLine + indent;
+
+		if (ptr_element->parent == nullptr)
+			sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
+		else
+		{
+			if (g_mapIDDesc.find(ptr_element->ID) == g_mapIDDesc.end())
+				return;
+
+			int32_t desc_idx = g_mapIDDesc[ptr_element->ID];
+			if (desc_idx < 0 || desc_idx >= _countof(Matroska::EBML_element_descriptors))
+				return;
+
+			int cbWritten = strlen(Matroska::EBML_element_descriptors[desc_idx].Element_Name);
+			memcpy(szText, Matroska::EBML_element_descriptors[desc_idx].Element_Name, cbWritten);
+
+			char szTemp[256];
+			int nWritePos = column_widths[0] + 1;
+			for (int i = 1; i < 5; i++)
+			{
+				cbWritten = -1;
+				switch (i)
+				{
+				case 1:
+					cbWritten = sprintf_s(szTemp, _countof(szTemp), "% 9Xh", Matroska::EBML_element_descriptors[desc_idx].EBML_ID);
+					break;
+				case 2:
+					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%s", Matroska::EBML_element_descriptors[desc_idx].bMandatory?"mand.":"");
+					break;
+				case 3:
+					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%s", Matroska::EBML_element_descriptors[desc_idx].bMultiple ? "mult." : "");
+					break;
+				case 4:
+					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%s", EBML_DATA_TYPE_NAMEA(Matroska::EBML_element_descriptors[desc_idx].data_type));
+					break;
+				}
+
+				if (cbWritten > 0)
+					memcpy(szLine + nWritePos, szTemp, strlen(szTemp));
+
+				nWritePos += column_widths[i] + 1;
+			}
+
+			sprintf_s(szLine + nWritePos, line_chars - nWritePos, "\r\n");
+		}
+
+		printf(szLine);
+
+		delete[] szLine;
+
+		auto ptr_child = ptr_element->first_child;
+		while (ptr_child != nullptr)
+		{
+			PrintEBMLTree(ptr_child, level + 1, column_widths);
+			ptr_child = ptr_child->next_sibling;
+		}
+
+		return;
+	}
+
+	void PrintEBMLElements(uint32_t EBMLID)
+	{
+		InitializeElementIDAndDescriptorMap();
+
+		// Construct the tree for print
+		EBMLIDTree root;
+		EBMLIDTree* pParent = &root;
+		int32_t level = 0;
+		for (size_t i = 0; i < _countof(EBML_element_descriptors); i++)
+		{
+			int32_t cur_level = EBML_element_descriptors[i].Level < 0 ? 0 : EBML_element_descriptors[i].Level;
+
+			// Level is from lower to bigger
+			if (cur_level < level)
+			{
+				for (int32_t idxLevel = cur_level; idxLevel < level; idxLevel++)
+					pParent = pParent->parent;
+			}
+
+			EBMLIDTree* pCurrent = new EBMLIDTree(EBML_element_descriptors[i].EBML_ID);
+			pParent->AppendChild(pCurrent);
+
+			// Enter into the new master element
+			if (EBML_element_descriptors[i].data_type == EBML_DT_MASTER)
+				pParent = pCurrent;
+
+			level = cur_level;
+		}
+
+		EBMLIDTree* pShowItem = EBMLID != INVALID_EBML_ID?root.FindDescendant(EBMLID):&root;
+		if (pShowItem == nullptr)
+			return;
+
+		int max_tree_width = pShowItem->GetMaxTreeWidth(0);
+		const char* szColumns[] = { "Element Name", "EBML ID", "Ma","Mu", "T" };
+		int column_widths[] = { AMP_MAX(max_tree_width, (int)strlen(szColumns[0])), 10, 5, 5, 1 };
+
+		// Print Header
+		int table_width = 0;
+		for (size_t i = 0; i < _countof(column_widths); i++)
+			table_width += column_widths[i] + 1;
+
+		char* szLine = new char[table_width + 2];
+		memset(szLine, '-', table_width);
+		szLine[0] = szLine[1] = ' ';
+		szLine[table_width] = '\n';
+		szLine[table_width + 1] = '\0';
+
+		int nWritePos = 0;
+		for (size_t i = 0; i < _countof(column_widths); i++)
+		{
+			memcpy(szLine + nWritePos + (column_widths[i] - strlen(szColumns[i])) / 2, szColumns[i], strlen(szColumns[i]));
+			nWritePos += column_widths[i] + 1;
+		}
+		printf(szLine);
+
+		delete[] szLine;
+
+		PrintEBMLTree(pShowItem, 0, column_widths);
+
+		return;
 	}
 
 	int EBMLElement::LoadEBMLElements(EBMLElement* pContainer, CBitstream& bs, EBMLElement** ppElement)

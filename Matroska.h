@@ -39,6 +39,8 @@
 
 namespace Matroska
 {
+	void PrintEBMLElements(uint32_t EBMLID);
+
 	enum EBML_DATA_TYPE
 	{
 		EBML_DT_UNKNOWN = -1,
@@ -51,6 +53,16 @@ namespace Matroska
 		EBML_DT_MASTER,
 		EBML_DT_BINARY,
 	};
+
+	#define EBML_DATA_TYPE_NAMEA(data_type)	(\
+		(data_type) == Matroska::EBML_DT_SIGNED_INTEGER ? "i" : (\
+		(data_type) == Matroska::EBML_DT_UNSIGNED_INTEGER ? "u" : (\
+		(data_type) == Matroska::EBML_DT_FLOAT ? "f" : (\
+		(data_type) == Matroska::EBML_DT_ASCII_STRING ? "s" : (\
+		(data_type) == Matroska::EBML_DT_UTF8_STRING ? "8" : (\
+		(data_type) == Matroska::EBML_DT_DATE ? "d" : (\
+		(data_type) == Matroska::EBML_DT_MASTER ? "m" : (\
+		(data_type) == Matroska::EBML_DT_BINARY ? "b" : " "))))))))
 
 	enum EBML_VERSION_CAPS
 	{
@@ -988,13 +1000,13 @@ namespace Matroska
 			return 0;
 		}
 
-		int UnpacksAsAVC(ISOMediaFile::AVCDecoderConfigurationRecord* avcConfigRecord)
+		int UnpacksAsAVC(ISOBMFF::AVCDecoderConfigurationRecord* avcConfigRecord)
 		{
 			CBitstream bstCodecPriv(m_ptrCodecPrivData, (size_t)Size<<3);
 			return avcConfigRecord->Unpack(bstCodecPriv, Size);
 		}
 
-		int UnpackAsHEVC(ISOMediaFile::HEVCDecoderConfigurationRecord* hevcConfigRecord)
+		int UnpackAsHEVC(ISOBMFF::HEVCDecoderConfigurationRecord* hevcConfigRecord)
 		{
 			CBitstream bstCodecPriv(m_ptrCodecPrivData, (size_t)Size<<3);
 			return hevcConfigRecord->Unpack(bstCodecPriv);

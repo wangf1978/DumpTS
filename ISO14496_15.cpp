@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "ISO14496_15.h"
 
-namespace ISOMediaFile
+namespace ISOBMFF
 {
 	int NALAUSampleRepackerBase::Seek(uint64_t src_sample_file_offset)
 	{

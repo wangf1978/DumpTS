@@ -266,7 +266,7 @@ namespace MPEG4System
 		}
 	}PACKED;
 
-} // namespace  ISOMediaFile
+} // namespace  ISOBMFF
 
 #ifdef _MSC_VER
 #pragma pack(pop)
