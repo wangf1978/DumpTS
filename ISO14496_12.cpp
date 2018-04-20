@@ -424,13 +424,7 @@ namespace ISOBMFF
 			if (cur_level < level)
 			{
 				for (int32_t idxLevel = cur_level; idxLevel < level; idxLevel++)
-				{
-					for (int l = 0; l < pParent->level; l++)
-						printf("  ");
-					printf("<--%c%c%c%c\n", (pParent->type>>24) & 0xFF, (pParent->type>>16) & 0xFF, (pParent->type>>8)& 0xFF, pParent->type&0xFF);
-
 					pParent = pParent->parent;
-				}
 			}
 
 			BoxTree* pCurrent = new BoxTree(box_descriptors[i].box_type, box_descriptors[i].level, box_descriptors[i].mandatory?true:false);
@@ -438,19 +432,7 @@ namespace ISOBMFF
 
 			// Check whether there is a child under it or not
 			if ((i + 1) < _countof(box_descriptors) && box_descriptors[i + 1].level > box_descriptors[i].level)
-			{
-				for (int l = 0; l < box_descriptors[i].level; l++)
-					printf("  ");
-				printf("-->%c%c%c%c\n", (box_descriptors[i].box_type >> 24) & 0xFF, (box_descriptors[i].box_type >> 16) & 0xFF, (box_descriptors[i].box_type >> 8) & 0xFF, box_descriptors[i].box_type & 0xFF);
-
 				pParent = pCurrent;
-			}
-			else
-			{
-				for (int l = 0; l < box_descriptors[i].level; l++)
-					printf("  ");
-				printf("---%c%c%c%c\n", (box_descriptors[i].box_type >> 24) & 0xFF, (box_descriptors[i].box_type >> 16) & 0xFF, (box_descriptors[i].box_type >> 8) & 0xFF, box_descriptors[i].box_type & 0xFF);
-			}
 
 			level = cur_level;
 		}
