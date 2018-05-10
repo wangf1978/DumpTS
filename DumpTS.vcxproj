@@ -156,6 +156,7 @@
   <ItemGroup>
     <ClInclude Include="AMRingBuffer.h" />
     <ClInclude Include="AudChMap.h" />
+    <ClInclude Include="av1.h" />
     <ClInclude Include="Bitstream.h" />
     <ClInclude Include="CodecID.h" />
     <ClInclude Include="combase.h" />
