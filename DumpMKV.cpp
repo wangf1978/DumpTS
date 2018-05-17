@@ -177,6 +177,11 @@ int DumpMKVOneStream(Matroska::EBMLElement* root, Matroska::EBMLElement* track, 
 		codec_id = CODEC_ID_V_MPEGH_HEVC;
 		pESRepacker = new CESRepacker(ES_BYTE_STREAM_ISO_NALAU_SAMPLE, ES_BYTE_STREAM_HEVC_ANNEXB);
 	}
+	else if (szCodecID != nullptr && _stricmp(szCodecID, "V_AV1") == 0)
+	{
+		codec_id = CODEC_ID_V_AV1;
+		pESRepacker = new CESRepacker(ES_BYTE_STREAM_RAW, ES_BYTE_STREAM_RAW);
+	}
 	else
 		pESRepacker = new CESRepacker(ES_BYTE_STREAM_RAW, ES_BYTE_STREAM_RAW);
 
