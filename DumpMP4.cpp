@@ -1251,11 +1251,16 @@ int DumpMP4OneStream(Box* root_box, Box* track_box)
 	uint32_t sample_id = 0;
 	try
 	{
+		size_t nTotalSampleSize = pSampleSizeBox->entry_size.size();
 		for (uint32_t entry_id = 0; entry_id < pSampleToChunkBox->entry_infos.size(); entry_id++)
 		{
-			for (uint32_t chunkid = pSampleToChunkBox->entry_infos[entry_id].first_chunk;
-				chunkid < ((entry_id == pSampleToChunkBox->entry_infos.size() - 1) ? (pSampleToChunkBox->entry_infos[entry_id].first_chunk + 1) : pSampleToChunkBox->entry_infos[entry_id + 1].first_chunk);
-				chunkid++)
+			uint32_t last_chunk = 0;
+			if (entry_id == pSampleToChunkBox->entry_infos.size() - 1)
+				last_chunk = pSampleToChunkBox->entry_infos[entry_id].first_chunk + (nTotalSampleSize - sample_id) / pSampleToChunkBox->entry_infos[entry_id].samples_per_chunk;
+			else
+				last_chunk = pSampleToChunkBox->entry_infos[entry_id + 1].first_chunk;
+
+			for (uint32_t chunkid = pSampleToChunkBox->entry_infos[entry_id].first_chunk; chunkid < last_chunk;chunkid++)
 			{
 				// Calculate the sample offset and sample size
 				uint64_t sample_offset = pChunkLargeOffsetBox == nullptr ? pChunkOffsetBox->chunk_offset[chunkid-1] : pChunkLargeOffsetBox->chunk_offset[chunkid-1];
