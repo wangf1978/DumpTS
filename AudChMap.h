@@ -51,8 +51,8 @@ enum CHANNEL_LOC
 	CH_LOC_VHC,
 	CH_LOC_LTS,
 	CH_LOC_RTS,
-	CH_LOC_LFE,
 	CH_LOC_LFE2,
+	CH_LOC_LFE,
 	CH_LOC_LHR,				// Height channel surround rear left loudspeaker
 	CH_LOC_RHR,				// Height channel surround rear right loudspeaker
 	CH_LOC_CHR,				// Height channel surround rear center loudspeaker

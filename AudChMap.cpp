@@ -23,8 +23,8 @@ std::tuple<std::string, std::string, std::string> channel_descs[22] =
 	{ "Vhc", "Vertical Height Center", "" },
 	{ "Lts", "Left Top Surround", "" },
 	{ "Rts", "Right Top Surround", "" },
-	{ "LFE", "Low-frequency effects", "" },
 	{ "LFE2", "Secondary low-frequency effects", "" },
+	{ "LFE", "Low-frequency effects", "" },
 };
 
 std::string GetChannelMappingDesc(unsigned long channel_mapping)
@@ -302,8 +302,8 @@ unsigned long Channel_Speaker_Mapping[] = {
 	/* CH_LOC_VHC,			*/	SPEAKER_POS_TOP_FRONT_CENTER,
 	/* CH_LOC_LTS,			*/	SPEAKER_POS_TOP_BACK_LEFT,
 	/* CH_LOC_RTS,			*/	SPEAKER_POS_TOP_BACK_RIGHT,
-	/* CH_LOC_LFE,			*/	SPEAKER_POS_LOW_FREQUENCY,
 	/* CH_LOC_LFE2,			*/	SPEAKER_POS_LOW_FREQUENCY,
+	/* CH_LOC_LFE,			*/	SPEAKER_POS_LOW_FREQUENCY,
 	/* CH_LOC_DUALMONO = 31	*/
 };
 
