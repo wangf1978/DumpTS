@@ -478,6 +478,32 @@ void PrintTree(Box* ptr_box, int level)
 			szText += cbWritten;
 		}
 
+		if (ptr_box->type == 'tfhd')
+		{
+			auto ptr_tfhd_box = (MovieFragmentBox::TrackFragmentBox::TrackFragmentHeaderBox*)ptr_box;
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- track %d", ptr_tfhd_box->track_ID);
+			szText += cbWritten;
+		}
+
+		if (ptr_box->type == 'tfdt')
+		{
+			auto ptr_tfdt_box = (MovieFragmentBox::TrackFragmentBox::TrackFragmentBaseMediaDecodeTimeBox*)ptr_box;
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- baseMediaDecodeTime: %llu", ptr_tfdt_box->baseMediaDecodeTime);
+			szText += cbWritten;
+		}
+
+		if (ptr_box->type == 'trun')
+		{
+			auto ptr_trun_box = (MovieFragmentBox::TrackFragmentBox::TrackRunBox*)ptr_box;
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- SampleCount: %lu", ptr_trun_box->sample_count);
+			szText += cbWritten;
+			if (ptr_trun_box->flags & 0x000001)
+			{
+				cbWritten = sprintf_s(szText, line_chars - (szText - szLine), ", data offset: %ld", ptr_trun_box->data_offset);
+				szText += cbWritten;
+			}
+		}
+
 		if (ptr_box->type == 'stsd')
 		{
 			if (ptr_box->container && ptr_box->container->container && ptr_box->container->container->container &&
@@ -908,7 +934,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 	
 	HEVCConfigurationBox* pHEVCConfigurationBox = nullptr;
 	AVCConfigurationBox* pAVCConfigurationBox = nullptr;
-	for (size_t i = 0; i < pSampleDescBox->SampleEntries.size(); i++)
+	for (size_t i = 0; pSampleDescBox != nullptr && i < pSampleDescBox->SampleEntries.size(); i++)
 	{
 		if (pSampleDescBox->handler_type == 'vide')
 		{
@@ -993,15 +1019,19 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 
 			return nuArray->numNalus > 0 ? true : false;
 		};
+		
+		uint8_t lengthSizeMinusOne = 3;
+		if (pHEVCConfigurationBox && pHEVCConfigurationBox->HEVCConfig)
+			lengthSizeMinusOne = pHEVCConfigurationBox->HEVCConfig->lengthSizeMinusOne;
 
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			fread(buf, 1, pHEVCConfigurationBox->HEVCConfig->lengthSizeMinusOne + 1, fp);
-			for (int i = 0; i < pHEVCConfigurationBox->HEVCConfig->lengthSizeMinusOne + 1; i++)
+			fread(buf, 1, lengthSizeMinusOne + 1, fp);
+			for (int i = 0; i < lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
-			bool bLastNALUnit = cbLeft <= (pHEVCConfigurationBox->HEVCConfig->lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
+			bool bLastNALUnit = cbLeft <= (lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
 
 			uint8_t first_leading_read_pos = 0;
 			if (key_sample && next_nal_unit_type != -1)
@@ -1066,7 +1096,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 				first_leading_read_pos = 0;
 			}
 
-			cbLeft -= pHEVCConfigurationBox->HEVCConfig->lengthSizeMinusOne + 1 + NALUnitLength;
+			cbLeft -= lengthSizeMinusOne + 1 + NALUnitLength;
 			bFirstNALUnit = false;
 		}
 
@@ -1124,14 +1154,18 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 			return false;
 		};
 
+		uint8_t lengthSizeMinusOne = 3;
+		if (pAVCConfigurationBox && pAVCConfigurationBox->AVCConfig)
+			lengthSizeMinusOne = pAVCConfigurationBox->AVCConfig->lengthSizeMinusOne;
+
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			fread(buf, 1, pAVCConfigurationBox->AVCConfig->lengthSizeMinusOne + 1, fp);
-			for (int i = 0; i < pAVCConfigurationBox->AVCConfig->lengthSizeMinusOne + 1; i++)
+			fread(buf, 1, lengthSizeMinusOne + 1, fp);
+			for (int i = 0; i < lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
-			bool bLastNALUnit = cbLeft <= (pAVCConfigurationBox->AVCConfig->lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
+			bool bLastNALUnit = cbLeft <= (lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
 
 			uint8_t first_leading_read_pos = 0;
 			if (key_sample && next_nal_unit_type != -1)
@@ -1189,7 +1223,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 				first_leading_read_pos = 0;
 			}
 
-			cbLeft -= pAVCConfigurationBox->AVCConfig->lengthSizeMinusOne + 1 + NALUnitLength;
+			cbLeft -= lengthSizeMinusOne + 1 + NALUnitLength;
 			bFirstNALUnit = false;
 		}
 
@@ -1197,6 +1231,195 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 			iRet = RET_CODE_SUCCESS;
 	}
 
+	return iRet;
+}
+
+int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* fp, FILE* fw, MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox* pSampleDescBox=nullptr)
+{
+	int iRet = RET_CODE_SUCCESS;
+
+	int sample_id = 0;
+	try
+	{
+		// Enumerate the 'moof' box
+		Box* ptr_child = root_box->first_child;
+		while (ptr_child != nullptr)
+		{
+			if (ptr_child->type != 'moof')
+			{
+				ptr_child = ptr_child->next_sibling;
+				continue;
+			}
+
+			MovieFragmentBox* ptr_moof_box = (MovieFragmentBox*)ptr_child;
+			uint64_t moof_file_offset = (ptr_moof_box->start_bitpos >> 3);
+
+			// find the following 'mdat' box
+			auto ptr_mdat_child = ptr_child->next_sibling;
+			while (ptr_mdat_child != nullptr)
+			{
+				if (ptr_mdat_child->type == 'mdat' || ptr_mdat_child->type == 'moof')
+				{
+					if (ptr_mdat_child->type == 'moof')
+						ptr_mdat_child = nullptr;
+					break;
+				}
+
+				ptr_mdat_child = ptr_mdat_child->next_sibling;
+			}
+
+			// Begin to track the track elementary stream
+			uint32_t sequence_number = ptr_moof_box->movie_fragment_header_box->sequence_number;
+
+			auto GetTrunFileOffset = [&](MovieFragmentBox::TrackFragmentBox* ptr_traf_box,
+				MovieFragmentBox::TrackFragmentBox::TrackRunBox* ptr_trun_box,
+				uint64_t prev_data_end_offset) {
+				uint64_t file_offset = UINT64_MAX;
+
+				if (ptr_traf_box == nullptr || ptr_trun_box == nullptr)
+					return file_offset;
+
+				auto ptr_tfhd_box = ptr_traf_box->track_fragment_header_box;
+				bool traf_data_offset_exist = ptr_tfhd_box && (ptr_tfhd_box->flags & 0x000001);
+				bool trun_data_offset_exist = ptr_trun_box->flags & 0x000001;
+
+				// Make sure the file offset is decided
+				if (!traf_data_offset_exist &&	// No base_data_offset
+					!trun_data_offset_exist)		// No data_offset in 'trun' box
+				{
+					// If no 'mdat' is found
+					if (ptr_mdat_child == nullptr)
+						goto done;
+
+					// first track and first trun
+					if (ptr_traf_box == ptr_moof_box->track_fragment_boxes[0] &&
+						ptr_trun_box == ptr_traf_box->track_run_boxes[0])
+						return ptr_mdat_child->start_bitpos >> 3;
+
+					// return the byte position of the preceding trun
+					file_offset = prev_data_end_offset;
+				}
+				else if (!trun_data_offset_exist)	// No data_offset in 'trun' box
+				{
+					if (ptr_trun_box == ptr_traf_box->track_run_boxes[0])	// the first 'trun' in a 'traf'
+						file_offset = moof_file_offset + ptr_tfhd_box->base_data_offset;
+					else
+						file_offset = prev_data_end_offset;
+				}
+				else
+					file_offset = moof_file_offset + ptr_tfhd_box->base_data_offset + ptr_trun_box->data_offset;
+
+			done:
+				return file_offset;
+			};
+
+			auto GetTrafFileOffset = [&](MovieFragmentBox::TrackFragmentBox* ptr_traf_box, uint64_t prev_data_end_offset) {
+				return GetTrunFileOffset(ptr_traf_box, ptr_traf_box->track_run_boxes.size() > 0 ? ptr_traf_box->track_run_boxes[0] : nullptr, prev_data_end_offset);
+			};
+
+			uint64_t base_data_offset = 0ULL;
+			uint64_t prev_data_end_offset = (uint64_t)-1LL;
+			for (auto ptr_traf_box = ptr_moof_box->track_fragment_boxes.cbegin(); ptr_traf_box != ptr_moof_box->track_fragment_boxes.cend(); ptr_traf_box++)
+			{
+				auto ptr_tfhd_box = (*ptr_traf_box)->track_fragment_header_box;
+				for (auto ptr_trun_box = (*ptr_traf_box)->track_run_boxes.cbegin(); ptr_trun_box != (*ptr_traf_box)->track_run_boxes.cend(); ptr_trun_box++)
+				{
+					uint64_t file_offset = GetTrunFileOffset(*ptr_traf_box, *ptr_trun_box, prev_data_end_offset);
+
+					prev_data_end_offset = file_offset;
+
+					if (file_offset == (uint64_t)-1LL)
+						continue;
+
+					bool file_seek_success = _fseeki64(fp, (long long)file_offset, SEEK_SET) == 0 ? true : false;
+
+					bool bHaveSampleSize = ((*ptr_trun_box)->flags & 0x000200) ? true : false;
+					if (bHaveSampleSize)
+					{
+						// Extract the sample one-by-one
+						for (size_t i = 0; i < (*ptr_trun_box)->samples.size(); i++)
+						{
+							if (ptr_tfhd_box != nullptr && track_id == ptr_tfhd_box->track_ID && file_seek_success)
+							{
+								// Extract elementary stream
+								DumpMP4Sample(pSampleDescBox, fp, fw, sample_id, prev_data_end_offset, (*ptr_trun_box)->samples[i].sample_size, false);
+								sample_id++;
+							}
+
+							prev_data_end_offset += (*ptr_trun_box)->samples[i].sample_size;
+						}
+
+						if ((*ptr_trun_box)->samples.size() != (*ptr_trun_box)->sample_count)
+						{
+							prev_data_end_offset = UINT64_MAX;
+						}
+					}
+					else
+					{
+						if (ptr_tfhd_box == nullptr || !(ptr_tfhd_box->flags & 0x000010))
+						{
+							// No default sample size is available
+							prev_data_end_offset = UINT64_MAX;
+							continue;
+						}
+
+						uint32_t default_sample_size = ptr_tfhd_box->default_sample_size;
+
+						for (uint32_t i = 0; i < (*ptr_trun_box)->sample_count; i++)
+						{
+							if (track_id == ptr_tfhd_box->track_ID && file_seek_success)
+							{
+								// Extract elementary stream
+								DumpMP4Sample(pSampleDescBox, fp, fw, sample_id, prev_data_end_offset, (*ptr_trun_box)->samples[i].sample_size, false);
+								sample_id++;
+							}
+
+							prev_data_end_offset += default_sample_size;
+						}
+					}  // if (bHaveSampleSize)
+				}  // for (auto ptr_trun_box...
+			}  // for (auto ptr_traf_box =
+
+			ptr_child = ptr_child->next_sibling;
+		}  // while (ptr_child != nullptr)
+	}
+	catch (...)
+	{
+		iRet = RET_CODE_ERROR;
+	}
+
+	return iRet;
+}
+
+int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id)
+{
+	int iRet = RET_CODE_SUCCESS;
+	FILE *fp = NULL, *fw = NULL;
+
+	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
+	if (errn != 0 || fp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		goto done;
+	}
+
+	if (g_params.find("output") != g_params.end())
+	{
+		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
+		if (errn != 0 || fw == NULL)
+		{
+			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
+			goto done;
+		}
+	}
+
+	DumpMP4OneStreamFromMovieFragments(root_box, track_id, fp, fw);
+
+done:
+	if (fp != NULL)
+		fclose(fp);
+	if (fw != NULL)
+		fclose(fw);
 	return iRet;
 }
 
@@ -1295,6 +1518,8 @@ int DumpMP4OneStream(Box* root_box, Box* track_box)
 			}
 		}
 
+		DumpMP4OneStreamFromMovieFragments(root_box, pTrackBox->GetTrackID(), fp, fw, pSampleDescBox);
+
 		iRet = RET_CODE_SUCCESS;
 	}
 	catch (...)
@@ -1325,6 +1550,8 @@ int DumpMP4()
 	while (Box::LoadBoxes(root_box, bs) >= 0);
 
 	Box* ptr_box = nullptr;
+	bool bMovieTrackAbsent = false;
+	uint32_t select_track_id = UINT32_MAX;
 	if (g_params.find("trackid") != g_params.end())
 	{
 		// Try to filter the box with the specified track-id and box-type under the track container box
@@ -1334,6 +1561,8 @@ int DumpMP4()
 			printf("The specified track-id is out of range.\r\n");
 			return -1;
 		}
+
+		select_track_id = (uint32_t)track_id;
 
 		// Convert box-type to integer characters
 		uint32_t box_type = UINT32_MAX;	// invalid box type
@@ -1353,10 +1582,16 @@ int DumpMP4()
 		if ((ptr_box = FindBox(root_box, (uint32_t)track_id, box_type)) == nullptr)
 		{
 			if (box_type == UINT32_MAX)
+			{
 				printf("Can't find the track box with the specified track-id: %lld.\r\n", track_id);
+				// There may be still movie framents
+				bMovieTrackAbsent = true;
+			}
 			else
+			{
 				printf("Can't find the box with box-type: %s in the track-box with track-id: %lld.\r\n", g_params["boxtype"].c_str(), track_id);
-			return -1;
+				return -1;
+			}
 		}
 	}
 
@@ -1435,7 +1670,10 @@ int DumpMP4()
 
 		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 		{
-			iRet = DumpMP4OneStream(root_box, ptr_box);
+			if (bMovieTrackAbsent)
+				iRet = DumpMP4OneStreamFromMovieFragments(root_box, select_track_id);
+			else
+				iRet = DumpMP4OneStream(root_box, ptr_box);
 		}
 		else if (str_output_fmt.compare("mp4") == 0)
 		{

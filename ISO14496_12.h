@@ -4703,6 +4703,14 @@ namespace ISOBMFF
 				return iRet;
 			}
 
+			uint32_t GetTrackID()
+			{
+				if (track_header_box == nullptr)
+					return 0;
+
+				return track_header_box->version == 1 ? track_header_box->v1.track_ID : track_header_box->v0.track_ID;
+			}
+
 		}PACKED;
 
 		/*
@@ -5012,19 +5020,79 @@ namespace ISOBMFF
 					if ((iRet = FullBox::Unpack(bs)) < 0)
 						return iRet;
 
-					if (LeftBytes(bs) < 28)
+					auto cbLeftBytes = LeftBytes(bs);
+
+					if (cbLeftBytes < 4)
 					{
 						SkipLeftBits(bs);
 						return RET_CODE_BOX_TOO_SMALL;
 					}
 
 					track_ID = bs.GetDWord();
-					base_data_offset = bs.GetQWord();
-					base_data_offset = bs.GetDWord();
-					sample_description_index = bs.GetDWord();
-					default_sample_duration = bs.GetDWord();
-					default_sample_size = bs.GetDWord();
-					default_sample_flags = bs.GetDWord();
+					cbLeftBytes -= 4;
+					
+					if (cbLeftBytes < 20)
+					{
+						SkipLeftBits(bs);
+						return 0;
+					}
+
+					if (flags & 0x000001)
+					{
+						/*  0x000001 base-data-offset-present: indicates the presence of the base-data-offset field.This provides
+								an explicit anchor for the data offsets in each track run(see below). If not provided, the base-data-offset
+								for the first track in the movie fragment is the position of the first byte of the enclosing Movie
+								Fragment Box, and for second and subsequent track fragments, the default is the end of the data
+								defined by the preceding fragment. Fragments 'inheriting' their offset in this way must all use the same
+								data - reference(i.e., the data for these tracks must be in the same file). */
+						if (cbLeftBytes < 8)
+							goto done;
+
+						base_data_offset = bs.GetQWord();
+						cbLeftBytes -= 8;
+					}
+
+					if (flags & 0x000002)
+					{
+						// 0x000002 sample-description-index-present: indicates the presence of this field, which over-rides, in this fragment, the default set up in the Track Extends Box.
+						if (cbLeftBytes < 4)
+							goto done;
+
+						sample_description_index = bs.GetDWord();
+						cbLeftBytes -= 4;
+					}
+
+					if (flags & 0x000008)
+					{
+						// 0x000008 default-sample-duration-present
+						if (cbLeftBytes < 4)
+							goto done;
+
+						default_sample_duration = bs.GetDWord();
+						cbLeftBytes -= 4;
+					}
+
+					if (flags & 0x000010)
+					{
+						// 0x000010 default-sample-size-present
+						if (cbLeftBytes < 4)
+							goto done;
+
+						default_sample_size = bs.GetDWord();
+						cbLeftBytes -= 4;
+					}
+
+					if (flags & 0x000020)
+					{
+						// 0x000020 default-sample-flags-present
+						if (cbLeftBytes < 4)
+							goto done;
+
+						default_sample_flags = bs.GetDWord();
+						cbLeftBytes -= 4;
+					}
+
+				done:
 
 					SkipLeftBits(bs);
 					return 0;
@@ -5070,43 +5138,95 @@ namespace ISOBMFF
 						return iRet;
 
 					uint64_t left_bytes = LeftBytes(bs);
-					if (left_bytes < 12)
+					if (left_bytes < 4)
 					{
-						SkipLeftBits(bs);
-						return RET_CODE_BOX_TOO_SMALL;
+						iRet = RET_CODE_BOX_TOO_SMALL;
+						goto done;
 					}
 
 					sample_count = bs.GetDWord();
-					data_offset = bs.GetLong();
-					first_sample_flags = bs.GetDWord();
-					left_bytes -= 12;
+					left_bytes -= 4;
+
+					if (flags & 0x000001)
+					{
+						// 0x000001 data-offset-present.
+						if (left_bytes < 4)
+							goto done;
+
+						data_offset = bs.GetLong();
+						left_bytes -= 4;
+					}
+
+					if (flags & 0x000004)
+					{
+						/*
+						0x000004 first-sample-flags-present; this over-rides the default flags for the first sample only. This
+							makes it possible to record a group of frames where the first is a key and the rest are difference
+							frames, without supplying explicit flags for every sample. If this flag and field are used, sample-flags
+							shall not be present.
+						*/
+						if (left_bytes < 4)
+							goto done;
+
+						first_sample_flags = bs.GetDWord();
+						left_bytes -= 4;
+					}
 
 					for (uint32_t i = 0; i < sample_count; i++)
 					{
-						if (left_bytes < sizeof(Sample))
-							break;
-
 						Sample sample;
-						sample.sample_duration = bs.GetDWord();
-						sample.sample_size = bs.GetDWord();
-						sample.sample_flags = bs.GetDWord();
-						if (version == 0)
-							sample.v0.sample_composition_time_offset = bs.GetDWord();
-						else
-							sample.v1.sample_composition_time_offset = bs.GetLong();
+
+						if (flags & 0x000100)
+						{
+							if (left_bytes < 4)
+								goto done;
+
+							sample.sample_duration = bs.GetDWord();
+							left_bytes -= 4;
+						}
+
+						if (flags & 0x000200)
+						{
+							if (left_bytes < 4)
+								goto done;
+
+							sample.sample_size = bs.GetDWord();
+							left_bytes -= 4;
+						}
+
+						if (flags & 0x000400)
+						{
+							if (left_bytes < 4)
+								goto done;
+
+							sample.sample_flags = bs.GetDWord();
+							left_bytes -= 4;
+						}
+
+						if (flags & 0x000800)
+						{
+							if (left_bytes < 4)
+								goto done;
+
+							if (version == 0)
+								sample.v0.sample_composition_time_offset = bs.GetDWord();
+							else
+								sample.v1.sample_composition_time_offset = bs.GetLong();
+							left_bytes -= 4;
+						}
 
 						samples.push_back(sample);
-						left_bytes -= sizeof(sample);
 					}
 
+				done:
 					SkipLeftBits(bs);
-					return 0;
+					return iRet;
 				}
 			}PACKED;
 
 			/*
 			Box Type: 'tfdt'
-			Container: Track Fragment box (‘traf?
+			Container: Track Fragment box ('traf')
 			Mandatory: No
 			Quantity: Zero or one
 			*/
@@ -5121,7 +5241,7 @@ namespace ISOBMFF
 						return iRet;
 
 					uint64_t left_bytes = LeftBytes(bs);
-					if (left_bytes < version==1?sizeof(uint64_t):sizeof(uint32_t))
+					if (left_bytes < (version==1?sizeof(uint64_t):sizeof(uint32_t)))
 					{
 						SkipLeftBits(bs);
 						return RET_CODE_BOX_TOO_SMALL;
@@ -5203,7 +5323,10 @@ namespace ISOBMFF
 			Box* ptr_child = first_child;
 			while (ptr_child != nullptr)
 			{
-
+				if (ptr_child->type == 'mfhd')
+					movie_fragment_header_box = (MovieFragmentHeaderBox*)ptr_child;
+				else if (ptr_child->type == 'traf')
+					track_fragment_boxes.push_back((TrackFragmentBox*)ptr_child);
 
 				ptr_child = ptr_child->next_sibling;
 			}
