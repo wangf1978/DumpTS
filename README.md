@@ -1,7 +1,7 @@
 # Terminology
 - **TS**: transport stream, the file extension is normally *.ts, .tts, .m2ts, .mts*
 - **ISOBMFF**: ISO-based Media File Format, the file extension is normally *.mp4, .mov, m4a, m4v, .m4s*
-- **Matroska**: a multimedia container formats based on EBML (Extensible Binary Meta Language), the file extension is normally *.mkv, .mka, .mk3d and .webm*
+- **Matroska**: a multimedia container format based on EBML (Extensible Binary Meta Language), the file extension is normally *.mkv, .mka, .mk3d and .webm*
 
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files with main-stream multimedia container formats, which will provide these kinds of features:
