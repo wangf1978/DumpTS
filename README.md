@@ -4,13 +4,13 @@
 - **Matroska**: a multimedia container format based on EBML (Extensible Binary Meta Language), the file extension is normally *.mkv, .mka, .mk3d and .webm*
 
 # What is DumpTS?
-DumpTS is a simple utility tool to process the multimedia files with main-stream multimedia container formats, which will provide these kinds of features:
+DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
 
 - Extract and repack the elementary stream data or PSI sections data from *TS, ISOBMFF and Matroska* file
 - Show media information of elementary streams, *ISOBMFF* box and *Matroska EBML* element
 - Re-factor a *TS* stream file in place
 - Extract some elementary streams, and reconstruct a partial *TS* file
-- Provide some utility feature for *ISOBMFF* file reconstruction
+- Provide some utility features for *ISOBMFF* file reconstruction
 
 
 # How to build?
