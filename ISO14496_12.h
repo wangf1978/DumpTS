@@ -3791,7 +3791,7 @@ namespace ISOBMFF
 								reserved_0[0] = bs.GetDWord();
 								reserved_0[1] = bs.GetDWord();
 								channelcount = bs.GetWord();
-								samplerate = bs.GetWord();
+								samplesize = bs.GetWord();
 								pre_defined = bs.GetWord();
 								reserved_1 = bs.GetWord();
 								samplerate = bs.GetDWord();
