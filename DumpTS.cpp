@@ -107,7 +107,8 @@ void ParseCommandLine(int argc, char* argv[])
 	g_params.insert({ "input", argv[1] });
 
 	std::string str_arg_prefixes[] = {
-		"output", "pid", "trackid", "boxtype", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox", "crc"
+		"output", "pid", "trackid", "boxtype", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox", "crc",
+		"dashinitmp4", "VLCTypes"
 	};
 
 	for (int iarg = 2; iarg < argc; iarg++)
@@ -226,6 +227,7 @@ bool VerifyCommandLine()
 int PrepareParams()
 {
 	int iRet = -1;
+	bool bIgnorePreparseTS = false;
 
 	memset(&g_ts_fmtinfo, 0, sizeof(g_ts_fmtinfo));
 	g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_UNKNOWN;
@@ -266,7 +268,10 @@ int PrepareParams()
 				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mov") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".m4a") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".m4v") == 0)
+					_stricmp(file_name_ext.c_str(), ".m4v") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".m4s") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".heif") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".heic") == 0)
 					g_params["srcfmt"] = "mp4";
 				else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mka") == 0 ||
@@ -313,9 +318,11 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
+		else if (iter->second.compare("huffman_codebook") == 0)
+			bIgnorePreparseTS = true;
 	}
 
-	if (g_ts_fmtinfo.packet_size == 0 && g_params.find("crc") == g_params.end())
+	if (bIgnorePreparseTS == false && g_ts_fmtinfo.packet_size == 0 && g_params.find("crc") == g_params.end())
 	{
 		FILE* rfp = NULL;
 		errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
@@ -373,7 +380,7 @@ int PrepareDump()
 
 	if (g_ts_fmtinfo.eMpegSys >= MPEG_SYSTEM_TS && g_ts_fmtinfo.eMpegSys <= MPEG_SYSTEM_BDAV)
 	{
-		_fseeki64(rfp, -1, SEEK_END);
+		_fseeki64(rfp, 0, SEEK_END);
 		long long file_size = _ftelli64(rfp);
 
 		g_dump_status.num_of_packs = file_size / g_ts_fmtinfo.packet_size;
@@ -397,8 +404,8 @@ void PrintHelp()
 	printf("\t--pid\t\t\tThe PID of dumped stream\n");
 	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\n");
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\n");
-	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4 and mkv, if it is not specified, find the sync-word to decide it\n");
-	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes and es\n");
+	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4, mkv, huffman_codebook, if it is not specified, find the sync-word to decide it\n");
+	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes, es and binary_search_table\n");
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\n");
@@ -410,12 +417,16 @@ void PrintHelp()
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
 	printf("\t--listmkvebml\t\tShow EBML elements defined in Matroska specification and exit\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
+	printf("\t--dashinitmp4\t\tSpecify the DASH initialization mp4 file to process m4s\n");
+	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
 
 	printf("Examples:\n");
 	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
 	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\n");
 	printf("DumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\n");
 	printf("DumpTS c:\\test.mp4 --output=c:\\test.hevc --trackid=0\n");
+	printf("DumpTS c:\\codebook.txt --srcfmt=huffman_codebook --showinfo\n");
+	printf("DumpTS c:\\codebook.txt --srcfmt=huffman_codebook --outputfmt=binary_search_table\n");
 
 	return;
 }
@@ -424,6 +435,9 @@ extern void PrintCRCList();
 extern CRC_TYPE GetCRCType(const char* szCRCName);
 extern uint8_t GetCRCWidth(CRC_TYPE type);
 extern const char* GetCRCName(CRC_TYPE type);
+extern void GenerateHuffmanBinarySearchArray(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr);
+extern void PrintHuffmanTree(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr);
+extern int DumpHuffmanCodeBook();
 
 void CalculateCRC()
 {
@@ -519,6 +533,14 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	if (_stricmp(argv[1], "--huffmantree") == 0)
+	{
+		INT_VALUE_LITERAL_FORMAT fmts[3] = { FMT_AUTO, FMT_AUTO, FMT_AUTO };
+		PrintHuffmanTree(NULL, fmts);
+		GenerateHuffmanBinarySearchArray(NULL, fmts);
+		return 0;
+	}
+
 	if (_stricmp(argv[1], "--listcrc") == 0)
 	{
 		PrintCRCList();
@@ -578,6 +600,10 @@ int main(int argc, char* argv[])
 	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mkv") == 0)
 	{
 		nDumpRet = DumpMKV();
+	}
+	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("huffman_codebook") == 0)
+	{
+		nDumpRet = DumpHuffmanCodeBook();
 	}
 	else if (g_params.find("pid") != g_params.end())
 	{

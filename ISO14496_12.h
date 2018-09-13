@@ -21,6 +21,23 @@
 
 #define MIN_BOX_SIZE			8
 #define MIN_FULLBOX_SIZE		12
+#define MAX_DISPLAY_COUNT		4096
+
+#ifdef _MSC_VER
+#define INLINE __forceinline /* use __forceinline (VC++ specific) */
+#else
+#define INLINE inline        /* use standard inline */
+#endif
+
+#define PRINT_AC(c)	(isprint(c)?(c):'.')
+#define PRINT_WC(c)	(iswprint(c)?(c):L'.')
+#ifdef _UNICODE
+#define PRINT_TC(c)	PRINT_WC(c)
+#else
+#define PRINT_TC(c)	PRINT_AC(c)
+#endif
+
+extern int g_verbose_level;
 
 namespace ISOBMFF
 {
@@ -43,14 +60,23 @@ namespace ISOBMFF
 		virtual int Unpack(CBitstream& bs) = 0;
 		virtual int Pack(CBitstream& bs) = 0;
 		virtual int Clean() = 0;
+			virtual std::string GetTypeName() = 0;
 	};
 
 	struct Box: public CComUnknown, public IBox
 	{
-		uint64_t	size = MIN_BOX_SIZE;
+		/*
+		If the most significant bit of size is 1, it means 
+			the size value in Box object is 1, 
+			the largesize value is the left bits.
+		*/
+		struct
+		{
+			uint64_t	largesize_used : 1;
+			uint64_t	size : 63;
+		}PACKED;
 		uint32_t	type = 0;
 
-		uint8_t		usertype[16] = { 0 };
 		uint64_t	start_bitpos = 0;
 
 		Box*		next_sibling = nullptr;
@@ -70,12 +96,14 @@ namespace ISOBMFF
 			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
 		}
 
-		Box(){}
+		Box(){ largesize_used = 0;  size = MIN_BOX_SIZE; }
 
 		Box(Box* pContainerBox): container(pContainerBox){
+			largesize_used = 0;  size = MIN_BOX_SIZE;
 		}
 
 		Box(uint64_t box_size, uint32_t box_type) : size(box_size), type(box_type) {
+			largesize_used = 0;  size = MIN_BOX_SIZE;
 		}
 
 		virtual ~Box() { Clean(); }
@@ -89,7 +117,10 @@ namespace ISOBMFF
 			type = bs.GetDWord();
 
 			if (size == 1)
+			{
+				largesize_used = 1;
 				size = bs.GetQWord();
+			}
 			else if (size == 0)
 			{
 				// box extends to end of file
@@ -98,18 +129,6 @@ namespace ISOBMFF
 			{
 				// Ignore the current box
 				return RET_CODE_ERROR;
-			}
-
-			if (type == 'uuid')
-			{
-				if (LeftBytes(bs) < sizeof(usertype))
-				{
-					// Ignore the current box
-					return -1;
-				}
-
-				for (int i = 0; i < 16; i++)
-					usertype[i] = bs.GetByte();
 			}
 
 			return 0;
@@ -134,6 +153,24 @@ namespace ISOBMFF
 			first_child = nullptr;
 
 			return 0;
+		}
+
+		virtual std::string GetTypeName()
+		{
+			std::string str_ret;
+			str_ret.reserve(16);
+
+			str_ret.push_back(PRINT_AC((type >> 24) & 0xFF));
+			str_ret.push_back(PRINT_AC((type >> 16) & 0xFF));
+			str_ret.push_back(PRINT_AC((type >> 8) & 0xFF));
+			str_ret.push_back(PRINT_AC(type & 0xFF));
+
+			return str_ret;
+		}
+
+		virtual int Load(CBitstream& bs)
+		{
+			return Box::Load(this, bs);
 		}
 
 		void SkipLeftBits(CBitstream& bs)
@@ -200,6 +237,14 @@ namespace ISOBMFF
 			}
 		}
 
+			/*!	@brief Find the box by the specified pattern, for example, /meta/iloc
+				@param pattern the find pattern contains FOURCC tags and '/'
+				@remarks as for the patter, if it starts with /, it means a absolute pattern;
+				If it starts with ., start find the box from the current pattern;
+				otherwise it is relative pattern
+			*/
+			std::vector<Box*> FindBox(const char* pattern);
+
 		void RemoveChildBox(Box* child) noexcept
 		{
 			// Find this child from tree
@@ -220,9 +265,100 @@ namespace ISOBMFF
 			}
 		}
 
-		static Box*	RootBox();
-		static int	LoadBoxes(Box* pContainer, CBitstream& bs, Box** ppBox = nullptr);
-		static void UnloadBoxes(Box* pBox);
+		Box* RootBox();
+		bool IsQT();
+		bool IsHEIC();
+
+		// bool: in use or not
+		static std::list<Box> root_box_list;
+
+		static Box& CreateRootBox();
+		static void DestroyRootBox(Box &root_box);
+
+		/*!	@brief Load a child box and all descendant boxes of this child box from the current bitstream position */
+		static int LoadOneBoxBranch(Box* pContainer, CBitstream& bs, Box** ppBox = nullptr);
+
+		static int Load(Box* pContainer, CBitstream& bs);
+
+		static uint32_t GetMediaTimeScale(Box& root_box, uint32_t track_ID);
+		static uint32_t GetMovieTimeScale(Box& root_box);
+
+		static INLINE int isLeapYear(int year) {
+			return (year % 400 == 0) || ((year % 100 != 0) && (year % 4 == 0));
+		}
+
+		static std::string DateTimeStr(uint64_t elapse_seconds_since_19040101)
+		{
+			int year = 1904;
+			constexpr uint64_t leap_year_ticks = 366ULL * 24 * 3600;
+			constexpr uint64_t normal_year_ticks = 365ULL * 24 * 3600;
+			uint64_t elapse_seconds = elapse_seconds_since_19040101;
+			while (elapse_seconds > 0)
+			{
+				uint64_t ticks = isLeapYear(year) ? leap_year_ticks : normal_year_ticks;
+				if (elapse_seconds >= ticks)
+				{
+					elapse_seconds -= ticks;
+					year++;
+				}
+				else
+					break;
+			}
+
+			// Got year, now try to get month
+			int month = 1;
+			constexpr int month_ticks[12] = {
+				31 * 24 * 3600, 28 * 24 * 3600, 31 * 24 * 3600, 30 * 24 * 3600, 31 * 24 * 3600, 30 * 24 * 3600,
+				31 * 24 * 3600,	31 * 24 * 3600, 30 * 24 * 3600, 31 * 24 * 3600, 30 * 24 * 3600, 31 * 24 * 3600
+			};
+
+			int is_leap_year = isLeapYear(year);
+
+			while (elapse_seconds > 0)
+			{
+				uint64_t ticks = (month == 2 && leap_year_ticks) ? 24 * 3600 : 0 + month_ticks[month - 1];
+				if (elapse_seconds >= ticks)
+				{
+					elapse_seconds -= ticks;
+					month++;
+				}
+				else
+					break;
+			}
+
+			int day = 1 + (int)(elapse_seconds / (24 * 3600));
+			elapse_seconds -= (day - 1) * 24 * 3600;
+
+			int hour = (int)(elapse_seconds / 3600);
+			int minute = (int)(elapse_seconds / 60 % 60);
+			int second = (int)(elapse_seconds % 60);
+
+			std::string strDateTime;
+			// 1904-04-01 00h:00m:00s
+			strDateTime.reserve(32);
+			sprintf_s(&strDateTime[0], 32, "%04d-%02d-%02d %02dh:%02dm:%02ds", year, month, day, hour, minute, second);
+			return strDateTime;
+		}
+	}PACKED;
+
+	struct UUIDBox : public Box
+	{
+		uint8_t		usertype[16] = { 0 };
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			if ((iRet = Box::Unpack(bs)) < 0)
+				return iRet;
+
+			if (LeftBytes(bs) < sizeof(usertype))
+				return RET_CODE_ERROR;
+
+			for (int i = 0; i < sizeof(usertype); i++)
+				usertype[i] = bs.GetByte();
+
+			return 0;
+		}
 	}PACKED;
 
 	struct FullBox : public Box
@@ -273,10 +409,11 @@ namespace ISOBMFF
 
 			Box* ptr_box = nullptr;
 			uint64_t child_sum_size = 0;
-			while (child_sum_size < left_box_size && LoadBoxes(this, bs, &ptr_box) >= 0)
+			while (child_sum_size < left_box_size && LoadOneBoxBranch(this, bs, &ptr_box) >= 0)
 			{
-				printf("box-type: %c%c%c%c(0X%X), size: 0X%llX\r\n", 
-					(ptr_box->type>>24)&0xFF, (ptr_box->type >> 16) & 0xFF, (ptr_box->type >> 8) & 0xFF, ptr_box->type& 0xFF, ptr_box->type, ptr_box->size);
+				if (g_verbose_level > 0)
+					printf("box-type: %c%c%c%c(0X%X), size: 0X%llX\r\n", 
+						(ptr_box->type>>24)&0xFF, (ptr_box->type >> 16) & 0xFF, (ptr_box->type >> 8) & 0xFF, ptr_box->type& 0xFF, ptr_box->type, ptr_box->size);
 				child_sum_size += ptr_box->size;
 			}
 
@@ -284,7 +421,6 @@ namespace ISOBMFF
 
 			return iRet;
 		}
-
 	}PACKED;
 
 	struct ContainerFullBox : public FullBox
@@ -300,7 +436,7 @@ namespace ISOBMFF
 
 			Box* ptr_box = nullptr;
 			uint64_t child_sum_size = 0;
-			while (child_sum_size < left_box_size && LoadBoxes(this, bs, &ptr_box) >= 0)
+			while (child_sum_size < left_box_size && LoadOneBoxBranch(this, bs, &ptr_box) >= 0)
 			{
 				child_sum_size += ptr_box->size;
 			}
@@ -545,6 +681,20 @@ namespace ISOBMFF
 			}
 		}PACKED;
 
+		struct DataReferenceEntry : public FullBox
+		{
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = 0;
+				
+				if ((iRet = FullBox::Unpack(bs)) < 0)
+					return iRet;
+
+				SkipLeftBits(bs);
+				return iRet;
+			}
+		}PACKED;
+
 		struct DataReferenceBox : public FullBox
 		{
 			uint32_t			entry_count = 0;
@@ -584,15 +734,17 @@ namespace ISOBMFF
 					else if (box_type == 'urn ')
 						ptr_box = new DataEntryUrnBox();
 					else
-						ptr_box = &unknBox;	// It's unexpected
+						ptr_box = new DataReferenceEntry();
 
 					if ((iRet = ptr_box->Unpack(bs)) < 0)
+					{
+						delete ptr_box;
 						break;
+					}
 
 					left_bytes -= ptr_box->size;
 
-					if (box_type == 'url ' || box_type == 'urn ')
-						data_entries.push_back(ptr_box);
+					data_entries.push_back(ptr_box);
 				}
 
 			done:
@@ -707,6 +859,221 @@ namespace ISOBMFF
 		};
 	}PACKED;
 
+	struct SampleGroupDescriptionEntry
+	{
+		uint32_t	grouping_type;
+		uint32_t	description_length;
+
+		SampleGroupDescriptionEntry(uint32_t nGroupingType, uint32_t nSize) : 
+			grouping_type(nGroupingType), description_length(nSize) {
+		}
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			if (description_length > 0)
+				bs.SkipBits(description_length << 3);
+
+			return RET_CODE_SUCCESS;
+		}
+	}PACKED;
+
+	struct VisualSampleGroupEntry : public SampleGroupDescriptionEntry
+	{
+		VisualSampleGroupEntry(uint32_t nGroupingType, uint32_t nSize) : SampleGroupDescriptionEntry(nGroupingType, nSize) {
+		}
+	}PACKED;
+
+	struct AudioSampleGroupEntry : public SampleGroupDescriptionEntry
+	{
+		AudioSampleGroupEntry(uint32_t nGroupingType, uint32_t nSize) : SampleGroupDescriptionEntry(nGroupingType, nSize) {
+		}
+	}PACKED;
+
+	struct HintSampleGroupEntry : public SampleGroupDescriptionEntry
+	{
+		HintSampleGroupEntry(uint32_t nGroupingType, uint32_t nSize) : SampleGroupDescriptionEntry(nGroupingType, nSize) {
+		}
+	}PACKED;
+
+	struct VisualRollRecoveryEntry : public VisualSampleGroupEntry
+	{
+		int16_t				roll_distance;
+
+		VisualRollRecoveryEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+
+			uint32_t left_bytes = description_length;
+
+			if (left_bytes < sizeof(roll_distance))
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			roll_distance = bs.GetShort();
+
+			left_bytes -= sizeof(roll_distance);
+
+		done:
+			if (left_bytes > 0)
+				bs.SkipBits(left_bytes << 3);
+			return iRet;
+		}
+	}PACKED;
+
+	struct AudioRollRecoveryEntry : public AudioSampleGroupEntry
+	{
+		int16_t				roll_distance;
+
+		AudioRollRecoveryEntry(uint32_t nGroupingType, uint32_t nSize) : AudioSampleGroupEntry(nGroupingType, nSize) {
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+
+			uint32_t left_bytes = description_length;
+
+			if (left_bytes < sizeof(roll_distance))
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			roll_distance = bs.GetShort();
+
+			left_bytes -= sizeof(roll_distance);
+
+		done:
+			if (left_bytes > 0)
+				bs.SkipBits(left_bytes << 3);
+			return iRet;
+		}
+	}PACKED;
+
+	struct AlternativeStartupEntry : public VisualSampleGroupEntry
+	{
+		struct Entry
+		{
+			uint16_t			num_output_samples;
+			uint16_t			num_total_samples;
+		}PACKED;
+
+		uint16_t			roll_count;
+		uint16_t			first_output_sample;
+		std::vector<uint32_t>
+							sample_offsets;
+		std::vector<Entry>	entries;
+
+		AlternativeStartupEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			uint32_t left_bytes = description_length;
+
+			if (left_bytes < sizeof(roll_count) + sizeof(first_output_sample))
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			roll_count = bs.GetWord();
+			first_output_sample = bs.GetWord();
+			left_bytes -= sizeof(roll_count) + sizeof(first_output_sample);
+
+			sample_offsets.reserve(roll_count);
+			for (size_t i = 0; i < roll_count && left_bytes >= 4; i++) {
+				sample_offsets.push_back(bs.GetDWord());
+				left_bytes -= 4;
+			}
+
+			if (left_bytes >= 4)
+			{
+				entries.reserve(left_bytes / 4);
+				while (left_bytes >= 4)
+				{
+					Entry entry;
+					entry.num_output_samples = bs.GetWord();
+					entry.num_total_samples = bs.GetWord();
+					left_bytes -= 4;
+				}
+			}
+
+		done:
+			if (left_bytes > 0)
+				bs.SkipBits((int64_t)(left_bytes << 3));
+			return iRet;
+		}
+	}PACKED;
+
+	struct VisualRandomAccessEntry : public VisualSampleGroupEntry
+	{
+		uint8_t				num_leading_samples_known : 1;
+		uint8_t				num_leading_samples : 7;
+
+		VisualRandomAccessEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			uint32_t left_bytes = description_length;
+
+			if (left_bytes < sizeof(uint8_t))
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			num_leading_samples_known = (uint8_t)bs.GetBits(1);
+			num_leading_samples = (uint8_t)bs.GetBits(7);
+
+			left_bytes -= sizeof(uint8_t);
+
+		done:
+			if (left_bytes > 0)
+				bs.SkipBits((int64_t)(left_bytes << 3));
+			return iRet;
+		}
+	}PACKED;
+
+	struct TemporalLevelEntry : public VisualSampleGroupEntry
+	{
+		uint8_t				level_independently_decodable : 1;
+		uint8_t				reserved : 7;
+
+		TemporalLevelEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			uint32_t left_bytes = description_length;
+
+			if (left_bytes < sizeof(uint8_t))
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			level_independently_decodable = (uint8_t)bs.GetBits(1);
+			reserved = (uint8_t)bs.GetBits(7);
+
+			left_bytes -= sizeof(uint8_t);
+
+		done:
+			if (left_bytes > 0)
+				bs.SkipBits((int64_t)(left_bytes << 3));
+			return iRet;
+		}
+	}PACKED;
+
 	/*
 	Box Type: 'sgpd'
 	Container: Sample Table Box ('stbl') or Track Fragment Box ('traf')
@@ -718,6 +1085,8 @@ namespace ISOBMFF
 		struct Entry
 		{
 			uint32_t	description_length;
+			SampleGroupDescriptionEntry*
+						sample_group_description_entry;
 		}PACKED;
 
 		uint32_t			grouping_type;
@@ -725,69 +1094,18 @@ namespace ISOBMFF
 		uint32_t			entry_count;
 		std::vector<Entry>	entries;
 
-		virtual int Unpack(CBitstream& bs)
+		uint32_t			handler_type = 0;
+
+		virtual ~SampleGroupDescriptionBox()
 		{
-			int iRet = 0;
-
-			if ((iRet = FullBox::Unpack(bs)) < 0)
-				return iRet;
-
-			uint64_t left_bytes = LeftBytes(bs);
-			if (left_bytes < sizeof(grouping_type))
+			for (auto& v : entries)
 			{
-				iRet = RET_CODE_BOX_TOO_SMALL;
-				goto done;
+				if (v.sample_group_description_entry != nullptr)
+					delete v.sample_group_description_entry;
 			}
-
-			grouping_type = bs.GetDWord();
-			left_bytes -= sizeof(uint32_t);
-
-			if (version == 1)
-			{
-				if (left_bytes < sizeof(default_length))
-				{
-					iRet = RET_CODE_BOX_TOO_SMALL;
-					goto done;
-				}
-
-				default_length = bs.GetDWord();
-				left_bytes -= sizeof(uint32_t);
-			}
-
-			if (left_bytes < sizeof(entry_count))
-			{
-				iRet = RET_CODE_BOX_TOO_SMALL;
-				goto done;
-			}
-
-			entry_count = bs.GetDWord();
-			left_bytes -= sizeof(uint32_t);
-
-			for (uint32_t i = 0; i < entry_count; i++)
-			{
-				Entry entry;
-				if (version == 1 && default_length == 0)
-				{
-					if (left_bytes < sizeof(entry_count))
-						break;
-
-					entry.description_length = bs.GetDWord();
-					left_bytes -= sizeof(uint32_t);
-				}
-				else
-					entry.description_length = default_length;
-
-				if (left_bytes < entry.description_length)
-					break;
-
-				bs.SkipBits((uint64_t)entry.description_length << 3);
-				left_bytes -= (uint64_t)entry.description_length << 3;
-			}
-
-		done:
-			SkipLeftBits(bs);
-			return 0;
 		}
+
+		virtual int Unpack(CBitstream& bs);
 	}PACKED;
 
 	/*
@@ -1283,7 +1601,7 @@ namespace ISOBMFF
 
 	/*
 	Box Types: 'schm'
-	Container: Protection Scheme Information Box (‘sinf?, Restricted Scheme Information Box ('rinf'),
+	Container: Protection Scheme Information Box ('sinf', Restricted Scheme Information Box ('rinf'),
 	or SRTP Process box ('srpp')
 	Mandatory: No
 	Quantity: Zero or one in 'sinf', depending on the protection structure; Exactly one in 'rinf' and 'srpp'
@@ -1344,7 +1662,7 @@ namespace ISOBMFF
 			while (LeftBytes(bs) > 0)
 			{
 				Box* ptr_box = NULL;
-				if (LoadBoxes(this, bs, &ptr_box) < 0)
+				if (LoadOneBoxBranch(this, bs, &ptr_box) < 0)
 					break;
 
 				scheme_specific_data.push_back(ptr_box);
@@ -1393,7 +1711,7 @@ namespace ISOBMFF
 			if (LeftBytes(bs) >= MIN_BOX_SIZE)
 			{
 				if ((bs.PeekBits(64)&UINT32_MAX) == 'schi')
-					LoadBoxes(this, bs, (Box**)&info);
+					LoadOneBoxBranch(this, bs, (Box**)&info);
 			}
 
 			SkipLeftBits(bs);
@@ -1431,13 +1749,13 @@ namespace ISOBMFF
 			if (LeftBytes(bs) >= MIN_BOX_SIZE)
 			{
 				if ((bs.PeekBits(64)&UINT32_MAX) == 'schm')
-					LoadBoxes(this, bs, (Box**)&scheme_type_box);
+					LoadOneBoxBranch(this, bs, (Box**)&scheme_type_box);
 			}
 
 			if (LeftBytes(bs) >= MIN_BOX_SIZE)
 			{
 				if ((bs.PeekBits(64)&UINT32_MAX) == 'schi')
-					LoadBoxes(this, bs, (Box**)&info);
+					LoadOneBoxBranch(this, bs, (Box**)&info);
 			}
 
 			SkipLeftBits(bs);
@@ -1513,7 +1831,7 @@ namespace ISOBMFF
 		{
 			struct Item
 			{
-				uint16_t				item_ID;
+				uint32_t				item_ID;
 				uint16_t				reserved : 12;
 				uint16_t				construction_method : 4;
 				uint16_t				data_reference_index;
@@ -1529,8 +1847,99 @@ namespace ISOBMFF
 			uint8_t		base_offset_size : 4;
 			uint8_t		index_size : 4;
 
-			uint16_t	item_count;
+			uint32_t	item_count;
 			std::vector<Item>	items;
+
+			uint64_t GetMaxItemSize()
+			{
+				uint64_t max_item_size = 0;
+				for (size_t i = 0; i < items.size(); i++)
+				{
+					uint64_t total_item_extent_size = 0;
+					for (size_t j = 0; j < items[i].extent_count; j++)
+					{
+						uint64_t extent_size = 0;
+						for (uint8_t k = 0; k < length_size; k++)
+							extent_size = (extent_size << 8) | items[i].extent_length[j*length_size + k];
+
+						total_item_extent_size += extent_size;
+					}
+
+					if (max_item_size < total_item_extent_size)
+						max_item_size = total_item_extent_size;
+				}
+
+				return max_item_size;
+			}
+
+			uint64_t GetItemSize(uint32_t item_ID)
+			{
+				for (size_t i = 0; i < items.size(); i++)
+				{
+					if (items[i].item_ID == item_ID)
+					{
+						uint64_t total_item_extent_size = 0;
+						for (size_t j = 0; j < items[i].extent_count; j++)
+						{
+							uint64_t extent_size = 0;
+							for (uint8_t k = 0; k < length_size; k++)
+								extent_size = (extent_size << 8) | items[i].extent_length[j*length_size + k];
+
+							total_item_extent_size += extent_size;
+						}
+
+						return total_item_extent_size;
+					}
+				}
+
+				return 0;
+			}
+
+			/* return (construction_method, data_reference_index, [(extent_index, extent_offset, extent_length), (extent_index, extent_offset, extent_length), ...]*/
+			using ExtentResult = std::tuple<int32_t, uint16_t, std::vector<std::tuple<uint64_t, uint64_t, uint64_t>>>;
+			ExtentResult GetExtents(uint32_t item_ID)
+			{
+				int32_t ret_construction_method = -1;
+				uint16_t ret_data_reference_index = 0;
+				std::vector<std::tuple<uint64_t, uint64_t, uint64_t>> result;
+				for (size_t i = 0; i < items.size(); i++)
+				{
+					if (items[i].item_ID == item_ID)
+					{
+						uint64_t base_offset = 0;
+						for (uint8_t k = 0; k < base_offset_size; k++)
+							base_offset = (base_offset << 8) | items[i].base_offset[k];
+
+						for (size_t j = 0; j < items[i].extent_count; j++)
+						{
+							uint64_t extent_index = 0;
+							if (((version == 1) || (version == 2)) && (index_size > 0))
+							{
+								for (uint8_t k = 0; k < index_size; k++)
+									extent_index = (extent_index << 8) | items[i].extent_index[j*index_size + k];
+							}
+
+							uint64_t extent_offset = 0;
+							for (uint8_t k = 0; k < offset_size; k++)
+								extent_offset = (extent_offset << 8) | items[i].extent_offset[j*offset_size + k];
+
+							extent_offset += base_offset;
+
+							uint64_t extent_size = 0;
+							for (uint8_t k = 0; k < length_size; k++)
+								extent_size = (extent_size << 8) | items[i].extent_length[j*length_size + k];
+
+							result.push_back(std::make_tuple(extent_index, extent_offset, extent_size));
+						}
+
+						ret_construction_method = version == 0 ? 0 : items[i].construction_method;
+						ret_data_reference_index = items[i].data_reference_index;
+						break;
+					}
+				}
+
+				return std::make_tuple(ret_construction_method, ret_data_reference_index, result);
+			}
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -1540,7 +1949,7 @@ namespace ISOBMFF
 					return iRet;
 
 				uint64_t left_bytes = LeftBytes(bs);
-				if (left_bytes < 4)
+				if (left_bytes < (version>=2?6:4))
 				{
 					SkipLeftBits(bs);
 					return RET_CODE_BOX_TOO_SMALL;
@@ -1549,15 +1958,19 @@ namespace ISOBMFF
 				offset_size = (uint8_t)bs.GetBits(4);
 				length_size = (uint8_t)bs.GetBits(4);
 				base_offset_size = (uint8_t)bs.GetBits(4);
-				offset_size = (uint8_t)bs.GetBits(4);
-				item_count = bs.GetWord();
-				left_bytes -= 4;
+				index_size = (uint8_t)bs.GetBits(4);
+				if (version < 2)
+					item_count = bs.GetWord();
+				else if(version == 2)
+					item_count = bs.GetDWord();
+					
+				left_bytes -= (version == 2 ? 6 : 4);
 
 				items.reserve(item_count);
 
-				int item_fix_size = sizeof(Item::item_ID) + sizeof(Item::data_reference_index) + base_offset_size + sizeof(Item::extent_count);
-				if (version == 1)
-					item_fix_size += sizeof(uint16_t);
+				int item_fix_size = (version < 2 ? 2 : 4) + sizeof(Item::data_reference_index) + base_offset_size + sizeof(Item::extent_count);
+				if (version == 1 || version == 2)
+					item_fix_size += sizeof(uint16_t);	// for reserved + construction_method
 
 				for (uint32_t i = 0; i < item_count; i++)
 				{
@@ -1565,13 +1978,19 @@ namespace ISOBMFF
 						break;
 
 					items.emplace_back();
-					auto curitem = items.back();
-					curitem.item_ID = bs.GetWord();
-					if (version == 1)
+					auto& curitem = items.back();
+					if (version < 2)
+						curitem.item_ID = bs.GetWord();
+					else if(version == 2)
+						curitem.item_ID = bs.GetDWord();
+
+					if (version == 1 || version == 2)
 					{
 						curitem.reserved = (uint16_t)bs.GetBits(12);
 						curitem.construction_method = (uint16_t)bs.GetBits(4);
 					}
+					else
+						curitem.construction_method = 0;
 
 					curitem.data_reference_index = bs.GetWord();
 					for (uint16_t j = 0; j < base_offset_size; j++)
@@ -1583,12 +2002,15 @@ namespace ISOBMFF
 					uint16_t j = 0;
 					for (; j < curitem.extent_count; j++)
 					{
-						uint16_t extent_size = (version == 1 && index_size > 0) ? (index_size + offset_size + length_size) : (offset_size + length_size);
+						uint16_t extent_size = ((version == 1 || version == 2) && index_size > 0) ? (index_size + offset_size + length_size) : (offset_size + length_size);
 						if (left_bytes < extent_size)
 							break;
 
-						for (uint8_t k = 0; k < index_size; k++)
-							curitem.extent_index.push_back(bs.GetByte());
+						if (version == 1 || version == 2)
+						{
+							for (uint8_t k = 0; k < index_size; k++)
+								curitem.extent_index.push_back(bs.GetByte());
+						}
 
 						for (uint8_t k = 0; k < offset_size; k++)
 							curitem.extent_offset.push_back(bs.GetByte());
@@ -1679,7 +2101,7 @@ namespace ISOBMFF
 						break;
 
 					ProtectionSchemeInfoBox* ptr_box;
-					if (LoadBoxes(this, bs, (Box**)&ptr_box) < 0)
+					if (LoadOneBoxBranch(this, bs, (Box**)&ptr_box) < 0)
 						break;
 
 					protection_informations.push_back(ptr_box);
@@ -1714,7 +2136,7 @@ namespace ISOBMFF
 				std::vector<uint32_t>	group_ids;
 			}PACKED;
 
-			struct ItemInfoEntryv0 : public FullBox
+			struct ItemInfoEntryv0
 			{
 				uint16_t				item_ID;
 				uint16_t				item_protection_index;
@@ -1734,9 +2156,9 @@ namespace ISOBMFF
 				}
 			}PACKED;
 
-			struct ItemInfoEntryv2 : public FullBox
+			struct ItemInfoEntryv2
 			{
-				uint16_t				item_ID;
+				uint32_t				item_ID;
 				uint16_t				item_protection_index;
 				uint32_t				item_type;
 
@@ -1750,66 +2172,76 @@ namespace ISOBMFF
 				std::string				item_uri_type;
 			}PACKED;
 
-			uint16_t		entry_count;
-			uint16_t		last_entry_idx;
-			union
+			struct ItemInfoEntry : public FullBox
 			{
-				ItemInfoEntryv0*	item_info_entries_v0;
-				ItemInfoEntryv1*	item_info_entries_v1;
-				ItemInfoEntryv2*	item_info_entries_v2;
-			}PACKED;
-
-			virtual ~ItemInfoBox()
-			{
-				if (version == 0) {
-					AMP_SAFEDELA(item_info_entries_v0);
-				}
-				else if (version == 1) {
-					AMP_SAFEDELA(item_info_entries_v1);
-				}
-				else if (version == 2) {
-					AMP_SAFEDELA(item_info_entries_v2);
-				}
-			}
-
-			virtual int Unpack(CBitstream& bs)
-			{
-				int iRet = 0;
-
-				if ((iRet = FullBox::Unpack(bs)) < 0)
-					return iRet;
-
-				uint64_t left_bytes = LeftBytes(bs);
-				if (left_bytes < sizeof(entry_count))
+				union
 				{
-					SkipLeftBits(bs);
-					return RET_CODE_BOX_TOO_SMALL;
+					ItemInfoEntryv0*	item_info_entry_v0;
+					ItemInfoEntryv1*	item_info_entry_v1;
+					ItemInfoEntryv2*	item_info_entry_v2;
+					void*				item_info_data;
+				}PACKED;
+
+				ItemInfoEntry(): item_info_data(0){
 				}
 
-				entry_count = bs.GetWord();
-				left_bytes -= sizeof(entry_count);
-
-				if (version == 0)
-					item_info_entries_v0 = new ItemInfoEntryv0[entry_count];
-				else if (version == 1)
-					item_info_entries_v1 = new ItemInfoEntryv1[entry_count];
-				else if (version == 2)
-					item_info_entries_v2 = new ItemInfoEntryv2[entry_count];
-
-				last_entry_idx = 0;
-				for (uint16_t i = 0; i < entry_count; i++)
+				virtual ~ItemInfoEntry()
 				{
+					if (version == 0) {
+						if (item_info_entry_v0 != nullptr) { delete item_info_entry_v0; }
+					}
+					else if (version == 1) {
+						if (item_info_entry_v1 != nullptr) { delete item_info_entry_v1; }
+					}
+					else if (version == 2) {
+						if (item_info_entry_v2 != nullptr) { delete item_info_entry_v2; }
+					}
+				}
+
+				INLINE uint32_t GetItemID()
+				{
+					if (version == 0)
+						return item_info_entry_v0->item_ID;
+					else if (version == 1)
+						return item_info_entry_v1->item_ID;
+					
+					return item_info_entry_v2->item_ID;
+				}
+
+				INLINE uint32_t GetItemType()
+				{
+					if (version >= 2)
+						return item_info_entry_v2->item_type;
+
+					return 0;
+				}
+
+				virtual int Unpack(CBitstream& bs)
+				{
+					int iRet = 0;
+
+					if ((iRet = FullBox::Unpack(bs)) < 0)
+						return iRet;
+
+					uint64_t left_bytes = LeftBytes(bs);
+
+					if (version == 0)
+						item_info_entry_v0 = new ItemInfoEntryv0;
+					else if (version == 1)
+						item_info_entry_v1 = new ItemInfoEntryv1;
+					else if (version >= 2)
+						item_info_entry_v2 = new ItemInfoEntryv2;
+
 					if (version == 0 || version == 1)
 					{
 						if (left_bytes < sizeof(uint16_t) + sizeof(uint16_t) + 3/* 3 null terminator */)
 						{
-							printf("Not enough to fill one ItemInfoEntry v0/v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+							printf("Not enough to fill one ItemInfoEntry v0/v1, left_bytes: %llu.\r\n", left_bytes);
 							goto done;
 						}
 
-						ItemInfoEntryv0* entry = version == 0 
-							? &item_info_entries_v0[last_entry_idx] 
-							: (ItemInfoEntryv0*)(&item_info_entries_v1[last_entry_idx]);
+						ItemInfoEntryv0* entry = version == 0
+							? item_info_entry_v0	: (ItemInfoEntryv0*)(item_info_entry_v1);
 
 						entry->item_ID = bs.GetWord();
 						entry->item_protection_index = bs.GetWord();
@@ -1817,7 +2249,7 @@ namespace ISOBMFF
 						ReadString(bs, entry->content_type);
 						ReadString(bs, entry->content_encoding);
 
-						left_bytes -= sizeof(entry->item_ID) + sizeof(entry->item_protection_index) + 
+						left_bytes -= sizeof(entry->item_ID) + sizeof(entry->item_protection_index) +
 							entry->item_name.length() + entry->content_type.length() + entry->content_encoding.length();
 					}
 
@@ -1825,23 +2257,23 @@ namespace ISOBMFF
 					{
 						if (left_bytes < sizeof(uint32_t))
 						{
-							printf("Not enough to fill one ItemInfoEntry v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+							_tprintf(_T("[ISOBMFF] Not enough to fill one ItemInfoEntry v1, left_bytes: %llu.\n"), left_bytes);
 							goto done;
 						}
 
-						item_info_entries_v1[last_entry_idx].extension_type = bs.GetDWord();
+						item_info_entry_v1->extension_type = bs.GetDWord();
 						left_bytes -= sizeof(uint32_t);
 
-						if (item_info_entries_v1[last_entry_idx].extension_type == 'fdel')
+						if (item_info_entry_v1->extension_type == 'fdel')
 						{
 							if (left_bytes < 2/*2 null terminator*/)
 							{
-								printf("Not enough to fill FDItemInfoExtension of one ItemInfoEntry v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+								_tprintf(_T("[ISOBMFF] Not enough to fill FDItemInfoExtension of one ItemInfoEntry v1, left_bytes: %llu.\n"), left_bytes);
 								goto done;
 							}
 
 							FDItemInfoExtension* fd_item_info_extension = new FDItemInfoExtension();
-							item_info_entries_v1[last_entry_idx].item_info_extension = fd_item_info_extension;
+							item_info_entry_v1->item_info_extension = fd_item_info_extension;
 
 							ReadString(bs, fd_item_info_extension->content_location);
 							ReadString(bs, fd_item_info_extension->content_MD5);
@@ -1851,7 +2283,7 @@ namespace ISOBMFF
 
 							if (left_bytes < sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint8_t))
 							{
-								printf("Not enough to fill FDItemInfoExtension of one ItemInfoEntry v1, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+								_tprintf(_T("[ISOBMFF] Not enough to fill FDItemInfoExtension of one ItemInfoEntry v1, left_bytes: %llu.\n"), left_bytes);
 								goto done;
 							}
 
@@ -1872,7 +2304,7 @@ namespace ISOBMFF
 						}
 						else
 						{
-							printf("Unsupported extension_type: 0X%08X.\r\n", item_info_entries_v1[last_entry_idx].extension_type);
+							_tprintf(_T("[ISOBMFF] Unsupported extension_type: 0X%08X.\n"), item_info_entry_v1->extension_type);
 							goto done;
 						}
 					}
@@ -1881,40 +2313,98 @@ namespace ISOBMFF
 					{
 						if (left_bytes < sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + 1/*item_name null terminator*/)
 						{
-							printf("Not enough to fill one ItemInfoEntry v2, last_entry_idx: %d, left_bytes: %llu.\r\n", last_entry_idx, left_bytes);
+							_tprintf(_T("[ISOBMFF] Not enough to fill one ItemInfoEntry v2, left_bytes: %llu.\n"), left_bytes);
 							goto done;
 						}
 
-						item_info_entries_v2[last_entry_idx].item_ID = bs.GetWord();
-						item_info_entries_v2[last_entry_idx].item_protection_index = bs.GetWord();
-						item_info_entries_v2[last_entry_idx].item_type = bs.GetDWord();
+						if (version >= 3)
+							item_info_entry_v2->item_ID = bs.GetDWord();
+						else
+							item_info_entry_v2->item_ID = bs.GetWord();
+						item_info_entry_v2->item_protection_index = bs.GetWord();
+						item_info_entry_v2->item_type = bs.GetDWord();
 
-						ReadString(bs, item_info_entries_v2[last_entry_idx].item_name);
+						ReadString(bs, item_info_entry_v2->item_name);
 
-						left_bytes -= sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + item_info_entries_v2[last_entry_idx].item_name.length();
+						left_bytes -= (version >= 3?sizeof(uint32_t):sizeof(uint16_t)) + sizeof(uint16_t) + sizeof(uint32_t) + item_info_entry_v2->item_name.length();
 
-						if (item_info_entries_v2[last_entry_idx].item_type == 'mime')
+						if (item_info_entry_v2->item_type == 'mime')
 						{
-							ReadString(bs, item_info_entries_v2[last_entry_idx].content_type);
-							ReadString(bs, item_info_entries_v2[last_entry_idx].content_encoding);
+							ReadString(bs, item_info_entry_v2->content_type);
+							ReadString(bs, item_info_entry_v2->content_encoding);
 
-							left_bytes -= item_info_entries_v2[last_entry_idx].content_type.length() +
-								item_info_entries_v2[last_entry_idx].content_encoding.length();
+							left_bytes -= item_info_entry_v2->content_type.length() +
+								item_info_entry_v2->content_encoding.length();
 						}
-						else if (item_info_entries_v2[last_entry_idx].item_type == 'uri ')
+						else if (item_info_entry_v2->item_type == 'uri ')
 						{
-							ReadString(bs, item_info_entries_v2[last_entry_idx].item_uri_type);
+							ReadString(bs, item_info_entry_v2->item_uri_type);
 
-							left_bytes -= item_info_entries_v2[last_entry_idx].item_uri_type.length();
+							left_bytes -= item_info_entry_v2->item_uri_type.length();
 						}
 					}
 
-					last_entry_idx++;
+				done:
+					SkipLeftBits(bs);
+					return 0;
+				}
+			}PACKED;
+
+			uint16_t		entry_count;
+			uint32_t		last_entry_idx;
+			std::vector<ItemInfoEntry>
+							item_info_entries;
+
+			uint32_t GetItemType(uint32_t item_ID)
+			{
+				for (size_t i = 0; i < item_info_entries.size(); i++)
+				{
+					if (item_info_entries[i].GetItemID() == item_ID)
+						return item_info_entries[i].GetItemType();
+				}
+
+				return 0;
+			}
+
+			virtual int Unpack(CBitstream& bs)
+			{
+				int iRet = 0;
+
+				if ((iRet = FullBox::Unpack(bs)) < 0)
+					return iRet;
+
+				uint64_t left_bytes = LeftBytes(bs);
+				if (left_bytes < sizeof(entry_count))
+				{
+					SkipLeftBits(bs);
+					return RET_CODE_BOX_TOO_SMALL;
+				}
+
+				if (version == 0)
+					entry_count = bs.GetWord();
+				else
+					entry_count = bs.GetDWord();
+
+				left_bytes -= version == 0 ? 2 : 4;
+
+				if (entry_count > 0)
+				{
+					item_info_entries.resize(entry_count);
+
+					last_entry_idx = 0;
+					while (left_bytes >= MIN_FULLBOX_SIZE)
+					{
+						if ((iRet = item_info_entries[last_entry_idx].Unpack(bs)) < 0)
+							goto done;
+
+						left_bytes -= item_info_entries[last_entry_idx].size;
+						last_entry_idx++;
+					}
 				}
 
 			done:
 				SkipLeftBits(bs);
-				return 0;
+				return iRet;
 			}
 
 		}PACKED;
@@ -2393,10 +2883,16 @@ namespace ISOBMFF
 					reference_count = bs.GetWord();
 					left_bytes -= sizeof(uint16_t) + sizeof(uint16_t);
 
-					while (left_bytes >= sizeof(uint16_t) && reference_count < to_item_IDs.size())
+					uint16_t last_idx = 0;
+					while (left_bytes >= sizeof(uint16_t) && last_idx < reference_count)
 					{
 						to_item_IDs.push_back(bs.GetWord());
+							
+						if (left_bytes < sizeof(uint16_t))
+							break;
+
 						left_bytes -= sizeof(uint16_t);
+						last_idx++;
 					}
 
 				done:
@@ -2432,6 +2928,7 @@ namespace ISOBMFF
 					}
 
 					references.push_back(ref);
+						left_bytes -= ref->size;
 				}
 
 				SkipLeftBits(bs);
@@ -2590,9 +3087,29 @@ namespace ISOBMFF
 			uint32_t	reference_type : 1;
 			uint32_t	referenced_size : 31;
 			uint32_t	subsegment_duration;
-			uint32_t	starts_with_SAPL : 1;
+			uint32_t	starts_with_SAP : 1;
 			uint32_t	SAP_type : 3;
 			uint32_t	SAP_delta_time : 28;
+
+			std::string Meaning()
+			{
+				if (starts_with_SAP == 0 && SAP_type == 0)
+					return "No information of SAPs is provided";
+				else if (starts_with_SAP == 0 && SAP_type >= 1 && SAP_type <= 6 && reference_type == 0)
+					return "The subsegment contains (but may not start with) a SAP of the given SAP_type and the first SAP of the given SAP_type corresponds to SAP_delta_time";
+				else if (starts_with_SAP == 0 && SAP_type >= 1 && SAP_type <= 6 && reference_type == 1)
+					return "All the referenced subsegments contain a SAP of at most the given SAP_type and none of these SAPs is of an unknown type";
+				else if (starts_with_SAP == 1 && SAP_type == 0 && reference_type == 0)
+					return "The subsegment starts with a SAP of an unknown type";
+				else if (starts_with_SAP == 1 && SAP_type == 0 && reference_type == 1)
+					return "All the referenced subsegments start with a SAP which may be of an unknown type";
+				else if (starts_with_SAP == 1 && SAP_type >= 1 && SAP_type <= 6 && reference_type == 0)
+					return "The referenced subsegment starts with a SAP of the given SAP_type";
+				else if (starts_with_SAP == 1 && SAP_type >= 1 && SAP_type <= 6 && reference_type == 1)
+					return "All the referenced subsegments start with a SAP of at most the given SAP_type and none of these SAPs is of an unknown type";
+
+				return "";
+			}
 		}PACKED;
 
 		uint32_t				reference_ID;
@@ -2609,7 +3126,7 @@ namespace ISOBMFF
 		{
 			int iRet = 0;
 
-			if ((iRet = Box::Unpack(bs)) < 0)
+				if ((iRet = FullBox::Unpack(bs)) < 0)
 				return iRet;
 
 			uint64_t left_bytes = LeftBytes(bs);
@@ -2638,7 +3155,7 @@ namespace ISOBMFF
 				back.reference_type = (uint32_t)bs.GetBits(1);
 				back.referenced_size = (uint32_t)bs.GetBits(31);
 				back.subsegment_duration = bs.GetDWord();
-				back.starts_with_SAPL = (uint32_t)bs.GetBits(1);
+				back.starts_with_SAP = (uint32_t)bs.GetBits(1);
 				back.SAP_type = (uint32_t)bs.GetBits(3);
 				back.SAP_delta_time = (uint32_t)bs.GetBits(28);
 				left_bytes -= sizeof(Reference);
@@ -2772,13 +3289,13 @@ namespace ISOBMFF
 		{
 			union {
 				struct {
-					uint64_t	create_time;
+					uint64_t	creation_time;
 					uint64_t	modification_time;
 					uint32_t	timescale;
 					uint64_t	duration;
 				}PACKED v1;
 				struct {
-					uint32_t	create_time;
+					uint32_t	creation_time;
 					uint32_t	modification_time;
 					uint32_t	timescale;
 					uint32_t	duration;
@@ -2802,14 +3319,14 @@ namespace ISOBMFF
 
 				if (version == 1)
 				{
-					v1.create_time = bs.GetQWord();
+					v1.creation_time = bs.GetQWord();
 					v1.modification_time = bs.GetQWord();
 					v1.timescale = bs.GetDWord();
 					v1.duration = bs.GetQWord();
 				}
 				else
 				{
-					v0.create_time = bs.GetDWord();
+					v0.creation_time = bs.GetDWord();
 					v0.modification_time = bs.GetDWord();
 					v0.timescale = bs.GetDWord();
 					v0.duration = bs.GetDWord();
@@ -2946,7 +3463,7 @@ namespace ISOBMFF
 							return iRet;
 
 						uint64_t left_bytes = LeftBytes(bs);
-						if (left_bytes > sizeof(uint32_t))
+						if (left_bytes >= sizeof(uint32_t))
 						{
 							for (uint64_t i = 0; i < left_bytes / sizeof(uint32_t); i++)
 							{
@@ -3109,7 +3626,7 @@ namespace ISOBMFF
 					if ((iRet = Box::Unpack(bs)) < 0)
 						return iRet;
 
-					LoadBoxes(this, bs, (Box**)&edit_list_box);
+					LoadOneBoxBranch(this, bs, (Box**)&edit_list_box);
 
 					SkipLeftBits(bs);
 					return 0;
@@ -3520,7 +4037,7 @@ namespace ISOBMFF
 						struct URIMetaSampleEntry : public MetaDataSampleEntry
 						{
 							URIBox				the_label;
-							URIInitBox*			ptr_init;				// optional
+							URIInitBox*			ptr_init = nullptr;		// optional
 							//MPEG4BitRateBox*	ptr_BitRateBox;			// optional
 
 							virtual int Unpack(CBitstream& bs)
@@ -3610,16 +4127,30 @@ namespace ISOBMFF
 						{
 							uint32_t	colour_type;
 
-							// On-Screen colours
-							uint16_t	colour_primaries;
-							uint16_t	transfer_characteristics;
-							uint16_t	matrix_coefficients;
-							uint8_t		full_range_flag:1;
-							uint8_t		reserved:7;
-							
-							// restricted ICC profile
+							union
+							{
+								struct
+								{
+							        // On-Screen colours
+							        uint16_t	colour_primaries;
+							        uint16_t	transfer_characteristics;
+							        uint16_t	matrix_coefficients;
+							        uint8_t		full_range_flag:1;
+							        uint8_t		reserved:7;
+								}PACKED;
 
-							// unrestricted ICC profile
+								// It is the same definition in H.265/H.264 VUI color_primaries, transfer_chatacters and matrix_coeffs
+								struct
+								{
+									uint16_t	Primaries_index;
+									uint16_t	Transfer_function_index;
+									uint16_t	Matrix_index;
+								};
+							
+								// restricted ICC profile
+
+								// unrestricted ICC profile
+							}PACKED;
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -3636,12 +4167,14 @@ namespace ISOBMFF
 								}
 
 								colour_type = bs.GetDWord();
+									left_bytes -= 4;
+
 								if (colour_type == 'nclx')
 								{
-									if (LeftBytes(bs) < 7)
+									if (left_bytes < 7)
 									{
-										SkipLeftBits(bs);
-										return RET_CODE_BOX_TOO_SMALL;
+										iRet =  RET_CODE_BOX_TOO_SMALL;
+										goto done;
 									}
 
 									colour_primaries = bs.GetWord();
@@ -3649,6 +4182,18 @@ namespace ISOBMFF
 									matrix_coefficients = bs.GetWord();
 									full_range_flag = (uint8_t)bs.GetBits(1);
 									reserved = (uint8_t)bs.GetBits(7);
+								}
+								else if (colour_type == 'nclc')
+								{
+									if (left_bytes < 6)
+									{
+										iRet = RET_CODE_BOX_TOO_SMALL;
+										goto done;
+									}
+
+									Primaries_index = bs.GetWord();
+									Transfer_function_index = bs.GetWord();
+									Matrix_index = bs.GetWord();
 								}
 								else if (colour_type == 'rICC')
 								{
@@ -3659,9 +4204,147 @@ namespace ISOBMFF
 									// TODO...
 								}
 
+							done:
 								SkipLeftBits(bs);
-								return 0;
+								return iRet;
 							}
+
+						}PACKED;
+
+						struct RtpHintSampleEntry : public SampleEntry
+						{
+							struct TimeScaleEntry : public Box
+							{
+								uint32_t				timescale;
+
+								virtual int Unpack(CBitstream& bs)
+								{
+									int iRet = RET_CODE_SUCCESS;
+									if ((iRet = Box::Unpack(bs)) < 0)
+										return iRet;
+
+									uint64_t left_bytes = LeftBytes(bs);
+									if (left_bytes < sizeof(timescale))
+									{
+										iRet = RET_CODE_BOX_TOO_SMALL;
+										goto done;
+									}
+
+									timescale = bs.GetDWord();
+
+								done:
+									SkipLeftBits(bs);
+									return iRet;
+								}
+
+							}PACKED;
+
+							struct TimeOffset : public Box
+							{
+								int32_t				offset;
+
+								virtual int Unpack(CBitstream& bs)
+								{
+									int iRet = RET_CODE_SUCCESS;
+									if ((iRet = Box::Unpack(bs)) < 0)
+										return iRet;
+
+									uint64_t left_bytes = LeftBytes(bs);
+									if (left_bytes < sizeof(offset))
+									{
+										iRet = RET_CODE_BOX_TOO_SMALL;
+										goto done;
+									}
+
+									offset = bs.GetLong();
+
+								done:
+									SkipLeftBits(bs);
+									return iRet;
+								}
+
+							}PACKED;
+
+							struct SequenceOffset : public Box
+							{
+								int32_t				offset;
+
+								virtual int Unpack(CBitstream& bs)
+								{
+									int iRet = RET_CODE_SUCCESS;
+									if ((iRet = Box::Unpack(bs)) < 0)
+										return iRet;
+
+									uint64_t left_bytes = LeftBytes(bs);
+									if (left_bytes < sizeof(offset))
+									{
+										iRet = RET_CODE_BOX_TOO_SMALL;
+										goto done;
+									}
+
+									offset = bs.GetLong();
+
+								done:
+									SkipLeftBits(bs);
+									return iRet;
+								}
+
+							}PACKED;
+
+							uint16_t				hinttrackversion;
+							uint16_t				highestcompatibleversion;
+							uint32_t				maxpacketsize;
+
+							TimeScaleEntry*			ptr_tims = nullptr;
+							TimeOffset*				ptr_tsro = nullptr;
+							SequenceOffset*			ptr_snro = nullptr;
+
+							virtual int Unpack(CBitstream& bs)
+							{
+								int iRet = RET_CODE_SUCCESS;
+								if ((iRet = SampleEntry::Unpack(bs)) < 0)
+									return iRet;
+
+								uint64_t left_bytes = LeftBytes(bs);
+								if (left_bytes < sizeof(hinttrackversion) + sizeof(highestcompatibleversion) + sizeof(maxpacketsize))
+								{
+									iRet = RET_CODE_BOX_TOO_SMALL;
+									goto done;
+								}
+
+								hinttrackversion = bs.GetWord();
+								highestcompatibleversion = bs.GetWord();
+								maxpacketsize = bs.GetDWord();
+
+								left_bytes -= sizeof(hinttrackversion) + sizeof(highestcompatibleversion) + sizeof(maxpacketsize);
+
+								Box* ptr_box = nullptr;
+								while (left_bytes >= MIN_BOX_SIZE && LoadOneBoxBranch(this, bs, &ptr_box) >= 0)
+								{
+									switch (ptr_box->type)
+									{
+									case 'tims':
+										ptr_tims = (TimeScaleEntry*)ptr_box;
+										break;
+									case 'tsro':
+										ptr_tsro = (TimeOffset*)ptr_box;
+										break;
+									case 'snro':
+										ptr_snro = (SequenceOffset*)ptr_box;
+										break;
+									}
+
+									if (left_bytes < ptr_box->size)
+										break;
+
+									left_bytes -= ptr_box->size;
+								}
+
+							done:
+								SkipLeftBits(bs);
+								return iRet;
+							}
+
 						}PACKED;
 
 						struct VisualSampleEntry : public SampleEntry
@@ -3683,16 +4366,7 @@ namespace ISOBMFF
 							CleanApertureBox*		ptr_clap = nullptr;	// optional
 							PixelAspectRatioBox*	ptr_pasp = nullptr;	// optional
 
-							virtual ~VisualSampleEntry()
-							{
-								if (ptr_clap != nullptr)
-									delete ptr_clap;
-
-								if (ptr_pasp != nullptr)
-									delete ptr_pasp;
-							}
-
-							int _Unpack(CBitstream& bs)
+							int _UnpackHeader(CBitstream& bs)
 							{
 								int iRet = 0;
 
@@ -3722,44 +4396,38 @@ namespace ISOBMFF
 								depth = bs.GetWord();
 								pre_defined_2 = bs.GetShort();
 
-								left_bytes = LeftBytes(bs);
-								try
-								{
-									while (left_bytes >= MIN_BOX_SIZE)
-									{
-										uint64_t box_header = bs.PeekBits(64);
-										uint32_t box_type = (box_header&UINT32_MAX);
-										if (box_type == 'clap')
-										{
-											if (ptr_clap == nullptr)
-												ptr_clap = new CleanApertureBox();
-											if (ptr_clap->Unpack(bs) < 0)
-												break;
-										}
-										else if (box_type == 'pasp')
-										{
-											if (ptr_pasp == nullptr)
-												ptr_pasp = new PixelAspectRatioBox();
-											if (ptr_pasp->Unpack(bs) < 0)
-												break;
-										}
-										else
-											break;
-
-										left_bytes = LeftBytes(bs);
-									}
-								}
-								catch (std::exception& e)
-								{
-									// continue since these 2 fields are optional
-								}
-
-								return 0;
+								return iRet;
 							}
 
 							virtual int Unpack(CBitstream& bs)
 							{
-								int iRet = _Unpack(bs);
+								int iRet = _UnpackHeader(bs);
+
+								if (iRet < 0)
+									goto done;
+
+								uint64_t left_bytes = LeftBytes(bs);
+								Box* ptr_box = nullptr;
+
+								while (left_bytes >= MIN_BOX_SIZE && LoadOneBoxBranch(this, bs, &ptr_box) >= 0)
+								{
+									switch (ptr_box->type)
+									{
+									case 'clap':
+										ptr_clap = (CleanApertureBox*)ptr_box;
+											break;
+									case 'pasp':
+										ptr_pasp = (PixelAspectRatioBox*)ptr_box;
+											break;
+									}
+
+									if (left_bytes < ptr_box->size)
+										break;
+
+									left_bytes -= ptr_box->size;
+								}
+
+							done:
 								SkipLeftBits(bs);
 								return iRet;
 							}
@@ -3775,17 +4443,17 @@ namespace ISOBMFF
 							uint16_t				reserved_1 = 0;
 							uint32_t				samplerate;
 
-							virtual int Unpack(CBitstream& bs)
+							int _UnpackHeader(CBitstream& bs)
 							{
-								int iRet = 0;
+								int iRet = RET_CODE_SUCCESS;
 
 								if ((iRet = SampleEntry::Unpack(bs)) < 0)
 									return iRet;
 
 								if (LeftBytes(bs) < (uint64_t)(&samplerate - &reserved_0[0]) + sizeof(samplerate))
 								{
-									SkipLeftBits(bs);
-									return RET_CODE_BOX_TOO_SMALL;
+									iRet = RET_CODE_BOX_TOO_SMALL;
+									goto done;
 								}
 
 								reserved_0[0] = bs.GetDWord();
@@ -3796,8 +4464,31 @@ namespace ISOBMFF
 								reserved_1 = bs.GetWord();
 								samplerate = bs.GetDWord();
 
+							done:
+								return iRet;
+							}
+
+							virtual int Unpack(CBitstream& bs)
+							{
+								int iRet = _UnpackHeader(bs);
+
+								if (iRet < 0)
+									goto done;
+
+								uint64_t left_bytes = LeftBytes(bs);
+								Box* ptr_box = nullptr;
+
+								while (left_bytes >= MIN_BOX_SIZE && LoadOneBoxBranch(this, bs, &ptr_box) >= 0)
+								{
+									if (left_bytes < ptr_box->size)
+										break;
+
+									left_bytes -= ptr_box->size;
+								}
+
+							done:
 								SkipLeftBits(bs);
-								return 0;
+								return iRet;
 							}
 						}PACKED;
 
@@ -3813,15 +4504,6 @@ namespace ISOBMFF
 							uint32_t	entry_count;
 
 							std::vector<Box*>	SampleEntries;
-
-							virtual ~SampleDescriptionBox()
-							{
-								for (size_t i = 0; i < SampleEntries.size(); i++)
-								{
-									if (SampleEntries[i] != nullptr)
-										delete SampleEntries[i];
-								}
-							}
 
 							virtual int Unpack(CBitstream& bs);
 						}PACKED;
@@ -3842,6 +4524,31 @@ namespace ISOBMFF
 
 							uint32_t			entry_count;
 							std::vector<Entry>	entries;
+
+							bool FindSamplePos(uint32_t sample_number, size_t& idxEntry, uint32_t& posInEntry, int64_t& time_pos)
+							{
+								if (sample_number < 1)
+									return false;
+
+								int64_t sample_time = 0;
+								uint32_t elapse_num_of_samples = 0;
+								for (size_t i = 0; i < entries.size(); i++)
+								{
+									if (sample_number >= elapse_num_of_samples + 1 &&
+										sample_number <= elapse_num_of_samples + entries[i].sample_count)
+									{
+										idxEntry = i;
+										posInEntry = sample_number - elapse_num_of_samples  - 1;
+										time_pos = sample_time + (int64_t)posInEntry*entries[i].sample_delta;
+										return true;
+									}
+
+									elapse_num_of_samples += entries[i].sample_count;
+									sample_time += (int64_t)entries[i].sample_count*entries[i].sample_delta;
+								}
+
+								return false;
+							}
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -3988,6 +4695,13 @@ namespace ISOBMFF
 							uint32_t				entry_count;
 							std::vector<uint32_t>	sample_numbers;
 
+							bool IsSyncFrame(uint32_t sample_number)
+							{
+								if (entry_count == 0 || sample_numbers.size() == 0)
+									return false;
+								return std::binary_search(sample_numbers.cbegin(), sample_numbers.cend(), sample_number);
+							}
+
 							virtual int Unpack(CBitstream& bs)
 							{
 								int iRet = 0;
@@ -4082,6 +4796,21 @@ namespace ISOBMFF
 
 							std::vector<uint32_t>	entry_size;
 
+							uint32_t GetMaxSampleSize()
+							{
+								uint32_t max_sample_size = 0UL;
+								if (sample_size == 0)
+								{
+									for (size_t i = 0; i < entry_size.size(); i++)
+										if (max_sample_size < entry_size[i])
+											max_sample_size = entry_size[i];
+								}
+								else
+									max_sample_size = sample_size;
+
+								return max_sample_size;
+							}
+
 							virtual int Unpack(CBitstream& bs)
 							{
 								int iRet = 0;
@@ -4121,6 +4850,15 @@ namespace ISOBMFF
 							uint32_t				sample_count;
 
 							std::vector<uint16_t>	entry_size;
+
+							uint16_t GetMaxSampleSize()
+							{
+								uint16_t max_sample_size = 0;
+								for (size_t i = 0; i < entry_size.size(); i++)
+									if (max_sample_size < entry_size[i])
+										max_sample_size = entry_size[i];
+								return max_sample_size;
+							}
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -4168,6 +4906,31 @@ namespace ISOBMFF
 
 							uint32_t				entry_count;
 							std::vector<EntryInfo>	entry_infos;
+
+							bool FindChunk(uint32_t sample_number, uint32_t total_chunks, uint32_t& chunk_number, uint32_t& first_sample_number, uint32_t &sample_desc_number)
+							{
+								uint32_t total_numbers = 0;
+								for (size_t i = 0; i < entry_infos.size(); i++)
+								{
+									uint32_t end_chunk = (i + 1 >= entry_infos.size()) ? (total_chunks + 1) : entry_infos[i+1].first_chunk;
+
+									if (end_chunk <= entry_infos[i].first_chunk)
+										end_chunk = entry_infos[i].first_chunk + 1;
+
+									if (sample_number >= total_numbers + 1 &&
+										sample_number <= total_numbers + (end_chunk - entry_infos[i].first_chunk)*entry_infos[i].samples_per_chunk)
+									{
+										chunk_number = entry_infos[i].first_chunk + (sample_number - total_numbers - 1) / entry_infos[i].samples_per_chunk;
+										first_sample_number = total_numbers + (chunk_number - entry_infos[i].first_chunk)*entry_infos[i].samples_per_chunk + 1;
+										sample_desc_number = entry_infos[i].sample_description_index;
+										return true;
+									}
+
+									total_numbers += (end_chunk - entry_infos[i].first_chunk)*entry_infos[i].samples_per_chunk;
+								}
+
+								return false;
+							}
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -4917,6 +5680,35 @@ namespace ISOBMFF
 		AdditionalMetadataContainerBox*
 								additional_metadata_container_box = nullptr;// Additional metadata container box
 
+		uint32_t GetMediaTimeScale(uint32_t track_ID)
+		{
+			for (auto v : track_boxes)
+			{
+				if (v == nullptr || v->track_header_box == nullptr)
+					continue;
+
+				if (v->track_header_box != nullptr &&
+					track_ID == (v->track_header_box->version == 0 ? v->track_header_box->v0.track_ID : v->track_header_box->v1.track_ID))
+				{
+					if (v->media_box != nullptr &&
+						v->media_box->media_header_box != nullptr)
+						return v->media_box->media_header_box->version == 0 ? 
+							v->media_box->media_header_box->v0.timescale :
+							v->media_box->media_header_box->v1.timescale;
+					break;
+				}
+			}
+			return 0;
+		}
+
+		uint32_t GetMovieTimeScale()
+		{
+			if (movie_header_box != nullptr)
+				return movie_header_box->version == 0 ? movie_header_box->v0.timescale : movie_header_box->v1.timescale;
+
+			return 0;
+		}
+
 		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = ContainerBox::Unpack(bs);
@@ -5031,12 +5823,6 @@ namespace ISOBMFF
 					track_ID = bs.GetDWord();
 					cbLeftBytes -= 4;
 					
-					if (cbLeftBytes < 20)
-					{
-						SkipLeftBits(bs);
-						return 0;
-					}
-
 					if (flags & 0x000001)
 					{
 						/*  0x000001 base-data-offset-present: indicates the presence of the base-data-offset field.This provides

@@ -233,9 +233,9 @@ namespace ISOBMFF
 		BoxTree*		first_child = nullptr;
 		BoxTree*		next_sibling = nullptr;
 
-		BoxTree():BoxTree(UINT32_MAX, -1, 1) {}
-		BoxTree(uint32_t box_type, int8_t box_level, bool bMandatory) 
-			:type(box_type), level(box_level), mandatory(bMandatory?1:0) {}
+		BoxTree() :BoxTree(UINT32_MAX, -1, 1) {}
+		BoxTree(uint32_t box_type, int8_t box_level, bool bMandatory)
+			:type(box_type), level(box_level), mandatory(bMandatory ? 1 : 0) {}
 
 		~BoxTree()
 		{
@@ -375,7 +375,7 @@ namespace ISOBMFF
 					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%s", ptr_element->mandatory ? "  *" : "");
 					break;
 				case 2:
-					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%s", box_desces.find(ptr_element->type)==box_desces.end()?"":box_desces[ptr_element->type]);
+					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%s", box_desces.find(ptr_element->type) == box_desces.end() ? "" : box_desces[ptr_element->type]);
 					break;
 				}
 
@@ -427,7 +427,7 @@ namespace ISOBMFF
 					pParent = pParent->parent;
 			}
 
-			BoxTree* pCurrent = new BoxTree(box_descriptors[i].box_type, box_descriptors[i].level, box_descriptors[i].mandatory?true:false);
+			BoxTree* pCurrent = new BoxTree(box_descriptors[i].box_type, box_descriptors[i].level, box_descriptors[i].mandatory ? true : false);
 			pParent->AppendChild(pCurrent);
 
 			// Check whether there is a child under it or not
@@ -443,7 +443,7 @@ namespace ISOBMFF
 
 		int max_tree_width = pShowItem->GetMaxTreeWidth(0);
 		const char* szColumns[] = { "Box Type", "Manda", "Description" };
-		int column_widths[] = { AMP_MAX(max_tree_width, (int)strlen(szColumns[0])), 5, AMP_MAX(max_desc_width, (int32_t)strlen(szColumns[2]))};
+		int column_widths[] = { AMP_MAX(max_tree_width, (int)strlen(szColumns[0])), 5, AMP_MAX(max_desc_width, (int32_t)strlen(szColumns[2])) };
 
 		// Print Header
 		int table_width = 0;
@@ -473,11 +473,65 @@ namespace ISOBMFF
 
 	Box* Box::RootBox()
 	{
-		static Box rootbox(8, 0);
-		return &rootbox;
+		auto pBox = this;
+		while (pBox->container != nullptr)
+			pBox = pBox->container;
+		return pBox;
 	}
 
-	int Box::LoadBoxes(Box* pContainer, CBitstream& bs, Box** ppBox)
+	bool Box::IsQT()
+	{
+		Box* ptr_child = RootBox()->first_child;
+		while (ptr_child != nullptr && ptr_child->type != 'ftyp')
+			ptr_child = ptr_child->next_sibling;
+
+		if (ptr_child != nullptr && ((FileTypeBox*)ptr_child)->major_brand == 'qt  ')
+			return true;
+
+		return false;
+	}
+
+	bool Box::IsHEIC()
+	{
+		Box* ptr_child = RootBox()->first_child;
+		while (ptr_child != nullptr && ptr_child->type != 'ftyp')
+			ptr_child = ptr_child->next_sibling;
+
+		if (ptr_child != nullptr && ((FileTypeBox*)ptr_child)->major_brand == 'heic')
+			return true;
+
+		if (ptr_child != nullptr)
+		{
+			for (auto& v : ((FileTypeBox*)ptr_child)->compatible_brands)
+				if (v == 'heic')
+					return true;
+		}
+
+		return false;
+	}
+
+	std::list<Box> Box::root_box_list;
+
+	Box& Box::CreateRootBox()
+	{
+		root_box_list.emplace_back(8, 0);
+		return root_box_list.back();
+	}
+
+	void Box::DestroyRootBox(Box &root_box)
+	{
+		root_box.Clean();
+		for (auto iter = root_box_list.cbegin(); iter != root_box_list.cend(); iter++)
+		{
+			if (&(*iter) == &root_box)
+			{
+				root_box_list.erase(iter);
+				break;
+			}
+		}
+	}
+
+	int Box::LoadOneBoxBranch(Box* pContainer, CBitstream& bs, Box** ppBox)
 	{
 		int iRet = 0;
 		Box* ptr_box = NULL;
@@ -674,7 +728,7 @@ namespace ISOBMFF
 			case 'meta':
 				// QT file metadata is different with ISO 14496-12 definition
 			{
-				Box* ptr_child = RootBox()->first_child;
+				Box* ptr_child = pContainer->RootBox()->first_child;
 				while (ptr_child != nullptr && ptr_child->type != 'ftyp')
 					ptr_child = ptr_child->next_sibling;
 
@@ -776,6 +830,45 @@ namespace ISOBMFF
 			case 'rinf':
 				ptr_box = new RestrictedSchemeInfoBox();
 				break;
+			case 'uuid':
+				ptr_box = new UUIDBox();
+				break;
+			case 'btrt':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::BitRateBox();
+				break;
+			case 'colr':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::ColourInformationBox();
+				break;
+			case 'clap':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CleanApertureBox();
+				break;
+			case 'pasp':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::PixelAspectRatioBox();
+				break;
+			case 'tims':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::RtpHintSampleEntry::TimeScaleEntry();
+				break;
+			case 'tsro':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::RtpHintSampleEntry::TimeOffset();
+				break;
+			case 'snro':
+				ptr_box = new MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::RtpHintSampleEntry::SequenceOffset();
+				break;
+			case 'm4ds':
+				ptr_box = new MPEG4ExtensionDescriptorsBox();
+				break;
+			case 'avcC':
+				ptr_box = new AVCConfigurationBox();
+				break;
+			case 'hvcC':
+				ptr_box = new HEVCConfigurationBox();
+				break;
+			case 'lhvC':
+				ptr_box = new LHEVCConfigurationBox();
+				break;
+			case 'wave':
+				ptr_box = new QTFF::SoundSampleDescription::siDecompressionParamAtom();
+				break;
 			default:
 				ptr_box = new UnknownBox();
 			}
@@ -796,16 +889,46 @@ namespace ISOBMFF
 		}
 		catch (std::exception& e)
 		{
-			printf("exception: %s\r\n", e.what());
+			if (g_verbose_level > 0)
+				printf("exception: %s\r\n", e.what());
 			return -1;
 		}
 
 		return 0;
 	}
 
-	void Box::UnloadBoxes(Box* pBox)
+	int Box::Load(Box* pContainer, CBitstream& bs)
 	{
+		while (LoadOneBoxBranch(pContainer, bs) >= 0);
+		return 0;
+	}
 
+	uint32_t Box::GetMediaTimeScale(Box& root_box, uint32_t track_ID)
+	{
+		for (auto ptr_child = root_box.first_child; ptr_child != nullptr; ptr_child = ptr_child->next_sibling)
+		{
+			if (ptr_child->type == 'moov')
+			{
+				MovieBox* ptr_movie_box = (MovieBox*)ptr_child;
+				return ptr_movie_box->GetMediaTimeScale(track_ID);
+			}
+		}
+
+		return 0;
+	}
+
+	uint32_t Box::GetMovieTimeScale(Box& root_box)
+	{
+		for (auto ptr_child = root_box.first_child; ptr_child != nullptr; ptr_child = ptr_child->next_sibling)
+		{
+			if (ptr_child->type == 'moov')
+			{
+				MovieBox* ptr_movie_box = (MovieBox*)ptr_child;
+				return ptr_movie_box->GetMovieTimeScale();
+			}
+		}
+
+		return 0;
 	}
 
 	int MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox::Unpack(CBitstream& bs)
@@ -862,7 +985,7 @@ namespace ISOBMFF
 			return RET_CODE_ERROR;
 		}
 
-		handler_type = dynamic_cast<HandlerBox*>(ptr_mdia_child)->handler_type;
+		handler_type = static_cast<HandlerBox*>(ptr_mdia_child)->handler_type;
 
 		for (uint32_t i = 0; i < entry_count; i++)
 		{
@@ -875,8 +998,12 @@ namespace ISOBMFF
 			switch (handler_type)
 			{
 			case 'soun':	// for audio tracks
-				pBox = new AudioSampleEntry();
+				if (Box::IsQT())
+					pBox = new QTFF::SoundSampleDescription();
+				else
+					pBox = new AudioSampleEntry();
 				break;
+			case 'pict':
 			case 'vide':	// for video tracks
 				switch ((box_header&UINT32_MAX))
 				{
@@ -897,7 +1024,15 @@ namespace ISOBMFF
 				}
 				break;
 			case 'hint':	// Hint track
-				pBox = new HintSampleEntry();
+				switch ((box_header&UINT32_MAX))
+				{
+				case 'rtp ':
+					pBox = new RtpHintSampleEntry();
+					break;
+				default:
+					pBox = new HintSampleEntry();
+				}
+					
 				break;
 			case 'meta':	// Metadata track
 				pBox = new MetaDataSampleEntry();
@@ -907,7 +1042,7 @@ namespace ISOBMFF
 				pBox = new UnknownBox();
 			}
 
-			pBox->container = this;
+			AppendChildBox(pBox);
 
 			pBox->Unpack(bs);
 
@@ -918,5 +1053,286 @@ namespace ISOBMFF
 
 		SkipLeftBits(bs);
 		return 0;
+	}
+
+	int SampleGroupDescriptionBox::Unpack(CBitstream& bs)
+	{
+		int iRet = 0;
+
+		if ((iRet = FullBox::Unpack(bs)) < 0)
+			return iRet;
+
+		uint64_t left_bytes = LeftBytes(bs);
+		if (left_bytes < sizeof(grouping_type))
+		{
+			iRet = RET_CODE_BOX_TOO_SMALL;
+			goto done;
+		}
+
+		grouping_type = bs.GetDWord();
+		left_bytes -= sizeof(uint32_t);
+
+		if (version == 1)
+		{
+			if (left_bytes < sizeof(default_length))
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			default_length = bs.GetDWord();
+			left_bytes -= sizeof(uint32_t);
+		}
+
+		if (left_bytes < sizeof(entry_count))
+		{
+			iRet = RET_CODE_BOX_TOO_SMALL;
+			goto done;
+		}
+
+		entry_count = bs.GetDWord();
+		left_bytes -= sizeof(uint32_t);
+
+		if (container == nullptr)
+		{
+			_tprintf(_T("The current 'stsd' box has no container box unexpectedly.\n"));
+			goto done;
+		}
+
+		if (container->type != 'stbl')
+		{
+			_tprintf(_T("The current 'stsd' box does NOT lie at a 'stbl' box container.\n"));
+			goto done;
+		}
+
+		if (container->container == nullptr || container->container->type != 'minf' ||
+			container->container->container == nullptr || container->container->container->type != 'mdia')
+		{
+			_tprintf(_T("Can't find the 'mdia' ancestor of the current 'stsd' box.\n"));
+			goto done;
+		}
+
+		auto ptr_mdia_container = container->container->container;
+
+		// find hdlr box
+		Box* ptr_mdia_child = ptr_mdia_container->first_child;
+		while (ptr_mdia_child != nullptr)
+		{
+			if (ptr_mdia_child->type == 'hdlr')
+				break;
+			ptr_mdia_child = ptr_mdia_child->next_sibling;
+		}
+
+		if (ptr_mdia_child == nullptr)
+		{
+			_tprintf(_T("Can't find 'hdlr' box for the current 'stsd' box.\n"));
+			goto done;
+		}
+
+		handler_type = static_cast<HandlerBox*>(ptr_mdia_child)->handler_type;
+
+		for (uint32_t i = 0; i < entry_count; i++)
+		{
+			Entry entry;
+			if (version == 1 && default_length == 0)
+			{
+				if (left_bytes < sizeof(entry_count))
+					break;
+
+				entry.description_length = bs.GetDWord();
+				left_bytes -= sizeof(uint32_t);
+			}
+			else
+				entry.description_length = default_length;
+
+			if (left_bytes < entry.description_length)
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				break;
+			}
+
+			SampleGroupDescriptionEntry* ptr_description_entry = nullptr;
+			switch (handler_type)
+			{
+			case 'vide':
+				switch (grouping_type)
+				{
+				case 'roll':
+					ptr_description_entry = new VisualRollRecoveryEntry(grouping_type, entry.description_length);
+					break;
+				case 'alst':
+					ptr_description_entry = new AlternativeStartupEntry(grouping_type, entry.description_length);
+					break;
+				case 'rap ':
+					ptr_description_entry = new VisualRandomAccessEntry(grouping_type, entry.description_length);
+					break;
+				case 'tele':
+					ptr_description_entry = new TemporalLevelEntry(grouping_type, entry.description_length);
+					break;
+				case 'tscl':
+					ptr_description_entry = new TemporalLayerEntry(grouping_type, entry.description_length);
+					break;
+				case 'oinf':
+					ptr_description_entry = new OperatingPointsInformation(entry.description_length);
+					break;
+				default:
+					ptr_description_entry = new VisualSampleGroupEntry(grouping_type, entry.description_length);
+				}
+				break;
+			case 'soun':
+				switch (grouping_type)
+				{
+				case 'roll':
+					ptr_description_entry = new AudioRollRecoveryEntry(grouping_type, entry.description_length);
+					break;
+				default:
+					ptr_description_entry = new AudioSampleGroupEntry(grouping_type, entry.description_length);
+				}
+				break;
+			case 'hint':
+				ptr_description_entry = new HintSampleGroupEntry(grouping_type, entry.description_length);
+				break;
+			default:
+				ptr_description_entry = new SampleGroupDescriptionEntry(grouping_type, entry.description_length);
+			}
+
+			if ((iRet = ptr_description_entry->Unpack(bs)) < 0)
+				goto done;
+
+			entry.sample_group_description_entry = ptr_description_entry;
+			entries.push_back(entry);
+		}
+
+	done:
+		SkipLeftBits(bs);
+		return 0;
+	}
+
+	const char* SkipDelimiter(const char* pattern)
+	{
+		if (*pattern != '\\' && *pattern != '/')
+			return pattern;
+
+		for (; *pattern == '\\' || *pattern == '/'; pattern++);
+		return pattern;
+	}
+
+	uint32_t GetBoxType(const char* p_start, const char* p_end)
+	{
+		uint32_t box_type = 0;
+		for (auto p = p_start; p < p_end; p++)
+			box_type = (box_type << 8) | *p;
+		return box_type;
+	}
+
+	bool GetNextTypeStr(const char* p, const char* &next_p_start, const char* &next_p_end)
+	{
+		if (*p != '\\' && *p != '/')
+			return false;
+
+		for (; *p == '\\' || *p == '/'; p++);
+
+		next_p_start = next_p_end = p;
+
+		for (; *p != '\0' && *p != '\\' && *p != '/'; p++);
+		next_p_end = p;
+
+		return true;
+	}
+
+	/*
+	pattern = [[/\]. | .. | ... | * | ^\/]+;
+	pattern = \moov\...\...\trak\*\mdia\minf\vmhd\..\dinf\dref
+	pattern = \...\mdia\...\stsd
+	*/
+	std::vector<Box*> Box::FindBox(const char* pattern)
+	{
+		std::vector<Box*> result;
+		if (pattern == nullptr || pattern[0] == '\0')
+			return result;
+
+		if (pattern[0] == '/' || pattern[0] == '\\')
+			return RootBox()->FindBox(SkipDelimiter(pattern));
+
+		// find the next delimiter
+		const char* p = pattern;
+		for (; *p != '\0' && *p != '\\' && *p != '/'; p++);
+		const char* next_pattern = SkipDelimiter(p);
+
+		// get the box type according to string
+		if (strncmp(pattern, ".", p - pattern) == 0)
+			return FindBox(next_pattern);
+		else if (strncmp(pattern, "..", p - pattern) == 0)
+		{
+			if (container == nullptr)
+				return FindBox(next_pattern);
+			
+			return container->FindBox(next_pattern);
+		}
+		else if (strncmp(pattern, "...", p - pattern) == 0)
+		{
+			// Skip the continuous "..." type string
+			bool bFindNextTypeStr = false;
+			const char* next_p_start = nullptr, *next_p_end = nullptr;
+			while ((bFindNextTypeStr = GetNextTypeStr(p, next_p_start, next_p_end)))
+			{
+				if (_strnicmp(next_p_start, "...", next_p_end - next_p_start) != 0)
+					break;
+
+				pattern = next_p_start;
+				p = next_p_end;
+			}
+
+			if (bFindNextTypeStr == false)
+				return result;
+			char* szNewPattern = new char[next_p_end - pattern + 1];
+			memcpy(szNewPattern, pattern, next_p_end - pattern);
+			szNewPattern[next_p_end - pattern] = '\0';
+			uint32_t box_type = GetBoxType(next_p_start, next_p_end);
+			std::vector<Box*> ret;
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
+			{
+				if (ptr_box->type == box_type)
+					ret.push_back(ptr_box);
+
+				std::vector<Box*> child_result = ptr_box->FindBox(szNewPattern);
+				if (child_result.size() > 0)
+					ret.insert(ret.end(), child_result.begin(), child_result.end());
+			}
+			delete[] szNewPattern;
+
+			p = next_p_end;
+			if (*p == '\0')
+				return ret;
+
+			for (auto& v : ret) {
+				std::vector<Box*> child_result = v->FindBox(p);
+				if (child_result.size() > 0)
+					result.insert(result.end(), child_result.begin(), child_result.end());
+			}
+		}
+		else
+		{
+			uint32_t box_type = GetBoxType(pattern, p);
+			bool bMatchAll = strncmp(pattern, "*", p - pattern) == 0 ? true : false;
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
+			{
+				if (ptr_box->type == box_type || bMatchAll)
+				{
+					if (next_pattern[0] == '\0')
+					{
+						result.push_back(ptr_box);
+					}
+					else
+					{
+						std::vector<Box*> child_result = ptr_box->FindBox(next_pattern);
+						if (child_result.size() > 0)
+							result.insert(result.end(), child_result.begin(), child_result.end());
+					}
+				}
+			}
+		}
+
+		return result;
 	}
 }

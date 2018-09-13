@@ -27,8 +27,8 @@ Use VS2015 to open DumpTS.sln to build it
 |**--pid**|*0xhhhh*|the PID of dumped stream|
 |**--trackid**|*xx*|the track ID of a ISOBMFF/Matroska file|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
-|**--srcfmt**|*ts, m2ts, tts, mp4, mkv*|the source media format, Including: ts, m2ts, mp4 and mkv,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...|
-|**--outputfmt**|*ts, m2ts, pes, es, wav, pcm*|the destination dumped format, including: ts, m2ts, pes, es and so on|
+|**--srcfmt**|*ts, m2ts, tts, mp4, mkv, huffman_codebook*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables|
+|**--outputfmt**|*ts, m2ts, pes, es, wav, pcm, binary_search_table*|the destination dumped format, including: ts, m2ts, pes, es and so on<br>**binary_search_table:**<br>generate the binary search table for Huffman VLC codebook|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--removebox**|*xxxx*|remove the box elements in MP4 file|
@@ -39,6 +39,8 @@ Use VS2015 to open DumpTS.sln to build it
 |**--listcrc**||List all CRC types supported in this program|
 |**--listmp4box**||List box types and descriptions defined in ISO-14496 spec|
 |**--listmkvEBML**||List EBML elements defined in Matroska spec|
+|**--dashinitmp4**|*filename*|the initialization MP4 file to describe the DASH stream global information|
+|**--VLCTypes**|*[ahdob][ahdob][ahdob]*|Specify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, "aah" means:<br>Value and length will be parsed according to literal string, codeword will be parsed according as hexadecimal|
 |**--verbose**|*0~n*|print more message in the intermediate process|
  
 Here are some examples of command lines:  

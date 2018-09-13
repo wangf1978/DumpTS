@@ -140,6 +140,7 @@
     <ClCompile Include="DumpTS.cpp" />
     <ClCompile Include="DumpMKV.cpp" />
     <ClCompile Include="ESRepacker.cpp" />
+    <ClCompile Include="HuffmanTree.cpp" />
     <ClCompile Include="ISO14496_1.cpp" />
     <ClCompile Include="ISO14496_12.cpp" />
     <ClCompile Include="ISO14496_15.cpp" />
@@ -172,6 +173,9 @@
     <ClInclude Include="StdAfx.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="README.html">
+      <DependentUpon>README.md</DependentUpon>
+    </None>
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

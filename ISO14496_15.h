@@ -21,6 +21,53 @@
 #define PACKED __attribute__ ((__packed__))
 #endif
 
+#define USE_AVCC_CONFIG(box_type)	(\
+	(box_type) == 'avcC' ||\
+	(box_type) == 'avc1' ||\
+	(box_type) == 'avc2' ||\
+	(box_type) == 'avc3' ||\
+	(box_type) == 'avc4' ||\
+	(box_type) == 'avcp')
+
+#define USE_HVCC_CONFIG(box_type)	(\
+	(box_type) == 'hvcC' ||\
+	(box_type) == 'hvc1' ||\
+	(box_type) == 'hev1' ||\
+	(box_type) == 'hvc2' ||\
+	(box_type) == 'hev2')
+
+#define IS_HEVC_STREAM(box_type)	(\
+	(box_type) == 'hvcC' ||\
+	(box_type) == 'hvc1' ||\
+	(box_type) == 'hev1' ||\
+	(box_type) == 'hvc2' ||\
+	(box_type) == 'hev2' ||\
+	(box_type) == 'lhv1' ||\
+	(box_type) == 'lhe1')
+
+#define IS_AVC_STREAM(box_type)	(\
+	(box_type) == 'avcC' ||\
+	(box_type) == 'avc1' ||\
+	(box_type) == 'avc2' ||\
+	(box_type) == 'avc3' ||\
+	(box_type) == 'avc4' ||\
+	(box_type) == 'avcp' ||\
+	(box_type) == 'svc1' ||\
+	(box_type) == 'svc2' ||\
+	(box_type) == 'svcC' ||\
+	(box_type) == 'mvc1' ||\
+	(box_type) == 'mvc2' ||\
+	(box_type) == 'mvc3' ||\
+	(box_type) == 'mvc4' ||\
+	(box_type) == 'mvd1' ||\
+	(box_type) == 'mvd2' ||\
+	(box_type) == 'mvd3' ||\
+	(box_type) == 'mvd4' ||\
+	(box_type) == 'a3d1' ||\
+	(box_type) == 'a3d2' ||\
+	(box_type) == 'a3d3' ||\
+	(box_type) == 'a3d4')
+
 enum class AVC_NAL_UNIT_TYPE
 {
 	CS_NON_IDR_PIC = 1,		// Coded slice of a non-IDR picture
@@ -290,96 +337,66 @@ namespace ISOBMFF
 		}
 	}PACKED;
 
-	struct AVCSampleEntry : public ISOBMFF::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
+	struct AVCSampleEntry : public MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
 	{
 		AVCConfigurationBox*			config = nullptr;
 		MPEG4ExtensionDescriptorsBox*	descr = nullptr;
 
-		virtual ~AVCSampleEntry()
-		{
-			if (config != nullptr)
-				delete config;
-			if (descr != nullptr)
-				delete descr;
-		}
-
 		virtual int Unpack(CBitstream& bs)
 		{
-			int iRet = RET_CODE_SUCCESS;
-			if ((iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::_Unpack(bs)) < 0)
-				return iRet;
+			int iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::Unpack(bs);
 
-			uint64_t left_bytes = LeftBytes(bs);
-			if (left_bytes < MIN_BOX_SIZE)
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
 			{
-				iRet = RET_CODE_BOX_TOO_SMALL;
-				goto done;
+				if (ptr_box->type == 'm4ds')
+					descr = (MPEG4ExtensionDescriptorsBox*)ptr_box;
+				else if (ptr_box->type == 'avcC')
+					config = (AVCConfigurationBox*)ptr_box;
 			}
 
-			config = new AVCConfigurationBox();
-			if ((iRet = config->Unpack(bs)) < 0)
-				goto done;
-
-			if (left_bytes > config->size + MIN_BOX_SIZE)
-			{
-				uint64_t box_header = bs.PeekBits(64);
-				if ((box_header&UINT32_MAX) == 'm4ds')
-				{
-					descr = new MPEG4ExtensionDescriptorsBox();
-					descr->Unpack(bs);
-				}
-			}
-
-		done:
-			SkipLeftBits(bs);
 			return iRet;
 		}
 	}PACKED;
 
-	struct AVC2SampleEntry : public ISOBMFF::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
+	struct AVC2SampleEntry : public MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
 	{
 		AVCConfigurationBox*			avcconfig = nullptr;
 		MPEG4ExtensionDescriptorsBox*	descr = nullptr;
 
-		virtual ~AVC2SampleEntry()
+		virtual int Unpack(CBitstream& bs)
 		{
-			if (avcconfig != nullptr)
-				delete avcconfig;
-			if (descr != nullptr)
-				delete descr;
+			int iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::Unpack(bs);
+
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
+			{
+				if (ptr_box->type == 'm4ds')
+					descr = (MPEG4ExtensionDescriptorsBox*)ptr_box;
+				else if (ptr_box->type == 'avcC')
+					avcconfig = (AVCConfigurationBox*)ptr_box;
+			}
+
+			return iRet;
 		}
+
+	}PACKED;
+
+	struct AVCParameterSampleEntry : public MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
+	{
+		AVCConfigurationBox*			config = nullptr;
 
 		virtual int Unpack(CBitstream& bs)
 		{
-			int iRet = RET_CODE_SUCCESS;
-			if ((iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::_Unpack(bs)) < 0)
-				return iRet;
+			int iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::Unpack(bs);
 
-			uint64_t left_bytes = LeftBytes(bs);
-			if (left_bytes < MIN_BOX_SIZE)
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
 			{
-				iRet = RET_CODE_BOX_TOO_SMALL;
-				goto done;
+				if(ptr_box->type == 'avcC')
+					config = (AVCConfigurationBox*)ptr_box;
 			}
 
-			avcconfig = new AVCConfigurationBox();
-			if ((iRet = avcconfig->Unpack(bs)) < 0)
-				goto done;
-
-			if (left_bytes > avcconfig->size + MIN_BOX_SIZE)
-			{
-				uint64_t box_header = bs.PeekBits(64);
-				if ((box_header&UINT32_MAX) == 'm4ds')
-				{
-					descr = new MPEG4ExtensionDescriptorsBox();
-					descr->Unpack(bs);
-				}
-			}
-
-		done:
-			SkipLeftBits(bs);
 			return iRet;
 		}
+
 	}PACKED;
 
 	struct HEVCDecoderConfigurationRecord
@@ -485,6 +502,57 @@ namespace ISOBMFF
 
 	}PACKED;
 
+	struct LHEVCDecoderConfigurationRecord
+	{
+		uint8_t					configurationVersion;
+		uint16_t				reserved_0 : 4;
+		uint16_t				min_spatial_segmentation_idc : 12;
+		uint8_t					reserved_1 : 6;
+		uint8_t					parallelismType : 2;
+		uint8_t					reserved_2 : 2;
+		uint8_t					numTemporalLayers : 3;
+		uint8_t					temporalIdNested : 1;
+		uint8_t					lengthSizeMinusOne : 2;
+		uint8_t					numOfArrays;
+		std::vector<HEVCDecoderConfigurationRecord::NALUnits*>
+								nalArray;
+
+		LHEVCDecoderConfigurationRecord()
+			: reserved_0(0xF), reserved_1(0x3F), reserved_2(0x3) {}
+
+		~LHEVCDecoderConfigurationRecord() {
+			for (auto v : nalArray)
+				delete v;
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			try
+			{
+				configurationVersion = bs.GetByte();
+				reserved_0 = (uint8_t)bs.GetBits(4);
+				min_spatial_segmentation_idc = (uint16_t)bs.GetBits(12);
+				reserved_1 = (uint8_t)bs.GetBits(6);
+				parallelismType = (uint8_t)bs.GetBits(2);
+				reserved_2 = (uint8_t)bs.GetBits(2);
+				numTemporalLayers = (uint8_t)bs.GetBits(3);
+				temporalIdNested = (uint8_t)bs.GetBits(1);
+				lengthSizeMinusOne = (uint8_t)bs.GetBits(2);
+				numOfArrays = bs.GetByte();
+				nalArray.resize(numOfArrays, nullptr);
+				for (uint8_t i = 0; i < numOfArrays; i++)
+					nalArray[i] = new HEVCDecoderConfigurationRecord::NALUnits(bs);
+			}
+			catch (...)
+			{
+				return -1;
+			}
+
+			return 0;
+		}
+
+	}PACKED;
+
 	/*
 	Sample Entry and Box Types: 'hvc1', 'hev1', 'hvcC'
 	Container: Sample Table Box ('stbl')
@@ -528,43 +596,306 @@ namespace ISOBMFF
 		HEVCConfigurationBox*			config = nullptr;
 		MPEG4ExtensionDescriptorsBox*	descr = nullptr;
 
-		virtual ~HEVCSampleEntry()
+		virtual int Unpack(CBitstream& bs)
 		{
-			if (config != nullptr)
-				delete config;
-			if (descr != nullptr)
-				delete descr;
+			int iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::Unpack(bs);
+
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
+			{
+				if (ptr_box->type == 'm4ds')
+					descr = (MPEG4ExtensionDescriptorsBox*)ptr_box;
+				else if (ptr_box->type == 'hvcC')
+					config = (HEVCConfigurationBox*)ptr_box;
+			}
+
+			return iRet;
+		}
+	}PACKED;
+
+	struct LHEVCConfigurationBox : public Box
+	{
+		LHEVCDecoderConfigurationRecord*	LHEVCConfig = nullptr;
+
+		virtual ~LHEVCConfigurationBox() {
+			if (LHEVCConfig != nullptr)
+				delete LHEVCConfig;
 		}
 
 		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = RET_CODE_SUCCESS;
-			if ((iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::_Unpack(bs)) < 0)
+			if ((iRet = Box::Unpack(bs)) < 0)
 				return iRet;
 
 			uint64_t left_bytes = LeftBytes(bs);
-			if (left_bytes < MIN_BOX_SIZE)
+			if (left_bytes < 6)
 			{
 				iRet = RET_CODE_BOX_TOO_SMALL;
 				goto done;
 			}
 
-			config = new HEVCConfigurationBox();
-			if ((iRet = config->Unpack(bs)) < 0)
-				goto done;
-
-			if (left_bytes > config->size + MIN_BOX_SIZE)
-			{
-				uint64_t box_header = bs.PeekBits(64);
-				if ((box_header&UINT32_MAX) == 'm4ds')
-				{
-					descr = new MPEG4ExtensionDescriptorsBox();
-					descr->Unpack(bs);
-				}
-			}			
+			LHEVCConfig = new LHEVCDecoderConfigurationRecord();
+			iRet = LHEVCConfig->Unpack(bs);
 
 		done:
 			SkipLeftBits(bs);
+			return iRet;
+		}
+
+	}PACKED;
+
+	struct HEVCLHVCSampleEntry : public HEVCSampleEntry
+	{
+		LHEVCConfigurationBox*			lhvcconfig = nullptr;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = HEVCSampleEntry::Unpack(bs);
+
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
+			{
+				if (ptr_box->type == 'lhvC')
+					lhvcconfig = (LHEVCConfigurationBox*)ptr_box;
+			}
+
+			return iRet;
+		}
+	}PACKED;
+
+	struct LHEVCSampleEntry : public MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry
+	{
+		LHEVCConfigurationBox*			lhvcconfig = nullptr;
+		MPEG4ExtensionDescriptorsBox*	descr = nullptr;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry::Unpack(bs);
+
+			for (auto ptr_box = first_child; ptr_box != nullptr; ptr_box = ptr_box->next_sibling)
+			{
+				if (ptr_box->type == 'm4ds')
+					descr = (MPEG4ExtensionDescriptorsBox*)ptr_box;
+				else if (ptr_box->type == 'lhvC')
+					lhvcconfig = (LHEVCConfigurationBox*)ptr_box;
+			}
+
+			return iRet;
+		}
+
+	}PACKED;
+
+	struct OperatingPointsRecord
+	{
+		struct PROFILE_TIER_LEVEL
+		{
+			uint64_t	general_profile_space : 2;
+			uint64_t	general_tier_flag : 1;
+			uint64_t	general_profile_idc : 5;
+			uint64_t	general_constraint_indicator_flags : 48;
+			uint64_t	general_level_idc : 8;
+
+			uint32_t	general_profile_compatibility_flags;
+		}PACKED;
+
+		struct OPERATING_POINT
+		{
+			struct LAYER
+			{
+				uint8_t		ptl_idx;
+				uint8_t		layer_id : 6;
+				uint8_t		is_outputlayer : 1;
+				uint8_t		is_alternate_outputlayer : 1;
+			}PACKED;
+
+			uint32_t	output_layer_set_idx : 16;
+			uint32_t	max_temporal_id : 8;
+			uint32_t	layer_count : 8;
+
+			std::vector<LAYER>
+						layers;
+
+			uint16_t	minPicWidth;
+			uint16_t	minPicHeight;
+			uint16_t	maxPicWidth;
+			uint16_t	maxPicHeight;
+
+			uint8_t		maxChromaFormat : 2;
+			uint8_t		maxBitDepthMinus8 : 3;
+			uint8_t		reserved : 1;
+			uint8_t		frame_rate_info_flag : 1;
+			uint8_t		bit_rate_info_flag : 1;
+
+			uint16_t	avgFrameRate;
+			uint8_t		reserved_1 : 6;
+			uint8_t		constantFrameRate : 2;
+			uint32_t	maxBitrate;
+			uint32_t	avgBitrate;
+
+		}PACKED;
+
+		struct LAYER
+		{
+			uint8_t		layerID;
+			uint8_t		num_direct_ref_layers;
+			std::vector<uint8_t>
+						direct_ref_layerIDs;
+			uint8_t		dimension_identifier[16];
+		}PACKED;
+
+		uint16_t		scalability_mask;
+		uint8_t			reserved_0 : 2;
+		uint8_t			num_profile_tier_level : 6;
+		std::vector<PROFILE_TIER_LEVEL>
+						profile_tier_levels;
+
+		uint16_t		num_operating_points;
+		std::vector<OPERATING_POINT>
+						operating_points;
+
+		uint8_t			max_layer_count;
+		std::vector<LAYER>
+						layers;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = RET_CODE_SUCCESS;
+
+			scalability_mask = bs.GetWord();
+			reserved_0 = bs.GetBits(2);
+			num_profile_tier_level = bs.GetBits(6);
+
+			profile_tier_levels.resize(num_profile_tier_level);
+
+			for (auto& v : profile_tier_levels)
+			{
+				v.general_profile_space = bs.GetBits(2);
+				v.general_tier_flag = bs.GetBits(1);
+				v.general_profile_idc = bs.GetBits(5);
+				v.general_profile_compatibility_flags = (uint32_t)bs.GetBits(32);
+				v.general_constraint_indicator_flags = bs.GetBits(48);
+				v.general_level_idc = bs.GetBits(8);
+			}
+
+			num_operating_points = bs.GetWord();
+			operating_points.resize(num_operating_points);
+
+			for (auto& v : operating_points)
+			{
+				v.output_layer_set_idx = (uint32_t)bs.GetBits(16);
+				v.max_temporal_id = (uint32_t)bs.GetBits(8);
+				v.layer_count = (uint32_t)bs.GetBits(8);
+
+				v.layers.resize(v.layer_count);
+
+				for (auto& layer : v.layers)
+				{
+					layer.ptl_idx = bs.GetByte();
+					layer.layer_id = (uint8_t)bs.GetBits(6);
+					layer.is_outputlayer = (uint8_t)bs.GetBits(1);
+					layer.is_alternate_outputlayer = (uint8_t)bs.GetBits(1);
+				}
+
+				v.minPicWidth = bs.GetWord();
+				v.minPicHeight = bs.GetWord();
+				v.maxPicWidth = bs.GetWord();
+				v.maxPicHeight = bs.GetWord();
+
+				v.maxChromaFormat = (uint8_t)bs.GetBits(2);
+				v.maxBitDepthMinus8 = (uint8_t)bs.GetBits(3);
+				v.reserved = (uint8_t)bs.GetBits(1);
+				v.frame_rate_info_flag = (uint8_t)bs.GetBits(1);
+				v.bit_rate_info_flag = (uint8_t)bs.GetBits(1);
+
+				if (v.frame_rate_info_flag)
+				{
+					v.avgFrameRate = bs.GetWord();
+					v.reserved_1 = bs.GetBits(6);
+					v.constantFrameRate = bs.GetBits(2);
+				}
+
+				if (v.bit_rate_info_flag)
+				{
+					v.maxBitrate = bs.GetWord();
+					v.avgBitrate = bs.GetWord();
+				}
+			}
+
+			max_layer_count = bs.GetByte();
+			layers.resize(max_layer_count);
+
+			for (auto& v : layers)
+			{
+				v.layerID = bs.GetByte();
+				v.num_direct_ref_layers = bs.GetByte();
+				v.direct_ref_layerIDs.resize(v.num_direct_ref_layers);
+				for (int i = 0; i < v.num_direct_ref_layers; i++)
+					v.direct_ref_layerIDs[i] = bs.GetByte();
+
+				for (int j = 0; j < 16; j++)
+				{
+					if (scalability_mask&(1 << j))
+						v.dimension_identifier[j] = bs.GetByte();
+				}
+			}
+
+			return iRet;
+		}
+
+	}PACKED;
+
+	struct OperatingPointsInformation : public VisualSampleGroupEntry
+	{
+		OperatingPointsRecord	oinf;
+
+		OperatingPointsInformation(uint32_t nSize) : VisualSampleGroupEntry('oinf', nSize) {
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			return oinf.Unpack(bs);
+		}			
+	}PACKED;
+
+	struct TemporalLayerEntry : public VisualSampleGroupEntry
+	{
+		uint8_t					temporalLayerId;
+		uint8_t					tlprofile_space:2;
+		uint8_t					tltier_flag:1;
+		uint8_t					tlprofile_idc:5;
+		uint32_t				tlprofile_compatibility_flags; 
+		uint64_t				tlconstraint_indicator_flags:48;
+		uint64_t				tllevel_idc:8;
+		uint64_t				tlConstantFrameRate:8;
+		uint16_t				tlMaxBitRate; 
+		uint16_t				tlAvgBitRate;
+		uint16_t				tlAvgFrameRate;
+
+		TemporalLayerEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = 0;
+			uint32_t left_bytes = description_length;
+			if (left_bytes < 20)
+				goto done;
+
+			temporalLayerId = bs.GetByte();
+			tlprofile_space = (uint8_t)bs.GetBits(2);
+			tltier_flag = (uint8_t)bs.GetBits(1);
+			tlprofile_idc  = (uint8_t)bs.GetBits(5);
+			tlprofile_compatibility_flags = bs.GetDWord();
+			tlconstraint_indicator_flags = bs.GetBits(48);
+			tllevel_idc = bs.GetBits(8);
+			tlMaxBitRate = bs.GetWord();
+			tlAvgBitRate = bs.GetWord();
+			tlConstantFrameRate = bs.GetBits(8);
+			tlAvgFrameRate = bs.GetWord();
+			left_bytes -= 20;
+
+		done:
+			if (left_bytes > 0)
+				bs.SkipBits(left_bytes << 3);
 			return iRet;
 		}
 

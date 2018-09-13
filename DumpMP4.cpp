@@ -115,14 +115,29 @@ int CopyBoxTypeName(char* szText, int ccSize, uint32_t box_type)
 	if (szText == NULL)
 		return -1;
 
+	bool bNeedHex = false;
 	int ccLeft = 4, ccSizeLeft = ccSize;
 	while (ccSize > 0 && ccLeft > 0)
 	{
 		int c = (int)(box_type >> ((ccLeft - 1) << 3)) & 0xFF;
+
+		if (!bNeedHex && !isprint(c))
+			bNeedHex = true;
+
 		*szText = isprint(c) ? (char)c : ' ';
 		szText++;
 		ccSizeLeft--;
 		ccLeft--;
+	}
+
+	if (bNeedHex)
+	{
+		int cbWritten = sprintf_s(szText, ccSizeLeft, "(%08Xh)", box_type);
+		if (cbWritten > 0)
+		{
+			szText += cbWritten;
+			ccSizeLeft -= cbWritten;
+		}
 	}
 
 	if (ccSizeLeft > 0)
@@ -248,7 +263,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 	}
 
 	// Get file size
-	_fseeki64(fp, -1, SEEK_END);
+	_fseeki64(fp, 0, SEEK_END);
 	int64_t file_size = _ftelli64(fp);
 	_fseeki64(fp, 0, SEEK_SET);
 
@@ -439,9 +454,23 @@ void PrintTree(Box* ptr_box, int level)
 
 	if (ptr_box->container == nullptr)
 		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
-	else if (ptr_box->type != 'uuid')
+	else
 	{
-		int cbWritten = CopyBoxTypeName(szText, line_chars - (szText - szLine), ptr_box->type);
+		int cbWritten = 0;
+		if (ptr_box->type == 'uuid')
+		{
+			auto ptr_uuid_box = (UUIDBox*)ptr_box;
+			cbWritten += sprintf_s(szText, line_chars - (szText - szLine), "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X (size: %lld)\r\n",
+				ptr_uuid_box->usertype[0x0], ptr_uuid_box->usertype[0x1], ptr_uuid_box->usertype[0x2], ptr_uuid_box->usertype[0x3],
+				ptr_uuid_box->usertype[0x4], ptr_uuid_box->usertype[0x5], ptr_uuid_box->usertype[0x6], ptr_uuid_box->usertype[0x7],
+				ptr_uuid_box->usertype[0x8], ptr_uuid_box->usertype[0x9], ptr_uuid_box->usertype[0xa], ptr_uuid_box->usertype[0xb],
+				ptr_uuid_box->usertype[0xc], ptr_uuid_box->usertype[0xd], ptr_uuid_box->usertype[0xe], ptr_uuid_box->usertype[0xf],
+				ptr_uuid_box->size);
+		}
+		else
+		{
+			cbWritten += CopyBoxTypeName(szText, line_chars - (szText - szLine), ptr_box->type);
+		}
 		szText += cbWritten;
 
 		if (ptr_box->type == 'trak')
@@ -574,15 +603,6 @@ void PrintTree(Box* ptr_box, int level)
 
 		sprintf_s(szText, line_chars - (szText - szLine), "\r\n");
 	}
-	else
-	{
-		sprintf_s(szText, line_chars - (szText - szLine), "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X (size: %lld)\r\n",
-			ptr_box->usertype[0x0], ptr_box->usertype[0x1], ptr_box->usertype[0x2], ptr_box->usertype[0x3], 
-			ptr_box->usertype[0x4], ptr_box->usertype[0x5], ptr_box->usertype[0x6], ptr_box->usertype[0x7],
-			ptr_box->usertype[0x8], ptr_box->usertype[0x9], ptr_box->usertype[0xa], ptr_box->usertype[0xb], 
-			ptr_box->usertype[0xc], ptr_box->usertype[0xd], ptr_box->usertype[0xe], ptr_box->usertype[0xf], 
-			ptr_box->size);
-	}
 
 	printf(szLine);
 
@@ -648,7 +668,7 @@ int ShowBoxInfo(Box* root_box, Box* ptr_box)
 	}
 
 	// Get file size
-	_fseeki64(fp, -1, SEEK_END);
+	_fseeki64(fp, 0, SEEK_END);
 	int64_t file_size = _ftelli64(fp);
 	_fseeki64(fp, 0, SEEK_SET);
 
@@ -940,6 +960,9 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 		{
 			MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry* pVisualSampleEntry =
 				(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::VisualSampleEntry*)pSampleDescBox->SampleEntries[i];
+
+			if (pVisualSampleEntry == nullptr)
+				continue;
 
 			if (pVisualSampleEntry->type == 'hvc1' || pVisualSampleEntry->type == 'hev1' || pVisualSampleEntry->type == 'hvcC')
 			{
@@ -1237,6 +1260,40 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* fp, FILE* fw, MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox* pSampleDescBox=nullptr)
 {
 	int iRet = RET_CODE_SUCCESS;
+
+	if (pSampleDescBox == nullptr)
+	{
+		// If there is no 'stsd' box, try to find it from the init_mp4
+		auto iter = g_params.find("dashinitmp4");
+		if (iter != g_params.cend())
+		{
+			int iBSRet = RET_CODE_SUCCESS;
+			CFileBitstream bs(iter->second.c_str(), 4096, &iBSRet);
+			if (iBSRet >= 0)
+			{
+				auto& dash_init_mp4_box = Box::CreateRootBox();
+				dash_init_mp4_box.Load(bs);
+
+				auto result = dash_init_mp4_box.FindBox(".../trak");
+				for (auto& v : result)
+				{
+					if (v == nullptr)
+						continue;
+
+					ISOBMFF::MovieBox::TrackBox* ptr_trak_box = (ISOBMFF::MovieBox::TrackBox*)result[0];
+					if (ptr_trak_box->GetTrackID() == track_id)
+					{
+						// Try to find the 'stsd' box, and update the current null one
+						auto stsd_result = ptr_trak_box->FindBox(".../stsd");
+						if (stsd_result.size() > 0)
+							pSampleDescBox = (MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleDescriptionBox*)stsd_result[0];
+
+						break;
+					}
+				}
+			}
+		}
+	}
 
 	int sample_id = 0;
 	try
@@ -1546,8 +1603,8 @@ int DumpMP4()
 
 	CFileBitstream bs(g_params["input"].c_str(), 4096, &iRet);
 
-	Box* root_box = Box::RootBox();
-	while (Box::LoadBoxes(root_box, bs) >= 0);
+	auto& root_box = Box::CreateRootBox();
+	root_box.Load(bs);
 
 	Box* ptr_box = nullptr;
 	bool bMovieTrackAbsent = false;
@@ -1579,12 +1636,12 @@ int DumpMP4()
 		}
 
 		// Locate the track box
-		if ((ptr_box = FindBox(root_box, (uint32_t)track_id, box_type)) == nullptr)
+		if ((ptr_box = FindBox(&root_box, (uint32_t)track_id, box_type)) == nullptr)
 		{
 			if (box_type == UINT32_MAX)
 			{
 				printf("Can't find the track box with the specified track-id: %lld.\r\n", track_id);
-				// There may be still movie framents
+				// There may be still movie fragments
 				bMovieTrackAbsent = true;
 			}
 			else
@@ -1597,7 +1654,7 @@ int DumpMP4()
 
 	if (g_params.find("showinfo") != g_params.end())
 	{
-		iRet = ShowBoxInfo(root_box, ptr_box);
+		iRet = ShowBoxInfo(&root_box, ptr_box);
 	}
 
 	if (g_params.find("removebox") != g_params.end())
@@ -1671,13 +1728,13 @@ int DumpMP4()
 		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 		{
 			if (bMovieTrackAbsent)
-				iRet = DumpMP4OneStreamFromMovieFragments(root_box, select_track_id);
+				iRet = DumpMP4OneStreamFromMovieFragments(&root_box, select_track_id);
 			else
-				iRet = DumpMP4OneStream(root_box, ptr_box);
+				iRet = DumpMP4OneStream(&root_box, ptr_box);
 		}
 		else if (str_output_fmt.compare("mp4") == 0)
 		{
-			iRet = DumpMP4Partial(root_box);
+			iRet = DumpMP4Partial(&root_box);
 		}
 	}
 

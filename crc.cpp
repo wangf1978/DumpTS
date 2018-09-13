@@ -78,7 +78,7 @@ CRC_PROP crc_props[] =
 	{0x864CFB,				0xB704CE,			0x000000,			0x21CF02,			 {0},		"crc-24",					24,		false,		false },
 	{0x5D6DCB,				0xFEDCBA,			0x000000,			0x7979BD,			 {0},		"crc-24-flexray-a",			24,		false,		false },
 	{0x5D6DCB,				0xABCDEF,			0x000000,			0x1F23B8,			 {0},		"crc-24-flexray-b",			24,		false,		false },
-	//{0x04C11DB7,			0x00000000£¬		0xFFFFFFFF,			0xCBF43926,			 {0},		"crc-32",					32,		true,		false },
+	//{0x04C11DB7,			0x00000000,			0xFFFFFFFF,			0xCBF43926,			 {0},		"crc-32",					32,		true,		false },
 	{0x04C11DB7,			0xFFFFFFFF,			0xFFFFFFFF,			0xCBF43926,			 {0},		"crc-32",					32,		true,		false },
 	{0x04C11DB7,			0xFFFFFFFF,			0x00000000,			0xFC891918,			 {0},		"crc-32-bzip2",				32,		false,		false },
 	{0x1EDC6F41,			0x00000000,			0xFFFFFFFF,			0xE3069283,			 {0},		"crc-32c",					32,		true,		false },

@@ -493,7 +493,7 @@ namespace QTFF
 					}
 				}
 				else
-					if ((iRet = LoadBoxes(this, bs, &ptr_box)) < 0)
+					if ((iRet = LoadOneBoxBranch(this, bs, &ptr_box)) < 0)
 						goto done;
 
 				if (ptr_box->type == 'hdlr')
@@ -520,6 +520,168 @@ namespace QTFF
 			return iRet;
 		}
 
+	}PACKED;
+
+	struct SoundSampleDescription : public ISOBMFF::MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleEntry
+	{
+		struct AudioChannelLayoutAtom : public ISOBMFF::FullBox
+		{
+
+		}PACKED;
+
+		struct TerminatorAtom : public ISOBMFF::Box {
+			int Unpack(CBitstream& bs)
+			{
+				int iRet = ISOBMFF::Box::Unpack(bs);
+				SkipLeftBits(bs);
+				return iRet;
+			}
+		}PACKED;
+
+		struct siDecompressionParamAtom : public ISOBMFF::ContainerBox
+		{
+		}PACKED;
+
+		// for version 0, 1 and 3 common parts
+		uint16_t				Version;
+		uint16_t				Revision_level;
+		uint32_t				Vendor;
+		union
+		{
+			uint16_t				channelcount = 2;
+			uint16_t				always3;
+		}PACKED;
+
+		union
+		{
+			uint16_t				samplesize = 16;
+			uint16_t				always16;
+		}PACKED;
+
+		union
+		{
+			uint16_t				CompressionID = 0;
+			int16_t					alwaysMinus2;
+		}PACKED;
+
+		union
+		{
+			uint16_t				PacketSize = 0;
+			uint16_t				always0;
+		}PACKED;
+
+		union
+		{
+			uint32_t				SampleRate;
+			uint32_t				always65536;
+		}PACKED;
+
+		union
+		{
+			struct
+			{
+				// for version 1 extension part
+				uint32_t				Samples_per_packet;
+				uint32_t				Bytes_per_packet;
+				uint32_t				Bytes_per_frame;
+				uint32_t				Bytes_per_sample;
+			}PACKED;
+
+			struct
+			{
+				// for version 2
+				uint32_t				sizeOfStructOnly;
+				uint64_t				audioSampleRate;
+				uint32_t				numAudioChannels;
+				uint32_t				always7F000000;
+				uint32_t				constBitsPerChannel;
+				uint32_t				formatSpecificFlags;
+				uint32_t				constBytesPerAudioPacket;
+				uint32_t				constLPCMFramesPerAudioPacket;
+			}PACKED;
+		}PACKED;
+
+		int _UnpackHeader(CBitstream& bs)
+		{
+			int iRet = RET_CODE_SUCCESS;
+
+			if ((iRet = SampleEntry::Unpack(bs)) < 0)
+				return iRet;
+
+			uint64_t left_bytes = LeftBytes(bs);
+			if (left_bytes < 20)
+			{
+				iRet = RET_CODE_BOX_TOO_SMALL;
+				goto done;
+			}
+
+			Version = bs.GetWord();
+			Revision_level = bs.GetWord();
+			Vendor = bs.GetDWord();
+			channelcount = bs.GetWord();
+			samplesize = bs.GetWord();
+			CompressionID = bs.GetWord();
+			PacketSize = bs.GetWord();
+			SampleRate = bs.GetDWord();
+			left_bytes -= 20;
+
+			if (Version == 1)
+			{
+				if (left_bytes < 16)
+				{
+					iRet = RET_CODE_BOX_TOO_SMALL;
+					goto done;
+				}
+
+				Samples_per_packet = bs.GetDWord();
+				Bytes_per_packet = bs.GetDWord();
+				Bytes_per_frame = bs.GetDWord();
+				Bytes_per_sample = bs.GetDWord();
+			}
+			else if (Version == 2)
+			{
+				if (left_bytes < 36)
+				{
+					iRet = RET_CODE_BOX_TOO_SMALL;
+					goto done;
+				}
+
+				sizeOfStructOnly = bs.GetDWord();
+				audioSampleRate = bs.GetQWord();
+				numAudioChannels = bs.GetDWord();
+				always7F000000 = bs.GetDWord();
+				constBitsPerChannel = bs.GetDWord();
+				formatSpecificFlags = bs.GetDWord();
+				constBytesPerAudioPacket = bs.GetDWord();
+				constLPCMFramesPerAudioPacket = bs.GetDWord();
+			}
+
+		done:
+			return iRet;
+		}
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = _UnpackHeader(bs);
+
+			if (iRet < 0)
+				goto done;
+
+			uint64_t left_bytes = LeftBytes(bs);
+			Box* ptr_box = nullptr;
+
+			while (left_bytes >= MIN_BOX_SIZE && LoadOneBoxBranch(this, bs, &ptr_box) >= 0)
+			{
+				if (left_bytes < ptr_box->size)
+					break;
+
+				left_bytes -= ptr_box->size;
+			}
+
+		done:
+			SkipLeftBits(bs);
+			return iRet;
+		}
 	}PACKED;
 
 } // namespace  ISOMediaFile

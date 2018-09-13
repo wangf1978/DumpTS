@@ -973,8 +973,8 @@ int ParseADTSFrame(unsigned short PID, int stream_type, unsigned long sync_code,
 		if (channel_configuration == 0)
 		{
 			/*
-			If channel_configuration is greater than 0, the channel configuration is given by the ¡®Default
-			bitstream index number¡¯ in Table 42, see subclause 8.5. If channel_configuration equals 0,
+			If channel_configuration is greater than 0, the channel configuration is given by the Default
+			bitstream index number in Table 42, see subclause 8.5. If channel_configuration equals 0,
 			the channel configuration is not specified in the header and must be given by a program_config_element()
 			following as first syntactic element in the first raw_data_block() after the header, or by the implicit
 			configuration (see subclause 8.5) or must be known in the application (Table 8).
