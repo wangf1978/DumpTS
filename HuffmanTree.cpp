@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "ISO14496_12.h"
+#include "DataUtil.h"
 #include <new>
 
 extern std::unordered_map<std::string, std::string> g_params;

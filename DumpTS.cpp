@@ -278,6 +278,10 @@ int PrepareParams()
 					_stricmp(file_name_ext.c_str(), ".mk3d") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".webm") == 0)
 					g_params["srcfmt"] = "mkv";
+				else if (_stricmp(file_name_ext.c_str(), ".aiff") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".aif") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".aifc") == 0)
+					g_params["srcfmt"] = "aiff";
 			}
 		}
 
@@ -318,7 +322,8 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
-		else if (iter->second.compare("huffman_codebook") == 0)
+		else if (iter->second.compare("huffman_codebook") == 0 ||
+			iter->second.compare("aiff") == 0)
 			bIgnorePreparseTS = true;
 	}
 
@@ -404,7 +409,7 @@ void PrintHelp()
 	printf("\t--pid\t\t\tThe PID of dumped stream\n");
 	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\n");
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\n");
-	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4, mkv, huffman_codebook, if it is not specified, find the sync-word to decide it\n");
+	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4, mkv, aiff, huffman_codebook, if it is not specified, find the sync-word to decide it\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes, es and binary_search_table\n");
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
@@ -416,9 +421,9 @@ void PrintHelp()
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
 	printf("\t--listmkvebml\t\tShow EBML elements defined in Matroska specification and exit\n");
-	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
 	printf("\t--dashinitmp4\t\tSpecify the DASH initialization mp4 file to process m4s\n");
 	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
+	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
 
 	printf("Examples:\n");
 	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
@@ -438,6 +443,7 @@ extern const char* GetCRCName(CRC_TYPE type);
 extern void GenerateHuffmanBinarySearchArray(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr);
 extern void PrintHuffmanTree(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr);
 extern int DumpHuffmanCodeBook();
+extern int DumpAIFF();
 
 void CalculateCRC()
 {
@@ -604,6 +610,10 @@ int main(int argc, char* argv[])
 	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("huffman_codebook") == 0)
 	{
 		nDumpRet = DumpHuffmanCodeBook();
+	}
+	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("aiff") == 0)
+	{
+		nDumpRet = DumpAIFF();
 	}
 	else if (g_params.find("pid") != g_params.end())
 	{

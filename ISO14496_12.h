@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "Bitstream.h"
 #include "combase.h"
+#include "DataUtil.h"
 #include <algorithm>
 
 #ifdef _MSC_VER
@@ -283,62 +284,6 @@ namespace ISOBMFF
 		static uint32_t GetMediaTimeScale(Box& root_box, uint32_t track_ID);
 		static uint32_t GetMovieTimeScale(Box& root_box);
 
-		static INLINE int isLeapYear(int year) {
-			return (year % 400 == 0) || ((year % 100 != 0) && (year % 4 == 0));
-		}
-
-		static std::string DateTimeStr(uint64_t elapse_seconds_since_19040101)
-		{
-			int year = 1904;
-			constexpr uint64_t leap_year_ticks = 366ULL * 24 * 3600;
-			constexpr uint64_t normal_year_ticks = 365ULL * 24 * 3600;
-			uint64_t elapse_seconds = elapse_seconds_since_19040101;
-			while (elapse_seconds > 0)
-			{
-				uint64_t ticks = isLeapYear(year) ? leap_year_ticks : normal_year_ticks;
-				if (elapse_seconds >= ticks)
-				{
-					elapse_seconds -= ticks;
-					year++;
-				}
-				else
-					break;
-			}
-
-			// Got year, now try to get month
-			int month = 1;
-			constexpr int month_ticks[12] = {
-				31 * 24 * 3600, 28 * 24 * 3600, 31 * 24 * 3600, 30 * 24 * 3600, 31 * 24 * 3600, 30 * 24 * 3600,
-				31 * 24 * 3600,	31 * 24 * 3600, 30 * 24 * 3600, 31 * 24 * 3600, 30 * 24 * 3600, 31 * 24 * 3600
-			};
-
-			int is_leap_year = isLeapYear(year);
-
-			while (elapse_seconds > 0)
-			{
-				uint64_t ticks = (month == 2 && leap_year_ticks) ? 24 * 3600 : 0 + month_ticks[month - 1];
-				if (elapse_seconds >= ticks)
-				{
-					elapse_seconds -= ticks;
-					month++;
-				}
-				else
-					break;
-			}
-
-			int day = 1 + (int)(elapse_seconds / (24 * 3600));
-			elapse_seconds -= (day - 1) * 24 * 3600;
-
-			int hour = (int)(elapse_seconds / 3600);
-			int minute = (int)(elapse_seconds / 60 % 60);
-			int second = (int)(elapse_seconds % 60);
-
-			std::string strDateTime;
-			// 1904-04-01 00h:00m:00s
-			strDateTime.reserve(32);
-			sprintf_s(&strDateTime[0], 32, "%04d-%02d-%02d %02dh:%02dm:%02ds", year, month, day, hour, minute, second);
-			return strDateTime;
-		}
 	}PACKED;
 
 	struct UUIDBox : public Box

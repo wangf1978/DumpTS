@@ -127,6 +127,7 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AIFF.cpp" />
     <ClCompile Include="AMRingBuffer.cpp" />
     <ClCompile Include="AudChMap.cpp" />
     <ClCompile Include="Bitstream.cpp" />
@@ -155,6 +156,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AIFF.h" />
     <ClInclude Include="AMRingBuffer.h" />
     <ClInclude Include="AudChMap.h" />
     <ClInclude Include="av1.h" />
@@ -162,6 +164,7 @@
     <ClInclude Include="CodecID.h" />
     <ClInclude Include="combase.h" />
     <ClInclude Include="crc.h" />
+    <ClInclude Include="DataUtil.h" />
     <ClInclude Include="DumpTS.h" />
     <ClInclude Include="ESRepacker.h" />
     <ClInclude Include="Matroska.h" />
@@ -173,9 +176,6 @@
     <ClInclude Include="StdAfx.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="README.html">
-      <DependentUpon>README.md</DependentUpon>
-    </None>
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

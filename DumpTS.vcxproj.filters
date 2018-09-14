@@ -75,6 +75,9 @@
     <ClCompile Include="HuffmanTree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AIFF.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StdAfx.h">
@@ -125,8 +128,15 @@
     <ClInclude Include="av1.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="AIFF.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DataUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
+    <None Include="README.html" />
   </ItemGroup>
 </Project>
