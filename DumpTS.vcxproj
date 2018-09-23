@@ -142,6 +142,7 @@
     <ClCompile Include="DumpMKV.cpp" />
     <ClCompile Include="ESRepacker.cpp" />
     <ClCompile Include="HuffmanTree.cpp" />
+    <ClCompile Include="IP.cpp" />
     <ClCompile Include="ISO14496_1.cpp" />
     <ClCompile Include="ISO14496_12.cpp" />
     <ClCompile Include="ISO14496_15.cpp" />
@@ -154,6 +155,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="MMT.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AIFF.h" />
@@ -167,6 +169,7 @@
     <ClInclude Include="DataUtil.h" />
     <ClInclude Include="DumpTS.h" />
     <ClInclude Include="ESRepacker.h" />
+    <ClInclude Include="IP.h" />
     <ClInclude Include="Matroska.h" />
     <ClInclude Include="ISO14496_1.h" />
     <ClInclude Include="ISO14496_12.h" />
@@ -174,6 +177,7 @@
     <ClInclude Include="PayloadBuf.h" />
     <ClInclude Include="QTFF.h" />
     <ClInclude Include="StdAfx.h" />
+    <ClInclude Include="MMT.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

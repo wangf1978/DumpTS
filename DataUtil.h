@@ -165,12 +165,12 @@ inline int isLeapYear(int year) {
 	return (year % 400 == 0) || ((year % 100 != 0) && (year % 4 == 0));
 }
 
-inline std::string DateTimeStr(uint64_t elapse_seconds_since_19040101)
+inline std::string DateTimeStr(uint64_t elapse_seconds_since_baseyear, int32_t base_year = 1904, uint64_t fraction_second=0)
 {
-	int year = 1904;
+	int year = base_year;
 	constexpr uint64_t leap_year_ticks = 366ULL * 24 * 3600;
 	constexpr uint64_t normal_year_ticks = 365ULL * 24 * 3600;
-	uint64_t elapse_seconds = elapse_seconds_since_19040101;
+	uint64_t elapse_seconds = elapse_seconds_since_baseyear;
 	while (elapse_seconds > 0)
 	{
 		uint64_t ticks = isLeapYear(year) ? leap_year_ticks : normal_year_ticks;
@@ -213,8 +213,16 @@ inline std::string DateTimeStr(uint64_t elapse_seconds_since_19040101)
 
 	std::string strDateTime;
 	// 1904-04-01 00h:00m:00s
-	strDateTime.reserve(32);
-	sprintf_s(&strDateTime[0], 32, "%04d-%02d-%02d %02dh:%02dm:%02ds", year, month, day, hour, minute, second);
+	if (fraction_second == 0)
+	{
+		strDateTime.reserve(32);
+		sprintf_s(&strDateTime[0], 32, "%04d-%02d-%02d %02dh:%02dm:%02ds", year, month, day, hour, minute, second);
+	}
+	else
+	{
+		strDateTime.reserve(64);
+		sprintf_s(&strDateTime[0], 32, "%04d-%02d-%02d %02dh:%02dm:%02d.%llus", year, month, day, hour, minute, second, fraction_second);
+	}
 	return strDateTime;
 }
 

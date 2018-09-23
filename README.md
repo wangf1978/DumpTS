@@ -2,6 +2,7 @@
 - **TS**: transport stream, the file extension is normally *.ts, .tts, .m2ts, .mts*
 - **ISOBMFF**: ISO-based Media File Format, the file extension is normally *.mp4, .mov, m4a, m4v, .m4s*
 - **Matroska**: a multimedia container format based on EBML (Extensible Binary Meta Language), the file extension is normally *.mkv, .mka, .mk3d and .webm*
+- **MMT**: MPEG Media Transport stream, the file extension is normally *.mmts 
 
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
@@ -27,7 +28,7 @@ Use VS2015 to open DumpTS.sln to build it
 |**--pid**|*0xhhhh*|the PID of dumped stream|
 |**--trackid**|*xx*|the track ID of a ISOBMFF/Matroska file|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
-|**--srcfmt**|*ts, m2ts, tts, mp4, mkv, huffman_codebook, aiff*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C|
+|**--srcfmt**|*ts, m2ts, tts, mp4, mkv, huffman_codebook, aiff, mmts*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
 |**--outputfmt**|*ts, m2ts, pes, es, wav, pcm, binary_search_table*|the destination dumped format, including: ts, m2ts, pes, es and so on<br>**binary_search_table:**<br>generate the binary search table for Huffman VLC codebook|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|

@@ -35,6 +35,7 @@ extern int	DumpOneStream();
 extern int	DumpPartialTS();
 extern int	DumpMP4();
 extern int  DumpMKV();
+extern int	DumpMMT();
 
 bool TryFitMPEGSysType(FILE* rfp, MPEG_SYSTEM_TYPE eMPEGSysType, unsigned short& packet_size, unsigned short& num_of_prefix_bytes, unsigned short& num_of_suffix_bytes, bool& bEncrypted)
 {
@@ -282,6 +283,8 @@ int PrepareParams()
 					_stricmp(file_name_ext.c_str(), ".aif") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".aifc") == 0)
 					g_params["srcfmt"] = "aiff";
+				else if (_stricmp(file_name_ext.c_str(), ".mmts") == 0)
+					g_params["srcfmt"] = "mmt";
 			}
 		}
 
@@ -323,7 +326,8 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
 		else if (iter->second.compare("huffman_codebook") == 0 ||
-			iter->second.compare("aiff") == 0)
+			iter->second.compare("aiff") == 0 ||
+			iter->second.compare("mmt") == 0)
 			bIgnorePreparseTS = true;
 	}
 
@@ -409,7 +413,15 @@ void PrintHelp()
 	printf("\t--pid\t\t\tThe PID of dumped stream\n");
 	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\n");
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\n");
-	printf("\t--srcfmt\t\tThe source format, including: ts, m2ts, mp4, mkv, aiff, huffman_codebook, if it is not specified, find the sync-word to decide it\n");
+	printf("\t--srcfmt\t\tThe source format, including: \n"
+		"\t\t\t\t\tts: standard transport stream\n"
+		"\t\t\t\t\tm2ts: transport stream with 4 bytes of extra arrive clock time and so on\n"
+		"\t\t\t\t\tmp4: ISO-BMFF media file\n"
+		"\t\t\t\t\tmkv: Matroska based media file, for example, .mkv, .mka, .mk3d and .webm files\n"
+		"\t\t\t\t\taiff: Apple AIFF, or AIFC file\n"
+		"\t\t\t\t\tmmt: MPEG Media Transport stream\n"
+		"\t\t\t\t\thuffman_codebook: Huffman-codebook text file including VLC tables\n"
+		"\t\t\t\t(*)If it is not specified, decide it by its file extension or find the sync-word to decide it\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes, es and binary_search_table\n");
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
@@ -425,13 +437,13 @@ void PrintHelp()
 	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
 
-	printf("Examples:\n");
-	printf("DumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
-	printf("DumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\n");
-	printf("DumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\n");
-	printf("DumpTS c:\\test.mp4 --output=c:\\test.hevc --trackid=0\n");
-	printf("DumpTS c:\\codebook.txt --srcfmt=huffman_codebook --showinfo\n");
-	printf("DumpTS c:\\codebook.txt --srcfmt=huffman_codebook --outputfmt=binary_search_table\n");
+	printf("\nExamples:\n");
+	printf("\tDumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
+	printf("\tDumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\n");
+	printf("\tDumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\n");
+	printf("\tDumpTS c:\\test.mp4 --output=c:\\test.hevc --trackid=0\n");
+	printf("\tDumpTS c:\\codebook.txt --srcfmt=huffman_codebook --showinfo\n");
+	printf("\tDumpTS c:\\codebook.txt --srcfmt=huffman_codebook --outputfmt=binary_search_table\n");
 
 	return;
 }
@@ -614,6 +626,10 @@ int main(int argc, char* argv[])
 	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("aiff") == 0)
 	{
 		nDumpRet = DumpAIFF();
+	}
+	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mmt") == 0)
+	{
+		nDumpRet = DumpMMT();
 	}
 	else if (g_params.find("pid") != g_params.end())
 	{

@@ -264,7 +264,7 @@ CFileBitstream::CFileBitstream(const char* szFileName, int cache_size, int* ptr_
 	if (_fseeki64(m_fp, 0, SEEK_SET) != 0)
 		goto done;
 
-	cursor.p_start = new uint8_t[(cache_size + 3) / 4 * 4 + 4];
+	cursor.p_start = new uint8_t[(cache_size + sizeof(CURBITS_TYPE) - 1) / sizeof(CURBITS_TYPE) * sizeof(CURBITS_TYPE) + sizeof(CURBITS_TYPE)];
 	if (cursor.p_start == NULL) {
 		goto done;
 	}
@@ -311,7 +311,7 @@ int64_t CFileBitstream::SkipBits(int64_t skip_bits)
 	int64_t bitpos_in_cache_buffer = (int64_t)((cache_buf_size<<3) - nAllLeftBits);
 	int64_t skippos_in_cache_buffer = bitpos_in_cache_buffer + skip_bits;
 
-	if (skippos_in_cache_buffer < 0 || skippos_in_cache_buffer >= ((int64_t)(cursor.p_end - cursor.p) << 3))
+	if (skippos_in_cache_buffer < 0 || skippos_in_cache_buffer >= ((int64_t)(cursor.p_end - cursor.p_start) << 3))
 	{
 		int64_t ret_skip_bits = skip_bits;
 		// Go through the Seek operation
@@ -432,23 +432,56 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 	
 	m_filemappos = _ftelli64(m_fp);
 
+	int will_fill = cursor.buf_size;
+	uint8_t* will_read_from_buf = cursor.p_start;
+
 	if (!bEos)
 	{
-		cbRead = fread(cursor.p_start, 1, cursor.buf_size, m_fp);
-		if (cbRead <= 0)
-			return;
+		// for peek case, don't overwrite the previous buffer, try to extend the cursor.p_end
+		if (bPeek)
+		{
+			// For unexpected case, return directly
+			if (save_point.p_end < save_point.p || (uint64_t)(save_point.p_end - save_point.p) >= (uint64_t)INT32_MAX)
+				return;
+
+			int before_peek_remaining_buf_size = (int)(save_point.p_end - save_point.p);
+			if (save_point.bits_left > 0)
+			{
+				// shift cursor.p to cursor.p_start
+				if (save_point.p_end > save_point.p)
+					memmove(save_point.p_start, save_point.p, before_peek_remaining_buf_size);
+
+				m_filemappos -= before_peek_remaining_buf_size;
+
+				save_point.p = save_point.p_start;
+				
+				// Buffer can't be fill with full size, fill the left buffer
+				assert(will_fill - before_peek_remaining_buf_size);
+				will_fill -= before_peek_remaining_buf_size;
+				will_read_from_buf += before_peek_remaining_buf_size;
+			}
+		}
+
+		if (will_fill > 0)
+		{
+			cbRead = fread(will_read_from_buf, 1, will_fill, m_fp);
+			if (cbRead <= 0)
+				return;
+		}
 
 		bEos = feof(m_fp) ? true : false;
 	}
-
-	if (bPeek)
+	else
 	{
-		// Activate a save point for future restore
-		save_point = cursor;
+		// No data to be read
+		return;
 	}
 
-	cursor.p = cursor.p_start;
-	cursor.p_end = cursor.p_start + cbRead;
+	cursor.p = will_read_from_buf;
+	cursor.p_end = cursor.p + cbRead;
+
+	if (bPeek)
+		save_point.p_end = cursor.p_end;
 
 	_UpdateCurBits(bEos);
 
