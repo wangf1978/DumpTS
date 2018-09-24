@@ -33,7 +33,7 @@ int DumpMMT()
 	}
 
 	int nParsedTLVPackets = 0;
-	int nIPv4Packets = 0, nIPv6Packets = 0, nTransmissionControlSignalPackets = 0, nNullPackets = 0, nOtherPackets = 0;
+	int nIPv4Packets = 0, nIPv6Packets = 0, nHdrCompressedIPPackets = 0, nTransmissionControlSignalPackets = 0, nNullPackets = 0, nOtherPackets = 0;
 
 	try
 	{
@@ -61,6 +61,10 @@ int DumpMMT()
 			case MMT::TLV_IPv6_packet:
 				pTLVPacket = new MMT::IPv6Packet();
 				nIPv6Packets++;
+				break;
+			case MMT::TLV_Header_compressed_IP_packet:
+				pTLVPacket = new MMT::HeaderCompressedIPPacket();
+				nHdrCompressedIPPackets++;
 				break;
 			case MMT::TLV_Transmission_control_signal_packet:
 				pTLVPacket = new MMT::Undefined_TLVPacket();
@@ -111,6 +115,7 @@ int DumpMMT()
 	printf("The total number of TLV packets: %d.\n", nParsedTLVPackets);
 	printf("The number of IPv4 TLV packets: %d.\n", nIPv4Packets);
 	printf("The number of IPv6 TLV packets: %d.\n", nIPv6Packets);
+	printf("The number of Header Compressed IP packets: %d.\n", nHdrCompressedIPPackets);
 	printf("The number of Transmission Control Signal TLV packets: %d.\n", nTransmissionControlSignalPackets);
 	printf("The number of Null TLV packets: %d.\n", nNullPackets);
 	printf("The number of other TLV packets: %d.\n", nOtherPackets);

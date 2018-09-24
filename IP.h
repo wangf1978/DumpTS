@@ -37,18 +37,30 @@ namespace IP
 		uint16_t			Data_length;
 		uint16_t			Checksum;
 
+		uint16_t			compressed : 1;
+		uint16_t			reserved : 15;
+
+		UDPHeader(bool bCompressed): compressed(bCompressed?1:0) {
+		}
+
 		int Unpack(CBitstream& bs)
 		{
 			uint64_t left_bits = 0ULL;
 			bs.Tell(&left_bits);
 
-			if (left_bits < (8ULL << 3))
+			uint64_t fixed_hdr_size = compressed ? 4ULL : 8ULL;
+
+			if (left_bits < (fixed_hdr_size << 3))
 				return RET_CODE_BOX_TOO_SMALL;
 
 			Source_port = bs.GetWord();
 			Destination_port = bs.GetWord();
-			Data_length = bs.GetWord();
-			Checksum = bs.GetWord();
+
+			if (!compressed)
+			{
+				Data_length = bs.GetWord();
+				Checksum = bs.GetWord();
+			}
 
 			return RET_CODE_SUCCESS;
 		}
@@ -66,8 +78,12 @@ namespace IP
 
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %d\n", szIndent, "source port", Source_port);
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %d\n", szIndent, "dest port", Destination_port);
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Data length", Data_length);
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %d(0X%04X)\n", szIndent, "Checksum", Checksum, Checksum);
+
+			if (!compressed)
+			{
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Data length", Data_length);
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": %d(0X%04X)\n", szIndent, "Checksum", Checksum, Checksum);
+			}
 		}
 	}PACKED;
 
@@ -299,6 +315,12 @@ namespace IP
 			uint8_t*			pData = nullptr;
 			NTPv4Data*			NTPv4_data;
 		};
+
+		uint16_t			compressed : 1;
+		uint16_t			reserved : 15;
+
+		UDPPacket(bool bCompressed = false) : header(bCompressed), compressed(bCompressed ? 1 : 0) {
+		}
 		
 		~UDPPacket()
 		{
@@ -1476,6 +1498,8 @@ namespace IP
 			Address				Destination_address;
 			
 			int16_t				payload_type = -1;
+			uint16_t			compressed : 1;
+			uint16_t			reserved : 15;
 
 			/*
 			When more than one extension header is used in the same packet, it is
@@ -1495,6 +1519,9 @@ namespace IP
 								ptr_Dest_Options_Header_1 = nullptr;
 			// For extension headers, implement it later
 
+			Header(bool bCompressed=false) : compressed(bCompressed ? 1 : 0) {
+			}
+
 			int Unpack(CBitstream& bs)
 			{
 				Destination_Options_Header* prev_Dest_Opt_Header = nullptr;
@@ -1508,7 +1535,9 @@ namespace IP
 				Traffic_class = (uint32_t)bs.GetBits(8);
 				Flow_label = (uint32_t)bs.GetBits(20);
 
-				Payload_length = bs.GetWord();
+				if (!compressed)
+					Payload_length = bs.GetWord();
+
 				Next_header = bs.GetByte();
 				Hop_limit = bs.GetByte();
 
@@ -1610,7 +1639,9 @@ namespace IP
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Version", Version);
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Traffic class", Traffic_class);
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Flow label", Flow_label);
-				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Payload length", Payload_length);
+				if (!compressed)
+					fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Payload length", Payload_length);
+
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %d, %s, %s\n", szIndent, "Next header", Next_header,
 					std::get<1>(IPv6_protocol_descs[Next_header]), std::get<2>(IPv6_protocol_descs[Next_header]));
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Hop limit", Hop_limit);
