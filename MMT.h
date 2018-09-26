@@ -604,7 +604,7 @@ namespace MMT
 	{
 		struct DeliveryInfo
 		{
-			uint32_t				transport_field_id;
+			uint32_t				transport_file_id;
 			uint8_t					location_type;
 
 			union
@@ -637,7 +637,7 @@ namespace MMT
 				if (left_bits < (5ULL << 3))
 					return RET_CODE_BOX_TOO_SMALL;
 
-				transport_field_id = bs.GetDWord();
+				transport_file_id = bs.GetDWord();
 				location_type = bs.GetByte();
 				left_bits -= (5ULL << 3);
 
@@ -695,6 +695,36 @@ namespace MMT
 					memset(szIndent, ' ', ccIndent);
 				}
 
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "transport_file_id", transport_file_id);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d, %s\n", szIndent, "location_type", location_type,
+					location_type == 0?"MMTP packet of the same IP data flow as IP data flow in which the table including this general_location_info is transmitted":(
+					location_type == 1?"MMTP packet of IPv4 data flow":(
+					location_type == 2?"MMTP packet of IPv6 data flow":(
+					location_type == 3?"MPEG-2 TS packet of broadcasting network by MPEG-2 TS":(
+					location_type == 4?"MPEG-2 TS packet of IPv6 data flow":(
+					location_type == 5?"URL":"Unknown"))))));
+				
+				if (location_type == 0x01)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "ipv4_src_addr", IPv4.ipv4_src_addr.GetIP().c_str());
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "ipv4_dst_addr", IPv4.ipv4_dst_addr.GetIP().c_str());
+
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "dst_port", IPv4.dst_port);
+				}
+				else if (location_type == 0x02)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "ipv6_src_addr", IPv6.ipv6_src_addr.GetIP().c_str());
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "ipv6_dst_addr", IPv6.ipv6_dst_addr.GetIP().c_str());
+
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "dst_port", IPv6.dst_port);
+				}
+				else if (location_type == 0x05)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "URL_length", URL.URL_length);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "URL_byte", URL.URL_bytes);
+				}
+
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "descripor_loop_length", descripor_loop_length);
 			}
 
 		}PACKED;
@@ -806,7 +836,306 @@ namespace MMT
 				auto& info = std::get<2>(v);
 				info.Print(fp, indent + 4);
 			}
+
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "num_of_ip_delivery", num_of_ip_delivery);
+			if (num_of_ip_delivery > 0)
+			{
+				for (int i = 0; i < num_of_ip_delivery; i++)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "ip_delivery idx", i);
+					delivery_infos[i].Print(fp, indent + 4);
+				}
+			}
 		}
+	}PACKED;
+
+	struct MMTPackageTable : public Table
+	{
+		struct Asset
+		{
+			uint8_t					identifier_type;
+			uint32_t				asset_id_scheme;
+			uint8_t					asset_id_length;
+			uint64_t				asset_id;
+			uint32_t				asset_type;
+			uint8_t					reserved : 7;
+			uint8_t					asset_clock_relation_flag : 1;
+			uint8_t					location_count;
+			std::vector<MMTGeneralLocationInfo>
+									MMT_general_location_infos;
+			uint16_t				asset_descriptors_length;
+			std::vector<uint8_t>	asset_descriptors_bytes;
+
+			uint32_t GetLength() {
+				uint32_t cbLen = sizeof(identifier_type) + sizeof(asset_id_scheme) + sizeof(asset_id_length);
+				cbLen += asset_id_length;
+				cbLen += sizeof(asset_type);
+				cbLen += 2;
+				
+				for (size_t i = 0; i < location_count; i++)
+					cbLen += MMT_general_location_infos[i].GetLength();
+
+				cbLen += 2;
+				cbLen += asset_descriptors_length;
+				return cbLen;
+			}
+
+			int Unpack(CBitstream& bs)
+			{
+				int iRet = RET_CODE_SUCCESS;
+				uint64_t left_bits = 0;
+				bs.Tell(&left_bits);
+				if (left_bits < (6ULL << 3))
+					return RET_CODE_BOX_TOO_SMALL;
+
+				identifier_type = bs.GetByte();
+				asset_id_scheme = bs.GetDWord();
+				asset_id_length = bs.GetByte();
+				left_bits -= 6ULL << 3;
+
+				if (left_bits < (uint64_t)asset_id_length << 3)
+					return RET_CODE_BOX_TOO_SMALL;
+
+				asset_id = 0ULL;
+				for (size_t i = 0; i < asset_id_length; i++)
+					asset_id = ((uint64_t)asset_id << 3) | bs.GetByte();
+
+				left_bits -= (uint64_t)asset_id_length << 3;
+
+				if (left_bits < (6ULL<<3))
+					return RET_CODE_BOX_TOO_SMALL;
+
+				asset_type = bs.GetDWord();
+				reserved = (uint8_t)bs.GetBits(7);
+				asset_clock_relation_flag = (uint8_t)bs.GetBits(1);
+
+				location_count = bs.GetByte();
+				left_bits -= (6ULL << 3);
+
+				if (location_count > 0)
+				{
+					MMT_general_location_infos.reserve(location_count);
+					for (size_t i = 0; i < location_count; i++)
+					{
+						if (left_bits < (2ULL << 3))
+							return RET_CODE_BOX_TOO_SMALL;
+
+						MMT_general_location_infos.emplace_back();
+						auto& back = MMT_general_location_infos.back();
+
+						if ((iRet = back.Unpack(bs)) < 0)
+							break;
+
+						uint16_t loc_info_len  = back.GetLength();
+						if (left_bits < ((uint64_t)loc_info_len << 3))
+						{
+							iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+							break;
+						}
+
+						left_bits -= (uint64_t)loc_info_len << 3;
+					}
+				}
+
+				if (left_bits < (2ULL << 3))
+					return RET_CODE_BOX_TOO_SMALL;
+
+				asset_descriptors_length = bs.GetWord();
+				if (left_bits < ((uint64_t)asset_descriptors_length << 3))
+					return RET_CODE_BOX_TOO_SMALL;
+
+				if (asset_descriptors_length > 0)
+				{
+					asset_descriptors_bytes.resize(asset_descriptors_length);
+					bs.Read(&asset_descriptors_bytes[0], asset_descriptors_length);
+				}
+
+				return iRet;
+			}
+
+			virtual void Print(FILE* fp = nullptr, int indent = 0)
+			{
+				FILE* out = fp ? fp : stdout;
+				char szIndent[84];
+				memset(szIndent, 0, _countof(szIndent));
+				if (indent > 0)
+				{
+					int ccIndent = AMP_MIN(indent, 80);
+					memset(szIndent, ' ', ccIndent);
+				}
+
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(0X%X)\n", szIndent, "identifier_type", identifier_type, identifier_type);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "asset_id_scheme", asset_id_scheme);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset_id_length", asset_id_length);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "asset_id", asset_id);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c%c (0X%08X), %s\n", szIndent, "asset_type",
+					isprint((asset_type >> 24) & 0xFF) ? (asset_type >> 24) & 0xFF : '.',
+					isprint((asset_type >> 16) & 0xFF) ? (asset_type >> 16) & 0xFF : '.',
+					isprint((asset_type >> 8) & 0xFF) ? (asset_type >> 8) & 0xFF : '.',
+					isprint((asset_type) & 0xFF) ? (asset_type) & 0xFF : '.', asset_type, 
+					asset_type == 'hvc1'?"HEVC, which includes VPS, SPS and PPS only in MPU metadata":(
+					asset_type == 'hev1'?"HEVC, which includes VPS, SPS and PSS in MFU":(
+					asset_type == 'mp4a'?"AAC audio":(
+					asset_type == 'stpp'?"Timed text (closed-caption and superimposition)":(
+					asset_type == 'aapp'?"Application":(
+					asset_type == 'asgd'?"Synchronous type general-purpose data":(
+					asset_type == 'aagd'?"Asynchronous type general-purpose data":"")))))));
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset_clock_relation_flag", asset_clock_relation_flag);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "location_count", location_count);
+				for (size_t i = 0; i < MMT_general_location_infos.size(); i++)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "location idx", i);
+					MMT_general_location_infos[i].Print(fp, indent + 4);
+				}
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset_descriptors_length", asset_descriptors_length);
+				if (asset_descriptors_length > 0)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": ", szIndent, "asset_desc_bytes");
+					for (size_t i = 0; i < AMP_MIN(256UL, asset_descriptors_bytes.size()); i++)
+					{
+						if (i != 0 && i % 16 == 0)
+							fprintf(out, "\n" MMT_FIX_HEADER_FMT_STR "  ", szIndent, "");
+						fprintf(out, "%02X ", asset_descriptors_bytes[i]);
+					}
+					fprintf(out, "\n");
+					if (asset_descriptors_bytes.size() > 256)
+						fprintf(out, MMT_FIX_HEADER_FMT_STR "  ...\n", szIndent, "");
+				}
+			}
+
+		}PACKED;
+
+		uint8_t					reserved : 6;
+		uint8_t					MPT_mode : 2;
+
+		uint8_t					MMT_package_id_length;
+		uint64_t				MMT_package_id;
+		
+		uint16_t				MPT_descriptors_length;
+		std::vector<uint8_t>	MPT_descriptors_bytes;
+
+		uint8_t					number_of_assets;
+		std::vector<Asset*>		assets;
+
+		virtual ~MMTPackageTable()
+		{
+			for (auto& v : assets)
+				if (v != nullptr)
+					delete v;
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = Table::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			reserved = (uint8_t)bs.GetBits(6);
+			MPT_mode = (uint8_t)bs.GetBits(2);
+			MMT_package_id_length = bs.GetByte();
+			left_bits -= 16ULL;
+
+			if (left_bits < ((uint64_t)MMT_package_id_length<<3))
+				return RET_CODE_BOX_TOO_SMALL;
+
+			MMT_package_id = 0;
+			for (size_t i = 0; i < MMT_package_id_length; i++)
+				MMT_package_id = (MMT_package_id << 8) | bs.GetByte();
+
+			left_bits -= (uint64_t)MMT_package_id_length << 3;
+
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			MPT_descriptors_length = bs.GetWord();
+			left_bits -= 16ULL;
+
+			if (MPT_descriptors_length > 0)
+			{
+				if (left_bits < ((uint64_t)MPT_descriptors_length << 3))
+					return RET_CODE_BOX_TOO_SMALL;
+
+				bs.Read(&MPT_descriptors_bytes[0], MPT_descriptors_length);
+				left_bits -= (uint64_t)MPT_descriptors_length << 3;
+			}
+
+			if (left_bits < 8ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			number_of_assets = bs.GetByte();
+
+			for (size_t i = 0; left_bits > 0 && i < number_of_assets; i++)
+			{
+				Asset* ptr_asset = new Asset();
+				if ((iRet = ptr_asset->Unpack(bs)) < 0)
+				{
+					delete ptr_asset;
+					break;
+				}
+				assets.push_back(ptr_asset);
+
+				uint32_t cbLen = ptr_asset->GetLength();
+				if (left_bits < ((uint64_t)cbLen << 3))
+				{
+					iRet = RET_CODE_BOX_INCOMPATIBLE;
+					break;
+				}
+
+				left_bits -= (uint64_t)cbLen << 3;
+			}
+
+			return iRet;
+		}
+
+		virtual void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			Table::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(0X%X), %s\n", szIndent, "identifier_type", MPT_mode, MPT_mode,
+				MPT_mode == 0?"MPT is processed according to the order of subset":(
+				MPT_mode == 1?"After MPT of subset 0 is received, any subset which has the same version number can be processed":(
+				MPT_mode == 2?"MPT of subset can be processed arbitrarily":(
+				MPT_mode == 3?"reserved":"Unknown"))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "MMT_package_id", MMT_package_id);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "MPT_descs_length", MPT_descriptors_length);
+			if (MPT_descriptors_length > 0)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": ", szIndent, "MPT_descs_bytes");
+				for (size_t i = 0; i < AMP_MIN(256UL, MPT_descriptors_bytes.size()); i++)
+				{
+					if (i != 0 && i % 16 == 0)
+						fprintf(out, "\n" MMT_FIX_HEADER_FMT_STR "  ", szIndent, "");
+					fprintf(out, "%02X ", MPT_descriptors_bytes[i]);
+				}
+				fprintf(out, "\n");
+				if (MPT_descriptors_bytes.size() > 256)
+					fprintf(out, MMT_FIX_HEADER_FMT_STR "  ...\n", szIndent, "");
+			}
+
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "number_of_assets", number_of_assets);
+			if (number_of_assets > 0)
+			{
+				for (size_t i = 0; i < assets.size(); i++)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset idx", i);
+					assets[i]->Print(fp, indent + 4);
+				}
+			}
+		}
+
 	}PACKED;
 
 	struct Message
@@ -923,6 +1252,19 @@ namespace MMT
 		}
 	}PACKED;
 
+	struct UnimplementedMessage : public Message
+	{
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = Message::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			SkipLeftBits(bs);
+			return iRet;
+		}
+	};
+
 	struct PAMessage: public Message
 	{
 		uint8_t					number_of_tables;
@@ -989,6 +1331,10 @@ namespace MMT
 				else if (peek_table_id == 0x80)	// PLT
 				{
 					ptr_table = new PackageListTable();
+				}
+				else if (peek_table_id == 0x20) // MPT
+				{
+					ptr_table = new MMTPackageTable();
 				}
 				else
 				{
@@ -1416,7 +1762,7 @@ namespace MMT
 					for (auto& v : messages)
 					{
 						auto& msg_payload = std::get<1>(v);
-						CBitstream msg_bs(&msg_payload[0], msg_payload.size()<<3);
+						CBitstream msg_bs(&msg_payload[0], msg_payload.size() << 3);
 						uint16_t peek_msg_id = (uint16_t)msg_bs.PeekBits(16);
 						if (peek_msg_id == 0)
 						{
@@ -1426,6 +1772,15 @@ namespace MMT
 								ptr_PAMsg->Print(fp, indent + 4);
 							}
 							delete ptr_PAMsg;
+						}
+						else
+						{
+							UnimplementedMessage* pUnimplMsg = new UnimplementedMessage();
+							if (pUnimplMsg->Unpack(msg_bs) >= 0)
+							{
+								pUnimplMsg->Print(fp, indent + 4);
+							}
+							delete pUnimplMsg;
 						}
 					}
 				}
