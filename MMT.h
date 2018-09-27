@@ -323,6 +323,573 @@ namespace MMT
 
 	}PACKED;
 
+	extern const std::unordered_map<uint16_t, std::tuple<const char*, const char*>> MMT_SI_Descriptor_Descs;
+	struct MMTSIDescriptor
+	{
+		uint64_t				start_bitpos;
+		uint16_t				descriptor_tag;
+		uint8_t					descriptor_length;
+
+		virtual int Unpack(CBitstream& bs)
+		{
+			int nRet = RET_CODE_SUCCESS;
+			uint64_t left_bits = 0ULL;
+			start_bitpos = bs.Tell(&left_bits);
+
+			if (left_bits < (3ULL << 3))
+				return RET_CODE_BOX_TOO_SMALL;
+
+			descriptor_tag = bs.GetWord();
+			descriptor_length = bs.GetByte();
+
+			return nRet;
+		}
+
+		virtual uint32_t LeftBits(CBitstream& bs)
+		{
+			uint64_t cur_bitpos = bs.Tell();
+
+			if (cur_bitpos > start_bitpos)
+			{
+				uint64_t whole_packet_bits_size = ((uint64_t)(descriptor_length + 3)) << 3;
+				if (whole_packet_bits_size > cur_bitpos - start_bitpos)
+				{
+					uint64_t left_bits = whole_packet_bits_size - (cur_bitpos - start_bitpos);
+					assert(left_bits <= ((uint64_t)(UINT8_MAX + 3) << 3));
+					return (uint32_t)left_bits;
+				}
+			}
+
+			return 0UL;
+		}
+
+		virtual void SkipLeftBits(CBitstream& bs)
+		{
+			uint64_t left_bits = LeftBits(bs);
+			if (left_bits > 0)
+				bs.SkipBits(left_bits);
+		}
+
+		virtual void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			auto iter = MMT_SI_Descriptor_Descs.find(descriptor_tag);
+			fprintf(out, "%s++++++++++++++ Descriptor: %s +++++++++++++\n", szIndent, MMT_SI_Descriptor_Descs.cend() == iter?std::get<0>(iter->second):"");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "file offset", start_bitpos >> 3);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "descriptor_tag", descriptor_tag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "descriptor_length", descriptor_length);
+		}
+
+	}PACKED;
+
+	struct UnimplMMTSIDescriptor : public MMTSIDescriptor
+	{
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			SkipLeftBits(bs);
+			return iRet;
+		}
+	}PACKED;
+
+	struct MHStreamIdentifierDescriptor : public MMTSIDescriptor
+	{
+		uint16_t				component_tag;
+		
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			component_tag = bs.GetWord();
+			return RET_CODE_SUCCESS;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "component_tag", component_tag, component_tag);
+		}
+
+	}PACKED;
+
+	struct VideoComponentDescriptor : public MMTSIDescriptor
+	{
+		enum VIDEO_RESOLUTION
+		{
+			VID_RES_UNSPECIFIED = 0,
+			VID_RES_180 = 1,
+			VID_RES_240,
+			VID_RES_480,
+			VID_RES_720,
+			VID_RES_1080,
+			VID_RES_2160,
+			VID_RES_4320,
+		};
+
+		uint64_t				video_resolution : 4;
+		uint64_t				video_aspect_ratio : 4;
+		uint64_t				video_scan_flag : 1;
+		uint64_t				reserved_0 : 2;
+		uint64_t				video_frame_rate : 5;
+		uint64_t				component_tag : 16;
+		uint64_t				video_transfer_characteristics : 4;
+		uint64_t				reserved_1 : 4;
+		uint64_t				ISO_639_language_code : 24;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			if (left_bits < 64ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			video_resolution = bs.GetBits(4);
+			video_aspect_ratio = bs.GetBits(4);
+			video_scan_flag = bs.GetBits(1);
+			reserved_0 = bs.GetBits(2);
+			video_frame_rate = bs.GetBits(5);
+			component_tag = bs.GetBits(16);
+			video_transfer_characteristics = bs.GetBits(4);
+			reserved_1 = bs.GetBits(4);
+			ISO_639_language_code = bs.GetBits(24);
+
+			return iRet;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "video_resolution", video_resolution, video_resolution,
+				video_resolution == VID_RES_UNSPECIFIED?"Unspecified":(
+				video_resolution == VID_RES_180?"height: 180":(
+				video_resolution == VID_RES_240?"height: 240":(
+				video_resolution == VID_RES_480?"height: 480/525":(
+				video_resolution == VID_RES_720?"height: 720/750":(
+				video_resolution == VID_RES_1080?"height: 1080/1125":(
+				video_resolution == VID_RES_2160?"height: 2160":(
+				video_resolution == VID_RES_4320?"height: 4320":""))))))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "video_aspect_ratio", video_aspect_ratio, video_aspect_ratio,
+				video_aspect_ratio == 0?"Unspecified":(
+				video_aspect_ratio == 1?"4:3":(
+				video_aspect_ratio == 2?"16:9 with pan vector":(
+				video_aspect_ratio == 3?"16:9 without pan vector":(
+				video_aspect_ratio == 4?"> 16:9":"")))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu, %s\n", szIndent, "video_scan_flag", video_scan_flag, video_scan_flag ? "interlaced" : "progressive");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "video_frame_rate", video_frame_rate, video_frame_rate,
+				video_frame_rate == 0?"Unspecified":(
+				video_frame_rate == 1?"15 fps":(
+				video_frame_rate == 2?"24/1.001 fps":(
+				video_frame_rate == 3?"24 fps":(
+				video_frame_rate == 4?"25 fps":(
+				video_frame_rate == 5?"30/1.001 fps":(
+				video_frame_rate == 6?"30 fps":(					
+				video_frame_rate == 7?"50 fps":(
+				video_frame_rate == 8?"60/1.001 fps":(
+				video_frame_rate == 9?"60 fps":(
+				video_frame_rate == 10?"100 fps":(
+				video_frame_rate == 11?"120/1.001 fps":(
+				video_frame_rate == 12?"120 fps":"")))))))))))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX)\n", szIndent, "component_tag", component_tag, component_tag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "trans_characteristics", video_transfer_characteristics, video_transfer_characteristics,
+				video_transfer_characteristics == 0?"Unspecified":(
+				video_transfer_characteristics == 1?"Rec. ITU-R BT.709-5":(
+				video_transfer_characteristics == 2?"IEC 61966-2-4":(
+				video_transfer_characteristics == 3?"Rec. ITU-R BT.2020":(
+				video_transfer_characteristics == 4?"Rec. ITU-R BT.2100 PQ":(
+				video_transfer_characteristics == 5?"Rec. ITU-R BT.2100 HLG" :""))))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c (0X%08X)\n", szIndent, "language",
+				isprint(((uint32_t)ISO_639_language_code >> 16) & 0xFF) ? ((uint32_t)ISO_639_language_code >> 16) & 0xFF : '.',
+				isprint(((uint32_t)ISO_639_language_code >> 8) & 0xFF) ? ((uint32_t)ISO_639_language_code >> 8) & 0xFF : '.',
+				isprint(((uint32_t)ISO_639_language_code) & 0xFF) ? ((uint32_t)ISO_639_language_code) & 0xFF : '.', (uint32_t)ISO_639_language_code);
+		}
+
+	}PACKED;
+
+	struct MPUTimestampDescriptor : public MMTSIDescriptor
+	{
+		std::vector<std::tuple<uint32_t, IP::NTPv4Data::NTPTimestampFormat>> MPU_sequence_present_timestamps;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			for (size_t i = 0; i < descriptor_length / 12UL; i++)
+			{
+				uint32_t seq_no = bs.GetDWord();
+				IP::NTPv4Data::NTPTimestampFormat present_timestamp;
+				present_timestamp.Seconds = bs.GetDWord();
+				present_timestamp.Fraction = bs.GetDWord();
+				MPU_sequence_present_timestamps.push_back(std::make_tuple(seq_no, present_timestamp));
+			}
+
+			SkipLeftBits(bs);
+			return iRet;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			for (size_t i = 0; i < MPU_sequence_present_timestamps.size(); i++)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%d\n", szIndent, "MPU_timestamps", i);
+				uint32_t seq_no = std::get<0>(MPU_sequence_present_timestamps[i]);
+				IP::NTPv4Data::NTPTimestampFormat& present_timestamp = std::get<1>(MPU_sequence_present_timestamps[i]);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "mpu_sequence_number", seq_no, seq_no);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu.%lus, %s\n", szIndent, "mpu_presentation_time", 
+					present_timestamp.Seconds, present_timestamp.Fraction, DateTimeStr(present_timestamp.Seconds, 1900, present_timestamp.Fraction).c_str());
+			}
+		}
+
+	}PACKED;
+
+	struct MPUExtendedTimestampDescriptor : public MMTSIDescriptor
+	{
+		struct MPU_TIMESTAMP_OFFSETS
+		{
+			uint32_t				mpu_sequence_number;
+			uint8_t					mpu_presentation_time_leap_indicator : 2;
+			uint8_t					reserved : 6;
+			uint16_t				mpu_decoding_time_offset;
+			uint8_t					num_of_au;
+			std::vector<std::tuple<uint16_t, uint16_t>>
+									offsets;
+
+			uint16_t GetLength(uint8_t pts_offset_type)
+			{
+				return 8 + num_of_au*(pts_offset_type == 2 ? 4 : 2);
+			}
+
+			int Unpack(CBitstream& bs, uint8_t pts_offset_type)
+			{
+				uint64_t left_bits = 0;
+				bs.Tell(&left_bits);
+				if (left_bits < 64ULL)
+					return RET_CODE_BOX_TOO_SMALL;
+
+				mpu_sequence_number = bs.GetDWord();
+				mpu_presentation_time_leap_indicator = (uint8_t)bs.GetBits(2);
+				reserved = (uint8_t)bs.GetBits(6);
+
+				mpu_decoding_time_offset = bs.GetWord();
+				num_of_au = bs.GetByte();
+
+				for (size_t j = 0; j < num_of_au; j++)
+				{
+					uint16_t dts_pts_offset = bs.GetWord();
+					uint16_t pts_offset = pts_offset_type == 2 ? bs.GetWord() : 0;
+					offsets.push_back(std::make_tuple(dts_pts_offset, pts_offset));
+				}
+
+				return RET_CODE_SUCCESS;
+			}
+
+			void Print(FILE* fp = nullptr, int indent = 0, uint8_t pts_offset_type=0)
+			{
+				FILE* out = fp ? fp : stdout;
+				char szIndent[84];
+				memset(szIndent, 0, _countof(szIndent));
+				if (indent > 0)
+				{
+					int ccIndent = AMP_MIN(indent, 80);
+					memset(szIndent, ' ', ccIndent);
+				}
+
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "mpu_sequence_number", mpu_sequence_number, mpu_sequence_number);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "leap_indicator", mpu_presentation_time_leap_indicator, mpu_presentation_time_leap_indicator);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "mpu_decoding_time_offset", mpu_decoding_time_offset, mpu_decoding_time_offset);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "num_of_au", num_of_au, num_of_au);
+
+				for (size_t i = 0; i < offsets.size(); i++)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%d\n", szIndent, "MPU_timestamps", i);
+					uint16_t dts_pts_offset = std::get<0>(offsets[i]);
+					uint16_t pts_offset = std::get<1>(offsets[i]);
+					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "dts_pts_offset", dts_pts_offset, dts_pts_offset);
+					if (pts_offset_type == 2)
+						fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "pts_offset", pts_offset, pts_offset);
+				}
+			}
+
+		}PACKED;
+
+		uint8_t					reserved : 5;
+		uint8_t					pts_offset_type : 2;
+		uint8_t					timescale_flag : 1;
+
+		uint32_t				timescale;
+		uint16_t				default_pts_offset;
+
+		std::list<MPU_TIMESTAMP_OFFSETS>
+								ts_offsets;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+
+			if (left_bits < 8)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			reserved = (uint8_t)bs.GetBits(5);
+			pts_offset_type = (uint8_t)bs.GetBits(2);
+			timescale_flag = (uint8_t)bs.GetBits(1);
+			left_bits -= 8;
+
+			if (timescale_flag)
+			{
+				if (left_bits < 32)
+					return RET_CODE_BOX_TOO_SMALL;
+
+				timescale = bs.GetDWord();
+				left_bits -= 32ULL;
+			}
+
+			if (pts_offset_type)
+			{
+				if (left_bits < 16)
+					return RET_CODE_BOX_TOO_SMALL;
+
+				default_pts_offset = bs.GetWord();
+				left_bits -= 16ULL;
+			}
+
+			while (left_bits > 64ULL)
+			{
+				ts_offsets.emplace_back();
+				auto& back = ts_offsets.back();
+
+				if ((iRet = back.Unpack(bs, pts_offset_type)) < 0)
+					break;
+
+				uint64_t used_bits = (uint64_t)back.GetLength(pts_offset_type) << 3;
+				if (left_bits < used_bits)
+					break;
+
+				left_bits -= used_bits;
+			}
+
+			SkipLeftBits(bs);
+			return iRet;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "pts_offset_type", pts_offset_type, pts_offset_type);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "timescale_flag", timescale_flag);
+
+			if (timescale_flag)
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "timescale", timescale, timescale);
+
+			if (pts_offset_type)
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "default_pts_offset", default_pts_offset, default_pts_offset);
+
+			int i = 0;
+			for (auto& v : ts_offsets)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%d\n", szIndent, "offsets", i);
+				v.Print(fp, indent + 4, pts_offset_type);
+				i++;
+			}
+		}
+
+	}PACKED;
+
+	struct MHAudioComponentDescriptor : public MMTSIDescriptor
+	{
+		uint8_t					reserved_for_future_use_0 : 4;
+		uint8_t					stream_content : 4;
+		uint8_t					Dialog_control:1;
+		uint8_t					Sound_handicapped : 2;
+		uint8_t					Audio_mode : 5;
+		uint16_t				component_tag;
+		uint8_t					stream_type;
+		uint8_t					simulcast_group_tag;
+		uint32_t				ES_multi_lingual_flag : 1;
+		uint32_t				main_component_flag : 1;
+		uint32_t				quality_indicator : 2;
+		uint32_t				sampling_rate : 3;
+		uint32_t				reserved_for_future_use_1 : 1;
+		uint32_t				ISO_639_language_code : 24;
+		uint32_t				ISO_639_language_code_2;
+		std::vector<uint8_t>	text_chars;
+
+		static const char* GetAudioModeDesc(uint8_t amod)
+		{
+			switch (amod)
+			{
+			case 0: return "Reserved for use in the future";
+			case 1: return "1/0 mode (single mono)";
+			case 2: return "1/0+1/0 mode (dual mono)";
+			case 3: return "2/0 mode (stereo)";
+			case 4: return "2/1 mode";
+			case 5: return "3/0 mode";
+			case 6: return "2/2 mode";
+			case 7: return "3/1 mode";
+			case 8: return "3/2 mode";
+			case 9: return "3/2+LFE mode (3/2.1 mode)";
+			case 10: return "3/3.1 mode";
+			case 11: return "2/0/0-2/0/2-0.1 mode";
+			case 12: return "5/2.1 mode";
+			case 13: return "3/2/2.1 mode";
+			case 14: return "2/0/0-3/0/2-0.1 mode";
+			case 15: return "0/2/0-3/0/2-0.1 mode";
+			case 16: return "2/0/0-3/2/3-0.2 mode";
+			case 17: return "3/3/3-5/2/3-3/0/0.2 mode";
+			default: return "Reserved for use in the future";
+			}
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			left_bits = AMP_MIN(left_bits, (uint64_t)descriptor_length << 3);
+
+			if (left_bits < (10ULL << 3))
+				return RET_CODE_BOX_TOO_SMALL;
+
+			reserved_for_future_use_0 = (uint8_t)bs.GetBits(4);
+			stream_content = (uint8_t)bs.GetBits(4);
+			Dialog_control = (uint8_t)bs.GetBits(1);
+			Sound_handicapped = (uint8_t)bs.GetBits(2);
+			Audio_mode = (uint8_t)bs.GetBits(5);
+			component_tag = bs.GetWord();
+			stream_type = bs.GetByte();
+			simulcast_group_tag = bs.GetByte();
+			ES_multi_lingual_flag = (uint32_t)bs.GetBits(1);
+			main_component_flag = (uint32_t)bs.GetBits(1);
+			quality_indicator = (uint32_t)bs.GetBits(2);
+			sampling_rate = (uint32_t)bs.GetBits(3);
+			reserved_for_future_use_1 = (uint32_t)bs.GetBits(1);
+
+			ISO_639_language_code = (uint32_t)bs.GetBits(24);
+
+			left_bits -= 10ULL << 3;
+
+			if (ES_multi_lingual_flag)
+			{
+				if (left_bits < 24)
+					return RET_CODE_BOX_TOO_SMALL;
+
+				ISO_639_language_code_2 = (uint32_t)bs.GetBits(24);
+				left_bits -= 24;
+			}
+
+			if (left_bits > 8)
+			{
+				text_chars.resize((size_t)(left_bits >> 3));
+				bs.Read(&text_chars[0], (size_t)(left_bits >> 3));
+			}
+
+			SkipLeftBits(bs);
+			return RET_CODE_SUCCESS;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X), %s\n", szIndent, "stream_content", stream_content, stream_content,
+				stream_content == 0x0?"Reserved for use in the future":(
+				stream_content == 0x1?"Not used":(
+				stream_content == 0x2?"Sound stream that coding system is not specified":(
+				stream_content == 0x3?"Sound stream by MPEG-4 AAC":(
+				stream_content == 0x4?"Sound stream by MPEG-4 ALS":(
+				(stream_content == 0x5 || stream_content == 0x9)?"Not used":(
+				(stream_content >= 0x6 && stream_content <= 0x8)?"Reserved for use in the future":(
+				(stream_content == 0xA || stream_content == 0xB)?"Reserved for use in the future":"Defined by broadcasters"))))))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u, %s\n", szIndent, "Dialog_control", Dialog_control, Dialog_control?"Audio stream includes dialog control information":"Audio stream does not include dialog control information");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X), %s\n", szIndent, "Sound_handicapped", Sound_handicapped, Sound_handicapped,
+				Sound_handicapped == 0?"Audio for the handicapped is not specified":(
+				Sound_handicapped == 1?"Audio explanation for the visual handicapped persons":(
+				Sound_handicapped == 2?"Audio for the hearing impared persons":(
+				Sound_handicapped == 3?"Reserved for use in the future":""))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X), %s\n", szIndent, "Audio_mode", Audio_mode, Audio_mode, GetAudioModeDesc(Audio_mode));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "component_tag", component_tag, component_tag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "stream_type", stream_type, stream_type);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "simulcast_group_tag", simulcast_group_tag, simulcast_group_tag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "ES_multi_lingual_flag", ES_multi_lingual_flag);
+		}
+
+	}PACKED;
+
 	struct MMTGeneralLocationInfo
 	{
 		uint64_t			start_bitpos;
@@ -980,17 +1547,61 @@ namespace MMT
 					asset_type == 'aapp'?"Application":(
 					asset_type == 'asgd'?"Synchronous type general-purpose data":(
 					asset_type == 'aagd'?"Asynchronous type general-purpose data":"")))))));
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset_clock_relation_flag", asset_clock_relation_flag);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "clock_relation_flag", asset_clock_relation_flag);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "location_count", location_count);
 				for (size_t i = 0; i < MMT_general_location_infos.size(); i++)
 				{
 					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "location idx", i);
 					MMT_general_location_infos[i].Print(fp, indent + 4);
 				}
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset_descriptors_length", asset_descriptors_length);
+
+#if 1
+				size_t left_descs_bytes = asset_descriptors_bytes.size();
+				CBitstream descs_bs(&asset_descriptors_bytes[0], asset_descriptors_bytes.size()<<3);
+				while (left_descs_bytes > 0)
+				{
+					uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
+					MMTSIDescriptor* pDescr = nullptr;
+					switch (peek_desc_tag)
+					{
+					case 0x0001:
+						pDescr = new MPUTimestampDescriptor();
+						break;
+					case 0x8010:	// Video component Descriptor
+						pDescr = new VideoComponentDescriptor();
+						break;
+					case 0x8011:
+						pDescr = new MHStreamIdentifierDescriptor();
+						break;
+					case 0x8026:
+						pDescr = new MPUExtendedTimestampDescriptor();
+						break;
+					default:
+						pDescr = new UnimplMMTSIDescriptor();
+					}
+
+					if (pDescr->Unpack(descs_bs) >= 0)
+					{
+						pDescr->Print(fp, indent + 4);
+
+						if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+							break;
+
+						left_descs_bytes -= pDescr->descriptor_length + 3UL;
+
+						delete pDescr;
+					}
+					else
+					{
+						delete pDescr;
+						break;
+					}
+				}
+#else
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset_descs_length", asset_descriptors_length);
 				if (asset_descriptors_length > 0)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": ", szIndent, "asset_desc_bytes");
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": ", szIndent, "asset_descs_bytes");
 					for (size_t i = 0; i < AMP_MIN(256UL, asset_descriptors_bytes.size()); i++)
 					{
 						if (i != 0 && i % 16 == 0)
@@ -1001,6 +1612,7 @@ namespace MMT
 					if (asset_descriptors_bytes.size() > 256)
 						fprintf(out, MMT_FIX_HEADER_FMT_STR "  ...\n", szIndent, "");
 				}
+#endif
 			}
 
 		}PACKED;
