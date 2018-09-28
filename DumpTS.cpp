@@ -108,8 +108,23 @@ void ParseCommandLine(int argc, char* argv[])
 	g_params.insert({ "input", argv[1] });
 
 	std::string str_arg_prefixes[] = {
-		"output", "pid", "trackid", "boxtype", "destpid", "srcfmt", "outputfmt", "showpts", "stream_id", "stream_id_extension", "showinfo", "verbose", "removebox", "crc",
-		"dashinitmp4", "VLCTypes"
+		"output", 
+		"pid", 
+		"trackid", 
+		"boxtype", 
+		"destpid", 
+		"srcfmt", 
+		"outputfmt", 
+		"showinfo",
+		"showpts", 
+		"showpack",
+		"stream_id", 
+		"stream_id_extension", 
+		"removebox", 
+		"crc",
+		"dashinitmp4", 
+		"VLCTypes",
+		"verbose"
 	};
 
 	for (int iarg = 2; iarg < argc; iarg++)
@@ -140,7 +155,8 @@ void ParseCommandLine(int argc, char* argv[])
 	{
 		if (iter->second.length() == 0)
 		{
-			if (iter->first.compare("showpts") == 0 || 
+			if (iter->first.compare("showpack") == 0 ||
+				iter->first.compare("showpts") == 0 || 
 				iter->first.compare("showinfo") == 0 ||
 				iter->first.compare("verbose") == 0)
 				printf("%s : yes\r\n", iter->first.c_str());

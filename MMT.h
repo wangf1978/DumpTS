@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IP.h"
+#include <stdlib.h>
 
 /*
 	AIT		Application Information Table
@@ -885,7 +886,40 @@ namespace MMT
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "component_tag", component_tag, component_tag);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "stream_type", stream_type, stream_type);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "simulcast_group_tag", simulcast_group_tag, simulcast_group_tag);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "ES_multi_lingual_flag", ES_multi_lingual_flag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u%s\n", szIndent, "ES_multi_lingual_flag", ES_multi_lingual_flag, ES_multi_lingual_flag?", two languages are multiplexed in ES":"");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u%s\n", szIndent, "main_component_flag", main_component_flag, main_component_flag ? ", main audio" : "");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u%s\n", szIndent, "quality_indicator", quality_indicator, 
+				quality_indicator == 0 ? "Reserved for use in the future" : (
+				quality_indicator == 1 ? "Mode 1":(
+				quality_indicator == 2 ? "Mode 2":(
+				quality_indicator == 3 ? "Mode 3": "Unknown"))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "sampling_rate", 
+				sampling_rate == 0 ? "Reserved for use in the future" : (
+				sampling_rate == 1 ? "16 kHZ":(
+				sampling_rate == 2 ? "22.05 kHZ":(
+				sampling_rate == 3 ? "24 kHZ": (
+				sampling_rate == 4 ? "Reserved": (
+				sampling_rate == 5 ? "32 kHZ": (
+				sampling_rate == 6 ? "44.1 kHZ": (
+				sampling_rate == 7 ? "48 kHZ": "Unknown"))))))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c (0X%08X)\n", szIndent, "language",
+				isprint(((uint32_t)ISO_639_language_code >> 16) & 0xFF) ? ((uint32_t)ISO_639_language_code >> 16) & 0xFF : '.',
+				isprint(((uint32_t)ISO_639_language_code >> 8) & 0xFF) ? ((uint32_t)ISO_639_language_code >> 8) & 0xFF : '.',
+				isprint(((uint32_t)ISO_639_language_code) & 0xFF) ? ((uint32_t)ISO_639_language_code) & 0xFF : '.', (uint32_t)ISO_639_language_code);
+
+			if (ES_multi_lingual_flag)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c (0X%08X)\n", szIndent, "language2",
+					isprint(((uint32_t)ISO_639_language_code_2 >> 16) & 0xFF) ? ((uint32_t)ISO_639_language_code_2 >> 16) & 0xFF : '.',
+					isprint(((uint32_t)ISO_639_language_code_2 >> 8) & 0xFF) ? ((uint32_t)ISO_639_language_code_2 >> 8) & 0xFF : '.',
+					isprint(((uint32_t)ISO_639_language_code_2) & 0xFF) ? ((uint32_t)ISO_639_language_code_2) & 0xFF : '.', (uint32_t)ISO_639_language_code_2);
+			}
+
+			if (text_chars.size() > 0)
+			{
+				std::string text((const char*)&text_chars[0], text_chars.size());
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "text", text.c_str());
+			}
 		}
 
 	}PACKED;
@@ -932,6 +966,37 @@ namespace MMT
 				uint8_t			URL_byte[256];
 			}PACKED URL;
 		}PACKED;
+
+		std::string GetLocDesc()
+		{
+			char szLocInfo[512];
+			memset(szLocInfo, 0, sizeof(szLocInfo));
+			switch (location_type)
+			{
+			case 0: sprintf_s(szLocInfo, _countof(szLocInfo), "packet_id: 0X%X(%d)", packet_id, packet_id); break;
+			case 1: sprintf_s(szLocInfo, _countof(szLocInfo), "src_IP: %s, dst_IP: %s, dst_port: %d, packet_id: 0X%X(%d)",
+				MMTP_IPv4.ipv4_src_addr.GetIP().c_str(),
+				MMTP_IPv4.ipv4_dst_addr.GetIP().c_str(),
+				MMTP_IPv4.dst_port,
+				MMTP_IPv4.packet_id, MMTP_IPv4.packet_id); break;
+			case 2: sprintf_s(szLocInfo, _countof(szLocInfo), "src_IP: %s, dst_IP: %s, dst_port: %d, packet_id: 0X%X(%d)",
+				MMTP_IPv6.ipv6_src_addr.GetIP().c_str(),
+				MMTP_IPv6.ipv6_dst_addr.GetIP().c_str(),
+				MMTP_IPv6.dst_port,
+				MMTP_IPv6.packet_id, MMTP_IPv6.packet_id); break;
+			case 3: sprintf_s(szLocInfo, _countof(szLocInfo), "network_id: %d, MPEG2_transport_stream_id: %d, PID: 0X%X(%d)",
+				M2TS_broadcast.network_id,
+				M2TS_broadcast.MPEG_2_transport_stream_id,
+				M2TS_broadcast.MPEG_2_PID, M2TS_broadcast.MPEG_2_PID); break;
+			case 4: sprintf_s(szLocInfo, _countof(szLocInfo), "src_IP: %s, dst_IP: %s, dst_port: %d, PID: 0X%X(%d)",
+				M2TS_IPv6.ipv6_src_addr.GetIP().c_str(),
+				M2TS_IPv6.ipv6_dst_addr.GetIP().c_str(),
+				M2TS_IPv6.dst_port,
+				M2TS_IPv6.MPEG_2_PID, M2TS_IPv6.MPEG_2_PID); break;
+			case 5: sprintf_s(szLocInfo, _countof(szLocInfo), "URL: %s", URL.URL_byte); break;
+			}
+			return std::string(szLocInfo);
+		}
 
 		uint16_t GetLength()
 		{
@@ -1196,6 +1261,7 @@ namespace MMT
 			}PACKED;
 
 			uint16_t				descripor_loop_length;
+			std::vector<uint8_t>	descriptors;
 
 			int Unpack(CBitstream& bs)
 			{
@@ -1241,12 +1307,20 @@ namespace MMT
 					left_bits -= (uint64_t)URL.URL_length << 3;
 				}
 
-				if (left_bits < 8)
+				if (left_bits < 16)
 					return RET_CODE_BOX_TOO_SMALL;
 
-				descripor_loop_length = bs.GetByte();
+				descripor_loop_length = bs.GetWord();
+				left_bits -= 16;
 
-				// TODO...
+				if (left_bits < (uint64_t)descripor_loop_length << 3)
+					return RET_CODE_BOX_TOO_SMALL;
+
+				if (descripor_loop_length > 0)
+				{
+					descriptors.resize(descripor_loop_length);
+					bs.Read(&descriptors[0], descripor_loop_length);
+				}
 
 				return RET_CODE_SUCCESS;
 			}
@@ -1292,6 +1366,19 @@ namespace MMT
 				}
 
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "descripor_loop_length", descripor_loop_length);
+				if (descripor_loop_length > 0)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": ", szIndent, "descriptor");
+					for (size_t i = 0; i < AMP_MIN(256UL, descriptors.size()); i++)
+					{
+						if (i != 0 && i % 16 == 0)
+							fprintf(out, "\n" MMT_FIX_HEADER_FMT_STR "  ", szIndent, "");
+						fprintf(out, "%02X ", descriptors[i]);
+					}
+					fprintf(out, "\n");
+					if (descriptors.size() > 256)
+						fprintf(out, MMT_FIX_HEADER_FMT_STR "  ...\n", szIndent, "");
+				}
 			}
 
 		}PACKED;
@@ -1381,6 +1468,43 @@ namespace MMT
 			}
 
 			return RET_CODE_SUCCESS;
+		}
+
+		/*
+		@retval 0, two PLTs are the similar and deem there is no change between them.
+		*/
+		int Compare(PackageListTable* pPLT)
+		{
+			if (pPLT == nullptr)
+				return 1;
+
+			if (num_of_packages < pPLT->num_of_packages)
+				return -1;
+			else if (num_of_packages > pPLT->num_of_packages)
+				return 1;
+
+			// Check whether MMT_package_id is changed or not
+			for (auto& p1 : package_infos)
+			{
+				bool bFoundPackageID = false;
+				uint64_t pkg_id = std::get<1>(p1);
+				for (auto &p2 : pPLT->package_infos)
+				{
+					if (pkg_id == std::get<1>(p2))
+					{
+						bFoundPackageID = true;
+						break;
+					}
+				}
+
+				if (bFoundPackageID == false)
+					return 1;
+			}
+
+			// Here, all package_ids are the same between 2 PLT
+			// TODO:
+			// If there are advance points to indicate the PLT is changed, it will be implemented later.
+			return 0;
 		}
 
 		virtual void Print(FILE* fp = nullptr, int indent = 0)
@@ -1575,6 +1699,9 @@ namespace MMT
 						break;
 					case 0x8026:
 						pDescr = new MPUExtendedTimestampDescriptor();
+						break;
+					case 0x8014:
+						pDescr = new MHAudioComponentDescriptor();
 						break;
 					default:
 						pDescr = new UnimplMMTSIDescriptor();

@@ -7,8 +7,8 @@
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
 
-- Extract and repack the elementary stream data or PSI sections data from *TS, ISOBMFF and Matroska* file
-- Show media information of elementary streams, *ISOBMFF* box and *Matroska EBML* element
+- Extract and repack the elementary stream data or PSI sections data from *TS, ISOBMFF, Matroska and MMT/TLV* file
+- Show media information of elementary streams, *ISOBMFF* box, *Matroska EBML* element and *MMT/TLV* packet/message/table/descriptors.
 - Re-factor a *TS* stream file in place
 - Extract some elementary streams, and reconstruct a partial *TS* file
 - Provide some utility features for *ISOBMFF* file reconstruction
@@ -25,18 +25,19 @@ Use VS2015 to open DumpTS.sln to build it
 |Option|Value|Description|
 |:--|:----:|:--|
 |**--output**|*filename*|the output dumped file path|
-|**--pid**|*0xhhhh*|the PID of dumped stream|
+|**--pid**|*0xhhhh*|the PID of dumped TS stream, or the package_id of MMT/TLV stream|
 |**--trackid**|*xx*|the track ID of a ISOBMFF/Matroska file|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
-|**--srcfmt**|*ts, m2ts, tts, mp4, mkv, huffman_codebook, aiff, mmts*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
+|**--srcfmt**|*ts, m2ts, tts, mp4, mkv, huffman_codebook, aiff, mmt*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
 |**--outputfmt**|*ts, m2ts, pes, es, wav, pcm, binary_search_table*|the destination dumped format, including: ts, m2ts, pes, es and so on<br>**binary_search_table:**<br>generate the binary search table for Huffman VLC codebook|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--removebox**|*xxxx*|remove the box elements in MP4 file|
 |**--boxtype**|*xxxx*|**For ISOBMFF/mp4 source:**<BR>the box type FOURCC, i.e. --boxtype=stsd<BR>**For Matroska/mkv source:**<BR>the EBML ID, i.e. --boxtype=0x1A45DFA3|
 |**--crc**|*crc-type, all*|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
-|**--showpts**|*N/A*.|print the pts of every elementary stream packet|
 |**--showinfo**|*N/A*|print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
+|**--showpack**||Show packs in the specified TS/MMT/TLV stream file |
+|**--showpts**|*N/A*.|print the pts of every elementary stream packet|
 |**--listcrc**||List all CRC types supported in this program|
 |**--listmp4box**||List box types and descriptions defined in ISO-14496 spec|
 |**--listmkvEBML**||List EBML elements defined in Matroska spec|
