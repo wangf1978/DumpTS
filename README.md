@@ -16,7 +16,11 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 
 # How to build?
 
-Use VS2015 to open DumpTS.sln to build it
+Windows:
+Use VS2015/VS2017 to open DumpTS.sln to build it
+
+Linux:
+TODO...
 
 # How to run it?
 
@@ -67,22 +71,34 @@ DumpTS C:\00022.m2ts --output=c:\00022.mlp --pid=0x1100 --srcfmt=m2ts --outputfm
 ```
 It will dump a MLP sub-stream from C:\00022.m2ts with the PID 0x1100 and stream\_id\_extension in PES: 0x72
 ```
-DumpTS C:\\test.mp4 --showinfo --removebox='unkn'
+DumpTS C:\test.mp4 --showinfo --removebox='unkn'
 ```
 Show the MP4 file box layout, and remove box with type 'unkn'
 ```
-DumpTS C:\\tes.mp4 --output=c:\test.hevc --trackid=1 --outputfmt=es
+DumpTS C:\tes.mp4 --output=c:\test.hevc --trackid=1 --outputfmt=es
 ```
 Dump the track#1 of test.mp4, and save its elementary stream data to file test.hevc, the VSP, SPS and PPS will be merged into elementary stream data.
 ```
-DumpTS C:\\test.mp4 --trackid=1 --boxtype=stsd --showinfo
+DumpTS C:\test.mp4 --trackid=1 --boxtype=stsd --showinfo
 ```
 Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-depth and so on
 ```
-DumpTS C:\\av1.webm --showinfo
+DumpTS C:\av1.webm --showinfo
 ```
 Show the tree view for the EBML elements of av1.webm
 ```
 DumpTS e:\tearsofsteel_4sec0025_3840x2160.y4m-20000.av1.webm --trackid=1 --output=e:\tearsofsteel_4sec0025_4K.av1
 ```
 Extract av1 video stream from .webm file
+```
+DumpTS e:\00301.mmts --showinfo
+```
+Show the MMT payload information, including PLT, MPT and asset/elementary information
+```
+DumpTS e:\00301.mmts --showpack
+```
+Show the detailed information for MMT packets, payloads, messages, tables and descriptors
+```
+DumpTS e:\00301.mmts --CID=0 --pid==0x100 --output=e:\00301.hevc
+```
+Extract HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
