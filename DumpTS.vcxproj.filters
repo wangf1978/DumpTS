@@ -13,6 +13,12 @@
       <UniqueIdentifier>{df2a1138-d117-449e-b74a-7c771ad82134}</UniqueIdentifier>
       <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
     </Filter>
+    <Filter Include="materials">
+      <UniqueIdentifier>{5e97c8e9-00da-40c9-9826-875f8cc784ec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="materials\huffmancodebook">
+      <UniqueIdentifier>{3959540d-42d5-403d-9425-c32c2ba9db6a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DumpTS.cpp">
@@ -152,5 +158,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt">
+      <Filter>materials\huffmancodebook</Filter>
+    </Text>
   </ItemGroup>
 </Project>

@@ -131,7 +131,7 @@ using TreeCIDPAMsgs = std::map<uint16_t, TreePLTMPT>;
 using TreePkgBuf = std::map<uint16_t, AMLinearRingBuffer>;
 using TreeCIDPkgBuf = std::map<uint16_t, TreePkgBuf>;
 
-int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t package_id, uint8_t* pMsgBuf, int cbMsgBuf)
+int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf)
 {
 	if (cbMsgBuf <= 0)
 		return RET_CODE_INVALID_PARAMETER;
@@ -169,7 +169,21 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t package_id
 					continue;
 			}
 
-			printf("Found a new PLT with package_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", package_id, package_id, CID, CID);
+			printf("Found a new PLT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+
+			std::string szLocInfo;
+			// Get the packet_id of current MPT
+			for (auto& plt_pkg : pPLT->package_infos)
+			{
+				uint64_t pkg_id = std::get<1>(plt_pkg);
+				auto& info = std::get<2>(plt_pkg);
+				szLocInfo = info.GetLocDesc();
+
+				printf("\tFound a package with package_id: 0X%llX(%llu), %s.\n", pkg_id, pkg_id, szLocInfo.c_str());
+			}
+
+			if (g_verbose_level > 0)
+				pPLT->Print(stdout, 8);
 			
 			// A new PLT is found
 			iter->second.push_back(std::make_tuple(pPLT, std::vector<MMT::MMTPackageTable*>()));
@@ -178,7 +192,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t package_id
 		}
 		else if (t->table_id == 0x20) // MPT
 		{
-			bool bFoundExistedMPT = false, bInPLTMPTs = false;
+			bool bFoundExistedMPT = false, bInPLTMPTs = false, bFoundNewMPT = false;;
 			MMT::MMTPackageTable* pMPT = (MMT::MMTPackageTable*)t;
 			// Check whether the current MPT lies at the last PLT or not
 			if (iter->second.size() > 0)
@@ -216,15 +230,16 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t package_id
 					vMPTs.push_back(pMPT);
 					// reset the table to NULL to avoid destructing it during PAMessage
 					t = nullptr;
-
-					printf("Found a new MPT with package_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", package_id, package_id, CID, CID);
+					bFoundNewMPT = true;
+					printf("Found a new MPT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
 				}
 				else
 				{
 					// It is a new MPT which does NOT belong to any PLT, assume there is a null PLT own it
 					iter->second.push_back(std::make_tuple(nullptr, std::vector<MMT::MMTPackageTable*>({ pMPT })));
 					t = nullptr;
-					printf("Found a new MPT with package_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", package_id, package_id, CID, CID);
+					bFoundNewMPT = true;
+					printf("Found a new MPT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
 				}
 			}
 			else
@@ -232,7 +247,60 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t package_id
 				// It is a new MPT which does NOT belong to any PLT, assume there is a null PLT own it
 				iter->second.push_back(std::make_tuple(nullptr, std::vector<MMT::MMTPackageTable*>({ pMPT })));
 				t = nullptr;
-				printf("Found a new MPT with package_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", package_id, package_id, CID, CID);
+				bFoundNewMPT = true;
+				printf("Found a new MPT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: 0X%X(%u)...\n", 
+					packet_id, packet_id, CID, CID);
+			}
+
+			if (bFoundNewMPT && pMPT != nullptr)
+			{
+				for (size_t k = 0; k < pMPT->assets.size(); k++)
+				{
+					auto& a = pMPT->assets[k];
+					printf("\t#%05u Asset, asset_id: 0X%llX(%llu):\n", k, a->asset_id, a->asset_id);
+
+					for (auto& info : a->MMT_general_location_infos)
+					{
+						printf("\t\t%s\n", info.GetLocDesc().c_str());
+					}
+
+					size_t left_descs_bytes = a->asset_descriptors_bytes.size();
+					CBitstream descs_bs(&a->asset_descriptors_bytes[0], a->asset_descriptors_bytes.size() << 3);
+					while (left_descs_bytes > 0)
+					{
+						uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
+						MMT::MMTSIDescriptor* pDescr = nullptr;
+						switch (peek_desc_tag)
+						{
+						case 0x8010:	// Video component Descriptor
+							pDescr = new MMT::VideoComponentDescriptor();
+							break;
+						case 0x8014:
+							pDescr = new MMT::MHAudioComponentDescriptor();
+							break;
+						default:
+							pDescr = new MMT::UnimplMMTSIDescriptor();
+						}
+
+						if (pDescr->Unpack(descs_bs) >= 0)
+						{
+							if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
+								pDescr->Print(stdout, 28);
+
+							if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+								break;
+
+							left_descs_bytes -= pDescr->descriptor_length + 3UL;
+
+							delete pDescr;
+						}
+						else
+						{
+							delete pDescr;
+							break;
+						}
+					}
+				}
 			}
 		}
 	}

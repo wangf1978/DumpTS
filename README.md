@@ -29,7 +29,7 @@ TODO...
 |Option|Value|Description|
 |:--|:----:|:--|
 |**--output**|*filename*|the output dumped file path|
-|**--pid**|*0xhhhh*|the PID of dumped TS stream, or the package_id of MMT/TLV stream|
+|**--pid**|*0xhhhh*|the PID of dumped TS stream, or the packet_id of dumped MMT asset|
 |**--trackid**|*xx*|the track ID of a ISOBMFF/Matroska file|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
 |**--srcfmt**|*ts, m2ts, tts, mp4, mkv, huffman_codebook, aiff, mmt*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a...<BR>**mkv**, it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
@@ -102,3 +102,11 @@ Show the detailed information for MMT packets, payloads, messages, tables and de
 DumpTS e:\00301.mmts --CID=0 --pid==0x100 --output=e:\00301.hevc
 ```
 Extract HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
+```
+dumpts ..\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --showinfo --srcfmt=huffman_codebook
+```
+Load huffman-codebook from the specified file, and print its huffman-tree
+```
+dumpts ..\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
+```
+Load huffman-codebook from the specified file, and print binary search table for huffman-tree
