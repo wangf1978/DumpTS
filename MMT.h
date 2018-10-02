@@ -967,6 +967,21 @@ namespace MMT
 			}PACKED URL;
 		}PACKED;
 
+		bool UsePacketID(uint16_t PktID)
+		{
+			switch (location_type)
+			{
+			case 0:
+				return PktID == packet_id ? true : false;
+			case 1:
+				return PktID == MMTP_IPv4.packet_id ? true : false;
+			case 2:
+				return PktID == MMTP_IPv6.packet_id ? true : false;
+			}
+
+			return false;
+		}
+
 		std::string GetLocDesc()
 		{
 			char szLocInfo[512];
@@ -2148,7 +2163,7 @@ namespace MMT
 			
 			uint16_t			Fragment_type : 4;
 			uint16_t			Time_data_flag : 1;
-			uint16_t			Division_index : 2;
+			uint16_t			fragmentation_indicator : 2;
 			uint16_t			Aggregate_flag : 1;
 			uint16_t			Division_number_counter : 8;
 
@@ -2174,7 +2189,7 @@ namespace MMT
 				Payload_length = bs.GetWord();
 				Fragment_type = (uint16_t)bs.GetBits(4);
 				Time_data_flag = (uint16_t)bs.GetBits(1);
-				Division_index = (uint16_t)bs.GetBits(2);
+				fragmentation_indicator = (uint16_t)bs.GetBits(2);
 				Aggregate_flag = (uint16_t)bs.GetBits(1);
 
 				Division_number_counter = bs.GetByte();
@@ -2346,15 +2361,53 @@ namespace MMT
 					Fragment_type == 1?"Movie fragment metadata":(
 					Fragment_type == 2?"MFU":"Reserved")));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Time_data_flag", Time_data_flag);
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d, %s\n", szIndent, "Division_index", Division_index,
-					Division_index == 0?"Undivided":(
-					Division_index == 1?"Divided, Including the head part of the data before division":(
-					Division_index == 2?"Divided, Not including the head part and end part of the data before division":(
-					Division_index == 3?"Divided, Including the end part of the data before division":"Reserved"))));
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d, %s\n", szIndent, "frag_indicator", fragmentation_indicator,
+					fragmentation_indicator == 0?"Undivided":(
+					fragmentation_indicator == 1?"Divided, Including the head part of the data before division":(
+					fragmentation_indicator == 2?"Divided, Not including the head part and end part of the data before division":(
+					fragmentation_indicator == 3?"Divided, Including the end part of the data before division":"Reserved"))));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Aggregate_flag", Aggregate_flag);
 
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Div_number_counter", Division_number_counter);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "MPU_sequence_number", MPU_sequence_number);
+
+				if (Fragment_type == 2)
+				{
+					int idx_data_unit = 0;
+					for (auto& du : Data_Units)
+					{
+						fprintf(out, MMT_FIX_HEADER_FMT_STR ": [#%d]\n", szIndent, "DataUnit index", idx_data_unit);
+						if (Time_data_flag == 1)
+						{
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "DU_length", du.data_unit_length);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "MF_seq_no", du.movie_fragment_sequence_number);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "sample_no", du.sample_number);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "offset", du.offset);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "priority", du.priority);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "dep_counter", du.dependency_counter);
+						}
+						else
+						{
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "item_id", du.item_id);
+						}
+
+						if (du.MFU_data_bytes.size() > 0)
+						{
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": ", szIndent, "MFU_data_bytes");
+							for (size_t i = 0; i < AMP_MIN(256UL, du.MFU_data_bytes.size()); i++)
+							{
+								if (i != 0 && i % 16 == 0)
+									fprintf(out, "\n    " MMT_FIX_HEADER_FMT_STR "  ", szIndent, "");
+								fprintf(out, "%02X ", du.MFU_data_bytes[i]);
+							}
+							fprintf(out, "\n");
+							if (du.MFU_data_bytes.size() > 256)
+								fprintf(out, "    " MMT_FIX_HEADER_FMT_STR "  ...\n", szIndent, "");
+						}
+
+						idx_data_unit++;
+					}
+				}
 
 				if (payload.size() > 0)
 				{
