@@ -1146,7 +1146,7 @@ namespace IP
 
 				uint64_t left_bits = 0;
 				bs.Tell(&left_bits);
-				if (left_bits < (Opt_Data_Len << 3))
+				if (left_bits < ((uint64_t)Opt_Data_Len << 3))
 					return RET_CODE_BOX_TOO_SMALL;
 
 				if (Opt_Data_Len > 0)
@@ -1308,7 +1308,7 @@ namespace IP
 					Next_Header = bs.GetByte();
 					Header_Extension_Length = bs.GetByte();
 
-					uint64_t total_bits = (Header_Extension_Length + 1)<<6;
+					uint64_t total_bits = ((uint64_t)Header_Extension_Length + 1ULL)<<6;
 					if (left_bits < total_bits)
 						return RET_CODE_BOX_TOO_SMALL;
 
@@ -1386,7 +1386,7 @@ namespace IP
 					Routing_Type = bs.GetByte();
 					Segments_Left = bs.GetByte();
 
-					uint64_t total_bits = (Header_Extension_Length + 1) << 6;
+					uint64_t total_bits = ((uint64_t)Header_Extension_Length + 1ULL) << 6;
 					if (left_bits < total_bits)
 						return RET_CODE_BOX_TOO_SMALL;
 
@@ -1466,7 +1466,7 @@ namespace IP
 					Security_Parameters_Index = bs.GetDWord();
 					Sequence_Number = bs.GetDWord();
 
-					uint64_t total_bits = (Payload_Len + 2) << 5;
+					uint64_t total_bits = ((uint64_t)Payload_Len + 2ULL) << 5;
 					if (left_bits < total_bits)
 						return RET_CODE_BOX_TOO_SMALL;
 

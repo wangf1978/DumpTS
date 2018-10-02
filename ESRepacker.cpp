@@ -8,6 +8,7 @@ CESRepacker::CESRepacker(ES_BYTE_STREAM_FORMAT srcESFmt, ES_BYTE_STREAM_FORMAT d
 	memset(&m_config, 0, sizeof(m_config));
 	memset(m_szSrcFilepath, 0, sizeof(m_szSrcFilepath));
 	m_external_repacker = NULL;
+	m_lrb_NAL = nullptr;
 }
 
 
@@ -21,6 +22,9 @@ CESRepacker::~CESRepacker()
 			delete m_NALAURepacker;
 		}
 	}
+
+	if (m_lrb_NAL != nullptr)
+		AM_LRB_Destroy(m_lrb_NAL);
 }
 
 int CESRepacker::Config(ES_REPACK_CONFIG es_repack_config)
@@ -58,14 +62,21 @@ int CESRepacker::Config(ES_REPACK_CONFIG es_repack_config)
 
 int CESRepacker::Open(const char* szSrcFile)
 {
-	if (szSrcFile == nullptr)
-		return RET_CODE_INVALID_PARAMETER;
-
-	errno_t errn = fopen_s(&m_fpSrc, szSrcFile, "rb");
-	if (errn != 0 || m_fpSrc == NULL)
+	errno_t errn = 0;
+	if (szSrcFile != nullptr)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\n", szSrcFile, errn);
-		return RET_CODE_ERROR_FILE_NOT_EXIST;
+		errn = fopen_s(&m_fpSrc, szSrcFile, "rb");
+		if (errn != 0 || m_fpSrc == NULL)
+		{
+			printf("Failed to open the file: %s {errno: %d}.\n", szSrcFile, errn);
+			return RET_CODE_ERROR_FILE_NOT_EXIST;
+		}
+		strcpy_s(m_szSrcFilepath, MAX_PATH, szSrcFile);
+	}
+	else
+	{
+		m_fpSrc = nullptr;
+		memset(m_szSrcFilepath, 0, sizeof(m_szSrcFilepath));
 	}
 
 	if (m_config.es_output_file_path[0] != '\0')
@@ -76,8 +87,6 @@ int CESRepacker::Open(const char* szSrcFile)
 			printf("Failed to open the file: %s {errno: %d} to write the ES data.\n", m_config.es_output_file_path, errn);
 		}
 	}
-
-	strcpy_s(m_szSrcFilepath, MAX_PATH, szSrcFile);
 
 	// For AVC/HEVC codec, if the source and target byte stream format are different, routine into the related stream repacker
 	if (m_srcESFmt != m_dstESFmt)
@@ -356,6 +365,118 @@ int	CESRepacker::Repack(uint32_t sample_size, FLAG_VALUE keyframe)
 	} while (cbLeftSize > 0);
 
 	return RET_CODE_SUCCESS;
+}
+
+int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_fragmentation_indicator)
+{
+	int iRet = RET_CODE_SUCCESS;
+	if (m_config.codec_id != CODEC_ID_V_MPEG4_AVC && m_config.codec_id != CODEC_ID_V_MPEGH_HEVC)
+		return RET_CODE_ERROR_NOTIMPL;
+
+	if (m_lrb_NAL == nullptr)
+		m_lrb_NAL = AM_LRB_Create(4 * 1024 * 1024);
+
+	if (m_srcESFmt == ES_BYTE_STREAM_NALUNIT_WITH_LEN)
+	{
+		uint8_t nDelimiterLengthSize = 4;
+		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC && m_config.pAVCConfigRecord != nullptr)
+			nDelimiterLengthSize = m_config.pAVCConfigRecord->lengthSizeMinusOne + 1;
+		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC && m_config.pHEVCConfigRecord != nullptr)
+			nDelimiterLengthSize = m_config.pHEVCConfigRecord->lengthSizeMinusOne + 1;
+		else if (m_config.NALUnit_Length_Size > 0 && m_config.NALUnit_Length_Size <= sizeof(uint64_t))
+			nDelimiterLengthSize = m_config.NALUnit_Length_Size;
+
+		int nNalBufLen = 0;
+		uint8_t* pNalBuf = AM_LRB_GetReadPtr(m_lrb_NAL, &nNalBufLen);
+		if (nal_fragmentation_indicator == FRAG_INDICATOR_COMPLETE || nal_fragmentation_indicator == FRAG_INDICATOR_FIRST)
+		{
+			// Flush the previous buffer
+			if (pNalBuf != nullptr && nNalBufLen > 0)
+			{
+				if (nNalBufLen > nDelimiterLengthSize)
+				{
+					uint64_t nNalUnitLen = 0;
+					for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
+						nNalUnitLen = (nNalUnitLen << 8);
+
+					// it is a normal unit buffer or not.
+					if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+					{
+						m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen - nDelimiterLengthSize);
+					}
+				}
+				
+				AM_LRB_Reset(m_lrb_NAL);
+			}
+		}
+
+		if ((nal_fragmentation_indicator == FRAG_INDICATOR_MIDDLE || nal_fragmentation_indicator == FRAG_INDICATOR_LAST) && (pNalBuf == nullptr || nNalBufLen <= 0))
+		{
+			// the NAL unit data is sent in the middle, ignore it.
+			return RET_CODE_BUFFER_NOT_COMPATIBLE;
+		}
+
+		int nNalWriteBufLen = 0;
+		uint8_t* pNalWriteBuf = AM_LRB_GetWritePtr(m_lrb_NAL, &nNalWriteBufLen);
+		if (nNalWriteBufLen <= 0 || pNalWriteBuf == nullptr || nNalWriteBufLen < cbSize )
+		{
+			// Try to reform and enlarge the buffer.
+			AM_LRB_Reform(m_lrb_NAL);
+			pNalWriteBuf = AM_LRB_GetWritePtr(m_lrb_NAL, &nNalWriteBufLen);
+			if (nNalWriteBufLen == 0 || pNalWriteBuf == nullptr || nNalWriteBufLen < cbSize)
+			{
+				// Enlarge the ring buffer size
+				int nCurSize = AM_LRB_GetSize(m_lrb_NAL);
+				if (nCurSize == INT32_MAX || nCurSize + cbSize > INT32_MAX)
+				{
+					printf("The input NAL unit buffer is too huge, can't be supported now.\n");
+					return RET_CODE_OUTOFMEMORY;
+				}
+
+				if (nCurSize + cbSize >= INT32_MAX / 2)
+					nCurSize = INT32_MAX;
+				else
+					nCurSize += cbSize;
+
+				printf("Try to resize the linear ring buffer size to %d bytes.\n", nCurSize);
+				if ((iRet = AM_LRB_Resize(m_lrb_NAL, nCurSize)) < 0)
+					return iRet;
+
+				pNalWriteBuf = AM_LRB_GetWritePtr(m_lrb_NAL, &nNalWriteBufLen);
+				if (nNalWriteBufLen == 0 || pNalWriteBuf == nullptr)
+					return RET_CODE_OUTOFMEMORY;
+			}
+		}
+
+		memcpy(pNalWriteBuf, pBuf, cbSize);
+		AM_LRB_SkipWritePtr(m_lrb_NAL, cbSize);
+
+		if (nal_fragmentation_indicator == FRAG_INDICATOR_LAST || nal_fragmentation_indicator == FRAG_INDICATOR_COMPLETE)
+		{
+			pNalBuf = AM_LRB_GetReadPtr(m_lrb_NAL, &nNalBufLen);
+			if (pNalBuf != nullptr && nNalBufLen > 0)
+			{
+				if (nNalBufLen > nDelimiterLengthSize)
+				{
+					uint64_t nNalUnitLen = 0;
+					for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
+						nNalUnitLen = (nNalUnitLen << 8);
+
+					// it is a normal unit buffer or not.
+					if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+					{
+						m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen - nDelimiterLengthSize);
+					}
+				}
+
+				AM_LRB_Reset(m_lrb_NAL);
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	return RET_CODE_ERROR_NOTIMPL;
 }
 
 int CESRepacker::Close()

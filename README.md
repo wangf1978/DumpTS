@@ -103,10 +103,10 @@ DumpTS e:\00301.mmts --CID=0 --pid==0x100 --output=e:\00301.hevc
 ```
 Extract HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 ```
-dumpts ..\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --showinfo --srcfmt=huffman_codebook
+dumpts AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --showinfo --srcfmt=huffman_codebook
 ```
 Load huffman-codebook from the specified file, and print its huffman-tree
 ```
-dumpts ..\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
+dumpts AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
 ```
 Load huffman-codebook from the specified file, and print binary search table for huffman-tree

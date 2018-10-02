@@ -455,7 +455,7 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 
 				save_point.p = save_point.p_start;
 				
-				// Buffer can't be fill with full size, fill the left buffer
+				// Buffer can't be filled with full size, fill the left buffer
 				assert(will_fill - before_peek_remaining_buf_size);
 				will_fill -= before_peek_remaining_buf_size;
 				will_read_from_buf += before_peek_remaining_buf_size;

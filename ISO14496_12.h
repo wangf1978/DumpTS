@@ -816,7 +816,7 @@ namespace ISOBMFF
 		virtual int Unpack(CBitstream& bs)
 		{
 			if (description_length > 0)
-				bs.SkipBits(description_length << 3);
+				bs.SkipBits((int64_t)description_length << 3);
 
 			return RET_CODE_SUCCESS;
 		}
@@ -865,7 +865,7 @@ namespace ISOBMFF
 
 		done:
 			if (left_bytes > 0)
-				bs.SkipBits(left_bytes << 3);
+				bs.SkipBits((int64_t)left_bytes << 3);
 			return iRet;
 		}
 	}PACKED;
@@ -895,7 +895,7 @@ namespace ISOBMFF
 
 		done:
 			if (left_bytes > 0)
-				bs.SkipBits(left_bytes << 3);
+				bs.SkipBits((int64_t)left_bytes << 3);
 			return iRet;
 		}
 	}PACKED;
@@ -952,7 +952,7 @@ namespace ISOBMFF
 
 		done:
 			if (left_bytes > 0)
-				bs.SkipBits((int64_t)(left_bytes << 3));
+				bs.SkipBits(((int64_t)left_bytes << 3));
 			return iRet;
 		}
 	}PACKED;
@@ -983,7 +983,7 @@ namespace ISOBMFF
 
 		done:
 			if (left_bytes > 0)
-				bs.SkipBits((int64_t)(left_bytes << 3));
+				bs.SkipBits(((int64_t)left_bytes << 3));
 			return iRet;
 		}
 	}PACKED;
@@ -1014,7 +1014,7 @@ namespace ISOBMFF
 
 		done:
 			if (left_bytes > 0)
-				bs.SkipBits((int64_t)(left_bytes << 3));
+				bs.SkipBits(((int64_t)left_bytes << 3));
 			return iRet;
 		}
 	}PACKED;
@@ -2624,7 +2624,7 @@ namespace ISOBMFF
 							break;
 
 						session_groups.emplace_back();
-						auto back = session_groups.back();
+						auto& back = session_groups.back();
 						for (uint8_t i = 0; i < entry_count; i++)
 							back.group_IDs.push_back(bs.GetDWord());
 
@@ -2726,7 +2726,8 @@ namespace ISOBMFF
 				while (left_bytes >= MIN_BOX_SIZE && partition_entries.size() < entry_count)
 				{
 					partition_entries.emplace_back();
-					auto pPE = partition_entries.back() = new PartitionEntry();
+					auto& pPE = partition_entries.back();
+					pPE = new PartitionEntry();
 
 					if (pPE->Unpack(bs) < 0)
 					{
@@ -3096,7 +3097,7 @@ namespace ISOBMFF
 			while (left_bytes >= sizeof(Reference) && references.size() < reference_count)
 			{
 				references.emplace_back();
-				auto back = references.back();
+				auto& back = references.back();
 				back.reference_type = (uint32_t)bs.GetBits(1);
 				back.referenced_size = (uint32_t)bs.GetBits(31);
 				back.subsegment_duration = bs.GetDWord();
@@ -3155,7 +3156,7 @@ namespace ISOBMFF
 			while (left_bytes >= sizeof(uint32_t) && segments.size() < segment_count)
 			{
 				segments.emplace_back();
-				auto back = segments.back();
+				auto& back = segments.back();
 
 				back.ranges_count = bs.GetDWord();
 				left_bytes -= sizeof(uint32_t);
@@ -5024,7 +5025,7 @@ namespace ISOBMFF
 								for (uint32_t i = 0; i < AMP_MIN(left_bytes, padding_byte_count); i++)
 								{
 									pads.emplace_back();
-									auto pad_entry = pads.back();
+									auto& pad_entry = pads.back();
 									pad_entry.reserved_1 = (uint8_t)bs.GetBits(1);
 									pad_entry.pad1 = (uint8_t)bs.GetBits(3);
 									pad_entry.reserved_2 = (uint8_t)bs.GetBits(1);

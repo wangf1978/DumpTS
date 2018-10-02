@@ -63,8 +63,8 @@ namespace AIFF
 
 			if (cur_bitpos > start_bitpos)
 			{
-				if ((uint64_t)(ckDataSize << 3) + (8ULL << 3) > cur_bitpos - start_bitpos)
-					return (int64_t)((uint64_t)(ckDataSize << 3) + (8ULL << 3) - (cur_bitpos - start_bitpos));
+				if (((uint64_t)ckDataSize << 3) + (8ULL << 3) > cur_bitpos - start_bitpos)
+					return (int64_t)(((uint64_t)ckDataSize << 3) + (8ULL << 3) - (cur_bitpos - start_bitpos));
 			}
 
 			return 0ULL;

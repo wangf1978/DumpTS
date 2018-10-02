@@ -2485,7 +2485,7 @@ namespace MMT
 				{
 					while (left_payload_data_len > (length_extension_flag?4:2))
 					{
-						if (left_bits < ((length_extension_flag ? 4 : 2) << 3))
+						if (left_bits < ((length_extension_flag ? 4ULL : 2ULL) << 3))
 							return RET_CODE_BOX_TOO_SMALL;
 
 						uint32_t message_length = bs.GetDWord();

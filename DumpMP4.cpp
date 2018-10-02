@@ -1363,7 +1363,7 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* f
 					else
 						file_offset = prev_data_end_offset;
 				}
-				else
+				else if(ptr_tfhd_box != nullptr)
 					file_offset = moof_file_offset + ptr_tfhd_box->base_data_offset + ptr_trun_box->data_offset;
 
 			done:

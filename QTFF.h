@@ -374,7 +374,7 @@ namespace QTFF
 					Entries.emplace_back(bs.GetWord());
 					left_bytes -= sizeof(uint16_t);
 
-					auto back = Entries.back();
+					auto& back = Entries.back();
 
 					while (left_bytes >= sizeof(uint16_t) && back.Countries.size() < back.Country_count)
 					{
@@ -427,7 +427,7 @@ namespace QTFF
 					Entries.emplace_back(bs.GetWord());
 					left_bytes -= sizeof(uint16_t);
 
-					auto back = Entries.back();
+					auto& back = Entries.back();
 
 					while (left_bytes >= sizeof(uint16_t) && back.Languages.size() < back.Language_count)
 					{

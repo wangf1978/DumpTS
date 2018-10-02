@@ -895,7 +895,7 @@ namespace ISOBMFF
 
 		done:
 			if (left_bytes > 0)
-				bs.SkipBits(left_bytes << 3);
+				bs.SkipBits((int64_t)left_bytes << 3);
 			return iRet;
 		}
 
@@ -904,6 +904,7 @@ namespace ISOBMFF
 	struct INALAUSampleRepacker
 	{
 		virtual	int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe) = 0;
+		virtual int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit) = 0;
 	};
 
 	struct NALAUSampleRepackerBase : public INALAUSampleRepacker
@@ -927,18 +928,21 @@ namespace ISOBMFF
 			: NALAUSampleRepackerBase(fp, fw), m_AVCConfigRecord(pAVCConfigRecord){}
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
+		int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit);
 	};
 
 	struct HEVCSampleRepacker : public NALAUSampleRepackerBase
 	{
-
 		ISOBMFF::HEVCDecoderConfigurationRecord*
 					m_HEVCConfigRecord;
+		std::vector<std::tuple<uint8_t* /*pNalUnitBuf*/, int /*NumBytesInNalUnit*/>>
+					m_vNonVCLNUs;
 
 		HEVCSampleRepacker(FILE* fp, FILE* fw, ISOBMFF::HEVCDecoderConfigurationRecord* pHEVCConfigRecord)
 			: NALAUSampleRepackerBase(fp, fw), m_HEVCConfigRecord(pHEVCConfigRecord) {}
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
+		int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit);
 	};
 
 } // namespace  ISOBMFF

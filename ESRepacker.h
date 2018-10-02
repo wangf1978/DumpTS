@@ -44,6 +44,7 @@ SOFTWARE.
 
 #include "ISO14496_15.h"
 #include "CodecID.h"
+#include "AMRingBuffer.h"
 
 enum ES_BYTE_STREAM_FORMAT
 {
@@ -51,6 +52,7 @@ enum ES_BYTE_STREAM_FORMAT
 	ES_BYTE_STREAM_AVC_ANNEXB,			// (Leading_zero_8bits) + (zero_byte) + start_code_prefix_one_3bytes + nal_unit + (trailing_zero_8bits)
 	ES_BYTE_STREAM_HEVC_ANNEXB,			// (Leading_zero_8bits) + (zero_byte) + start_code_prefix_one_3bytes + nal_unit + (trailing_zero_8bits)
 	ES_BYTE_STREAM_ISO_NALAU_SAMPLE,	// NALUnitLength + nal_unit + NALUnitLength + .....
+	ES_BYTE_STREAM_NALUNIT_WITH_LEN,	// NALUnitLength + nal_unit
 };
 
 enum ES_SEEK_POINT_TYPE
@@ -60,6 +62,14 @@ enum ES_SEEK_POINT_TYPE
 	ES_SEEK_MATROSKA_SIMPLE_BLOCK,
 	ES_SEEK_MATROSKA_BLOCK_GROUP,
 	ES_SEEK_SKIP,
+};
+
+enum FRAGMENTATION_INDICATOR
+{
+	FRAG_INDICATOR_COMPLETE,
+	FRAG_INDICATOR_FIRST,
+	FRAG_INDICATOR_MIDDLE,
+	FRAG_INDICATOR_LAST
 };
 
 struct SEEK_POINT_INFO
@@ -119,6 +129,9 @@ public:
 	
 	/*!	@brief Begin the repack process in the specified seek position */
 	virtual	int	Repack(uint32_t sample_size, FLAG_VALUE keyframe);
+
+	/*!	@brief Process the buffer with the specified buffer size */
+	virtual int Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR indicator);
 	
 	/*!	@brief Close ES re-packer and release the resource. */
 	virtual int Close();
@@ -142,6 +155,7 @@ private:
 	FILE*					m_fpDst;
 
 	SEEK_POINT_INFO			m_cur_seek_point_info;
+	AMLinearRingBuffer		m_lrb_NAL;
 
 	union
 	{
