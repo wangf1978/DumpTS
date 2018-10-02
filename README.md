@@ -99,7 +99,7 @@ DumpTS e:\00301.mmts --showpack
 ```
 Show the detailed information for MMT packets, payloads, messages, tables and descriptors
 ```
-DumpTS e:\00301.mmts --CID=0 --pid==0x100 --output=e:\00301.hevc
+DumpTS e:\00301.mmts --CID=0 --pid=0x100 --output=e:\00301.hevc
 ```
 Extract HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 ```
