@@ -905,6 +905,7 @@ namespace ISOBMFF
 	{
 		virtual	int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe) = 0;
 		virtual int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit) = 0;
+		virtual int Flush() = 0;
 	};
 
 	struct NALAUSampleRepackerBase : public INALAUSampleRepacker
@@ -929,6 +930,7 @@ namespace ISOBMFF
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 		int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit);
+		int Flush();
 	};
 
 	struct HEVCSampleRepacker : public NALAUSampleRepackerBase
@@ -943,6 +945,7 @@ namespace ISOBMFF
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 		int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit);
+		int Flush();
 	};
 
 } // namespace  ISOBMFF

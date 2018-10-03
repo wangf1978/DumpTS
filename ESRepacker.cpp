@@ -370,8 +370,6 @@ int	CESRepacker::Repack(uint32_t sample_size, FLAG_VALUE keyframe)
 int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_fragmentation_indicator)
 {
 	int iRet = RET_CODE_SUCCESS;
-	if (m_config.codec_id != CODEC_ID_V_MPEG4_AVC && m_config.codec_id != CODEC_ID_V_MPEGH_HEVC)
-		return RET_CODE_ERROR_NOTIMPL;
 
 	if (m_lrb_NAL == nullptr)
 		m_lrb_NAL = AM_LRB_Create(4 * 1024 * 1024);
@@ -393,16 +391,36 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 			// Flush the previous buffer
 			if (pNalBuf != nullptr && nNalBufLen > 0)
 			{
-				if (nNalBufLen > nDelimiterLengthSize)
+				if (m_NALAURepacker != nullptr)
 				{
-					uint64_t nNalUnitLen = 0;
-					for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
-						nNalUnitLen = (nNalUnitLen << 8);
-
-					// it is a normal unit buffer or not.
-					if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+					if (nNalBufLen > nDelimiterLengthSize)
 					{
-						m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen - nDelimiterLengthSize);
+						uint64_t nNalUnitLen = 0;
+						for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
+							nNalUnitLen = (nNalUnitLen << 8) | pNalBuf[i];
+
+						// it is a normal unit buffer or not.
+						if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+							m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen);
+						else
+						{
+							if (g_verbose_level > 0)
+								printf("[ESRepacker] Hit an unexpected case, NAL unit length(%lld) indicated by delimiter-length is less than the actual(%d).\n",
+									nNalUnitLen, nNalBufLen - nDelimiterLengthSize);
+						}
+					}
+					else
+					{
+						if (g_verbose_level > 0)
+							printf("[ESRepacker] Hit an unexpected case, buflen(%d) is greater than delimiter length(%d).\n", nNalBufLen, nDelimiterLengthSize);
+					}
+				}
+				else
+				{
+					if (m_fpDst != nullptr)
+					{
+						if (fwrite(pNalBuf, 1, nNalBufLen, m_fpDst) != nNalBufLen)
+							printf("[ESRepacker] Failed to write %d bytes into the output file.\n", nNalBufLen);
 					}
 				}
 				
@@ -456,16 +474,36 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 			pNalBuf = AM_LRB_GetReadPtr(m_lrb_NAL, &nNalBufLen);
 			if (pNalBuf != nullptr && nNalBufLen > 0)
 			{
-				if (nNalBufLen > nDelimiterLengthSize)
+				if (m_NALAURepacker != nullptr)
 				{
-					uint64_t nNalUnitLen = 0;
-					for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
-						nNalUnitLen = (nNalUnitLen << 8);
-
-					// it is a normal unit buffer or not.
-					if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+					if (nNalBufLen > nDelimiterLengthSize)
 					{
-						m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen - nDelimiterLengthSize);
+						uint64_t nNalUnitLen = 0;
+						for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
+							nNalUnitLen = (nNalUnitLen << 8) | pNalBuf[i];
+
+						// it is a normal unit buffer or not.
+						if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+							m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen);
+						else
+						{
+							if (g_verbose_level > 0)
+								printf("[ESRepacker] Hit an unexpected case, NAL unit length(%lld) indicated by delimiter-length is less than the actual(%d).\n",
+									nNalUnitLen, nNalBufLen - nDelimiterLengthSize);
+						}
+					}
+					else
+					{
+						if (g_verbose_level > 0)
+							printf("[ESRepacker] Hit an unexpected case, buflen(%d) is greater than delimiter length(%d).\n", nNalBufLen, nDelimiterLengthSize);
+					}
+				}
+				else
+				{
+					if (m_fpDst != nullptr)
+					{
+						if (fwrite(pNalBuf, 1, nNalBufLen, m_fpDst) != nNalBufLen)
+							printf("[ESRepacker] Failed to write %d bytes into the output file.\n", nNalBufLen);
 					}
 				}
 
@@ -477,6 +515,53 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 	}
 
 	return RET_CODE_ERROR_NOTIMPL;
+}
+
+int CESRepacker::Flush()
+{
+	if (m_srcESFmt == ES_BYTE_STREAM_NALUNIT_WITH_LEN)
+	{
+		uint8_t nDelimiterLengthSize = 4;
+		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC && m_config.pAVCConfigRecord != nullptr)
+			nDelimiterLengthSize = m_config.pAVCConfigRecord->lengthSizeMinusOne + 1;
+		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC && m_config.pHEVCConfigRecord != nullptr)
+			nDelimiterLengthSize = m_config.pHEVCConfigRecord->lengthSizeMinusOne + 1;
+		else if (m_config.NALUnit_Length_Size > 0 && m_config.NALUnit_Length_Size <= sizeof(uint64_t))
+			nDelimiterLengthSize = m_config.NALUnit_Length_Size;
+
+		int nNalBufLen = 0;
+		uint8_t* pNalBuf = AM_LRB_GetReadPtr(m_lrb_NAL, &nNalBufLen);
+
+		// Flush the previous buffer
+		if (pNalBuf != nullptr && nNalBufLen > 0)
+		{
+			if (m_NALAURepacker != nullptr)
+			{
+				if (nNalBufLen > nDelimiterLengthSize)
+				{
+					uint64_t nNalUnitLen = 0;
+					for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
+						nNalUnitLen = (nNalUnitLen << 8) | pNalBuf[i];
+
+					// it is a normal unit buffer or not.
+					if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+						m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen);
+				}
+			}
+			else
+			{
+				if (m_fpDst != nullptr)
+				{
+					if (fwrite(pNalBuf, 1, nNalBufLen, m_fpDst) != nNalBufLen)
+						printf("[ESRepacker] Failed to flush %d bytes into the output file.\n", nNalBufLen);
+				}
+			}
+
+			AM_LRB_Reset(m_lrb_NAL);
+		}
+	}
+
+	return m_NALAURepacker?m_NALAURepacker->Flush(): RET_CODE_SUCCESS;
 }
 
 int CESRepacker::Close()

@@ -154,6 +154,11 @@ namespace ISOBMFF
 		return -1;
 	}
 
+	int AVCSampleRepacker::Flush()
+	{
+		return -1;
+	}
+
 	int	HEVCSampleRepacker::RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe)
 	{
 		int iRet = RET_CODE_SUCCESS;
@@ -326,7 +331,7 @@ namespace ISOBMFF
 		– The nal_unit_type within the nal_unit( ) syntax structure is equal to VPS_NUT, SPS_NUT or PPS_NUT.
 		– The byte stream NAL unit syntax structure contains the first NAL unit of an access unit in decoding order, as specified in clause 7.4.2.4.4
 		*/
-		bool bStartNewAccessUnit = false;
+		bool bStartNewAccessUnitFound = false;
 		for (auto& v : m_vNonVCLNUs)
 		{
 			uint8_t* pNuBuf = std::get<0>(v);
@@ -336,7 +341,7 @@ namespace ISOBMFF
 			uint8_t nu_nuh_layer_id = ((pNuBuf[0] & 0x1) << 5)&((pNuBuf[1] >> 3) & 0x1F);
 
 			if (first_slice_segment_in_pic_flag && nuh_layer_id == 0 &&
-				bStartNewAccessUnit == false && (
+				bStartNewAccessUnitFound == false && (
 				nu_type == 35 && nu_nuh_layer_id == 0 || // access unit delimiter NAL unit with nuh_layer_id equal to 0 (when present)
 				nu_type == 32 && nu_nuh_layer_id == 0 || // VPS NAL unit with nuh_layer_id equal to 0 (when present)
 				nu_type == 33 && nu_nuh_layer_id == 0 || // SPS NAL unit with nuh_layer_id equal to 0 (when present)
@@ -346,7 +351,7 @@ namespace ISOBMFF
 				nu_type >= 48 && nu_type <= 55 && nu_nuh_layer_id == 0 // NAL units with nal_unit_type in the range of UNSPEC48..UNSPEC55 with nuh_layer_id equal to 0 (when present)
 				))
 			{
-				bStartNewAccessUnit = true;
+				bStartNewAccessUnitFound = true;
 				if (m_fpDst != nullptr)
 				{
 					if (fwrite(four_bytes_start_prefixes, 1, 4, m_fpDst) != 4)
@@ -388,18 +393,12 @@ namespace ISOBMFF
 		// Write the NAL unit to the output file
 		if (m_fpDst != nullptr)
 		{
-			if (first_slice_segment_in_pic_flag && nuh_layer_id == 0)
+			bool is_zero_byte_present = (first_slice_segment_in_pic_flag && nuh_layer_id == 0 && !bStartNewAccessUnitFound) ? true : false;
+			uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
+			if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
 			{
-				bool is_zero_byte_present = bStartNewAccessUnit ? false : true;
-				if (m_fpDst != nullptr)
-				{
-					uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
-					if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
-					{
-						printf("[HEVCSampleRepacker] Failed to write %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
-						return RET_CODE_ERROR;
-					}
-				}
+				printf("[HEVCSampleRepacker] Failed to write %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
+				return RET_CODE_ERROR;
 			}
 
 			if (fwrite(pNalUnitBuf, 1, NumBytesInNalUnit, m_fpDst) != NumBytesInNalUnit)
@@ -408,6 +407,44 @@ namespace ISOBMFF
 				return RET_CODE_ERROR;
 			}
 		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	int HEVCSampleRepacker::Flush()
+	{
+		uint8_t four_bytes_start_prefixes[4] = { 0, 0, 0, 1 };
+		uint8_t three_bytes_start_prefixes[3] = { 0, 0, 1 };
+
+		for (auto& v : m_vNonVCLNUs)
+		{
+			uint8_t* pNuBuf = std::get<0>(v);
+			int cbNuBuf = std::get<1>(v);
+
+			uint8_t nu_type = (pNuBuf[0] >> 1) & 0x3F;
+			uint8_t nu_nuh_layer_id = ((pNuBuf[0] & 0x1) << 5)&((pNuBuf[1] >> 3) & 0x1F);
+
+			bool is_zero_byte_present = (nu_type == 32 || nu_type == 33 || nu_type == 34) ? true : false;
+			if (m_fpDst != nullptr)
+			{
+				uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
+				if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
+				{
+					printf("[HEVCSampleRepacker] Failed to flush %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
+					return RET_CODE_ERROR;
+				}
+
+				if (fwrite(pNuBuf, 1, (size_t)cbNuBuf, m_fpDst) != (size_t)cbNuBuf)
+				{
+					printf("[HEVCSampleRepacker] Failed to flush %u bytes of NAL Unit to the output file.\n", cbNuBuf);
+					return RET_CODE_ERROR;
+				}
+			}
+
+			delete[] pNuBuf;
+		}
+
+		m_vNonVCLNUs.clear();
 
 		return RET_CODE_SUCCESS;
 	}

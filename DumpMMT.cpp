@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include "AMRingBuffer.h"
 #include "MMT.h"
+#include "ESRepacker.h"
 #include <chrono>
 
 extern std::unordered_map<std::string, std::string> g_params;
@@ -351,31 +352,15 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 	return RET_CODE_SUCCESS;
 }
 
-int ProcessMFU(uint16_t CID, uint64_t packet_id, uint8_t payload_type, uint32_t asset_type, uint8_t fragmentation_indicator, uint8_t* pMFUData, int cbMFUData, FILE* fp=nullptr)
+int ProcessMFU(uint16_t CID, uint64_t packet_id, uint8_t payload_type, uint32_t asset_type, uint8_t fragmentation_indicator, uint8_t* pMFUData, int cbMFUData, CESRepacker* pESRepacker=nullptr)
 {
 	if (payload_type == 0)
 	{
-		if (asset_type == 'hvc1' || asset_type == 'hev1')
-		{
-			if (fragmentation_indicator == 0 || fragmentation_indicator == 1)
-			{
-				// Must ensure the MFU data size is not less than 6
-				if (cbMFUData < 6)
-					return -1;
-
-				// Remove the first 4 bytes of length field
-				uint32_t nal_length = ((uint32_t)pMFUData[0] << 24) | ((uint32_t)pMFUData[1] << 16) | ((uint32_t)pMFUData[2] << 8) | pMFUData[3];
-				uint8_t nal_unit_type = (pMFUData[4] >> 1) & 0x3F;
-
-				if (fp != nullptr)
-				{
-					//if (nal_unit_type == )
-				}
-			}
-		}
+		if (pESRepacker != nullptr)
+			return pESRepacker->Process(pMFUData, cbMFUData, (FRAGMENTATION_INDICATOR)fragmentation_indicator);
 	}
 
-	return -1;
+	return RET_CODE_ERROR_NOTIMPL;
 }
 
 int ShowMMTPackageInfo()
@@ -617,10 +602,10 @@ int ShowMMTPackageInfo()
 int DumpMMTOneStream()
 {
 	int nRet = RET_CODE_SUCCESS;
-	FILE* fw = nullptr;
 	int nFilterTLVPackets = 0, nFilterMFUs = 0, nParsedTLVPackets = 0;
 	TreeCIDPAMsgs CIDPAMsgs;
 	uint32_t asset_type = 0;
+	CESRepacker* pESRepacker = nullptr;
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -644,9 +629,7 @@ int DumpMMTOneStream()
 		sp = iterCID->second.c_str();
 		ep = sp + iterCID->second.length();
 		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == true && i64Val >= 0 && i64Val <= UINT16_MAX)
-		{
 			filter_CID = (int)i64Val;
-		}
 	}
 
 	std::string& szInputFile = g_params["input"];
@@ -657,16 +640,6 @@ int DumpMMTOneStream()
 	{
 		printf("Failed to open the file: %s.\n", szInputFile.c_str());
 		return nRet;
-	}
-
-	if (g_params.find("output") != g_params.end())
-	{
-		errno_t errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
-		if (errn != 0 || fw == NULL)
-		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
-			goto done;
-		}
 	}
 
 	try
@@ -728,16 +701,48 @@ int DumpMMTOneStream()
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 				{
+					if (pESRepacker == nullptr)
+					{
+						ES_REPACK_CONFIG config;
+						memset(&config, 0, sizeof(config));
+
+						ES_BYTE_STREAM_FORMAT dstESFmt = ES_BYTE_STREAM_RAW;
+						if (IS_HEVC_STREAM(asset_type))
+						{
+							config.codec_id = CODEC_ID_V_MPEGH_HEVC;
+							dstESFmt = ES_BYTE_STREAM_HEVC_ANNEXB;
+						}
+						else if (IS_AVC_STREAM(asset_type))
+						{
+							config.codec_id = CODEC_ID_V_MPEG4_AVC;
+							dstESFmt = ES_BYTE_STREAM_AVC_ANNEXB;
+						}
+						else if (asset_type == 'mp4a')
+							config.codec_id = CODEC_ID_A_MPEG4_AAC;
+
+						auto iterParam = g_params.find("output");
+						if (iterParam != g_params.end())
+							strcpy_s(config.es_output_file_path, _countof(config.es_output_file_path), iterParam->second.c_str());
+						else
+							memset(config.es_output_file_path, 0, sizeof(config.es_output_file_path));
+
+						pESRepacker = new CESRepacker(ES_BYTE_STREAM_NALUNIT_WITH_LEN, dstESFmt);
+						pESRepacker->Config(config);
+						pESRepacker->Open(nullptr);
+					}
+
 					for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Data_Units)
 					{
 						uint8_t actual_fragmenttion_indicator = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Aggregate_flag == 1 ? 
 							0 : (uint8_t)pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->fragmentation_indicator;
+						
 						ProcessMFU(CID,
 							pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
 							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
 							asset_type,
 							actual_fragmenttion_indicator,
-							&m.MFU_data_bytes[0], m.MFU_data_bytes.size(), fw);
+							&m.MFU_data_bytes[0], m.MFU_data_bytes.size(), pESRepacker);
+
 						if (actual_fragmenttion_indicator || actual_fragmenttion_indicator == 3)
 							nFilterMFUs++;
 					}
@@ -786,7 +791,6 @@ int DumpMMTOneStream()
 		nRet = RET_CODE_ERROR;
 	}
 
-done:
 	// Release all PLT and MPT table in CIDPAMsgs
 	for (auto& v : CIDPAMsgs)
 	{
@@ -799,8 +803,14 @@ done:
 		}
 	}
 
-	if (fw != nullptr)
-		fclose(fw);
+	if (pESRepacker != nullptr)
+	{
+		pESRepacker->Flush();
+
+		pESRepacker->Close();
+		delete pESRepacker;
+		pESRepacker = nullptr;
+	}
 
 	auto end_time = std::chrono::high_resolution_clock::now();
 

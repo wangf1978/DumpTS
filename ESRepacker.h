@@ -46,6 +46,8 @@ SOFTWARE.
 #include "CodecID.h"
 #include "AMRingBuffer.h"
 
+#define USE_NAL(codec_id)				(codec_id == CODEC_ID_V_MPEG4_AVC || codec_id == CODEC_ID_V_MPEGH_HEVC)
+
 enum ES_BYTE_STREAM_FORMAT
 {
 	ES_BYTE_STREAM_RAW = 0,
@@ -66,7 +68,7 @@ enum ES_SEEK_POINT_TYPE
 
 enum FRAGMENTATION_INDICATOR
 {
-	FRAG_INDICATOR_COMPLETE,
+	FRAG_INDICATOR_COMPLETE = 0,
 	FRAG_INDICATOR_FIRST,
 	FRAG_INDICATOR_MIDDLE,
 	FRAG_INDICATOR_LAST
@@ -132,6 +134,9 @@ public:
 
 	/*!	@brief Process the buffer with the specified buffer size */
 	virtual int Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR indicator);
+
+	/*!	@brief Flush the cache buffer in the ES packer. */
+	virtual int Flush();
 	
 	/*!	@brief Close ES re-packer and release the resource. */
 	virtual int Close();
