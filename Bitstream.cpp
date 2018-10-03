@@ -226,7 +226,10 @@ int CBitstream::Read(uint8_t* buffer, size_t cbSize)
 	{
 		uint8_t* p_start = cursor.p + AMP_MIN((cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) - cursor.bits_left / 8;
 
-		size_t skip_bytes = AMP_MIN((size_t)(cursor.p_end - cursor.p), cbSize);
+		size_t left_bytes = (cursor.p_end - cursor.p) >= sizeof(CURBITS_TYPE) ? 
+			((size_t)(cursor.p_end - cursor.p) - sizeof(CURBITS_TYPE) + cursor.bits_left / 8) : cursor.bits_left / 8;
+
+		size_t skip_bytes = AMP_MIN(left_bytes, cbSize);
 		if (cursor.p_end > p_start)
 		{
 			memcpy(buffer, p_start, skip_bytes);
