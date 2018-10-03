@@ -12,6 +12,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 - Re-factor a *TS* stream file in place
 - Extract some elementary streams, and reconstruct a partial *TS* file
 - Provide some utility features for *ISOBMFF* file reconstruction
+- Provide some utility functions for codec and container technology, for example, Huffman Codebook, CRC, container layout...
 
 
 # How to build?
@@ -31,6 +32,7 @@ TODO...
 |**--output**|*filename*|the output dumped file path|
 |**--pid**|*0xhhhh*|the PID of dumped TS stream, or the packet_id of dumped MMT asset|
 |**--trackid**|*xx*|the track ID of a ISOBMFF/Matroska file|
+|**--CID**|*xx*|the context ID of a header compressed IP packet in MMT/TLV stream|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
 |**--srcfmt**|*ts, m2ts, tts, <br>mp4, <br>mkv, <br>huffman_codebook, <br>aiff, <br>mmt*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: <br>it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a, .heic, .heif...<BR>**mkv**:<br>it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
 |**--outputfmt**|*ts, m2ts, <br>pes, <br>es, <br>wav, pcm, <br>binary_search_table*|the destination dumped format, including: ts, m2ts, pes, es and so on<br>**binary_search_table:**<br>generate the binary search table for Huffman VLC codebook|
@@ -41,7 +43,7 @@ TODO...
 |**--crc**|*crc-type, all*|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
 |**--showinfo**|*N/A*|print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
 |**--showpack**|*N/A*|Show packs in the specified TS/MMT/TLV stream file |
-|**--showpts**|*N/A*.|print the pts of every elementary stream packet|
+|**--showpts**|*N/A*|print the pts of every elementary stream packet|
 |**--listcrc**|*N/A*|List all CRC types supported in this program|
 |**--listmp4box**|*N/A*|List box types and descriptions defined in ISO-14496 spec|
 |**--listmkvEBML**|*N/A*|List EBML elements defined in Matroska spec|
