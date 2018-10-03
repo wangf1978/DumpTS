@@ -2165,7 +2165,7 @@ namespace MMT
 			uint16_t			Time_data_flag : 1;
 			uint16_t			fragmentation_indicator : 2;
 			uint16_t			Aggregate_flag : 1;
-			uint16_t			Division_number_counter : 8;
+			uint16_t			fragment_counter : 8;
 
 			uint32_t			MPU_sequence_number;
 
@@ -2192,7 +2192,7 @@ namespace MMT
 				fragmentation_indicator = (uint16_t)bs.GetBits(2);
 				Aggregate_flag = (uint16_t)bs.GetBits(1);
 
-				Division_number_counter = bs.GetByte();
+				fragment_counter = bs.GetByte();
 
 				MPU_sequence_number = bs.GetDWord();
 
@@ -2368,7 +2368,7 @@ namespace MMT
 					fragmentation_indicator == 3?"Divided, Including the end part of the data before division":"Reserved"))));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Aggregate_flag", Aggregate_flag);
 
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Div_number_counter", Division_number_counter);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "fragment_counter", fragment_counter);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "MPU_sequence_number", MPU_sequence_number);
 
 				if (Fragment_type == 2)

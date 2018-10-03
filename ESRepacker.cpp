@@ -412,7 +412,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 					else
 					{
 						if (g_verbose_level > 0)
-							printf("[ESRepacker] Hit an unexpected case, buflen(%d) is greater than delimiter length(%d).\n", nNalBufLen, nDelimiterLengthSize);
+							printf("[ESRepacker] Hit an unexpected case, buffer length(%d) is greater than delimiter length(%d).\n", nNalBufLen, nDelimiterLengthSize);
 					}
 				}
 				else

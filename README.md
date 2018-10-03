@@ -24,7 +24,7 @@ TODO...
 
 # How to run it?
 
-*Usage: DumpTS.exe TSSourceFileName \[OPTION\]...*
+*Usage: DumpTS.exe MediaFileName \[OPTION\]...*
 
 |Option|Value|Description|
 |:--|:----:|:--|
@@ -32,19 +32,19 @@ TODO...
 |**--pid**|*0xhhhh*|the PID of dumped TS stream, or the packet_id of dumped MMT asset|
 |**--trackid**|*xx*|the track ID of a ISOBMFF/Matroska file|
 |**--destpid**|*0xhhhh*|the PID of source stream will be replaced with this PID|
-|**--srcfmt**|*ts, m2ts, tts, mp4, mkv, huffman_codebook, aiff, mmt*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: <br>it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a, .heic, .heif...<BR>**mkv**:<br>it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
-|**--outputfmt**|*ts, m2ts, pes, es, wav, pcm, binary_search_table*|the destination dumped format, including: ts, m2ts, pes, es and so on<br>**binary_search_table:**<br>generate the binary search table for Huffman VLC codebook|
+|**--srcfmt**|*ts, m2ts, tts, <br>mp4, <br>mkv, <br>huffman_codebook, <br>aiff, <br>mmt*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: <br>it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a, .heic, .heif...<BR>**mkv**:<br>it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
+|**--outputfmt**|*ts, m2ts, <br>pes, <br>es, <br>wav, pcm, <br>binary_search_table*|the destination dumped format, including: ts, m2ts, pes, es and so on<br>**binary_search_table:**<br>generate the binary search table for Huffman VLC codebook|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--removebox**|*xxxx*|remove the box elements in MP4 file|
 |**--boxtype**|*xxxx*|**For ISOBMFF/mp4 source:**<BR>the box type FOURCC, i.e. --boxtype=stsd<BR>**For Matroska/mkv source:**<BR>the EBML ID, i.e. --boxtype=0x1A45DFA3|
 |**--crc**|*crc-type, all*|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
 |**--showinfo**|*N/A*|print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
-|**--showpack**||Show packs in the specified TS/MMT/TLV stream file |
+|**--showpack**|*N/A*|Show packs in the specified TS/MMT/TLV stream file |
 |**--showpts**|*N/A*.|print the pts of every elementary stream packet|
-|**--listcrc**||List all CRC types supported in this program|
-|**--listmp4box**||List box types and descriptions defined in ISO-14496 spec|
-|**--listmkvEBML**||List EBML elements defined in Matroska spec|
+|**--listcrc**|*N/A*|List all CRC types supported in this program|
+|**--listmp4box**|*N/A*|List box types and descriptions defined in ISO-14496 spec|
+|**--listmkvEBML**|*N/A*|List EBML elements defined in Matroska spec|
 |**--dashinitmp4**|*filename*|the initialization MP4 file to describe the DASH stream global information|
 |**--VLCTypes**|*[ahdob][ahdob][ahdob]*|Specify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, "aah" means:<br>Value and length will be parsed according to literal string, codeword will be parsed according as hexadecimal|
 |**--verbose**|*0~n*|print more message in the intermediate process|

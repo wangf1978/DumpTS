@@ -701,6 +701,7 @@ int DumpMMTOneStream()
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 				{
+					// Create a new ES re-packer to repack the NAL unit to an Annex-B bitstream
 					if (pESRepacker == nullptr)
 					{
 						ES_REPACK_CONFIG config;
@@ -735,13 +736,29 @@ int DumpMMTOneStream()
 					{
 						uint8_t actual_fragmenttion_indicator = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Aggregate_flag == 1 ? 
 							0 : (uint8_t)pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->fragmentation_indicator;
-						
+
 						ProcessMFU(CID,
 							pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
 							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
 							asset_type,
 							actual_fragmenttion_indicator,
 							&m.MFU_data_bytes[0], m.MFU_data_bytes.size(), pESRepacker);
+
+						if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
+						{
+							fprintf(stdout, MMT_FIX_HEADER_FMT_STR ": %s \n", "", "NAL Unit",
+								actual_fragmenttion_indicator == 0 ? "Complete" : (
+								actual_fragmenttion_indicator == 1 ? "First" : (
+								actual_fragmenttion_indicator == 2 ? "Middle" : (
+								actual_fragmenttion_indicator == 3 ? "Last" : "Unknown"))));
+							for (size_t i = 0; i < m.MFU_data_bytes.size(); i++)
+							{
+								if (i % 32 == 0)
+									fprintf(stdout, "\n" MMT_FIX_HEADER_FMT_STR "  ", "", "");
+								fprintf(stdout, "%02X ", m.MFU_data_bytes[i]);
+							}
+							fprintf(stdout, "\n");
+						}
 
 						if (actual_fragmenttion_indicator || actual_fragmenttion_indicator == 3)
 							nFilterMFUs++;
