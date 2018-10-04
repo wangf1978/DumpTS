@@ -29,6 +29,7 @@
  * THE SOFTWARE.
  */
  
+#include "StdAfx.h"
 #include "crc.h"
 #include <stdio.h>
 #include <string.h>
