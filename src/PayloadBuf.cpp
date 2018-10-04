@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "PayloadBuf.h"
 #include "crc.h"
 #include <algorithm>

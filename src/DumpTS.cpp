@@ -1,7 +1,7 @@
  // DumpTS.cpp : Defines the entry point for the console application.
 //
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "crc.h"
 #include "PayloadBuf.h"
 #include "DumpTS.h"

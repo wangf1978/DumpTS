@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "Bitstream.h"
 #include <exception>
 #include <assert.h>
