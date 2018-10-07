@@ -1,5 +1,4 @@
 #include "StdAfx.h"
-#include <conio.h>
 #include <ctype.h>
 #include "AMRingBuffer.h"
 #include "MMT.h"
@@ -49,7 +48,7 @@ int ShowMMTTLVPacks()
 			tlv_hdr = (uint32_t)bs.PeekBits(32);
 			if (((tlv_hdr >> 24) & 0xFF) != 0x7F)
 			{
-				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %llu.\n", bs.Tell() >> 3);
+				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
 				nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
 				break;
 			}
@@ -84,7 +83,7 @@ int ShowMMTTLVPacks()
 
 			if ((nRet = pTLVPacket->Unpack(bs)) < 0)
 			{
-				printf("Failed to unpack a TLV packet at file position: %llu.\n", pTLVPacket->start_bitpos >> 3);
+				printf("Failed to unpack a TLV packet at file position: %" PRIu64 ".\n", pTLVPacket->start_bitpos >> 3);
 				delete pTLVPacket;
 				break;
 			}
@@ -140,7 +139,6 @@ uint32_t FindAssetType(const TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint16_t pa
 		return 0;
 
 	auto& iterM = iterCID->second.back();
-	auto& plt = std::get<0>(iterM);
 	auto& mpts = std::get<1>(iterM);
 
 	// check whether packet lies at the MPT or not
@@ -200,7 +198,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					continue;
 			}
 
-			printf("Found a new PLT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+			printf("Found a new PLT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
 
 			std::string szLocInfo;
 			// Get the packet_id of current MPT
@@ -210,7 +208,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				auto& info = std::get<2>(plt_pkg);
 				szLocInfo = info.GetLocDesc();
 
-				printf("\tFound a package with package_id: 0X%llX(%llu), %s.\n", pkg_id, pkg_id, szLocInfo.c_str());
+				printf("\tFound a package with package_id: %" PRIu64 "(0X%" PRIX64 "), %s.\n", pkg_id, pkg_id, szLocInfo.c_str());
 			}
 
 			if (g_verbose_level > 0)
@@ -266,7 +264,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					bFoundNewMPT = true;
 					if (pbChange)
 						*pbChange = true;
-					printf("Found a new MPT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+					printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
 				}
 				else
 				{
@@ -276,7 +274,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					bFoundNewMPT = true;
 					if (pbChange)
 						*pbChange = true;
-					printf("Found a new MPT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+					printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
 				}
 			}
 			else
@@ -287,7 +285,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				bFoundNewMPT = true;
 				if (pbChange)
 					*pbChange = true;
-				printf("Found a new MPT with packet_id: %lld(0X%llX) in header compressed IP packet with CID: 0X%X(%u)...\n", 
+				printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: 0X%X(%u)...\n",
 					packet_id, packet_id, CID, CID);
 			}
 
@@ -296,7 +294,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				for (size_t k = 0; k < pMPT->assets.size(); k++)
 				{
 					auto& a = pMPT->assets[k];
-					printf("\t#%05u Asset, asset_id: 0X%llX(%llu), asset_type: %c%c%c%c(0X%08X):\n", k, a->asset_id, a->asset_id,
+					printf("\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08X):\n", (uint32_t)k, a->asset_id, a->asset_id,
 						isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
 						isprint((a->asset_type >> 16) & 0xFF) ? ((a->asset_type >> 16) & 0xFF) : '.',
 						isprint((a->asset_type >>  8) & 0xFF) ? ((a->asset_type >>  8) & 0xFF) : '.',
@@ -394,7 +392,7 @@ int ShowMMTPackageInfo()
 			tlv_hdr = (uint32_t)bs.PeekBits(32);
 			if (((tlv_hdr >> 24) & 0xFF) != 0x7F)
 			{
-				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %llu.\n", bs.Tell() >> 3);
+				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
 				nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
 				break;
 			}
@@ -429,7 +427,7 @@ int ShowMMTPackageInfo()
 
 			if ((nRet = pTLVPacket->Unpack(bs)) < 0)
 			{
-				printf("Failed to unpack a TLV packet at file position: %llu.\n", pTLVPacket->start_bitpos >> 3);
+				printf("Failed to unpack a TLV packet at file position: %" PRIu64 ".\n", pTLVPacket->start_bitpos >> 3);
 				delete pTLVPacket;
 				break;
 			}
@@ -467,7 +465,7 @@ int ShowMMTPackageInfo()
 					for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
 					{
 						auto& v = std::get<1>(m);
-						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], v.size());
+						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size());
 					}
 				}
 				else
@@ -498,7 +496,7 @@ int ShowMMTPackageInfo()
 		{
 			auto& plt = std::get<0>(m.second[i]);
 			auto& vmpt = std::get<1>(m.second[i]);
-			printf("\t\t#%04u PLT (Package List Table):\n", i);
+			printf("\t\t#%04" PRIu32 " PLT (Package List Table):\n", (uint32_t)i);
 			for (size_t j=0;j<vmpt.size();j++)
 			{
 				auto& mpt = vmpt[j];
@@ -517,11 +515,11 @@ int ShowMMTPackageInfo()
 					}
 				}
 
-				printf("\t\t\t#%05u MPT (MMT Package Table), Package_id: 0X%llX(%llu), %s:\n", j, mpt->MMT_package_id, mpt->MMT_package_id, szLocInfo.c_str());
+				printf("\t\t\t#%05" PRIu32 " MPT (MMT Package Table), Package_id: 0X%" PRIX64 "(%" PRIu64 "), %s:\n", (uint32_t)j, mpt->MMT_package_id, mpt->MMT_package_id, szLocInfo.c_str());
 				for (size_t k = 0; k < mpt->assets.size(); k++)
 				{
 					auto& a = mpt->assets[k];
-					printf("\t\t\t\t#%05u Asset, asset_id: 0X%llX(%llu), asset_type: %c%c%c%c(0X%08X):\n", k, a->asset_id, a->asset_id, 
+					printf("\t\t\t\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08" PRIX32 "):\n", (uint32_t)k, a->asset_id, a->asset_id,
 						isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
 						isprint((a->asset_type >> 16) & 0xFF) ? ((a->asset_type >> 16) & 0xFF) : '.',
 						isprint((a->asset_type >>  8) & 0xFF) ? ((a->asset_type >>  8) & 0xFF) : '.',
@@ -653,7 +651,7 @@ int DumpMMTOneStream()
 			tlv_hdr = (uint32_t)bs.PeekBits(32);
 			if (((tlv_hdr >> 24) & 0xFF) != 0x7F)
 			{
-				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %llu.\n", bs.Tell() >> 3);
+				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
 				nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
 				break;
 			}
@@ -670,7 +668,7 @@ int DumpMMTOneStream()
 
 			if ((nRet = pTLVPacket->Unpack(bs)) < 0)
 			{
-				printf("Failed to unpack a TLV packet at file position: %llu.\n", pTLVPacket->start_bitpos >> 3);
+				printf("Failed to unpack a TLV packet at file position: %" PRIu64 ".\n", pTLVPacket->start_bitpos >> 3);
 				delete pTLVPacket;
 				break;
 			}
@@ -691,9 +689,9 @@ int DumpMMTOneStream()
 					goto Skip;
 
 				// Check whether it is a control message MMT packet
-				if (pHeaderCompressedIPPacket->MMTP_Packet == nullptr ||
+				if (pHeaderCompressedIPPacket->MMTP_Packet == nullptr || (
 					pHeaderCompressedIPPacket->MMTP_Packet->Payload_type != 2 &&
-					pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id)
+					pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id))
 					goto Skip;
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id)
@@ -742,7 +740,7 @@ int DumpMMTOneStream()
 							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
 							asset_type,
 							actual_fragmenttion_indicator,
-							&m.MFU_data_bytes[0], m.MFU_data_bytes.size(), pESRepacker);
+							&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker);
 
 						if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
 						{
@@ -781,7 +779,7 @@ int DumpMMTOneStream()
 						{
 							bool bChanged = false;
 							auto& v = std::get<1>(m);
-							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], v.size(), &bChanged) == 0 && bChanged)
+							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), &bChanged) == 0 && bChanged)
 							{
 								uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id);
 								if (new_asset_type != 0 && new_asset_type != asset_type)
@@ -866,7 +864,6 @@ int DumpMMT()
 			g_params["outputfmt"] = "es";
 
 		std::string& str_output_fmt = g_params["outputfmt"];
-		std::string& str_pid = g_params["pid"];
 
 		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 		{
@@ -893,12 +890,12 @@ int DumpMMT()
 			}
 			else
 			{
-				printf("Please specify a output file name with --output.\r\n");
+				printf("Please specify a output file name with --output.\n");
 				goto done;
 			}
 		}
 	}
 
 done:
-	return RET_CODE_SUCCESS;
+	return nDumpRet;
 }

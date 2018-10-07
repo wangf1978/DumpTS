@@ -20,12 +20,13 @@
 #include <map>
 #include <unordered_map>
 #include <tuple>
-#include <io.h>
-#include <locale>
 #include <algorithm>
 #include <vector>
 #include <assert.h>
 #include <tchar.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include "LibPlatform/platdef.h"
 
 #ifdef _DEBUG
 #define AMP_Assert( expr ) if( !(expr) ) { \
@@ -66,24 +67,27 @@
 #define AMP_SAFEDELA(p)						if(p){delete [] p;p = NULL;}CODE_NOP1(p)
 
 #ifndef UNREFERENCED_PARAMETER
+#ifdef _WIN32
 #define UNREFERENCED_PARAMETER(P)          (P)
+#else
+#define UNREFERENCED_PARAMETER(P)		   (void)0
+#endif
 #endif
 
 #ifndef DBG_UNREFERENCED_PARAMETER
+#ifdef _WIN32
 #define DBG_UNREFERENCED_PARAMETER(P)      (P)
+#else
+#define DBG_UNREFERENCED_PARAMETER(P)      (void)0
+#endif
 #endif
 
 #ifndef DBG_UNREFERENCED_LOCAL_VARIABLE
+#ifdef _WIN32
 #define DBG_UNREFERENCED_LOCAL_VARIABLE(V) (V)
+#else
+#define DBG_UNREFERENCED_LOCAL_VARIABLE(V) (void)0
 #endif
-
-// Portable error definition
-#ifdef __linux__
-#define E_NOINTERFACE						0x80004002L
-#define E_FAIL								0x80004005L
-
-#define S_OK								0L
-#define S_FALSE								1L
 #endif
 
 #define RET_CODE_SUCCESS					0

@@ -31,7 +31,7 @@ std::string GetChannelMappingDesc(unsigned long channel_mapping)
 {
 	std::string sDesc;
 	int num_ch = 0, lfe = 0;
-	for (int i = 0; i < sizeof(channel_descs) / sizeof(channel_descs[0]); i++)
+	for (size_t i = 0; i < _countof(channel_descs); i++)
 	{
 		if (channel_mapping&(1 << i))
 		{

@@ -5,6 +5,7 @@
 #include "combase.h"
 #include "DataUtil.h"
 #include <algorithm>
+#include <list>
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -277,14 +278,14 @@ namespace IP
 																					 leap_indicator==1?"Last one minute is 61 seconds":(
 																					 leap_indicator==2?"Last one minute is 59 seconds":(
 																					 leap_indicator==3?"Alarm":"Unknown"))));
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "version", version);
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "version", version);
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %s\n", szIndent, "mode", GetModeDesc(mode));
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu, %s\n", szIndent, "stratum", stratum, stratum==0?"indefinite or invalid":(
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ", %s\n", szIndent, "stratum", stratum, stratum==0?"indefinite or invalid":(
 																							stratum==1?"first reference":(
 																							stratum>=2 && stratum <= 15?"":(
 																							stratum==16?"without synchronization":"reserved"))));
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "poll", poll);
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "precision", precision);
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "poll", poll);
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "precision", precision);
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %u.%us\n", szIndent, "root_delay", root_delay.Seconds, root_delay.Fraction);
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %u.%us\n", szIndent, "root_dispersion", root_dispersion.Seconds, root_dispersion.Fraction);
 
@@ -294,13 +295,13 @@ namespace IP
 				isprint((reference_identification >>  8) & 0xFF) ? (reference_identification >>  8) & 0xFF : '.', 
 				isprint((reference_identification)       & 0xFF) ? (reference_identification      ) & 0xFF : '.', reference_identification);
 
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu.%lus, %s\n", szIndent, "reference_timestamp", reference_timestamp.Seconds, reference_timestamp.Fraction,
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "reference_timestamp", reference_timestamp.Seconds, reference_timestamp.Fraction,
 				DateTimeStr(reference_timestamp.Seconds, 1900, reference_timestamp.Fraction).c_str());
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu.%lus, %s\n", szIndent, "origin_timestamp", origin_timestamp.Seconds, origin_timestamp.Fraction,
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "origin_timestamp", origin_timestamp.Seconds, origin_timestamp.Fraction,
 				DateTimeStr(origin_timestamp.Seconds, 1900, origin_timestamp.Fraction).c_str());
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu.%lus, %s\n", szIndent, "receive_timestamp", receive_timestamp.Seconds, receive_timestamp.Fraction,
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "receive_timestamp", receive_timestamp.Seconds, receive_timestamp.Fraction,
 				DateTimeStr(receive_timestamp.Seconds, 1900, receive_timestamp.Fraction).c_str());
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu.%lus, %s\n", szIndent, "transmit_timestamp", transmit_timestamp.Seconds, transmit_timestamp.Fraction, 
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "transmit_timestamp", transmit_timestamp.Seconds, transmit_timestamp.Fraction,
 				DateTimeStr(transmit_timestamp.Seconds, 1900, transmit_timestamp.Fraction).c_str());
 		}
 
@@ -371,15 +372,6 @@ namespace IP
 
 		void Print(FILE* fp = nullptr, int indent = 0)
 		{
-			FILE* out = fp ? fp : stdout;
-			char szIndent[84];
-			memset(szIndent, 0, _countof(szIndent));
-			if (indent > 0)
-			{
-				int ccIndent = AMP_MIN(indent, 80);
-				memset(szIndent, ' ', ccIndent);
-			}
-
 			header.Print(fp, indent);
 
 			switch (header.Destination_port)
@@ -694,7 +686,7 @@ namespace IP
 				return RET_CODE_SUCCESS;
 			}
 
-		}PACKED;
+		};
 	}
 
 	namespace V6
@@ -1100,6 +1092,8 @@ namespace IP
 			uint8_t				Option_Type;
 			uint8_t				Opt_Data_Len = 0;
 
+			virtual ~Option() {}
+
 			uint16_t GetLength() {
 				return Option_Type == 0 ? (uint16_t)1 : ((uint16_t)Opt_Data_Len + 2);
 			}
@@ -1386,17 +1380,17 @@ namespace IP
 					Routing_Type = bs.GetByte();
 					Segments_Left = bs.GetByte();
 
-					uint64_t total_bits = ((uint64_t)Header_Extension_Length + 1ULL) << 6;
+					uint32_t total_bits = ((uint32_t)Header_Extension_Length + 1UL) << 6;
 					if (left_bits < total_bits)
 						return RET_CODE_BOX_TOO_SMALL;
 
 					total_bits -= 32;
-					size_t left_bytes = (size_t)(total_bits >> 3);
+					int left_bytes = (int)(total_bits >> 3);
 					Routing_Type_Specific_Data = new uint8_t[left_bytes];
 					if (bs.Read(Routing_Type_Specific_Data, left_bytes) != left_bytes)
 						return RET_CODE_ERROR;
 
-					return RET_CODE_SUCCESS;
+					return iRet;
 				}
 			}PACKED;
 
@@ -1424,7 +1418,7 @@ namespace IP
 					M_flag = (uint16_t)bs.GetBits(1);
 					Identification = bs.GetDWord();
 
-					return RET_CODE_SUCCESS;
+					return iRet;
 				}
 			}PACKED;
 
@@ -1466,17 +1460,17 @@ namespace IP
 					Security_Parameters_Index = bs.GetDWord();
 					Sequence_Number = bs.GetDWord();
 
-					uint64_t total_bits = ((uint64_t)Payload_Len + 2ULL) << 5;
+					uint32_t total_bits = ((uint32_t)Payload_Len + 2ULL) << 5;
 					if (left_bits < total_bits)
 						return RET_CODE_BOX_TOO_SMALL;
 
 					total_bits -= 96;
-					size_t left_bytes = (size_t)(total_bits >> 3);
+					int left_bytes = (int)(total_bits >> 3);
 					Authentication_Data = new uint8_t[left_bytes];
 					if (bs.Read(Authentication_Data, left_bytes) != left_bytes)
 						return RET_CODE_ERROR;
 
-					return RET_CODE_SUCCESS;
+					return iRet;
 				}
 
 			}PACKED;
@@ -1545,7 +1539,7 @@ namespace IP
 				bs.Read(Destination_address.address_bytes, 16);
 
 				left_bits -= (40ULL << 3);
-				uint64_t left_payload_bits = ((uint64_t)Payload_length) << 3;
+				//uint64_t left_payload_bits = ((uint64_t)Payload_length) << 3;
 
 				bool bExtHeaderFinished = false;
 				uint8_t next_hdr = Next_header;
@@ -1636,15 +1630,15 @@ namespace IP
 					memset(szIndent, ' ', ccIndent);
 				}
 
-				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Version", Version);
-				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Traffic class", Traffic_class);
-				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Flow label", Flow_label);
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Version", Version);
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Traffic class", Traffic_class);
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Flow label", Flow_label);
 				if (!compressed)
-					fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Payload length", Payload_length);
+					fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Payload length", Payload_length);
 
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %d, %s, %s\n", szIndent, "Next header", Next_header,
 					std::get<1>(IPv6_protocol_descs[Next_header]), std::get<2>(IPv6_protocol_descs[Next_header]));
-				fprintf(out, IP_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Hop limit", Hop_limit);
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Hop limit", Hop_limit);
 				
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %s\n", szIndent, "Source address", Source_address.GetIP().c_str());
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %s\n", szIndent, "Dest address", Destination_address.GetIP().c_str());

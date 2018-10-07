@@ -70,7 +70,7 @@ inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL
 			auto pc = ps;
 			for (; pc < pe; pc++)
 			{
-				if (*pc >= 'a' && *pc <= 'f' || *pc >= 'A' && *pc <= 'F')
+				if ((*pc >= 'a' && *pc <= 'f') || (*pc >= 'A' && *pc <= 'F'))
 					literal_fmt = FMT_HEX;
 				else if (*pc >= '0' && *pc <= '9')
 				{
@@ -194,7 +194,7 @@ inline std::string DateTimeStr(uint64_t elapse_seconds_since_baseyear, int32_t b
 
 	while (elapse_seconds > 0)
 	{
-		uint64_t ticks = (month == 2 && leap_year_ticks) ? 24 * 3600 : 0 + month_ticks[month - 1];
+		uint64_t ticks = (month == 2 && is_leap_year) ? 24 * 3600 : 0 + month_ticks[month - 1];
 		if (elapse_seconds >= ticks)
 		{
 			elapse_seconds -= ticks;
@@ -221,7 +221,7 @@ inline std::string DateTimeStr(uint64_t elapse_seconds_since_baseyear, int32_t b
 	else
 	{
 		strDateTime.reserve(64);
-		sprintf_s(&strDateTime[0], 64, "%04d-%02d-%02d %02dh:%02dm:%02d.%llus", year, month, day, hour, minute, second, fraction_second);
+		sprintf_s(&strDateTime[0], 64, "%04d-%02d-%02d %02dh:%02dm:%02d.%" PRIu64 "s", year, month, day, hour, minute, second, fraction_second);
 	}
 	return strDateTime;
 }

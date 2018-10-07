@@ -21,9 +21,9 @@ int				g_verbose_level = 0;
 DUMP_STATUS		g_dump_status;
 
 const char *dump_msg[] = {
-	"Warning: wrong PES_length field value, read:location, read pos[%d], write pos:[%d].\r\n",
-	"Error: a PES packet with a invalid start code will be ignored, read pos[%d], write pos:[%d].\r\n",
-	"Error: a PES packet with too small bytes will be ignored, read pos[%d], write pos:[%d].\r\n",
+	"Warning: wrong PES_length field value, read:location, read pos[%d], write pos:[%d].\n",
+	"Error: a PES packet with a invalid start code will be ignored, read pos[%d], write pos:[%d].\n",
+	"Error: a PES packet with too small bytes will be ignored, read pos[%d], write pos:[%d].\n",
 };
 
 const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
@@ -105,7 +105,12 @@ void ParseCommandLine(int argc, char* argv[])
 	if (argc < 2)
 		return;
 
-	g_params.insert({ "input", argv[1] });
+	int iarg = 2;
+	if (strncmp(argv[1], "--", 2) != 0)
+	{
+		iarg = 1;
+		g_params.insert({ "input", argv[1] });
+	}
 
 	std::string str_arg_prefixes[] = {
 		"output", 
@@ -127,13 +132,13 @@ void ParseCommandLine(int argc, char* argv[])
 		"verbose"
 	};
 
-	for (int iarg = 2; iarg < argc; iarg++)
+	for (; iarg < argc; iarg++)
 	{
 		std::string strArg = argv[iarg];
 		if (strArg.find("--") == 0)
 			strArg = strArg.substr(2);
 
-		for (int i = 0; i < sizeof(str_arg_prefixes) / sizeof(str_arg_prefixes[0]); i++)
+		for (size_t i = 0; i < _countof(str_arg_prefixes); i++)
 		{
 			if (strArg.find(str_arg_prefixes[i] + "=") == 0)
 			{
@@ -159,12 +164,12 @@ void ParseCommandLine(int argc, char* argv[])
 				iter->first.compare("showpts") == 0 || 
 				iter->first.compare("showinfo") == 0 ||
 				iter->first.compare("verbose") == 0)
-				printf("%s : yes\r\n", iter->first.c_str());
+				printf("%s : yes\n", iter->first.c_str());
 			else
-				printf("%s : %s\r\n", iter->first.c_str(), iter->second.c_str());
+				printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
 		}
 		else
-			printf("%s : %s\r\n", iter->first.c_str(), iter->second.c_str());
+			printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
 	}
 
 	// Set the default values
@@ -183,13 +188,13 @@ bool VerifyCommandLine()
 	// Test the source file exists or not
 	if (g_params.find("input") == g_params.end())
 	{
-		printf("Please specify the input ts file path.\r\n");
+		printf("Please specify the input media file path.\n");
 		return false;
 	}
 
 	if ((ret = _access(g_params["input"].c_str(), 4)) != 0)
 	{
-		printf("Failed to open the input file: %s {error code: %d}.\r\n", g_params["input"].c_str(), errno);
+		printf("Failed to open the input file: %s {error code: %d}.\n", g_params["input"].c_str(), errno);
 		return false;
 	}
 
@@ -200,7 +205,7 @@ bool VerifyCommandLine()
 	{
 		if (errno != ENOENT)
 		{
-			printf("The output file: %s can't be written {error code: %d}.\r\n", g_params["output"].c_str(), errno);
+			printf("The output file: %s can't be written {error code: %d}.\n", g_params["output"].c_str(), errno);
 			return false;
 		}
 	}
@@ -213,7 +218,7 @@ bool VerifyCommandLine()
 		long long pid = ConvertToLongLong(g_params["pid"]);
 		if (!(pid >= 0 && pid <= 0x1FFF))
 		{
-			printf("The specified PID: %s is invalid, please make sure it is between 0 to 0x1FFF inclusive.\r\n", g_params["pid"].c_str());
+			printf("The specified PID: %s is invalid, please make sure it is between 0 to 0x1FFF inclusive.\n", g_params["pid"].c_str());
 			return false;
 		}
 	}
@@ -226,7 +231,7 @@ bool VerifyCommandLine()
 		long long pid = ConvertToLongLong(g_params["destpid"]);
 		if (!(pid >= 0 && pid <= 0x1FFF))
 		{
-			printf("The specified Destination PID: %s is invalid, please make sure it is between 0 to 0x1FFF inclusive.\r\n", g_params["destpid"].c_str());
+			printf("The specified Destination PID: %s is invalid, please make sure it is between 0 to 0x1FFF inclusive.\n", g_params["destpid"].c_str());
 			return false;
 		}
 	}
@@ -353,14 +358,14 @@ int PrepareParams()
 		errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
 		if (errn != 0 || rfp == NULL)
 		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+			printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 			iRet = -1;
 			goto done;
 		}
 
 		// Have to analyze a part of buffer to get the TS packet size
 		MPEG_SYSTEM_TYPE sys_types[] = { MPEG_SYSTEM_TS, MPEG_SYSTEM_TS204, MPEG_SYSTEM_TS208, MPEG_SYSTEM_TTS };
-		for (int idx = 0; idx < _countof(sys_types); idx++) {
+		for (size_t idx = 0; idx < _countof(sys_types); idx++) {
 			fseek(rfp, 0, SEEK_SET);
 			if (TryFitMPEGSysType(rfp, sys_types[idx], g_ts_fmtinfo.packet_size, g_ts_fmtinfo.num_of_prefix_bytes, g_ts_fmtinfo.num_of_suffix_bytes, g_ts_fmtinfo.encrypted))
 			{
@@ -371,7 +376,7 @@ int PrepareParams()
 		}
 
 		if (g_ts_fmtinfo.packet_size == 0)
-			printf("This input file: %s seems not to be a valid TS file.\r\n", g_params["input"].c_str());
+			printf("This input file: %s seems not to be a valid TS file.\n", g_params["input"].c_str());
 	}
 	else
 		iRet = 0;
@@ -396,7 +401,7 @@ int PrepareDump()
 
 	if (errn != 0 || rfp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		iRet = -1;
 		goto done;
 	}
@@ -452,6 +457,7 @@ void PrintHelp()
 	printf("\t--dashinitmp4\t\tSpecify the DASH initialization mp4 file to process m4s\n");
 	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
+	printf("\t--help\t\t\tPrint this message");
 
 	printf("\nExamples:\n");
 	printf("\tDumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
@@ -477,7 +483,7 @@ void CalculateCRC()
 {
 	if (g_params.find("crc") == g_params.end())
 	{
-		printf("Please specify the crc type.\r\n");
+		printf("Please specify the crc type.\n");
 		return;
 	}
 
@@ -485,7 +491,7 @@ void CalculateCRC()
 	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || rfp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		return;
 	}
 
@@ -497,7 +503,7 @@ void CalculateCRC()
 			CRC_HANDLE crc_handle = BeginCRC((CRC_TYPE)i);
 			if (crc_handle == NULL)
 			{
-				printf("Unsupported crc type: %s.\r\n", g_params["crc"].c_str());
+				printf("Unsupported crc type: %s.\n", g_params["crc"].c_str());
 				continue;
 			}
 
@@ -505,7 +511,7 @@ void CalculateCRC()
 			while (!feof(rfp))
 			{
 				size_t nRead = 0;
-				if ((nRead = fread_s(buf, sizeof(buf), 1, sizeof(buf), rfp)) > 0)
+				if ((nRead = fread_s(buf, sizeof(buf), 1U, sizeof(buf), rfp)) > 0)
 				{
 					ProcessCRC(crc_handle, buf, nRead);
 				}
@@ -513,7 +519,7 @@ void CalculateCRC()
 			_fseeki64(rfp, 0, SEEK_SET);
 
 			char szFmtStr[256];
-			sprintf_s(szFmtStr, sizeof(szFmtStr), "%%20s result: 0X%%0%dllX\r\n", (GetCRCWidth((CRC_TYPE)i) + 3) / 4);
+			sprintf_s(szFmtStr, sizeof(szFmtStr), "%%20s result: 0X%%0%dllX\n", (GetCRCWidth((CRC_TYPE)i) + 3) / 4);
 
 			printf((const char*)szFmtStr, GetCRCName((CRC_TYPE)i), EndCRC(crc_handle));
 		}
@@ -526,14 +532,14 @@ void CalculateCRC()
 
 		if (crc_type == CRC_MAX)
 		{
-			printf("Unsupported crc type: %s.\r\n", g_params["crc"].c_str());
+			printf("Unsupported crc type: %s.\n", g_params["crc"].c_str());
 			return;
 		}
 
 		CRC_HANDLE crc_handle = BeginCRC(crc_type);
 		if (crc_handle == NULL)
 		{
-			printf("Unsupported crc type: %s.\r\n", g_params["crc"].c_str());
+			printf("Unsupported crc type: %s.\n", g_params["crc"].c_str());
 			return;
 		}
 
@@ -541,7 +547,7 @@ void CalculateCRC()
 		while (!feof(rfp))
 		{
 			size_t nRead = 0;
-			if ((nRead = fread_s(buf, sizeof(buf), 1, sizeof(buf), rfp)) > 0)
+			if ((nRead = fread_s(buf, sizeof(buf), 1U, sizeof(buf), rfp)) > 0)
 			{
 				ProcessCRC(crc_handle, buf, nRead);
 			}
@@ -549,7 +555,7 @@ void CalculateCRC()
 		fclose(rfp);
 
 		char szFmtStr[256];
-		sprintf_s(szFmtStr, sizeof(szFmtStr), "%%s result: 0X%%0%dllX\r\n", (GetCRCWidth(crc_type) + 3) / 4);
+		sprintf_s(szFmtStr, sizeof(szFmtStr), "%%s result: 0X%%0%dllX\n", (GetCRCWidth(crc_type) + 3) / 4);
 
 		printf((const char*)szFmtStr, g_params["crc"].c_str(), EndCRC(crc_handle));
 	}
@@ -561,7 +567,7 @@ int main(int argc, char* argv[])
 
 	memset(&g_dump_status, 0, sizeof(g_dump_status));
 
-	if(argc < 2)
+	if (argc < 2)
 	{
 		PrintHelp();
 		return -1;
@@ -590,6 +596,11 @@ int main(int argc, char* argv[])
 		Matroska::PrintEBMLElements(INVALID_EBML_ID);
 		return 0;
 	}
+	else if (_stricmp(argv[1], "--help") == 0)
+	{
+		PrintHelp();
+		return 0;
+	}
 
 	// Parse the command line
 	ParseCommandLine(argc, argv);
@@ -604,14 +615,14 @@ int main(int argc, char* argv[])
 	// Prepare the dumping parameters
 	if (PrepareParams() < 0)
 	{
-		printf("Failed to prepare the dump parameters.\r\n");
+		printf("Failed to prepare the dump parameters.\n");
 		return -1;
 	}
 
 	// Prepare the dump
 	if (PrepareDump() < 0)
 	{
-		printf("Failed to prepare the dump procedure.\r\n");
+		printf("Failed to prepare the dump procedure.\n");
 		return -1;
 	}
 
@@ -653,7 +664,6 @@ int main(int argc, char* argv[])
 			g_params["outputfmt"] = "es";
 
 		std::string& str_output_fmt = g_params["outputfmt"];
-		std::string& str_pid = g_params["pid"];
 
 		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 		{
@@ -681,7 +691,7 @@ int main(int argc, char* argv[])
 			}
 			else
 			{
-				printf("Please specify a output file name with --output.\r\n");
+				printf("Please specify a output file name with --output.\n");
 				goto done;
 			}
 		}
@@ -690,6 +700,6 @@ int main(int argc, char* argv[])
 	}
 
 done:
-	return 0;
+	return nDumpRet;
 }
 

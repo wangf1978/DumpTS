@@ -81,7 +81,7 @@ public:
 	/*!	@brief Seek to the absolute position in the specified bit-stream. */
 	virtual int			Seek(uint64_t bit_pos);
 	/*!	@brief Read data from the bit-stream */
-	virtual int			Read(uint8_t* buffer, size_t cbSize);
+	virtual int			Read(uint8_t* buffer, int cbSize);
 
 	/*!	@brief Get one byte from bit-stream. */
 	uint8_t				GetByte();
@@ -195,7 +195,7 @@ struct ArrayFiller {
 		ArrayFiller<First, Tuple, N, K - 1>::fill_bytes_from_tuple(t, bytes);
 		auto val = std::get<K - 1>(t);
 		uint8_t* pBytes = (uint8_t*)&val;
-		for (int i = 0; i < sizeof(val); i++)
+		for (size_t i = 0; i < sizeof(val); i++)
 			bytes.push_back(pBytes[i]);
 	}
 };
@@ -205,7 +205,7 @@ struct ArrayFiller<First, Tuple, N, 1> {
 	static void fill_bytes_from_tuple(const Tuple& t, std::vector<uint8_t>& bytes) {
 		auto val = std::get<0>(t);
 		uint8_t* pBytes = (uint8_t*)&val;
-		for (int i = 0; i < sizeof(val); i++)
+		for (size_t i = 0; i < sizeof(val); i++)
 			bytes.push_back(pBytes[i]);
 	}
 };

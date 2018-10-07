@@ -201,7 +201,7 @@ namespace Matroska
 
 			Size = u64Val;
 
-			//printf("ID: 0X%X, Size: %lld(0X%llX)\n", ID, Size, Size);
+			//printf("ID: 0X%X, Size: %lld(0X%" PRIX64 ")\n", ID, Size, Size);
 
 			return 0;
 		}
@@ -275,7 +275,7 @@ namespace Matroska
 
 		EBML_DATA_TYPE DateType() {
 			int32_t desc_idx = GetDescIdx(ID);
-			if (desc_idx < 0 || desc_idx >= _countof(EBML_element_descriptors))
+			if (desc_idx < 0 || desc_idx >= (int32_t)_countof(EBML_element_descriptors))
 				return EBML_DT_UNKNOWN;
 
 			return (EBML_DATA_TYPE)EBML_element_descriptors[desc_idx].data_type;
@@ -428,7 +428,7 @@ namespace Matroska
 			if (Size >= UINT32_MAX)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
-				_tprintf(_T("The EBML element size: %llu is too big.\n"), Size);
+				_tprintf(_T("The EBML element size: %" PRIu64 " is too big.\n"), Size);
 				goto done;
 			}
 
@@ -436,7 +436,7 @@ namespace Matroska
 			if (szVal == NULL)
 			{
 				iRet = RET_CODE_OUTOFMEMORY;
-				_tprintf(_T("Failed to allocate the memory with the size: %llu.\n"), Size);
+				_tprintf(_T("Failed to allocate the memory with the size: %" PRIu64 ".\n"), Size);
 				goto done;
 			}
 
@@ -465,7 +465,7 @@ namespace Matroska
 			if (Size >= UINT32_MAX)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
-				_tprintf(_T("The EBML element size: %llu is too big.\n"), Size);
+				_tprintf(_T("The EBML element size: %" PRIu64 " is too big.\n"), Size);
 				goto done;
 			}
 
@@ -473,7 +473,7 @@ namespace Matroska
 			if (szUTF8 == NULL)
 			{
 				iRet = RET_CODE_OUTOFMEMORY;
-				_tprintf(_T("Failed to allocate the memory with the size: %llu.\n"), Size);
+				_tprintf(_T("Failed to allocate the memory with the size: %" PRIu64 ".\n"), Size);
 				goto done;
 			}
 
@@ -504,31 +504,33 @@ namespace Matroska
 			if (Size < 8)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
-				_tprintf(_T("The EBML element size: %llu is too small for Date type.\n"), Size);
+				printf("The EBML element size: %" PRIu64 " is too small for Date type.\n", Size);
 				goto done;
 			}
 
 			ns_since_20010101_midnight = (int64_t)bs.GetQWord();
 			cbLeft -= 8;
 
-			// Convert it to standard c/c++ time_t
-			struct tm UTC20010101Midnight;
-			memset(&UTC20010101Midnight, 0, sizeof(UTC20010101Midnight));
-			UTC20010101Midnight.tm_year = 2001 - 1900;
-			UTC20010101Midnight.tm_mday = 1;
-
-			time_t timeUTC20010101Midnight = -1;
-#ifdef _WIN32
-			if ((timeUTC20010101Midnight = _mkgmtime(&UTC20010101Midnight)) == -1)
-#else
-			if ((timeUTC20010101Midnight = timegm(&UTC20010101Midnight)) <= 0)
-#endif
 			{
-				printf("Failed to generate UTC time value for 2001-01-01T00:00:00,000000000 UTC\n");
-				timeVal = -1;
-			}
+				// Convert it to standard c/c++ time_t
+				struct tm UTC20010101Midnight;
+				memset(&UTC20010101Midnight, 0, sizeof(UTC20010101Midnight));
+				UTC20010101Midnight.tm_year = 2001 - 1900;
+				UTC20010101Midnight.tm_mday = 1;
 
-			timeVal = timeUTC20010101Midnight + ns_since_20010101_midnight / 1000000000LL;
+				time_t timeUTC20010101Midnight = -1;
+#ifdef _WIN32
+				if ((timeUTC20010101Midnight = _mkgmtime(&UTC20010101Midnight)) == -1)
+#else
+				if ((timeUTC20010101Midnight = timegm(&UTC20010101Midnight)) <= 0)
+#endif
+				{
+					printf("Failed to generate UTC time value for 2001-01-01T00:00:00,000000000 UTC\n");
+					timeVal = -1;
+				}
+
+				timeVal = timeUTC20010101Midnight + ns_since_20010101_midnight / 1000000000LL;
+			}
 
 		done:
 			if (cbLeft > 0)
@@ -588,7 +590,7 @@ namespace Matroska
 		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
-			while (LoadEBMLElements(this, bs) >= 0);
+			while ((iRet = LoadEBMLElements(this, bs)) >= 0);
 
 			return 0;
 		}
@@ -629,7 +631,7 @@ namespace Matroska
 		std::vector<BlockCoarse>	Block_coarses;
 		std::vector<BlockFine>		Block_fines;
 
-		int64_t GetBytePos(uint32_t Block_id)
+		int64_t GetBytePos(size_t Block_id)
 		{
 			if (Block_id >= Block_fines.size())
 				return -1LL;
@@ -654,7 +656,7 @@ namespace Matroska
 			Block_fines.emplace_back(file_pos, bSimpleBlock, bKeyframe, bInvisible, bDiscardable);
 
 			if (Block_coarses.size() == 0 || Block_coarses.back().Byte_Pos_Block_Coarse != (uint32_t)((file_pos >> 25)&UINT32_MAX))
-				Block_coarses.emplace_back(file_pos, Block_fines.size() - 1);
+				Block_coarses.emplace_back(file_pos, (uint32_t)(Block_fines.size() - 1));
 
 			return RET_CODE_SUCCESS;
 		}
@@ -705,7 +707,7 @@ namespace Matroska
 			uint64_t block_start_pos = bs.Tell();
 			assert(block_start_pos % 8 == 0);
 
-			//printf("-- SimpleBlock file offset: 0X%llX.\n", block_start_pos / 8);
+			//printf("-- SimpleBlock file offset: 0X%" PRIX64 ".\n", block_start_pos / 8);
 
 			uint32_t ID = (uint32_t)UnpackUnsignedIntVal(bs, 4, false);
 			if (ID != 0xA3)
@@ -734,16 +736,18 @@ namespace Matroska
 			if (TrackBlockMaps.find((uint8_t)u64Val) == TrackBlockMaps.end())
 				TrackBlockMaps[(uint8_t)u64Val] = new ClusterBlockMapForOneTrack();
 
-			auto BlockMap = TrackBlockMaps[(uint8_t)u64Val];
+			{
+				auto BlockMap = TrackBlockMaps[(uint8_t)u64Val];
 
-			bs.SkipBits(16);
-			bool bKeyframe = bs.GetBits(1)?true:false;
-			bs.SkipBits(3);
-			bool bInvisible = (uint8_t)bs.GetBits(1)?true:false;
-			bs.SkipBits(2);
-			bool bDiscardable = (uint8_t)bs.GetBits(1)?true:false;
+				bs.SkipBits(16);
+				bool bKeyframe = bs.GetBits(1) ? true : false;
+				bs.SkipBits(3);
+				bool bInvisible = (uint8_t)bs.GetBits(1) ? true : false;
+				bs.SkipBits(2);
+				bool bDiscardable = (uint8_t)bs.GetBits(1) ? true : false;
 
-			BlockMap->AppendBlock(block_start_pos/8, true, bKeyframe, bInvisible, bDiscardable);
+				BlockMap->AppendBlock(block_start_pos / 8, true, bKeyframe, bInvisible, bDiscardable);
+			}
 
 			cbLeft -= 4;
 
@@ -757,6 +761,8 @@ namespace Matroska
 		int LoadBlockGroup(CBitstream& bs)
 		{
 			int iRet = RET_CODE_SUCCESS;
+			uint64_t u64Val = 0;
+
 			uint64_t block_start_pos = bs.Tell();
 			assert(block_start_pos % 8 == 0);
 
@@ -787,7 +793,8 @@ namespace Matroska
 
 				if (Child_ID != 0xA1)
 				{
-					if (bs.SkipBits(Child_Size << 3) != (Child_Size << 3))
+					int64_t nActualSkipbits = bs.SkipBits(Child_Size << 3);
+					if (nActualSkipbits < 0 || (uint64_t)nActualSkipbits != (Child_Size << 3))
 						break;
 
 					cbLeft -= Child_Size;
@@ -804,7 +811,7 @@ namespace Matroska
 			if (Child_Size < 4)
 				goto done;
 
-			uint64_t u64Val = UnpackUnsignedIntVal(bs);
+			u64Val = UnpackUnsignedIntVal(bs);
 			if (u64Val == UINT64_MAX)
 			{
 				iRet = RET_CODE_BOX_INCOMPATIBLE;
@@ -821,16 +828,18 @@ namespace Matroska
 			if (TrackBlockMaps.find((uint8_t)u64Val) == TrackBlockMaps.end())
 				TrackBlockMaps[(uint8_t)u64Val] = new ClusterBlockMapForOneTrack();
 
-			auto BlockMap = TrackBlockMaps[(uint8_t)u64Val];
+			{
+				auto BlockMap = TrackBlockMaps[(uint8_t)u64Val];
 
-			bs.SkipBits(16);
-			bool bKeyframe = bs.GetBits(1) ? true : false;
-			bs.SkipBits(3);
-			bool bInvisible = (uint8_t)bs.GetBits(1) ? true : false;
-			bs.SkipBits(2);
-			bool bDiscardable = (uint8_t)bs.GetBits(1) ? true : false;
+				bs.SkipBits(16);
+				bool bKeyframe = bs.GetBits(1) ? true : false;
+				bs.SkipBits(3);
+				bool bInvisible = (uint8_t)bs.GetBits(1) ? true : false;
+				bs.SkipBits(2);
+				bool bDiscardable = (uint8_t)bs.GetBits(1) ? true : false;
 
-			BlockMap->AppendBlock(block_start_pos/8, true, bKeyframe, bInvisible, bDiscardable);
+				BlockMap->AppendBlock(block_start_pos / 8, true, bKeyframe, bInvisible, bDiscardable);
+			}
 
 			cbLeft -= 4;
 
@@ -841,7 +850,7 @@ namespace Matroska
 			return iRet;
 		}
 
-	}PACKED;
+	};
 
 	struct SimpleBlockElement : public BinaryElement
 	{
@@ -868,6 +877,7 @@ namespace Matroska
 			uint64_t start_bitpos = bs.Tell();
 			AMP_Assert(start_bitpos % 8 == 0);
 
+			uint64_t end_bitpos = start_bitpos;
 			uint64_t cbLeft = Size;
 
 			uint64_t u64Val = UnpackUnsignedIntVal(bs);
@@ -892,7 +902,7 @@ namespace Matroska
 			simple_block_hdr.Lacing = (uint8_t)bs.GetBits(2);
 			simple_block_hdr.Discardable = (uint8_t)bs.GetBits(1);
 
-			uint64_t end_bitpos = bs.Tell();
+			end_bitpos = bs.Tell();
 			start_offset = end_bitpos / 8;
 
 			cbLeft -= (end_bitpos - start_bitpos) >> 3;
@@ -929,6 +939,7 @@ namespace Matroska
 			uint64_t start_bitpos = bs.Tell();
 			AMP_Assert(start_bitpos % 8 == 0);
 
+			uint64_t end_bitpos = start_bitpos;
 			uint64_t cbLeft = Size;
 
 			uint64_t u64Val = UnpackUnsignedIntVal(bs);
@@ -952,7 +963,7 @@ namespace Matroska
 			block_hdr.Lacing = (uint8_t)bs.GetBits(2);
 			block_hdr.reserved_1 = (uint8_t)bs.GetBits(1);
 
-			uint64_t end_bitpos = bs.Tell();
+			end_bitpos = bs.Tell();
 			start_offset = end_bitpos / 8;
 
 			cbLeft -= (end_bitpos - start_bitpos) >> 3;
@@ -981,14 +992,14 @@ namespace Matroska
 				return iRet;
 
 			uint64_t cbLeft = Size;
-			if (cbLeft == 0 || cbLeft > UINT32_MAX)
+			if (cbLeft == 0 || cbLeft > INT32_MAX)
 				goto done;
 
-			m_ptrCodecPrivData = new uint8_t[(size_t)cbLeft];
-			iRet = bs.Read(m_ptrCodecPrivData, (size_t)cbLeft);
+			m_ptrCodecPrivData = new uint8_t[(int)cbLeft];
+			iRet = bs.Read(m_ptrCodecPrivData, (int)cbLeft);
 			if (iRet > 0)
 			{
-				assert(cbLeft >= iRet);
+				assert(cbLeft >= (uint64_t)iRet);
 				cbLeft -= iRet;
 				iRet = 0;
 			}

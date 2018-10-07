@@ -3,7 +3,7 @@
 #include "crc.h"
 #include <algorithm>
 
-CPayloadBuf::CPayloadBuf(FILE* fw, unsigned char nTSPackSize)
+CPayloadBuf::CPayloadBuf(FILE* fw, uint8_t nTSPackSize)
 	: buffer_len(0)
 	, m_fw(fw)
 	, m_ts_pack_size(nTSPackSize)
@@ -12,9 +12,9 @@ CPayloadBuf::CPayloadBuf(FILE* fw, unsigned char nTSPackSize)
 	buffer = new (std::nothrow) unsigned char[buffer_alloc_size];
 }
 
-CPayloadBuf::CPayloadBuf(unsigned short PID)
-	: buffer_len(0)
-	, buffer(NULL)
+CPayloadBuf::CPayloadBuf(uint16_t PID)
+	: buffer(NULL)
+	, buffer_len(0)
 	, buffer_alloc_size(0)
 	, m_fw(NULL)
 	, m_ts_pack_size(0)
@@ -31,9 +31,9 @@ CPayloadBuf::~CPayloadBuf()
 	}
 }
 
-int CPayloadBuf::PushTSBuf(unsigned long idxTSPack, unsigned char* pBuf, unsigned char offStart, unsigned char offEnd)
+int CPayloadBuf::PushTSBuf(uint32_t idxTSPack, uint8_t* pBuf, uint8_t offStart, uint8_t offEnd)
 {
-	if (idxTSPack != ULONG_MAX)
+	if (idxTSPack != UINT32_MAX)
 		slices.emplace_back(idxTSPack, offStart, offEnd);
 
 	if (buffer == NULL)
@@ -42,7 +42,7 @@ int CPayloadBuf::PushTSBuf(unsigned long idxTSPack, unsigned char* pBuf, unsigne
 		buffer = new (std::nothrow) unsigned char[buffer_alloc_size];
 		if (buffer == NULL)
 		{
-			printf("Failed to allocate the buffer with the size: %d (bytes).\r\n", buffer_alloc_size);
+			printf("Failed to allocate the buffer with the size: %" PRIu32 " (bytes).\n", buffer_alloc_size);
 			return -1;
 		}
 	}
@@ -53,7 +53,7 @@ int CPayloadBuf::PushTSBuf(unsigned long idxTSPack, unsigned char* pBuf, unsigne
 		unsigned char* new_buffer = new (std::nothrow) unsigned char[buffer_alloc_size * 2];
 		if (new_buffer == NULL)
 		{
-			printf("Failed to allocate the buffer with the size: %d (bytes).\r\n", buffer_alloc_size * 2);
+			printf("Failed to allocate the buffer with the size: %" PRIu32 " (bytes).\n", buffer_alloc_size << 1);
 			return -1;
 		}
 
@@ -91,7 +91,7 @@ int CPayloadBuf::Process(std::unordered_map<int, int>& pid_maps)
 		if (ulMappedSize + 3 > buffer_len)
 			return -1;
 
-		unsigned char* pSectionStart = &pBuf[ulMappedSize];
+		//unsigned char* pSectionStart = &pBuf[ulMappedSize];
 		unsigned long ulSectionStart = ulMappedSize;
 
 		unsigned short section_length = (pBuf[ulMappedSize + 1] << 8 | pBuf[ulMappedSize + 2]) & 0XFFF;
@@ -99,8 +99,8 @@ int CPayloadBuf::Process(std::unordered_map<int, int>& pid_maps)
 		// The maximum number of bytes in a section of a Rec. ITU-T H.222.0 | ISO/IEC 13818-1 defined PSI table is
 		// 1024 bytes. The maximum number of bytes in a private_section is 4096 bytes.
 		// The DSMCC section data is also 4096 (table_id from 0x38 to 0x3F)
-		if (section_length > ((pBuf[ulMappedSize] >= 0x40 && pBuf[ulMappedSize] <= 0xFE ||
-			pBuf[ulMappedSize] >= 0x38 && pBuf[ulMappedSize] <= 0x3F) ? 4093 : 1021))
+		if (section_length > ((pBuf[ulMappedSize] >= 0x40 && pBuf[ulMappedSize] <= 0xFE) ||
+							  (pBuf[ulMappedSize] >= 0x38 && pBuf[ulMappedSize] <= 0x3F) ? 4093 : 1021))
 			return -1;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
 
 		if (ulMappedSize + 3 + section_length > buffer_len)
@@ -169,7 +169,7 @@ int CPayloadBuf::Process(std::unordered_map<int, int>& pid_maps)
 			// Reserve 4 bytes of CRC32 and 5 bytes of basic ES info (stream_type, reserved, elementary_PID, reserved and ES_info_length)
 			while (ulMappedSize + 5 + 4 <= 3 + section_length + ulSectionStart)
 			{
-				unsigned char stream_type = pBuf[ulMappedSize];
+				//unsigned char stream_type = pBuf[ulMappedSize];
 				PID = (pBuf[ulMappedSize + 1] & 0x1f) << 8 | pBuf[ulMappedSize + 2];
 				unsigned short ES_info_length = (pBuf[ulMappedSize + 3] & 0xF) << 8 | pBuf[ulMappedSize + 4];
 
@@ -213,7 +213,7 @@ void CPayloadBuf::Reset()
 	buffer_len = 0;
 }
 
-int CPayloadBuf::WriteBack(unsigned long off, unsigned char* pBuf, unsigned long cbSize)
+int CPayloadBuf::WriteBack(unsigned int off, unsigned char* pBuf, unsigned long cbSize)
 {
 	int iRet = -1;
 	unsigned long cbRead = 0;
@@ -232,7 +232,7 @@ int CPayloadBuf::WriteBack(unsigned long off, unsigned char* pBuf, unsigned long
 				_fseeki64(m_fw, iter->ts_packet_idx*m_ts_pack_size + iter->start_off + off - cbRead, SEEK_SET);
 				if (fwrite(pBuf, 1, cbWritten, m_fw) != cbWritten)
 				{
-					printf("Failed to write back the bytes into destination file.\r\n");
+					printf("Failed to write back the bytes into destination file.\n");
 					_fseeki64(m_fw, backup_pos, SEEK_SET);
 					goto done;
 				}
@@ -260,8 +260,8 @@ done:
 
 CPSIBuf::CPSIBuf(PSI_PROCESS_CONTEXT* CtxPSIProcess, unsigned short PID)
 	: CPayloadBuf(PID)
-	, ctx_psi_process(CtxPSIProcess)
 	, version_number(0xFF)
+	, ctx_psi_process(CtxPSIProcess)
 {
 
 }
@@ -295,7 +295,7 @@ int CPSIBuf::ProcessPSI()
 	if (ulMappedSize + 3 > buffer_len)
 		return -1;
 
-	unsigned char* pSectionStart = &pBuf[ulMappedSize];
+	//unsigned char* pSectionStart = &pBuf[ulMappedSize];
 	unsigned long ulSectionStart = ulMappedSize;
 
 	unsigned short section_length = (pBuf[ulMappedSize + 1] << 8 | pBuf[ulMappedSize + 2]) & 0XFFF;
@@ -303,8 +303,8 @@ int CPSIBuf::ProcessPSI()
 	// The maximum number of bytes in a section of a Rec. ITU-T H.222.0 | ISO/IEC 13818-1 defined PSI table is
 	// 1024 bytes. The maximum number of bytes in a private_section is 4096 bytes.
 	// The DSMCC section data is also 4096 (table_id from 0x38 to 0x3F)
-	if (section_length > ((pBuf[ulMappedSize] >= 0x40 && pBuf[ulMappedSize] <= 0xFE ||
-		pBuf[ulMappedSize] >= 0x38 && pBuf[ulMappedSize] <= 0x3F) ? 4093 : 1021))
+	if (section_length > ((pBuf[ulMappedSize] >= 0x40 && pBuf[ulMappedSize] <= 0xFE) ||
+						  (pBuf[ulMappedSize] >= 0x38 && pBuf[ulMappedSize] <= 0x3F) ? 4093 : 1021))
 		return -3;	// RET_CODE_BUFFER_NOT_COMPATIBLE;
 
 	if (ulMappedSize + 3 + section_length > buffer_len)
@@ -321,7 +321,7 @@ int CPSIBuf::ProcessPSI()
 	if (section_syntax_indicator) {
 		F_CRC_InicializaTable();
 		if (F_CRC_CalculaCheckSum(pBuf + ulMappedSize, 3 + section_length) != 0) {
-			printf("[13818-1] current PSI section failed do check-sum.\r\n");
+			printf("[13818-1] current PSI section failed do check-sum.\n");
 			return -2;
 		}
 	}

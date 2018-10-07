@@ -1,12 +1,8 @@
 #include "StdAfx.h"
-#include <vector>
-#include <unordered_map>
-#include <map>
 #include "PayloadBuf.h"
 #include "DumpTS.h"
 #include "Bitstream.h"
 #include <assert.h>
-#include <filesystem>
 #include <functional>
 #include "ISO14496_12.h"
 #include "ISO14496_15.h"
@@ -92,7 +88,7 @@ using MP4_Boxes_Layout = std::vector<std::tuple<uint32_t/*box type*/, int64_t/*s
 int ReadFullBoxExceptBaseBox(FILE* fp, uint8_t& version, uint32_t flags)
 {
 	uint8_t version_flags[4];
-	if (fread_s(version_flags, sizeof(version_flags), 1, sizeof(version_flags), fp) < sizeof(version_flags))
+	if (fread_s(version_flags, sizeof(version_flags), 1U, sizeof(version_flags), fp) < sizeof(version_flags))
 		return -1;
 
 	version = version_flags[0];
@@ -104,7 +100,7 @@ int ReadFullBoxExceptBaseBox(FILE* fp, uint8_t& version, uint32_t flags)
 int extract_hdlr(FILE* fp)
 {
 	uint8_t hdlr_buf[7];
-	if (fread_s(hdlr_buf, sizeof(hdlr_buf), 1, sizeof(hdlr_buf), fp) < sizeof(hdlr_buf))
+	if (fread_s(hdlr_buf, sizeof(hdlr_buf), 1U, sizeof(hdlr_buf), fp) < sizeof(hdlr_buf))
 		return -1;
 
 	return 0;
@@ -157,7 +153,7 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 	if (_fseeki64(fp, start_pos, SEEK_SET) != 0)
 		return 0;
 
-	if (fread_s(box_header, sizeof(box_header), 1, sizeof(box_header), fp) < sizeof(box_header))
+	if (fread_s(box_header, sizeof(box_header), 1U, sizeof(box_header), fp) < sizeof(box_header))
 		return -1;
 
 	 int64_t box_size = ENDIANULONG(*(uint32_t*)(&box_header[0]));
@@ -166,7 +162,7 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 
 	if (box_size == 1)
 	{
-		if (fread_s(box_header, sizeof(box_header), 1, sizeof(box_header), fp) < sizeof(box_header))
+		if (fread_s(box_header, sizeof(box_header), 1U, sizeof(box_header), fp) < sizeof(box_header))
 			return -1;
 
 		box_size = ENDIANUINT64(*(uint64_t*)(&box_header[0]));
@@ -175,7 +171,7 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 
 	if (box_type == 'uuid')
 	{
-		if (fread_s(uuid_str, sizeof(uuid_str), 1, sizeof(uuid_str), fp) < sizeof(uuid_str))
+		if (fread_s(uuid_str, sizeof(uuid_str), 1U, sizeof(uuid_str), fp) < sizeof(uuid_str))
 			return -1;
 
 		used_size += sizeof(uuid_str);
@@ -190,11 +186,11 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 		for (int i = 0; i < level; i++)
 			printf("\t");
 		if (box_type == 'uuid')
-			printf("uuid[%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X], size: %lld\r\n",
+			printf("uuid[%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X], size: %" PRId64 "\n",
 				uuid_str[0x0], uuid_str[0x1], uuid_str[0x2], uuid_str[0x3], uuid_str[0x4], uuid_str[0x5], uuid_str[0x6], uuid_str[0x7],
 				uuid_str[0x8], uuid_str[0x9], uuid_str[0xa], uuid_str[0xb], uuid_str[0xc], uuid_str[0xd], uuid_str[0xe], uuid_str[0xf], box_size);
 		else
-			printf("%c%c%c%c, size: %lld\r\n", (box_type >> 24) & 0xFF, (box_type >> 16) & 0xFF, (box_type >> 8) & 0xFF, box_type & 0xFF, box_size);
+			printf("%c%c%c%c, size: %" PRId64 "\n", (box_type >> 24) & 0xFF, (box_type >> 16) & 0xFF, (box_type >> 8) & 0xFF, box_type & 0xFF, box_size);
 	}
 
 	uint8_t version = 0;
@@ -223,7 +219,7 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 				return iRet;
 
 			uint8_t hdlr_buf[20];
-			if (fread_s(hdlr_buf, sizeof(hdlr_buf), 1, sizeof(hdlr_buf), fp) < sizeof(hdlr_buf))
+			if (fread_s(hdlr_buf, sizeof(hdlr_buf), 1U, sizeof(hdlr_buf), fp) < sizeof(hdlr_buf))
 				return -1;
 		}
 		break;
@@ -254,17 +250,20 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 	std::vector<FILE_SLICE> file_copy_slices;
 	// At first visit all boxes in MP4 file, and generated a table of boxes
 
+	int64_t s = 0, /*e = 0, */file_size;
+	const size_t cache_size = 4096;
+
 	FILE* fp = NULL, *fw = NULL;
 	errno_t errn = fopen_s(&fp, src_filename.c_str(), "rb");
 	if (errn != 0 || fp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", src_filename.c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", src_filename.c_str(), errn);
 		goto done;
 	}
 
 	// Get file size
 	_fseeki64(fp, 0, SEEK_END);
-	int64_t file_size = _ftelli64(fp);
+	file_size = _ftelli64(fp);
 	_fseeki64(fp, 0, SEEK_SET);
 
 	if (src_filename == dst_filename)
@@ -277,7 +276,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 
 		if (_access(write_pathname.c_str(), 0) == 0)
 		{
-			printf("Can't create a temporary file path to refine the original MP4 file.\r\n");
+			printf("Can't create a temporary file path to refine the original MP4 file.\n");
 			goto done;
 		}			
 	}
@@ -291,7 +290,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 
 	if (mp4_boxes_layout.size() <= 0)
 	{
-		printf("No box can be found.\r\n");
+		printf("No box can be found.\n");
 		goto done;
 	}
 
@@ -342,12 +341,11 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 	errn = fopen_s(&fw, write_pathname.c_str(), "wb");
 	if (errn != 0 || fw == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", write_pathname.c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", write_pathname.c_str(), errn);
 		goto done;
 	}
 
 	// generate the copy slice
-	int64_t s = 0, e = 0;
 	for (auto hole : merged_holes)
 	{
 		if (s != std::get<0>(hole))
@@ -359,7 +357,6 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 	if (s < file_size)
 		file_copy_slices.push_back({s, file_size});
 	
-	const size_t cache_size = 4096;
 	buf = new uint8_t[cache_size];
 	// begin to copy the data byte-2-byte
 	for (auto slice : file_copy_slices)
@@ -368,7 +365,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 		size_t cbLeft = (size_t)(std::get<1>(slice) - std::get<0>(slice));
 		size_t cbRead = 0;
 		while (cbLeft > 0) {
-			if ((cbRead = fread_s(buf, cache_size, 1, AMP_MIN(cache_size, cbLeft), fp)) <= 0)
+			if ((cbRead = fread_s(buf, cache_size, 1U, AMP_MIN(cache_size, cbLeft), fp)) <= 0)
 			{
 				iRet = -1;
 				break;
@@ -404,7 +401,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 
 		if (rename(write_pathname.c_str(), dst_filename.c_str()) != 0)
 		{
-			printf("Failed to rename the file: %s to the file: %s.\r\n", write_pathname.c_str(), dst_filename.c_str());
+			printf("Failed to rename the file: %s to the file: %s.\n", write_pathname.c_str(), dst_filename.c_str());
 			goto done;
 		}
 	}
@@ -453,14 +450,14 @@ void PrintTree(Box* ptr_box, int level)
 		szText = szLine + indent;
 
 	if (ptr_box->container == nullptr)
-		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
+		sprintf_s(szText, line_chars - (szText - szLine), ".\n");
 	else
 	{
 		int cbWritten = 0;
 		if (ptr_box->type == 'uuid')
 		{
 			auto ptr_uuid_box = (UUIDBox*)ptr_box;
-			cbWritten += sprintf_s(szText, line_chars - (szText - szLine), "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X (size: %lld)\r\n",
+			cbWritten += sprintf_s(szText, line_chars - (szText - szLine), "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X (size: %" PRId64 ")\n",
 				ptr_uuid_box->usertype[0x0], ptr_uuid_box->usertype[0x1], ptr_uuid_box->usertype[0x2], ptr_uuid_box->usertype[0x3],
 				ptr_uuid_box->usertype[0x4], ptr_uuid_box->usertype[0x5], ptr_uuid_box->usertype[0x6], ptr_uuid_box->usertype[0x7],
 				ptr_uuid_box->usertype[0x8], ptr_uuid_box->usertype[0x9], ptr_uuid_box->usertype[0xa], ptr_uuid_box->usertype[0xb],
@@ -469,7 +466,7 @@ void PrintTree(Box* ptr_box, int level)
 		}
 		else
 		{
-			cbWritten += CopyBoxTypeName(szText, line_chars - (szText - szLine), ptr_box->type);
+			cbWritten += CopyBoxTypeName(szText, (int)(line_chars - (szText - szLine)), ptr_box->type);
 		}
 		szText += cbWritten;
 
@@ -488,7 +485,7 @@ void PrintTree(Box* ptr_box, int level)
 					MovieBox::MovieHeaderBox* ptr_moviehdr = ptr_moviebox->movie_header_box;
 					uint32_t timescale = ptr_moviehdr->version == 1 ? ptr_moviehdr->v1.timescale : ptr_moviehdr->v0.timescale;
 
-					cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- track_ID: %d, duration: %llu.%03llus",
+					cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- track_ID: %d, duration: %" PRIu64 ".%03" PRIu64 "s",
 						track_ID, duration / timescale, duration*1000/timescale%1000);
 				}
 				else
@@ -517,18 +514,18 @@ void PrintTree(Box* ptr_box, int level)
 		if (ptr_box->type == 'tfdt')
 		{
 			auto ptr_tfdt_box = (MovieFragmentBox::TrackFragmentBox::TrackFragmentBaseMediaDecodeTimeBox*)ptr_box;
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- baseMediaDecodeTime: %llu", ptr_tfdt_box->baseMediaDecodeTime);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- baseMediaDecodeTime: %" PRIu64 "", ptr_tfdt_box->baseMediaDecodeTime);
 			szText += cbWritten;
 		}
 
 		if (ptr_box->type == 'trun')
 		{
 			auto ptr_trun_box = (MovieFragmentBox::TrackFragmentBox::TrackRunBox*)ptr_box;
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- SampleCount: %lu", ptr_trun_box->sample_count);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- SampleCount: %" PRIu32 "", ptr_trun_box->sample_count);
 			szText += cbWritten;
 			if (ptr_trun_box->flags & 0x000001)
 			{
-				cbWritten = sprintf_s(szText, line_chars - (szText - szLine), ", data offset: %ld", ptr_trun_box->data_offset);
+				cbWritten = sprintf_s(szText, line_chars - (szText - szLine), ", data offset: %" PRId32 "", ptr_trun_box->data_offset);
 				szText += cbWritten;
 			}
 		}
@@ -576,7 +573,7 @@ void PrintTree(Box* ptr_box, int level)
 							}
 							else
 							{
-								szText += CopyBoxTypeName(szText, line_chars - (szText - szLine), ptrVisualSampleEntry->type);
+								szText += CopyBoxTypeName(szText, (int)(line_chars - (szText - szLine)), ptrVisualSampleEntry->type);
 							}
 
 							cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "@%dx%d", ptrVisualSampleEntry->width, ptrVisualSampleEntry->height);
@@ -590,10 +587,10 @@ void PrintTree(Box* ptr_box, int level)
 								*(szText++) = ',';
 							else
 							{
-								cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " -- ");
+								cbWritten = sprintf_s(szText, (int)(line_chars - (szText - szLine)), " -- ");
 								szText += cbWritten;
 							}
-							szText += CopyBoxTypeName(szText, line_chars - (szText - szLine), ptrAudioSampleEntry->type);
+							szText += CopyBoxTypeName(szText, (int)(line_chars - (szText - szLine)), ptrAudioSampleEntry->type);
 							szText += sprintf_s(szText, line_chars - (szText - szLine), "@%dHZ", ptrAudioSampleEntry->samplerate >> 16);
 						}
 					}
@@ -601,10 +598,10 @@ void PrintTree(Box* ptr_box, int level)
 			}
 		}
 
-		sprintf_s(szText, line_chars - (szText - szLine), "\r\n");
+		sprintf_s(szText, line_chars - (szText - szLine), "\n");
 	}
 
-	printf(szLine);
+	printf("%s", szLine);
 
 	delete[] szLine;
 
@@ -630,8 +627,8 @@ Box* FindBox(Box* ptr_box, uint32_t track_id, uint32_t box_type)
 		{
 			// check its track-id
 			MovieBox::TrackBox::TrackHeaderBox* ptr_trackhdr_box = (MovieBox::TrackBox::TrackHeaderBox*)ptr_child_box;
-			if (ptr_trackhdr_box->version == 1 && ptr_trackhdr_box->v1.track_ID == track_id ||
-				ptr_trackhdr_box->version == 0 && ptr_trackhdr_box->v0.track_ID == track_id)
+			if((ptr_trackhdr_box->version == 1 && ptr_trackhdr_box->v1.track_ID == track_id) ||
+			   (ptr_trackhdr_box->version == 0 && ptr_trackhdr_box->v0.track_ID == track_id))
 			{
 				if (box_type != UINT32_MAX)
 					return FindBox(ptr_trackhdr_box->container, UINT32_MAX, box_type);
@@ -663,7 +660,7 @@ int ShowBoxInfo(Box* root_box, Box* ptr_box)
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		goto done;
 	}
 
@@ -699,7 +696,7 @@ done:
 			printf("--Entry_ID-------First Chunk------Samples Per Chunk----Sample Description Index--\n");
 			for (uint32_t i = 0; i < pSampleToChunkBox->entry_infos.size(); i++)
 			{
-				printf("  #%06d     % 10d       % 10d      %10d\n", i+1, 
+				printf("  #%06" PRIu32 "     % 10d       % 10d      %10d\n", i+1,
 					pSampleToChunkBox->entry_infos[i].first_chunk, 
 					pSampleToChunkBox->entry_infos[i].samples_per_chunk, 
 					pSampleToChunkBox->entry_infos[i].sample_description_index);
@@ -714,7 +711,7 @@ done:
 			printf("--- Chunk ID ------------- Chunk Offset --\n");
 			for (size_t i = 0; i < pChunkOffsetBox->chunk_offset.size(); i++)
 			{
-				printf(" #% -10d             % 10d\n", i+1, pChunkOffsetBox->chunk_offset[i]);
+				printf(" #%-10" PRIsize "             %10d\n", i+1, pChunkOffsetBox->chunk_offset[i]);
 			}
 		}
 		else if (box_type == 'co64')
@@ -726,7 +723,7 @@ done:
 			printf("--- Chunk ID ------------- Chunk Offset --\n");
 			for (size_t i = 0; i < pLargeChunkOffsetBox->chunk_offset.size(); i++)
 			{
-				printf(" #% -10d             % 10lld\n", i+1, pLargeChunkOffsetBox->chunk_offset[i]);
+				printf(" #%-10" PRIsize "             %10" PRIu64 "\n", i+1, pLargeChunkOffsetBox->chunk_offset[i]);
 			}
 		}
 		else if (box_type == 'stsz')
@@ -734,13 +731,13 @@ done:
 			MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox* pSampleSizeBox =
 				(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SampleSizeBox*)ptr_box;
 
-			printf("Default sample size: %lu\n", pSampleSizeBox->sample_size);
-			printf("The number of samples in the current track: %lu\n", pSampleSizeBox->sample_count);
+			printf("Default sample size: %" PRIu32 "\n", pSampleSizeBox->sample_size);
+			printf("The number of samples in the current track: %" PRIu32 "\n", pSampleSizeBox->sample_count);
 			if (pSampleSizeBox->sample_size == 0)
 			{
 				printf("-- Sample ID ------------- Sample Size --\n");
 				for (size_t i = 0; i < pSampleSizeBox->entry_size.size(); i++)
-					printf("  #% -10d            % 10d\n", i+1, pSampleSizeBox->entry_size[i]);
+					printf("  #%-10" PRIsize "            % 10d\n", i+1, pSampleSizeBox->entry_size[i]);
 			}
 		}
 		else if (box_type == 'stsd')
@@ -754,7 +751,7 @@ done:
 				for (size_t idx = 0; idx < cbBuf; idx++)
 				{
 					if (idx % 16 == 0)
-						printf("\t\t %03X  ", idx);
+						printf("\t\t %03" PRIsize "  ", idx);
 
 					printf("%02X  ", pBuf[idx]);
 					if ((idx + 1) % 8 == 0)
@@ -789,7 +786,7 @@ done:
 						printf("general_tier_flag: %d\n", config->HEVCConfig->general_tier_flag);
 						printf("general_profile_idc: %d\n", config->HEVCConfig->general_profile_idc);
 						printf("general_profile_compatibility_flags: 0X%X\n", config->HEVCConfig->general_profile_compatibility_flags);
-						printf("general_constraint_indicator_flags: 0X%llX\n", config->HEVCConfig->general_constraint_indicator_flags);
+						printf("general_constraint_indicator_flags: 0X%" PRIX64 "\n", config->HEVCConfig->general_constraint_indicator_flags);
 						printf("general_level_idc: %d\n", config->HEVCConfig->general_level_idc);
 						printf("min_spatial_segmentation_idc: %d\n", config->HEVCConfig->min_spatial_segmentation_idc);
 						printf("parallelismType: %d\n", config->HEVCConfig->parallelismType);
@@ -831,7 +828,7 @@ done:
 
 						for (size_t i = 0; i < config->AVCConfig->numOfSequenceParameterSets; i++)
 						{
-							printf("\tSequenceParameterSet#%d (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnitLength);
+							printf("\tSequenceParameterSet#%" PRIsize " (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnitLength);
 							PrintBinaryBuf(&config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnit[0], config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnit.size());
 						}
 
@@ -839,7 +836,7 @@ done:
 
 						for (size_t i = 0; i < config->AVCConfig->numOfPictureParameterSets; i++)
 						{
-							printf("\tPictureParameterSet#%d (nalUnitLength: %d)\n", i, config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnitLength);
+							printf("\tPictureParameterSet#%" PRIsize " (nalUnitLength: %d)\n", i, config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnitLength);
 							PrintBinaryBuf(&config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnit[0], config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnit.size());
 						}
 
@@ -853,7 +850,7 @@ done:
 
 							for (size_t i = 0; i < config->AVCConfig->numOfSequenceParameterSetExt; i++)
 							{
-								printf("\tSequenceParameterSetExt#%d (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnitLength);
+								printf("\tSequenceParameterSetExt#%" PRIsize " (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnitLength);
 								PrintBinaryBuf(&config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnit[0], config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnit.size());
 							}
 						}
@@ -874,7 +871,7 @@ done:
 				printf("== Sample ID === Leading ===== Depends On ==== Depended On ==== Redundancy ==\n");
 				for (uint32_t i = 0; i < sample_count; i++)
 				{
-					printf("   #% -10d      %d         %s        %s         %s\n", 
+					printf("   #%-10" PRIu32 "      %d         %s        %s         %s\n",
 						i+1,
 						pSampleDepTypeBox->entries[i].is_leading,
 						pSampleDepTypeBox->entries[i].sample_depends_on == 1 ? "Non-I-Frame" : (pSampleDepTypeBox->entries[i].sample_depends_on == 2 ? "    I-Frame" : "    Unknown"),
@@ -887,14 +884,14 @@ done:
 		{
 			MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionOffsetBox* pCompositionOffsetBox =
 				(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::CompositionOffsetBox*)ptr_box;
-			printf("entry count: %lu\n", pCompositionOffsetBox->entry_count);
+			printf("entry count: %" PRIu32 "\n", pCompositionOffsetBox->entry_count);
 			printf("== Entry ID ===== Sample Count ========= Sample Offset ==\n");
-			for (uint32_t i = 0; i < pCompositionOffsetBox->entries.size(); i++)
+			for (size_t i = 0; i < pCompositionOffsetBox->entries.size(); i++)
 			{
 				if (pCompositionOffsetBox->version == 1)
-					printf("   #% -10lu      % -10lu            % -10d\n", i + 1, pCompositionOffsetBox->entries[i].v1.sample_count, pCompositionOffsetBox->entries[i].v1.sample_offset);
+					printf("   #%-10" PRIsize "      %-10" PRIu32 "            %-10" PRId32 "\n", i + 1UL, pCompositionOffsetBox->entries[i].v1.sample_count, pCompositionOffsetBox->entries[i].v1.sample_offset);
 				else if (pCompositionOffsetBox->version == 0)
-					printf("   #% -10lu      % -10lu            % -10d\n", i + 1, pCompositionOffsetBox->entries[i].v0.sample_count, pCompositionOffsetBox->entries[i].v0.sample_offset);
+					printf("   #%-10" PRIsize "      %-10" PRIu32 "            %-10" PRId32 "\n", i + 1UL, pCompositionOffsetBox->entries[i].v0.sample_count, pCompositionOffsetBox->entries[i].v0.sample_offset);
 			}
 		}
 		else if (box_type == 'stts')
@@ -910,11 +907,11 @@ done:
 
 			printf("entry count: %d\n", pTimeToSampleBox->entry_count);
 			printf("== Entry ID ===== Sample Count ========= Sample Delta ==\n");
-			for (uint32_t i = 0; i < pTimeToSampleBox->entries.size(); i++)
+			for (size_t i = 0; i < pTimeToSampleBox->entries.size(); i++)
 				if (timescale == 0)
-					printf("  #% -10lu      % -10lu          % 10lu\n", i + 1, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta);
+					printf("  #%-10" PRIsize "      %-10" PRIu32 "          %10" PRIu32 "\n", i + 1UL, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta);
 				else
-					printf("  #% -10lu      % -10lu          % 10lu(%d.%03ds)\n", i + 1, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta,
+					printf("  #%-10" PRIsize "      %-10" PRIu32 "          %10" PRIu32 "(%" PRIu32 ".%03" PRIu32 "s)\n", i + 1UL, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta,
 						pTimeToSampleBox->entries[i].sample_delta / timescale, pTimeToSampleBox->entries[i].sample_delta * 1000 / timescale % 1000);
 		}
 		else if (box_type == 'cslg')
@@ -932,10 +929,10 @@ done:
 			MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SyncSampleBox* pSyncSampleBox =
 				(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTableBox::SyncSampleBox*)ptr_box;
 
-			printf("entry_count: %lu\n", pSyncSampleBox->entry_count);
+			printf("entry_count: %" PRIu32 "\n", pSyncSampleBox->entry_count);
 			printf("== Entry ID ====== sample_number ===\n");
 			for (size_t i = 0; i < pSyncSampleBox->sample_numbers.size(); i++)
-				printf("   #% -10lu      % 10lu\n", i, pSyncSampleBox->sample_numbers[i]);
+				printf("   #%-10" PRIsize "      %10" PRIu32 "\n", i, pSyncSampleBox->sample_numbers[i]);
 		}
 	}
 #endif
@@ -995,7 +992,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 	}
 
 	if (g_verbose_level >= 1)
-		printf("Sample#% -8d, sample offset: % 10llu, sample size: % 10lu, key sample: %d\n", sample_id, sample_offset, sample_size, key_sample);
+		printf("Sample#%-8" PRIu32 ", sample offset: %10" PRIu64 ", sample size: %10" PRIu32 ", key sample: %d\n", sample_id, sample_offset, sample_size, key_sample);
 
 	if (pHEVCConfigurationBox != nullptr)
 	{
@@ -1050,7 +1047,9 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			fread(buf, 1, lengthSizeMinusOne + 1, fp);
+			if (fread(buf, 1, lengthSizeMinusOne + 1UL, fp) != lengthSizeMinusOne + 1UL)
+				break;
+
 			for (int i = 0; i < lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
@@ -1109,7 +1108,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 			{
 				uint32_t nCpyCnt = AMP_MIN(2048UL - first_leading_read_pos, cbLeftNALUnit);
 
-				if ((nCpyCnt = fread(&buf[first_leading_read_pos], 1, nCpyCnt, fp)) == 0)
+				if ((nCpyCnt = (uint32_t)fread(&buf[first_leading_read_pos], 1, nCpyCnt, fp)) == 0)
 					break;
 
 				if (fw != NULL)
@@ -1184,11 +1183,14 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			fread(buf, 1, lengthSizeMinusOne + 1, fp);
+			if (fread(buf, 1, lengthSizeMinusOne + 1UL, fp) != lengthSizeMinusOne + 1ULL)
+				break;
+
 			for (int i = 0; i < lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
 			bool bLastNALUnit = cbLeft <= (lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
+			DBG_UNREFERENCED_LOCAL_VARIABLE(bLastNALUnit);
 
 			uint8_t first_leading_read_pos = 0;
 			if (key_sample && next_nal_unit_type != -1)
@@ -1199,7 +1201,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 
 				first_leading_read_pos = 1;
 
-				int8_t nal_ref_idc = (buf[0] >> 5) & 0x03;
+				int8_t nal_ref_idc = (buf[0] >> 5) & 0x03; DBG_UNREFERENCED_LOCAL_VARIABLE(nal_ref_idc);
 				int8_t nal_unit_type = buf[0] & 0x1F;
 				if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT || nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT)
 				{
@@ -1236,7 +1238,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 			{
 				uint32_t nCpyCnt = AMP_MIN(2048UL - first_leading_read_pos, cbLeftNALUnit);
 
-				if ((nCpyCnt = fread(&buf[first_leading_read_pos], 1, nCpyCnt, fp)) == 0)
+				if ((nCpyCnt = (uint32_t)fread(&buf[first_leading_read_pos], 1, nCpyCnt, fp)) == 0)
 					break;
 
 				if (fw != NULL)
@@ -1326,7 +1328,7 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* f
 			}
 
 			// Begin to track the track elementary stream
-			uint32_t sequence_number = ptr_moof_box->movie_fragment_header_box->sequence_number;
+			/*uint32_t sequence_number = ptr_moof_box->movie_fragment_header_box->sequence_number;*/
 
 			auto GetTrunFileOffset = [&](MovieFragmentBox::TrackFragmentBox* ptr_traf_box,
 				MovieFragmentBox::TrackFragmentBox::TrackRunBox* ptr_trun_box,
@@ -1341,7 +1343,7 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* f
 				bool trun_data_offset_exist = ptr_trun_box->flags & 0x000001;
 
 				// Make sure the file offset is decided
-				if (!traf_data_offset_exist &&	// No base_data_offset
+				if (!traf_data_offset_exist &&		// No base_data_offset
 					!trun_data_offset_exist)		// No data_offset in 'trun' box
 				{
 					// If no 'mdat' is found
@@ -1370,11 +1372,11 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* f
 				return file_offset;
 			};
 
-			auto GetTrafFileOffset = [&](MovieFragmentBox::TrackFragmentBox* ptr_traf_box, uint64_t prev_data_end_offset) {
-				return GetTrunFileOffset(ptr_traf_box, ptr_traf_box->track_run_boxes.size() > 0 ? ptr_traf_box->track_run_boxes[0] : nullptr, prev_data_end_offset);
-			};
+			//auto GetTrafFileOffset = [&](MovieFragmentBox::TrackFragmentBox* ptr_traf_box, uint64_t prev_data_end_offset) {
+			//	return GetTrunFileOffset(ptr_traf_box, ptr_traf_box->track_run_boxes.size() > 0 ? ptr_traf_box->track_run_boxes[0] : nullptr, prev_data_end_offset);
+			//};
 
-			uint64_t base_data_offset = 0ULL;
+			//uint64_t base_data_offset = 0ULL;
 			uint64_t prev_data_end_offset = (uint64_t)-1LL;
 			for (auto ptr_traf_box = ptr_moof_box->track_fragment_boxes.cbegin(); ptr_traf_box != ptr_moof_box->track_fragment_boxes.cend(); ptr_traf_box++)
 			{
@@ -1456,7 +1458,7 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id)
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		goto done;
 	}
 
@@ -1465,7 +1467,7 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id)
 		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
 		if (errn != 0 || fw == NULL)
 		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
+			printf("Failed to open the file: %s {errno: %d}.\n", g_params["output"].c_str(), errn);
 			goto done;
 		}
 	}
@@ -1482,6 +1484,7 @@ done:
 
 int DumpMP4OneStream(Box* root_box, Box* track_box)
 {
+	uint32_t sample_id = 0;
 	int iRet = RET_CODE_SUCCESS;
 	FILE *fp = NULL, *fw = NULL;
 
@@ -1514,7 +1517,7 @@ int DumpMP4OneStream(Box* root_box, Box* track_box)
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		goto done;
 	}
 
@@ -1523,20 +1526,19 @@ int DumpMP4OneStream(Box* root_box, Box* track_box)
 		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
 		if (errn != 0 || fw == NULL)
 		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
+			printf("Failed to open the file: %s {errno: %d}.\n", g_params["output"].c_str(), errn);
 			goto done;
 		}
 	}
 
-	uint32_t sample_id = 0;
 	try
 	{
 		size_t nTotalSampleSize = pSampleSizeBox->entry_size.size();
-		for (uint32_t entry_id = 0; entry_id < pSampleToChunkBox->entry_infos.size(); entry_id++)
+		for (size_t entry_id = 0; entry_id < pSampleToChunkBox->entry_infos.size(); entry_id++)
 		{
 			uint32_t last_chunk = 0;
 			if (entry_id == pSampleToChunkBox->entry_infos.size() - 1)
-				last_chunk = pSampleToChunkBox->entry_infos[entry_id].first_chunk + (nTotalSampleSize - sample_id) / pSampleToChunkBox->entry_infos[entry_id].samples_per_chunk;
+				last_chunk = pSampleToChunkBox->entry_infos[entry_id].first_chunk + (uint32_t)(nTotalSampleSize - sample_id) / pSampleToChunkBox->entry_infos[entry_id].samples_per_chunk;
 			else
 				last_chunk = pSampleToChunkBox->entry_infos[entry_id + 1].first_chunk;
 
@@ -1615,7 +1617,7 @@ int DumpMP4()
 		long long track_id = ConvertToLongLong(g_params["trackid"]);
 		if (track_id <= 0 || track_id > UINT32_MAX)
 		{
-			printf("The specified track-id is out of range.\r\n");
+			printf("The specified track-id is out of range.\n");
 			return -1;
 		}
 
@@ -1628,7 +1630,7 @@ int DumpMP4()
 			std::string& strBoxType = g_params["boxtype"];
 			if (strBoxType.length() < 4)
 			{
-				printf("The specified box-type is not a FOURCC string.\r\n");
+				printf("The specified box-type is not a FOURCC string.\n");
 				return -1;
 			}
 
@@ -1640,13 +1642,13 @@ int DumpMP4()
 		{
 			if (box_type == UINT32_MAX)
 			{
-				printf("Can't find the track box with the specified track-id: %lld.\r\n", track_id);
+				printf("Can't find the track box with the specified track-id: %lld.\n", track_id);
 				// There may be still movie fragments
 				bMovieTrackAbsent = true;
 			}
 			else
 			{
-				printf("Can't find the box with box-type: %s in the track-box with track-id: %lld.\r\n", g_params["boxtype"].c_str(), track_id);
+				printf("Can't find the box with box-type: %s in the track-box with track-id: %lld.\n", g_params["boxtype"].c_str(), track_id);
 				return -1;
 			}
 		}
@@ -1672,7 +1674,7 @@ int DumpMP4()
 		{
 			if (str_remove_boxtypes.length() < 4)
 			{
-				printf("The 'removebox' parameter is invalid.\r\n");
+				printf("The 'removebox' parameter is invalid.\n");
 				return -1;
 			}
 

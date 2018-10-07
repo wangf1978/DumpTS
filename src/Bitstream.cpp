@@ -2,6 +2,7 @@
 #include "Bitstream.h"
 #include <exception>
 #include <assert.h>
+#include <iostream>
 
 CBitstream::CBitstream()
 	: CBitstream(NULL, 0)
@@ -36,7 +37,7 @@ CBitstream::CBitstream(uint8_t* pBuf, size_t cbitSize)
 		           ^++++++ bits_left +++++++^
 		           ^+++++nBits++++++++++++++++++++++++++++++^
 		*/
-		int nLeftBits = cbitSize - cursor.bits_left;
+		size_t nLeftBits = cbitSize - cursor.bits_left;
 		cursor.exclude_bits = (uint8_t)(((nLeftBits + 7) & 0xFFFFFFF8) - nLeftBits);
 	}
 
@@ -47,8 +48,8 @@ int CBitstream::GetAllLeftBits()
 {
 	int bits_left = cursor.p_end <= cursor.p ? 0 : (((int)(cursor.p_end - cursor.p)) << 3);
 	return bits_left <= cursor.exclude_bits ? 0
-		: (bits_left < (sizeof(CURBITS_TYPE) << 3) ? (cursor.bits_left - cursor.exclude_bits)
-			: (bits_left - (sizeof(CURBITS_TYPE) << 3) + cursor.bits_left - cursor.exclude_bits));
+		: (bits_left < (int)(sizeof(CURBITS_TYPE) << 3) ? (cursor.bits_left - cursor.exclude_bits)
+			: (bits_left - (int)(sizeof(CURBITS_TYPE) << 3) + cursor.bits_left - cursor.exclude_bits));
 }
 
 void CBitstream::_UpdateCurBits(bool bEos)
@@ -160,7 +161,7 @@ int64_t CBitstream::SkipBits(int64_t skip_bits)
 
 uint64_t CBitstream::GetBits(int n)
 {
-	if (n > sizeof(uint64_t) * 8)
+	if (n > (int)sizeof(uint64_t) * 8)
 		throw std::invalid_argument("invalid parameter");
 
 	return _GetBits(n);
@@ -168,7 +169,7 @@ uint64_t CBitstream::GetBits(int n)
 
 uint64_t CBitstream::PeekBits(int n)
 {
-	if (n > sizeof(uint64_t) * 8)
+	if (n > (int)sizeof(uint64_t) * 8)
 		throw std::invalid_argument("invalid parameter");
 
 	if (n == 0)
@@ -198,7 +199,7 @@ uint64_t CBitstream::Tell(uint64_t* left_bits_in_bst)
 
 int CBitstream::Seek(uint64_t bit_pos)
 {
-	if (bit_pos > (cursor.p_end - cursor.p_start - cursor.start_offset) * 8)
+	if (bit_pos > (uint64_t)(cursor.p_end - cursor.p_start - cursor.start_offset) * 8)
 		return -1;
 
 	if (bit_pos == (uint64_t)-1LL)
@@ -210,26 +211,33 @@ int CBitstream::Seek(uint64_t bit_pos)
 
 	cursor.p = ptr_dest;
 	_UpdateCurBits();
-	cursor.bits_left = bits_left;
+	cursor.bits_left = (int)bits_left;
 
 	return 0;
 }
 
-int CBitstream::Read(uint8_t* buffer, size_t cbSize)
+int CBitstream::Read(uint8_t* buffer, int cbSize)
 {
+	if (cbSize < 0)
+		return RET_CODE_INVALID_PARAMETER;
+
 	if (cursor.bits_left % 8 != 0)
 		return RET_CODE_NEEDBYTEALIGN;
 
-	size_t orig_size = cbSize;
+	// Wrong pointer
+	if (cursor.p_end < cursor.p || cursor.p_end > cursor.p + INT32_MAX)
+		return RET_CODE_ERROR;
+
+	int orig_size = cbSize;
 	
 	do
 	{
-		uint8_t* p_start = cursor.p + AMP_MIN((cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) - cursor.bits_left / 8;
+		uint8_t* p_start = cursor.p + AMP_MIN((int)(cursor.p_end - cursor.p), (int)sizeof(CURBITS_TYPE)) - cursor.bits_left / 8;
 
-		size_t left_bytes = (cursor.p_end - cursor.p) >= sizeof(CURBITS_TYPE) ? 
-			((size_t)(cursor.p_end - cursor.p) - sizeof(CURBITS_TYPE) + cursor.bits_left / 8) : cursor.bits_left / 8;
+		int left_bytes = cursor.p_end >= cursor.p + sizeof(CURBITS_TYPE) ?
+			((int)(cursor.p_end - cursor.p - sizeof(CURBITS_TYPE)) + cursor.bits_left / 8) : cursor.bits_left / 8;
 
-		size_t skip_bytes = AMP_MIN(left_bytes, cbSize);
+		int skip_bytes = AMP_MIN(left_bytes, cbSize);
 		if (cursor.p_end > p_start)
 		{
 			memcpy(buffer, p_start, skip_bytes);
@@ -252,10 +260,11 @@ CBitstream::~CBitstream()
 CFileBitstream::CFileBitstream(const char* szFileName, int cache_size, int* ptr_ret)
 {
 	int iRet = -1;
-	if (cache_size < sizeof(int64_t))
+	errno_t err_no;
+	if (cache_size < (int)sizeof(int64_t))
 		goto done;
 
-	errno_t err_no = fopen_s(&m_fp, szFileName, "rb");
+	err_no = fopen_s(&m_fp, szFileName, "rb");
 	if (err_no != 0 || m_fp == NULL)
 		goto done;
 

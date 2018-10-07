@@ -104,6 +104,8 @@ namespace MMT
 		uint8_t				Packet_type;
 		uint16_t			Data_length;
 
+		virtual ~TLVPacket(){}
+
 		virtual int Unpack(CBitstream& bs)
 		{
 			int nRet = RET_CODE_SUCCESS;
@@ -158,7 +160,7 @@ namespace MMT
 			}
 
 			fprintf(out, "-----------------------------------------------------------------------------------------\n");
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "file offset", start_bitpos >> 3);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "file offset", start_bitpos >> 3);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "upper_2bits", upper_2bits);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "upper_6bits", upper_6bits);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "Packet_type", TLV_PACKET_TYEP_NAME(Packet_type));
@@ -236,7 +238,7 @@ namespace MMT
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "Data_length", Data_length);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "Packet_type", ULE_PACKET_TYPE_NAME(Packet_type));
 			if (Destination_flag)
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lld\n", szIndent, "Destination_address", Destination_address);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "Destination_address", Destination_address);
 		}
 	}PACKED;
 
@@ -261,7 +263,7 @@ namespace MMT
 		IP::UDPHeader		UDP_header;
 
 
-	}PACKED;
+	};
 
 	struct IPv6Packet : public TLVPacket
 	{
@@ -312,14 +314,6 @@ namespace MMT
 				if (UDP_packet != nullptr)
 					UDP_packet->Print(fp, indent);
 			}
-			FILE* out = fp ? fp : stdout;
-			char szIndent[84];
-			memset(szIndent, 0, _countof(szIndent));
-			if (indent > 0)
-			{
-				int ccIndent = AMP_MIN(indent, 80);
-				memset(szIndent, ' ', ccIndent);
-			}
 		}
 
 	}PACKED;
@@ -330,6 +324,8 @@ namespace MMT
 		uint64_t				start_bitpos;
 		uint16_t				descriptor_tag;
 		uint8_t					descriptor_length;
+
+		virtual ~MMTSIDescriptor(){}
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -384,7 +380,7 @@ namespace MMT
 
 			auto iter = MMT_SI_Descriptor_Descs.find(descriptor_tag);
 			fprintf(out, "%s++++++++++++++ Descriptor: %s +++++++++++++\n", szIndent, MMT_SI_Descriptor_Descs.cend() == iter?std::get<0>(iter->second):"");
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "file offset", start_bitpos >> 3);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "file offset", start_bitpos >> 3);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "descriptor_tag", descriptor_tag);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "descriptor_length", descriptor_length);
 		}
@@ -500,7 +496,7 @@ namespace MMT
 			}
 
 			MMTSIDescriptor::Print(fp, indent);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "video_resolution", video_resolution, video_resolution,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_resolution", video_resolution, video_resolution,
 				video_resolution == VID_RES_UNSPECIFIED?"Unspecified":(
 				video_resolution == VID_RES_180?"height: 180":(
 				video_resolution == VID_RES_240?"height: 240":(
@@ -509,14 +505,14 @@ namespace MMT
 				video_resolution == VID_RES_1080?"height: 1080/1125":(
 				video_resolution == VID_RES_2160?"height: 2160":(
 				video_resolution == VID_RES_4320?"height: 4320":""))))))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "video_aspect_ratio", video_aspect_ratio, video_aspect_ratio,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_aspect_ratio", video_aspect_ratio, video_aspect_ratio,
 				video_aspect_ratio == 0?"Unspecified":(
 				video_aspect_ratio == 1?"4:3":(
 				video_aspect_ratio == 2?"16:9 with pan vector":(
 				video_aspect_ratio == 3?"16:9 without pan vector":(
 				video_aspect_ratio == 4?"> 16:9":"")))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu, %s\n", szIndent, "video_scan_flag", video_scan_flag, video_scan_flag ? "interlaced" : "progressive");
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "video_frame_rate", video_frame_rate, video_frame_rate,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 ", %s\n", szIndent, "video_scan_flag", video_scan_flag, video_scan_flag ? "interlaced" : "progressive");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_frame_rate", video_frame_rate, video_frame_rate,
 				video_frame_rate == 0?"Unspecified":(
 				video_frame_rate == 1?"15 fps":(
 				video_frame_rate == 2?"24/1.001 fps":(
@@ -530,15 +526,15 @@ namespace MMT
 				video_frame_rate == 10?"100 fps":(
 				video_frame_rate == 11?"120/1.001 fps":(
 				video_frame_rate == 12?"120 fps":"")))))))))))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX)\n", szIndent, "component_tag", component_tag, component_tag);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX), %s\n", szIndent, "trans_characteristics", video_transfer_characteristics, video_transfer_characteristics,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 ")\n", szIndent, "component_tag", component_tag, component_tag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "trans_characteristics", video_transfer_characteristics, video_transfer_characteristics,
 				video_transfer_characteristics == 0?"Unspecified":(
 				video_transfer_characteristics == 1?"Rec. ITU-R BT.709-5":(
 				video_transfer_characteristics == 2?"IEC 61966-2-4":(
 				video_transfer_characteristics == 3?"Rec. ITU-R BT.2020":(
 				video_transfer_characteristics == 4?"Rec. ITU-R BT.2100 PQ":(
 				video_transfer_characteristics == 5?"Rec. ITU-R BT.2100 HLG" :""))))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c (0X%08X)\n", szIndent, "language",
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c (0X%08" PRIX32 ")\n", szIndent, "language",
 				isprint(((uint32_t)ISO_639_language_code >> 16) & 0xFF) ? ((uint32_t)ISO_639_language_code >> 16) & 0xFF : '.',
 				isprint(((uint32_t)ISO_639_language_code >> 8) & 0xFF) ? ((uint32_t)ISO_639_language_code >> 8) & 0xFF : '.',
 				isprint(((uint32_t)ISO_639_language_code) & 0xFF) ? ((uint32_t)ISO_639_language_code) & 0xFF : '.', (uint32_t)ISO_639_language_code);
@@ -583,16 +579,16 @@ namespace MMT
 			MMTSIDescriptor::Print(fp, indent);
 			for (size_t i = 0; i < MPU_sequence_present_timestamps.size(); i++)
 			{
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%d\n", szIndent, "MPU_timestamps", i);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%" PRIu32 "\n", szIndent, "MPU_timestamps", (uint32_t)i);
 				uint32_t seq_no = std::get<0>(MPU_sequence_present_timestamps[i]);
 				IP::NTPv4Data::NTPTimestampFormat& present_timestamp = std::get<1>(MPU_sequence_present_timestamps[i]);
-				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "mpu_sequence_number", seq_no, seq_no);
-				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu.%lus, %s\n", szIndent, "mpu_presentation_time", 
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "(0X%" PRIX32 ")\n", szIndent, "mpu_sequence_number", seq_no, seq_no);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "mpu_presentation_time", 
 					present_timestamp.Seconds, present_timestamp.Fraction, DateTimeStr(present_timestamp.Seconds, 1900, present_timestamp.Fraction).c_str());
 			}
 		}
 
-	}PACKED;
+	};
 
 	struct MPUExtendedTimestampDescriptor : public MMTSIDescriptor
 	{
@@ -646,14 +642,14 @@ namespace MMT
 					memset(szIndent, ' ', ccIndent);
 				}
 
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "mpu_sequence_number", mpu_sequence_number, mpu_sequence_number);
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "leap_indicator", mpu_presentation_time_leap_indicator, mpu_presentation_time_leap_indicator);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "(0X%" PRIX32 ")\n", szIndent, "mpu_sequence_number", mpu_sequence_number, mpu_sequence_number);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "(0X%" PRIX32 ")\n", szIndent, "leap_indicator", mpu_presentation_time_leap_indicator, mpu_presentation_time_leap_indicator);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "mpu_decoding_time_offset", mpu_decoding_time_offset, mpu_decoding_time_offset);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "num_of_au", num_of_au, num_of_au);
 
 				for (size_t i = 0; i < offsets.size(); i++)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%d\n", szIndent, "MPU_timestamps", i);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%" PRIsize "\n", szIndent, "MPU_timestamps", i);
 					uint16_t dts_pts_offset = std::get<0>(offsets[i]);
 					uint16_t pts_offset = std::get<1>(offsets[i]);
 					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "dts_pts_offset", dts_pts_offset, dts_pts_offset);
@@ -662,7 +658,7 @@ namespace MMT
 				}
 			}
 
-		}PACKED;
+		};
 
 		uint8_t					reserved : 5;
 		uint8_t					pts_offset_type : 2;
@@ -744,7 +740,7 @@ namespace MMT
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "timescale_flag", timescale_flag);
 
 			if (timescale_flag)
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu(0X%lX)\n", szIndent, "timescale", timescale, timescale);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "(0X%" PRIX32 ")\n", szIndent, "timescale", timescale, timescale);
 
 			if (pts_offset_type)
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "default_pts_offset", default_pts_offset, default_pts_offset);
@@ -758,7 +754,7 @@ namespace MMT
 			}
 		}
 
-	}PACKED;
+	};
 
 	struct MHAudioComponentDescriptor : public MMTSIDescriptor
 	{
@@ -845,10 +841,10 @@ namespace MMT
 				left_bits -= 24;
 			}
 
-			if (left_bits > 8)
+			if (left_bits > 8 && (left_bits>>3) <= INT32_MAX)
 			{
-				text_chars.resize((size_t)(left_bits >> 3));
-				bs.Read(&text_chars[0], (size_t)(left_bits >> 3));
+				text_chars.resize((int)(left_bits >> 3));
+				bs.Read(&text_chars[0], (int)(left_bits >> 3));
 			}
 
 			SkipLeftBits(bs);
@@ -922,7 +918,7 @@ namespace MMT
 			}
 		}
 
-	}PACKED;
+	};
 
 	struct MMTGeneralLocationInfo
 	{
@@ -1092,10 +1088,12 @@ namespace MMT
 					URL.URL_length = bs.GetByte();
 					left_bits -= 8;
 					memset(URL.URL_byte, 0, sizeof(URL.URL_byte));
-					if (left_bits >= URL.URL_length)
+
+					uint64_t left_bytes = (uint64_t)(left_bits >> 3);
+					if (left_bytes >= URL.URL_length)
 						bs.Read(URL.URL_byte, URL.URL_length);
-					else if ((left_bits >> 3) > 0ULL)
-						bs.Read(URL.URL_byte, (size_t)(left_bits >> 3));
+					else if (left_bytes > 0ULL)
+						bs.Read(URL.URL_byte, (int)left_bytes);
 				}
 				break;
 			default:
@@ -1174,6 +1172,8 @@ namespace MMT
 		uint8_t					version;
 		uint16_t				length;
 
+		virtual ~Table() {}
+
 		virtual int Unpack(CBitstream& bs)
 		{
 			int nRet = RET_CODE_SUCCESS;
@@ -1227,7 +1227,7 @@ namespace MMT
 			}
 
 			fprintf(out, "%s++++++++++++++ MMT Table: %s +++++++++++++\n", szIndent, MMT_SI_table_desc[table_id]);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "file offset", start_bitpos >> 3);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "file offset", start_bitpos >> 3);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "table_id", table_id);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "version", version);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "length", length);
@@ -1351,7 +1351,7 @@ namespace MMT
 					memset(szIndent, ' ', ccIndent);
 				}
 
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "transport_file_id", transport_file_id);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "transport_file_id", transport_file_id);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d, %s\n", szIndent, "location_type", location_type,
 					location_type == 0?"MMTP packet of the same IP data flow as IP data flow in which the table including this general_location_info is transmitted":(
 					location_type == 1?"MMTP packet of IPv4 data flow":(
@@ -1396,7 +1396,7 @@ namespace MMT
 				}
 			}
 
-		}PACKED;
+		};
 
 		uint8_t					num_of_packages;
 
@@ -1538,7 +1538,7 @@ namespace MMT
 
 			for (auto& v: package_infos)
 			{
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%llX\n", szIndent, "package_id", std::get<1>(v));
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%" PRIX64 "\n", szIndent, "package_id", std::get<1>(v));
 				auto& info = std::get<2>(v);
 				info.Print(fp, indent + 4);
 			}
@@ -1553,7 +1553,7 @@ namespace MMT
 				}
 			}
 		}
-	}PACKED;
+	};
 
 	struct MMTPackageTable : public Table
 	{
@@ -1659,7 +1659,7 @@ namespace MMT
 				return iRet;
 			}
 
-			virtual void Print(FILE* fp = nullptr, int indent = 0)
+			void Print(FILE* fp = nullptr, int indent = 0)
 			{
 				FILE* out = fp ? fp : stdout;
 				char szIndent[84];
@@ -1671,9 +1671,9 @@ namespace MMT
 				}
 
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(0X%X)\n", szIndent, "identifier_type", identifier_type, identifier_type);
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "asset_id_scheme", asset_id_scheme);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "asset_id_scheme", asset_id_scheme);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset_id_length", asset_id_length);
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "asset_id", asset_id);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "asset_id", asset_id);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c%c (0X%08X), %s\n", szIndent, "asset_type",
 					isprint((asset_type >> 24) & 0xFF) ? (asset_type >> 24) & 0xFF : '.',
 					isprint((asset_type >> 16) & 0xFF) ? (asset_type >> 16) & 0xFF : '.',
@@ -1690,7 +1690,7 @@ namespace MMT
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "location_count", location_count);
 				for (size_t i = 0; i < MMT_general_location_infos.size(); i++)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "location idx", i);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIsize "\n", szIndent, "location idx", i);
 					MMT_general_location_infos[i].Print(fp, indent + 4);
 				}
 
@@ -1757,7 +1757,7 @@ namespace MMT
 #endif
 			}
 
-		}PACKED;
+		};
 
 		uint8_t					reserved : 6;
 		uint8_t					MPT_mode : 2;
@@ -1863,7 +1863,7 @@ namespace MMT
 				MPT_mode == 1?"After MPT of subset 0 is received, any subset which has the same version number can be processed":(
 				MPT_mode == 2?"MPT of subset can be processed arbitrarily":(
 				MPT_mode == 3?"reserved":"Unknown"))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "MMT_package_id", MMT_package_id);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "MMT_package_id", MMT_package_id);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "MPT_descs_length", MPT_descriptors_length);
 			if (MPT_descriptors_length > 0)
 			{
@@ -1884,13 +1884,13 @@ namespace MMT
 			{
 				for (size_t i = 0; i < assets.size(); i++)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "asset idx", i);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "asset idx", (uint32_t)i);
 					assets[i]->Print(fp, indent + 4);
 				}
 			}
 		}
 
-	}PACKED;
+	};
 
 	struct Message
 	{
@@ -2002,7 +2002,7 @@ namespace MMT
 			fprintf(out, "%s++++++++++++++ Message: %s +++++++++++++\n", szIndent, GetMessageName(message_id));
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "message_id", message_id);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "version", version);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "length", length);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "length", length);
 		}
 	}PACKED;
 
@@ -2123,9 +2123,9 @@ namespace MMT
 			for (int i = 0; i < number_of_tables; i++)
 			{
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "table_index", i);
-				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "table_id", std::get<0>(table_headers[i]));
-				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "table_version", std::get<1>(table_headers[i]));
-				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "table_length", std::get<2>(table_headers[i]));
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "table_id", std::get<0>(table_headers[i]));
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "table_version", std::get<1>(table_headers[i]));
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "table_length", std::get<2>(table_headers[i]));
 			}
 
 			for (auto& v : tables)
@@ -2136,7 +2136,7 @@ namespace MMT
 				v->Print(fp, indent + 4);
 			}
 		}
-	}PACKED;
+	};
 
 	// MPEG Media Transport Protocol packet
 	struct MMTPPacket
@@ -2157,7 +2157,7 @@ namespace MMT
 				uint8_t			dependency_counter;
 				std::vector<uint8_t>
 								MFU_data_bytes;
-			}PACKED;
+			};
 
 			uint16_t			Payload_length;
 			
@@ -2222,7 +2222,7 @@ namespace MMT
 
 							if (left_payload_data_len > 0  && left_bits > 0)
 							{
-								size_t actual_payload_size = (size_t)AMP_MIN(left_payload_data_len, (left_bits >> 3));
+								int actual_payload_size = (int)AMP_MIN((uint64_t)left_payload_data_len, (left_bits >> 3));
 								if (actual_payload_size > 0)
 								{
 									back.MFU_data_bytes.resize(actual_payload_size);
@@ -2257,7 +2257,7 @@ namespace MMT
 
 								if (left_payload_data_len > 0 && left_bits > 0)
 								{
-									size_t actual_payload_size = (size_t)AMP_MIN(back.data_unit_length - 14, (left_bits >> 3));
+									int actual_payload_size = (int)AMP_MIN((uint64_t)back.data_unit_length - 14, (left_bits >> 3));
 									if (actual_payload_size > 0)
 									{
 										back.MFU_data_bytes.resize(actual_payload_size);
@@ -2285,7 +2285,7 @@ namespace MMT
 
 							if (left_payload_data_len > 0 && left_bits > 0)
 							{
-								size_t actual_payload_size = (size_t)AMP_MIN(left_payload_data_len, (left_bits >> 3));
+								int actual_payload_size = (int)AMP_MIN((uint64_t)left_payload_data_len, (left_bits >> 3));
 								if (actual_payload_size > 0)
 								{
 									back.MFU_data_bytes.resize(actual_payload_size);
@@ -2316,7 +2316,7 @@ namespace MMT
 
 								if (left_payload_data_len > 0 && left_bits > 0)
 								{
-									size_t actual_payload_size = (size_t)AMP_MIN(back.data_unit_length - 4, (left_bits >> 3));
+									int actual_payload_size = (int)AMP_MIN((uint64_t)back.data_unit_length - 4, (left_bits >> 3));
 									if (actual_payload_size > 0)
 									{
 										back.MFU_data_bytes.resize(actual_payload_size);
@@ -2332,7 +2332,7 @@ namespace MMT
 
 				if (left_payload_data_len > 0 && left_bits > 0)
 				{
-					size_t actual_payload_size = (size_t)AMP_MIN(left_payload_data_len, (left_bits >> 3));
+					int actual_payload_size = (int)AMP_MIN((uint64_t)left_payload_data_len, (left_bits >> 3));
 					if (actual_payload_size > 0)
 					{
 						payload.resize(actual_payload_size);
@@ -2369,7 +2369,7 @@ namespace MMT
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Aggregate_flag", Aggregate_flag);
 
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "fragment_counter", fragment_counter);
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "MPU_sequence_number", MPU_sequence_number);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "MPU_sequence_number", MPU_sequence_number);
 
 				if (Fragment_type == 2)
 				{
@@ -2380,15 +2380,15 @@ namespace MMT
 						if (Time_data_flag == 1)
 						{
 							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "DU_length", du.data_unit_length);
-							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "MF_seq_no", du.movie_fragment_sequence_number);
-							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "sample_no", du.sample_number);
-							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "offset", du.offset);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "MF_seq_no", du.movie_fragment_sequence_number);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "sample_no", du.sample_number);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "offset", du.offset);
 							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "priority", du.priority);
 							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "dep_counter", du.dependency_counter);
 						}
 						else
 						{
-							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "item_id", du.item_id);
+							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "item_id", du.item_id);
 						}
 
 						if (du.MFU_data_bytes.size() > 0)
@@ -2424,7 +2424,7 @@ namespace MMT
 				}
 			}
 
-		}PACKED;
+		};
 
 		struct ControlMessages
 		{
@@ -2470,7 +2470,7 @@ namespace MMT
 				{
 					if (left_payload_data_len > 0 && left_bits > 0)
 					{
-						size_t actual_payload_size = (size_t)AMP_MIN(left_payload_data_len, (left_bits >> 3));
+						uint32_t actual_payload_size = (uint32_t)AMP_MIN((uint64_t)left_payload_data_len, (left_bits >> 3));
 						if (actual_payload_size > 0)
 						{
 							messages.push_back(std::make_tuple(actual_payload_size, std::vector<uint8_t>()));
@@ -2501,14 +2501,22 @@ namespace MMT
 
 						if (left_payload_data_len > 0 && left_bits > 0)
 						{
-							size_t actual_message_size = AMP_MIN((size_t)message_length, (size_t)left_payload_data_len);
-							size_t actual_payload_size = (size_t)AMP_MIN(actual_message_size, (left_bits >> 3));
+							uint32_t actual_message_size = AMP_MIN((uint32_t)message_length, (uint32_t)left_payload_data_len);
+							uint32_t actual_payload_size = (uint32_t)AMP_MIN(actual_message_size, (left_bits >> 3));
 							if (actual_payload_size > 0)
 							{
 								message_bytes.resize(actual_payload_size);
-								bs.Read(&message_bytes[0], actual_payload_size);
+								if (actual_payload_size > INT32_MAX)
+								{
+									bs.SkipBits((int64_t)actual_payload_size << 3);
+									left_payload_data_len = 0;
+								}
+								else
+								{
+									bs.Read(&message_bytes[0], (int)actual_payload_size);
+									left_payload_data_len -= (int)actual_payload_size;
+								}
 								left_bits -= (uint64_t)actual_payload_size << 3;
-								left_payload_data_len -= actual_payload_size;
 							}
 						}
 					} // while (left_payload_data_len > 6)
@@ -2516,7 +2524,7 @@ namespace MMT
 
 				if (left_payload_data_len > 0 && left_bits > 0)
 				{
-					size_t actual_payload_size = (size_t)AMP_MIN(left_payload_data_len, (left_bits >> 3));
+					int actual_payload_size = (int)AMP_MIN((uint64_t)left_payload_data_len, (left_bits >> 3));
 					if (actual_payload_size > 0)
 					{
 						payload.resize(actual_payload_size);
@@ -2558,7 +2566,7 @@ namespace MMT
 						uint16_t peek_msg_id = (uint16_t)msg_bs.PeekBits(16);
 						if (peek_msg_id == 0)
 						{
-							PAMessage* ptr_PAMsg = new PAMessage(msg_payload.size());
+							PAMessage* ptr_PAMsg = new PAMessage((uint32_t)msg_payload.size());
 							if (ptr_PAMsg->Unpack(msg_bs) >= 0)
 							{
 								ptr_PAMsg->Print(fp, indent + 4);
@@ -2592,7 +2600,7 @@ namespace MMT
 				}
 			}
 
-		}PACKED;
+		};
 
 		uint64_t			start_bitpos;
 		uint32_t			Version : 2;
@@ -2634,7 +2642,7 @@ namespace MMT
 			MMTP_payload_data = nullptr;
 		}
 
-		~MMTPPacket()
+		virtual ~MMTPPacket()
 		{
 			if (Extension_header_flag)
 			{
@@ -2726,7 +2734,7 @@ namespace MMT
 			}
 			else
 			{
-				printf("Does NOT support payload type: %d.\n", Payload_type);
+				printf("Does NOT support payload type: %" PRIu32 ".\n", Payload_type);
 			}
 
 			return nRet;
@@ -2744,34 +2752,34 @@ namespace MMT
 			}
 
 			fprintf(out, "%s%s\n", szIndent, "++++++++++++++ MMTP Packet +++++++++++++");
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu\n", szIndent, "file offset", start_bitpos >> 3);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "Version", Version);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Packet_counter_flag", Packet_counter_flag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "file offset", start_bitpos >> 3);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%" PRIX32 "\n", szIndent, "Version", Version);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Packet_counter_flag", Packet_counter_flag);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "FEC_type", FEC_type == 0?"Non-protected MMTP packet by AL-FEC":(
 																				FEC_type == 1?"Source packet among MMTP packets protected by AL-FEC":(
 																				FEC_type == 2?"Repair packet among MMTP packets protected by AL-FEC":(
 																				FEC_type == 3?"Reserved":"Unknown"))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Extension_header_flag", Extension_header_flag);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "RAP_flag", RAP_flag);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d, %s\n", szIndent, "Payload_type", Payload_type, 
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Extension_header_flag", Extension_header_flag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "RAP_flag", RAP_flag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 ", %s\n", szIndent, "Payload_type", Payload_type,
 				Payload_type == 0?"MPU, a media-aware fragment of the MPU":(
 				Payload_type == 1?"Generic object, A generic object such as a complete MPU or an object of another type":(
 				Payload_type == 2?"signalling message, one or more signalling messages or a fragment of a signalling message":(
 				Payload_type == 3?"repair symbol":"Undefined"))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%04X(%d)\n", szIndent, "Packet_id", Packet_id, Packet_id);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%0" PRIX32 "(%" PRIu32 ")\n", szIndent, "Packet_id", Packet_id, Packet_id);
 
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d.%ds\n", szIndent, "Delivery_timestamp", Delivery_timestamp.Seconds, Delivery_timestamp.Fraction);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Pkt_sequence_number", Packet_sequence_number);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u.%us\n", szIndent, "Delivery_timestamp", Delivery_timestamp.Seconds, Delivery_timestamp.Fraction);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Pkt_sequence_number", Packet_sequence_number);
 
 			if (Packet_counter_flag)
 			{
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Packet_counter", Packet_counter);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Packet_counter", Packet_counter);
 			}
 
 			if (Extension_header_flag)
 			{
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Ext_header_type", Extension_header_type);
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Ext_header_length", Extension_header_length);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "Ext_header_type", Extension_header_type);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "Ext_header_length", Extension_header_length);
 
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": ", szIndent, "header_ext_value");
 				for (int i = 0; Extension_header_field != nullptr && i < AMP_MIN(256, Extension_header_length); i++)

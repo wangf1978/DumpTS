@@ -39,24 +39,24 @@ extern DUMP_STATUS g_dump_status;
 
 struct AUDIO_INFO
 {
-	unsigned long	sample_frequency;
-	unsigned long	channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
-	unsigned long	bits_per_sample;
-	unsigned long	bitrate;			// bits/second
+	uint32_t		sample_frequency;
+	uint32_t		channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
+	uint32_t		bits_per_sample;
+	uint32_t		bitrate;			// bits/second
 };
 
 struct VIDEO_INFO
 {
-	unsigned char	EOTF;				// HDR10, SDR
-	unsigned char	colorspace;			// REC.601, BT.709 and BT.2020
-	unsigned char	colorfmt;			// YUV 4:2:0, 4:2:2 or 4:4:4
-	unsigned char	reserved;
-	unsigned long	video_height;
-	unsigned long	video_width;
-	unsigned short	framerate_numerator;
-	unsigned short	framerate_denominator;
-	unsigned short	aspect_ratio_numerator;
-	unsigned short	aspect_ratio_denominator;
+	uint8_t			EOTF;				// HDR10, SDR
+	uint8_t			colorspace;			// REC.601, BT.709 and BT.2020
+	uint8_t			colorfmt;			// YUV 4:2:0, 4:2:2 or 4:4:4
+	uint8_t			reserved;
+	uint32_t		video_height;
+	uint32_t		video_width;
+	uint16_t		framerate_numerator;
+	uint16_t		framerate_denominator;
+	uint16_t		aspect_ratio_numerator;
+	uint16_t		aspect_ratio_denominator;
 };
 
 struct STREAM_INFO
@@ -71,16 +71,19 @@ struct STREAM_INFO
 };
 
 using PID_StramInfos = unordered_map<unsigned short, std::vector<STREAM_INFO>>;
-using DDP_Program_StreamInfos = unordered_map<unsigned char /* Program */, std::vector<STREAM_INFO>>;
+using DDP_Program_StreamInfos = unordered_map<uint8_t /* Program */, std::vector<STREAM_INFO>>;
 
 PID_StramInfos g_stream_infos;
 DDP_Program_StreamInfos g_ddp_program_stream_infos;
-unsigned char g_cur_ddp_program_id = 0XFF;
+uint8_t g_cur_ddp_program_id = 0XFF;
 std::vector<STREAM_INFO> g_cur_dtshd_stream_infos;
 
 int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
-	CBitstream bst(pBuf, cbSize << 3);
+	if (cbSize < 0)
+		return -1;
+
+	CBitstream bst(pBuf, (size_t)cbSize << 3);
 	bst.SkipBits(32);
 
 	uint8_t fscod = (uint8_t)bst.GetBits(2);
@@ -123,7 +126,10 @@ int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int 
 int ParseEAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info, unsigned char& ddp_progid)
 {
 	int iRet = -1;
-	CBitstream bst(pBuf, cbSize << 3);
+	if (cbSize < 0)
+		return -1;
+
+	CBitstream bst(pBuf, (size_t)cbSize << 3);
 	bst.SkipBits(16);
 
 	uint32_t byte2to5 = (uint32_t)bst.PeekBits(32);
@@ -132,7 +138,7 @@ int ParseEAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int
 	if (bsid != 0x8 && bsid != 0x10)
 		return -1;
 
-	if (bsid == 0x8 || bsid == 0x10 && ((byte2to5 >> 30) == 0 || (byte2to5 >> 30) == 2))
+	if (bsid == 0x8 || (bsid == 0x10 && ((byte2to5 >> 30) == 0 || (byte2to5 >> 30) == 2)))
 	{
 		unsigned char program_id = 0;
 		if (bsid == 0x08)
@@ -243,7 +249,7 @@ int ParseEAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int
 		}
 		else if (strmtyp == 1 && g_cur_ddp_program_id >= 0 && g_cur_ddp_program_id <= 7)
 		{
-			if (g_ddp_program_stream_infos[g_cur_ddp_program_id].size() != substreamid + 1)
+			if (g_ddp_program_stream_infos[g_cur_ddp_program_id].size() != substreamid + 1UL)
 			{
 				g_ddp_program_stream_infos[g_cur_ddp_program_id].clear();
 				goto done;
@@ -260,7 +266,7 @@ int ParseEAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int
 			if (chanmape)
 			{
 				unsigned long ddp_channel_mapping = 0;
-				for (int i = 0; i < _countof(ddp_ch_assignment); i++)
+				for (size_t i = 0; i < _countof(ddp_ch_assignment); i++)
 					if ((1 << (15-i))&chanmap)
 						ddp_channel_mapping |= ddp_ch_assignment[i];
 				ptr_stm_info->audio_info.channel_mapping = ddp_channel_mapping;
@@ -304,14 +310,14 @@ int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, uns
 		unsigned short flags = (pBuf[14] << 8) | pBuf[15];
 		if ((flags & 0x8000))
 		{
-			for (int i = 0; i < _countof(FBA_Channel_Loc_mapping_1); i++)
-				if (channel_assignment_8ch_presentation&&(1<<i))
+			for (size_t i = 0; i < _countof(FBA_Channel_Loc_mapping_1); i++)
+				if (channel_assignment_8ch_presentation&(1<<i))
 					audio_info.audio_info.channel_mapping |= FBA_Channel_Loc_mapping_1[i];
 		}
 		else
 		{
-			for (int i = 0; i < _countof(FBA_Channel_Loc_mapping_0); i++)
-				if (channel_assignment_8ch_presentation && (1 << i))
+			for (size_t i = 0; i < _countof(FBA_Channel_Loc_mapping_0); i++)
+				if (channel_assignment_8ch_presentation & (1 << i))
 					audio_info.audio_info.channel_mapping |= FBA_Channel_Loc_mapping_0[i];
 		}
 	}
@@ -341,7 +347,7 @@ int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, uns
 	case 0x9: audio_info.audio_info.sample_frequency = 88200; break;
 	case 0xA: audio_info.audio_info.sample_frequency = 176400; break;
 	default:
-		audio_info.audio_info.sample_frequency = (unsigned long)-1;
+		audio_info.audio_info.sample_frequency = (uint32_t)-1;
 	}
 
 	return 0;
@@ -350,8 +356,10 @@ int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, uns
 int ParseCoreDTSAU(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
 	int iRet = -1;
-	CBitstream bst(pBuf, cbSize << 3);
+	if (cbSize < 0)
+		return -1;
 
+	CBitstream bst(pBuf, (size_t)cbSize << 3);
 
 	try
 	{
@@ -404,9 +412,9 @@ int ParseCoreDTSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 		static uint32_t RATEs[] = {
 			32000, 56000, 64000, 96000, 112000, 128000, 192000, 224000, 256000, 320000, 384000, 448000, 512000, 576000, 640000,
 			768000, 960000, 1024000, 1152000, 1280000, 1344000, 1408000, 1411200, 1472000, 1536000, 1920000, 2048000, 3072000, 3840000,
-			(unsigned long)-3,	// Open
-			(unsigned long)-2,	// Variant
-			(unsigned long)-1	// Lossless
+			(uint32_t)-3,	// Open
+			(uint32_t)-2,	// Variant
+			(uint32_t)-1	// Lossless
 		};
 		static uint8_t bpses[] = {
 			16, 16, 20, 20, 24, 24, 0, 0
@@ -479,10 +487,13 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 		return nRet;
 	};
 
-	CBitstream bst(pBuf, cbSize << 3);
+	if (cbSize < 0)
+		return -1;
+
+	CBitstream bst(pBuf, (size_t)cbSize << 3);
 	bst.SkipBits(32);
 
-	uint8_t UserDefinedBits = (uint8_t)bst.GetBits(8);
+	uint8_t UserDefinedBits = (uint8_t)bst.GetBits(8); DBG_UNREFERENCED_LOCAL_VARIABLE(UserDefinedBits);
 	uint8_t nExtSSIndex = (uint8_t)bst.GetBits(2);
 
 	uint8_t	bHeaderSizeType = (uint8_t)bst.GetBits(1);
@@ -552,7 +563,7 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 	else
 		return -1;	// Can't get audio information if bStaticFieldPresent is false;
 
-	uint32_t nuAssetFsize[8];
+	uint32_t nuAssetFsize[8] = { 0 };
 	for (int nAst = 0; nAst < nuNumAssets; nAst++)
 		nuAssetFsize[nAst] = (uint16_t)bst.GetBits(nuBits4ExSSFsize) + 1;
 
@@ -654,7 +665,7 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 			// Update the channel information
 			if (bOne2OneMapChannels2Speakers)
 			{
-				for (int i = 0; i < _countof(dtshd_speaker_bitmask_table); i++)
+				for (size_t i = 0; i < _countof(dtshd_speaker_bitmask_table); i++)
 				{
 					if ((1<<i)&nuSpkrActivityMask)
 						stm_info.audio_info.channel_mapping |= std::get<2>(dtshd_speaker_bitmask_table[i]);
@@ -820,7 +831,7 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 					nuMainAudioScaleCode[ns][0] = (uint8_t)bst.GetBits(6);
 			}
 		} // End of bOnetoOneMixingFlag==true condition
-		uint8_t bDecodeAssetInSecondaryDecoder = (uint8_t)bst.GetBits(1);
+		uint8_t bDecodeAssetInSecondaryDecoder = (uint8_t)bst.GetBits(1); DBG_UNREFERENCED_LOCAL_VARIABLE(bDecodeAssetInSecondaryDecoder);
 
 		asset_cur_bitpos = bst.Tell();
 
@@ -915,10 +926,12 @@ int ParseCoreDTSHDAU(unsigned short PID, int stream_type, unsigned long sync_cod
 int ParseADTSFrame(unsigned short PID, int stream_type, unsigned long sync_code, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
 	int iRet = -1;
+	if (cbSize < 0)
+		return -1;
 
 	try
 	{
-		CBitstream bst(pBuf, cbSize << 3);
+		CBitstream bst(pBuf, (size_t)cbSize << 3);
 
 		bst.SkipBits(12);
 
@@ -1065,9 +1078,12 @@ int ParseMPEGAudioFrame(unsigned short PID, int stream_type, unsigned long sync_
 		{0, 0, 0}
 	};
 
+	if (cbSize < 0)
+		return -1;
+
 	try
 	{
-		CBitstream bst(pBuf, cbSize << 3);
+		CBitstream bst(pBuf, (size_t)cbSize << 3);
 
 		bst.SkipBits(11);
 		bst.GetBits(2, MPEG_Audio_VerID);
@@ -1183,7 +1199,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	{
 		if (cbSize >= 4)
 		{
-			uint16_t audio_data_payload_size = (pBuf[0] << 8) | pBuf[1];
+			//uint16_t audio_data_payload_size = (pBuf[0] << 8) | pBuf[1];
 			uint8_t channel_assignment = (pBuf[2] >> 4) & 0x0F;
 			uint8_t sample_frequency = pBuf[2] & 0x0F;
 			uint8_t bits_per_sample = (pBuf[3] >> 6) & 0x03;
@@ -1251,13 +1267,13 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 
 			uint32_t ID = (u32Val >> 19) & 0x1;
 			uint32_t layer = (u32Val >> 17) & 03;
-			uint32_t protection_absent = (u32Val >> 16) & 0x1;
+			//uint32_t protection_absent = (u32Val >> 16) & 0x1;
 			uint32_t profile_ObjectType = (u32Val >> 14) & 0x03;
 			uint32_t sample_frequency_index = (u32Val >> 10) & 0x0F;
-			uint32_t channel_configuration = (u32Val >> 6) & 0x07;
+			//uint32_t channel_configuration = (u32Val >> 6) & 0x07;
 			if (layer != 0 // Should be set to '00'
 				|| sample_frequency_index == 0x0F	// escape value
-				|| ID == 1 && profile_ObjectType == 3	// it is reserved for MPEG-2 AAC
+				|| (ID == 1 && profile_ObjectType == 3)	// it is reserved for MPEG-2 AAC
 				|| sample_frequency_index == 0x0D || sample_frequency_index == 0x0E // reserved
 				)
 			{
@@ -1267,7 +1283,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 				continue;
 			}
 
-			unsigned short aac_frame_length = ((p[3] & 0x03) << 11) | (p[4] << 3) | ((p[5] >> 5) & 0x7);
+			//unsigned short aac_frame_length = ((p[3] & 0x03) << 11) | (p[4] << 3) | ((p[5] >> 5) & 0x7);
 			unsigned char number_of_raw_data_blocks_in_frame = p[6] & 0x3;
 
 			if (cbLeft >= ADTS_HEADER_SIZE + 1 && number_of_raw_data_blocks_in_frame == 0)
@@ -1333,25 +1349,25 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 				g_stream_infos[PID].resize(audio_program_id + 1);
 			g_stream_infos[PID][audio_program_id] = stm_info;
 			if (g_stream_infos[PID].size() > 1)
-				printf("%s Stream information#%d:\r\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
+				printf("%s Stream information#%d:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
 			else
-				printf("%s Stream information:\r\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
-			printf("\tPID: 0X%X.\r\n", PID);
-			printf("\tStream Type: %d(0X%02X).\r\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
-			printf("\tSample Frequency: %d (HZ).\r\n", stm_info.audio_info.sample_frequency);
-			printf("\tBits Per Sample: %d.\r\n", stm_info.audio_info.bits_per_sample);
-			printf("\tChannel Layout: %s.\r\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
+				printf("%s Stream information:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
+			printf("\tPID: 0X%X.\n", PID);
+			printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+			printf("\tSample Frequency: %d (HZ).\n", stm_info.audio_info.sample_frequency);
+			printf("\tBits Per Sample: %d.\n", stm_info.audio_info.bits_per_sample);
+			printf("\tChannel Layout: %s.\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
 
 			if (stm_info.audio_info.bitrate != 0 && stm_info.audio_info.bitrate != 0xFFFFFFFE)
 			{
-				int k = 1000;
-				int m = k * k;
+				uint32_t k = 1000;
+				uint32_t m = k * k;
 				if (stm_info.audio_info.bitrate >= 1024 * 1024)
-					printf("\tBitrate: %d.%03d mbps.\r\n", stm_info.audio_info.bitrate / m, stm_info.audio_info.bitrate * 1000 / m % 1000);
+					printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " mbps.\n", stm_info.audio_info.bitrate / m, stm_info.audio_info.bitrate * 1000 / m % 1000);
 				else if(stm_info.audio_info.bitrate >= 1024)
-					printf("\tBitrate: %d.%03d kbps.\r\n", stm_info.audio_info.bitrate / k, stm_info.audio_info.bitrate * 1000 / k % 1000);
+					printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " kbps.\n", stm_info.audio_info.bitrate / k, stm_info.audio_info.bitrate * 1000 / k % 1000);
 				else
-					printf("\tBitrate: %d bps.\r\n", stm_info.audio_info.bitrate);
+					printf("\tBitrate: %" PRIu32 " bps.\n", stm_info.audio_info.bitrate);
 			}
 		}
 	}
@@ -1380,21 +1396,21 @@ int WriteWaveFileBuffer(FILE* fw, unsigned PID, int stream_type, unsigned char* 
 	if (numch[channel_assignment] == 0)
 	{
 		if (g_verbose_level > 0)
-			printf("Channel assignment value (%d) in PCM header is invalid.\r\n", channel_assignment);
+			printf("Channel assignment value (%d) in PCM header is invalid.\n", channel_assignment);
 		return -1;
 	}
 
 	if (fs[sample_frequency] == 0)
 	{
 		if (g_verbose_level > 0)
-			printf("Sample frequency value (%d) in PCM header is invalid.\r\n", sample_frequency);
+			printf("Sample frequency value (%d) in PCM header is invalid.\n", sample_frequency);
 		return -1;
 	}
 
 	if (bps[bits_per_sample] == 0)
 	{
 		if (g_verbose_level > 0)
-			printf("Bits_per_sample(%d) in PCM header is invalid.\r\n", bits_per_sample);
+			printf("Bits_per_sample(%d) in PCM header is invalid.\n", bits_per_sample);
 		return -1;
 	}
 
@@ -1403,7 +1419,7 @@ int WriteWaveFileBuffer(FILE* fw, unsigned PID, int stream_type, unsigned char* 
 
 	bool bWaveFormatExtent = (numch[channel_assignment] > 2 || bps[bits_per_sample] > 16) ? true : false;
 	uint32_t dwChannelMask = 0;
-	for (int i = 0; i < _countof(Channel_Speaker_Mapping); i++)
+	for (size_t i = 0; i < _countof(Channel_Speaker_Mapping); i++)
 		if (CHANNLE_PRESENT(std::get<0>(hdmv_lpcm_ch_assignments[channel_assignment]), i))
 			dwChannelMask |= CHANNEL_BITMASK(Channel_Speaker_Mapping[i]);
 
@@ -1691,7 +1707,7 @@ int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char*
 				if (pes_buffer_len < pes_len + 6 || pes_buffer_len < pes_hdr_len + 9)
 				{
 					if (g_verbose_level >= 1)
-						printf("The PES buffer length(%d) is too short, it is expected to be greater than %d.\r\n", pes_buffer_len, std::max(pes_len + 6, pes_hdr_len + 9));
+						printf("The PES buffer length(%d) is too short, it is expected to be greater than %d.\n", pes_buffer_len, std::max(pes_len + 6, pes_hdr_len + 9));
 					iret = -1;
 					goto done;
 				}
@@ -1702,7 +1718,7 @@ int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char*
 					if (stream_type != HDMV_LPCM_AUDIO_STREAM)
 					{
 						if (g_verbose_level >= 1)
-							printf("At present, not sure ES is LPCM stream or not, drop this ES packet.\r\n");
+							printf("At present, not sure ES is LPCM stream or not, drop this ES packet.\n");
 						goto done;
 					}
 
@@ -1735,8 +1751,8 @@ int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char*
 				else
 				{
 					static int PktIndex = 0;
-					__int64 pts = GetPTSValue(pes_buffer + 9);
-					printf("PktIndex:%d, PTS value is %lld(0X%llX).\r\n", PktIndex++, pts, pts);
+					int64_t pts = GetPTSValue(pes_buffer + 9);
+					printf("PktIndex:%d, PTS value is %" PRId64 "(0X%" PRIX64 ").\n", PktIndex++, pts, pts);
 				}
 			}
 		}
@@ -1761,7 +1777,18 @@ int DumpOneStream()
 	FILE *fp = NULL, *fw = NULL;
 	int sPID = FILTER_PID;
 	int dumpopt = 0;
+	errno_t errn;
 	unsigned char* pes_buffer = new (std::nothrow) unsigned char[20 * 1024 * 1024];
+
+	//size_t pes_hdr_location = 0;
+	int raw_data_len = 0, dump_ret;
+	unsigned long pes_buffer_len = 0;
+	//unsigned long pat_buffer_len = 0;
+	int buf_head_offset = g_ts_fmtinfo.num_of_prefix_bytes;
+	uint16_t ts_pack_size = g_ts_fmtinfo.packet_size;
+	int stream_id = -1;
+	int stream_id_extension = -1;
+	unsigned long ts_pack_idx = 0;
 
 	unordered_map<unsigned short, CPSIBuf*> pPSIBufs;
 	unordered_map<unsigned short, unsigned char> stream_types;
@@ -1777,16 +1804,16 @@ int DumpOneStream()
 
 	if (g_params.find("pid") == g_params.end())
 	{
-		printf("No PID is specified, nothing to do.\r\n");
+		printf("No PID is specified, nothing to do.\n");
 		goto done;
 	}
 
 	sPID = (int)ConvertToLongLong(g_params["pid"]);
 
-	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
+	errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		goto done;
 	}
 
@@ -1795,28 +1822,19 @@ int DumpOneStream()
 		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
 		if (errn != 0 || fw == NULL)
 		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
+			printf("Failed to open the file: %s {errno: %d}.\n", g_params["output"].c_str(), errn);
 			goto done;
 		}
 	}
 
-	size_t pes_hdr_location;
-	int raw_data_len = 0, dump_ret;
-	unsigned long pes_buffer_len = 0;
-	unsigned long pat_buffer_len = 0;
-	int buf_head_offset = g_ts_fmtinfo.num_of_prefix_bytes;
-	int ts_pack_size = g_ts_fmtinfo.packet_size;
-
 	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("m2ts") == 0)
 		dumpopt |= DUMP_BD_M2TS;
 
-	int stream_id_extension = -1;
 	if (g_params.find("stream_id_extension") != g_params.end())
 	{
 		stream_id_extension = (int)ConvertToLongLong(g_params["stream_id_extension"]);
 	}
 
-	int stream_id = -1;
 	if (g_params.find("stream_id") != g_params.end())
 	{
 		stream_id = (int)ConvertToLongLong(g_params["stream_id"]);
@@ -1848,10 +1866,9 @@ int DumpOneStream()
 
 	g_dump_status.state = DUMP_STATE_RUNNING;
 
-	unsigned long ts_pack_idx = 0;
 	while (true)
 	{
-		int nRead = fread(buf, 1, ts_pack_size, fp);
+		uint16_t nRead = (uint16_t)fread(buf, 1, ts_pack_size, fp);
 		if (nRead < ts_pack_size)
 			break;
 
@@ -1870,7 +1887,7 @@ int DumpOneStream()
 		int index = buf_head_offset + 4;
 		unsigned char payload_unit_start = buf[buf_head_offset + 1] & 0x40;
 		unsigned char adaptation_field_control = (buf[buf_head_offset + 3] >> 4) & 0x03;
-		unsigned char discontinuity_counter = buf[buf_head_offset + 3] & 0x0f;
+		//unsigned char discontinuity_counter = buf[buf_head_offset + 3] & 0x0f;
 
 		if (adaptation_field_control & 0x02)
 			index += buf[buf_head_offset + 4] + 1;
@@ -1916,7 +1933,7 @@ int DumpOneStream()
 					g_dump_status.num_of_dumped_payloads++;
 
 				pes_buffer_len = 0;
-				pes_hdr_location = ftell(fp) - nRead;
+				//pes_hdr_location = ftell(fp) - nRead;
 			}
 		}
 
@@ -1940,23 +1957,23 @@ int DumpOneStream()
 							if (prev_PMT_stream_types.find(PID) == prev_PMT_stream_types.end() || stm_types != prev_PMT_stream_types[PID])
 							{
 								int idxStm = 0;
-								int num_of_streams = stm_types.size();
+								size_t num_of_streams = stm_types.size();
 								if (num_of_streams > 0)
 								{
-									printf("Program(PID:0X%04X)\r\n", PID);
+									printf("Program(PID:0X%04X)\n", PID);
 									
 									for (auto iter = stm_types.cbegin(); iter != stm_types.cend(); iter++, idxStm++)
 									{
 										if (num_of_streams < 10)
-											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
 										else if (num_of_streams < 100)
-											printf("\tStream#%02d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+											printf("\tStream#%02d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
 										else if (num_of_streams < 1000)
-											printf("\tStream#%03d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+											printf("\tStream#%03d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
 										else
-											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\r\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
 									}
-									printf("\r\n");
+									printf("\n");
 								}
 
 								prev_PMT_stream_types[PID] = stm_types;
@@ -1994,7 +2011,7 @@ int DumpOneStream()
 							{
 								if (stream_type != HDMV_LPCM_AUDIO_STREAM)
 								{
-									printf("At present only support dumping pcm/wav data from LPCM audio stream.\r\n");
+									printf("At present only support dumping pcm/wav data from LPCM audio stream.\n");
 									iRet = -1;
 									goto done;
 								}
@@ -2005,7 +2022,7 @@ int DumpOneStream()
 			}
 		}
 
-		if (PID == sPID && (payload_unit_start || !payload_unit_start && pes_buffer_len > 0))
+		if (PID == sPID && (payload_unit_start || (!payload_unit_start && pes_buffer_len > 0)))
 		{
 			memcpy(pes_buffer + pes_buffer_len, buf + index, g_ts_fmtinfo.packet_size - index);
 			pes_buffer_len += g_ts_fmtinfo.packet_size - index;

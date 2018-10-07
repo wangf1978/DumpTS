@@ -7,7 +7,7 @@ namespace ISOBMFF
 	{
 		if (_fseeki64(m_fpSrc, src_sample_file_offset, SEEK_SET) != 0)
 		{
-			printf("Failed to seek to the file position: %lld.\n", src_sample_file_offset);
+			printf("Failed to seek to the file position: %" PRIu64 ".\n", src_sample_file_offset);
 			return -1;
 		}
 
@@ -77,11 +77,13 @@ namespace ISOBMFF
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			fread(buf, 1, m_AVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc);
+			if (fread(buf, 1, m_AVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc) != m_AVCConfigRecord->lengthSizeMinusOne + 1UL)
+				break;
+
 			for (int i = 0; i < m_AVCConfigRecord->lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
-			bool bLastNALUnit = cbLeft <= (m_AVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
+			//bool bLastNALUnit = cbLeft <= (m_AVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
 
 			uint8_t first_leading_read_pos = 0;
 			if (keyframe == FLAG_SET && next_nal_unit_type != -1)
@@ -92,7 +94,7 @@ namespace ISOBMFF
 
 				first_leading_read_pos = 1;
 
-				int8_t nal_ref_idc = (buf[0] >> 5) & 0x03;
+				//int8_t nal_ref_idc = (buf[0] >> 5) & 0x03;
 				int8_t nal_unit_type = buf[0] & 0x1F;
 				if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT || nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT)
 				{
@@ -128,8 +130,7 @@ namespace ISOBMFF
 			while (cbLeftNALUnit > 0)
 			{
 				uint32_t nCpyCnt = AMP_MIN(2048UL - first_leading_read_pos, cbLeftNALUnit);
-
-				if ((nCpyCnt = fread(&buf[first_leading_read_pos], 1, nCpyCnt, m_fpSrc)) == 0)
+				if ((nCpyCnt = (uint32_t)fread(&buf[first_leading_read_pos], 1, nCpyCnt, m_fpSrc)) == 0)
 					break;
 
 				if (m_fpDst != NULL)
@@ -144,7 +145,7 @@ namespace ISOBMFF
 		}
 
 		if (cbLeft != 0)
-			printf("[AVCSampleRepacker] There are %lld bytes of NAL unit data is not re-packed.\n", cbLeft);
+			printf("[AVCSampleRepacker] There are %" PRIi64 " bytes of NAL unit data is not re-packed.\n", cbLeft);
 
 		return iRet;
 	}
@@ -212,7 +213,9 @@ namespace ISOBMFF
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			fread(buf, 1, m_HEVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc);
+			if (fread(buf, 1, m_HEVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc) != m_HEVCConfigRecord->lengthSizeMinusOne + 1UL)
+				break;
+
 			for (int i = 0; i < m_HEVCConfigRecord->lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
@@ -228,8 +231,8 @@ namespace ISOBMFF
 				first_leading_read_pos = 2;
 
 				int8_t nal_unit_type = (buf[0] >> 1) & 0x3F;
-				int8_t nuh_layer_id = ((buf[0] & 0x01) << 5) | ((buf[1] >> 3) & 0x1F);
-				int8_t nuh_temporal_id_plus1 = buf[1] & 0x07;
+				//int8_t nuh_layer_id = ((buf[0] & 0x01) << 5) | ((buf[1] >> 3) & 0x1F);
+				//int8_t nuh_temporal_id_plus1 = buf[1] & 0x07;
 				if (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::VPS_NUT ||
 					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SPS_NUT ||
 					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PPS_NUT ||
@@ -270,8 +273,7 @@ namespace ISOBMFF
 			while (cbLeftNALUnit > 0)
 			{
 				uint32_t nCpyCnt = AMP_MIN(2048UL - first_leading_read_pos, cbLeftNALUnit);
-
-				if ((nCpyCnt = fread(&buf[first_leading_read_pos], 1, nCpyCnt, m_fpSrc)) == 0)
+				if ((nCpyCnt = (uint32_t)fread(&buf[first_leading_read_pos], 1, nCpyCnt, m_fpSrc)) == 0)
 					break;
 
 				if (m_fpDst != NULL)
@@ -286,7 +288,7 @@ namespace ISOBMFF
 		}
 
 		if (cbLeft != 0)
-			printf("[HEVCSampleRepacker] There are %lld bytes of NAL unit data is not re-packed.\n", cbLeft);
+			printf("[HEVCSampleRepacker] There are %" PRIi64 " bytes of NAL unit data is not re-packed.\n", cbLeft);
 
 		return iRet;
 	}
@@ -299,10 +301,10 @@ namespace ISOBMFF
 		if (NumBytesInNalUnit < 2)
 			return RET_CODE_BOX_TOO_SMALL;
 
-		uint8_t forbidden_zero_bit = (pNalUnitBuf[0] >> 7) & 0x01;
+		//uint8_t forbidden_zero_bit = (pNalUnitBuf[0] >> 7) & 0x01;
 		uint8_t nal_unit_type = (pNalUnitBuf[0] >> 1) & 0x3F;
-		uint8_t nuh_layer_id = ((pNalUnitBuf[0] & 0x1) << 5)&((pNalUnitBuf[1] >> 3) & 0x1F);
-		uint8_t nuh_temporal_id_plus1 = pNalUnitBuf[1] & 0x7;
+		uint8_t nuh_layer_id = (uint8_t)(((pNalUnitBuf[0] & 0x1) << 5)&((pNalUnitBuf[1] >> 3) & 0x1F));
+		//uint8_t nuh_temporal_id_plus1 = pNalUnitBuf[1] & 0x7;
 
 		// For Non-VCL NAL unit, it will be cached until to hit the first VCL NAL unit of an access unit
 		if (nal_unit_type >= 32 && nal_unit_type <= 63)
@@ -317,8 +319,8 @@ namespace ISOBMFF
 
 		// For VCL NAL unit
 		// Check whether it is the first slice of a coded picture in an access unit
-		if (nal_unit_type >= 0 && nal_unit_type <= 9 ||
-			nal_unit_type >= 16 && nal_unit_type <= 21)
+		if((nal_unit_type >= 0 && nal_unit_type <= 9) ||
+		   (nal_unit_type >= 16 && nal_unit_type <= 21))
 		{
 			if (NumBytesInNalUnit < 3)
 				return RET_CODE_BOX_TOO_SMALL;
@@ -342,13 +344,13 @@ namespace ISOBMFF
 
 			if (first_slice_segment_in_pic_flag && nuh_layer_id == 0 &&
 				bStartNewAccessUnitFound == false && (
-				nu_type == 35 && nu_nuh_layer_id == 0 || // access unit delimiter NAL unit with nuh_layer_id equal to 0 (when present)
-				nu_type == 32 && nu_nuh_layer_id == 0 || // VPS NAL unit with nuh_layer_id equal to 0 (when present)
-				nu_type == 33 && nu_nuh_layer_id == 0 || // SPS NAL unit with nuh_layer_id equal to 0 (when present)
-				nu_type == 34 && nu_nuh_layer_id == 0 || // PPS NAL unit with nuh_layer_id equal to 0 (when present)
-				nu_type == 39 && nu_nuh_layer_id == 0 || // Prefix SEI NAL unit with nuh_layer_id equal to 0 (when present)
-				nu_type >= 41 && nu_type <= 44 && nu_nuh_layer_id == 0 || // NAL units with nal_unit_type in the range of RSV_NVCL41..RSV_NVCL44 with nuh_layer_id equal to 0 (when present)
-				nu_type >= 48 && nu_type <= 55 && nu_nuh_layer_id == 0 // NAL units with nal_unit_type in the range of UNSPEC48..UNSPEC55 with nuh_layer_id equal to 0 (when present)
+				(nu_type == 35 && nu_nuh_layer_id == 0) || // access unit delimiter NAL unit with nuh_layer_id equal to 0 (when present)
+				(nu_type == 32 && nu_nuh_layer_id == 0) || // VPS NAL unit with nuh_layer_id equal to 0 (when present)
+				(nu_type == 33 && nu_nuh_layer_id == 0) || // SPS NAL unit with nuh_layer_id equal to 0 (when present)
+				(nu_type == 34 && nu_nuh_layer_id == 0) || // PPS NAL unit with nuh_layer_id equal to 0 (when present)
+				(nu_type == 39 && nu_nuh_layer_id == 0) || // Prefix SEI NAL unit with nuh_layer_id equal to 0 (when present)
+				(nu_type >= 41 && nu_type <= 44 && nu_nuh_layer_id == 0) || // NAL units with nal_unit_type in the range of RSV_NVCL41..RSV_NVCL44 with nuh_layer_id equal to 0 (when present)
+				(nu_type >= 48 && nu_type <= 55 && nu_nuh_layer_id == 0) // NAL units with nal_unit_type in the range of UNSPEC48..UNSPEC55 with nuh_layer_id equal to 0 (when present)
 				))
 			{
 				bStartNewAccessUnitFound = true;
@@ -401,7 +403,7 @@ namespace ISOBMFF
 				return RET_CODE_ERROR;
 			}
 
-			if (fwrite(pNalUnitBuf, 1, NumBytesInNalUnit, m_fpDst) != NumBytesInNalUnit)
+			if (fwrite(pNalUnitBuf, 1, (size_t)NumBytesInNalUnit, m_fpDst) != (size_t)NumBytesInNalUnit)
 			{
 				printf("[HEVCSampleRepacker] Failed to write %d bytes of NAL unit to the output file.\n", NumBytesInNalUnit);
 				return RET_CODE_ERROR;
@@ -422,7 +424,7 @@ namespace ISOBMFF
 			int cbNuBuf = std::get<1>(v);
 
 			uint8_t nu_type = (pNuBuf[0] >> 1) & 0x3F;
-			uint8_t nu_nuh_layer_id = ((pNuBuf[0] & 0x1) << 5)&((pNuBuf[1] >> 3) & 0x1F);
+			//uint8_t nu_nuh_layer_id = ((pNuBuf[0] & 0x1) << 5)&((pNuBuf[1] >> 3) & 0x1F);
 
 			bool is_zero_byte_present = (nu_type == 32 || nu_type == 33 || nu_type == 34) ? true : false;
 			if (m_fpDst != nullptr)

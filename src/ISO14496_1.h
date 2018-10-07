@@ -86,6 +86,8 @@ namespace MPEG4System
 		uint8_t		reserved[2];
 		uint32_t	sizeOfInstance = 0;
 
+		virtual ~BaseDescriptor(){}
+
 		virtual int Unpack(CBitstream& bs)
 		{
 			uint64_t left_bits = 0;
@@ -226,7 +228,7 @@ namespace MPEG4System
 			SkipLeftBits(bs);
 			return iRet;
 		}
-	}PACKED;
+	};
 
 	struct OCI_Descriptor : public BaseDescriptor
 	{

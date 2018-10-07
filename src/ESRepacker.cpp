@@ -348,8 +348,8 @@ int	CESRepacker::Repack(uint32_t sample_size, FLAG_VALUE keyframe)
 	uint32_t cbLeftSize = sample_size;
 	do
 	{
-		size_t cbRead = (size_t)AMP_MIN(cbLeftSize, 2048ULL);
-		if ((cbRead = fread(buf, 1, cbRead, m_fpSrc)) == 0)
+		uint32_t cbRead = (uint32_t)AMP_MIN(cbLeftSize, 2048U);
+		if ((cbRead = (uint32_t)fread(buf, 1, cbRead, m_fpSrc)) == 0)
 			break;
 
 		if (NULL != m_fpDst)
@@ -381,7 +381,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 			nDelimiterLengthSize = m_config.pAVCConfigRecord->lengthSizeMinusOne + 1;
 		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC && m_config.pHEVCConfigRecord != nullptr)
 			nDelimiterLengthSize = m_config.pHEVCConfigRecord->lengthSizeMinusOne + 1;
-		else if (m_config.NALUnit_Length_Size > 0 && m_config.NALUnit_Length_Size <= sizeof(uint64_t))
+		else if (m_config.NALUnit_Length_Size > 0 && (size_t)m_config.NALUnit_Length_Size <= sizeof(uint64_t))
 			nDelimiterLengthSize = m_config.NALUnit_Length_Size;
 
 		int nNalBufLen = 0;
@@ -405,7 +405,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 						else
 						{
 							if (g_verbose_level > 0)
-								printf("[ESRepacker] Hit an unexpected case, NAL unit length(%lld) indicated by delimiter-length is less than the actual(%d).\n",
+								printf("[ESRepacker] Hit an unexpected case, NAL unit length(%" PRIu64 ") indicated by delimiter-length is less than the actual(%d).\n",
 									nNalUnitLen, nNalBufLen - nDelimiterLengthSize);
 						}
 					}
@@ -419,7 +419,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 				{
 					if (m_fpDst != nullptr)
 					{
-						if (fwrite(pNalBuf, 1, nNalBufLen, m_fpDst) != nNalBufLen)
+						if (fwrite(pNalBuf, 1, (size_t)nNalBufLen, m_fpDst) != (size_t)nNalBufLen)
 							printf("[ESRepacker] Failed to write %d bytes into the output file.\n", nNalBufLen);
 					}
 				}
@@ -488,7 +488,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 						else
 						{
 							if (g_verbose_level > 0)
-								printf("[ESRepacker] Hit an unexpected case, NAL unit length(%lld) indicated by delimiter-length is less than the actual(%d).\n",
+								printf("[ESRepacker] Hit an unexpected case, NAL unit length(%" PRIu64 ") indicated by delimiter-length is less than the actual(%d).\n",
 									nNalUnitLen, nNalBufLen - nDelimiterLengthSize);
 						}
 					}
@@ -502,7 +502,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 				{
 					if (m_fpDst != nullptr)
 					{
-						if (fwrite(pNalBuf, 1, nNalBufLen, m_fpDst) != nNalBufLen)
+						if (fwrite(pNalBuf, 1, (size_t)nNalBufLen, m_fpDst) != (size_t)nNalBufLen)
 							printf("[ESRepacker] Failed to write %d bytes into the output file.\n", nNalBufLen);
 					}
 				}
@@ -526,7 +526,7 @@ int CESRepacker::Flush()
 			nDelimiterLengthSize = m_config.pAVCConfigRecord->lengthSizeMinusOne + 1;
 		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC && m_config.pHEVCConfigRecord != nullptr)
 			nDelimiterLengthSize = m_config.pHEVCConfigRecord->lengthSizeMinusOne + 1;
-		else if (m_config.NALUnit_Length_Size > 0 && m_config.NALUnit_Length_Size <= sizeof(uint64_t))
+		else if (m_config.NALUnit_Length_Size > 0 && (size_t)m_config.NALUnit_Length_Size <= sizeof(uint64_t))
 			nDelimiterLengthSize = m_config.NALUnit_Length_Size;
 
 		int nNalBufLen = 0;
@@ -552,7 +552,7 @@ int CESRepacker::Flush()
 			{
 				if (m_fpDst != nullptr)
 				{
-					if (fwrite(pNalBuf, 1, nNalBufLen, m_fpDst) != nNalBufLen)
+					if (fwrite(pNalBuf, 1, (size_t)nNalBufLen, m_fpDst) != (size_t)nNalBufLen)
 						printf("[ESRepacker] Failed to flush %d bytes into the output file.\n", nNalBufLen);
 				}
 			}

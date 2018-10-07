@@ -137,32 +137,32 @@ class CPayloadBuf
 {
 protected:
 	std::vector<PayloadBufSlice>	slices;
-	unsigned char*					buffer;
-	unsigned long					buffer_len;
-	unsigned long					buffer_alloc_size;
+	uint8_t*						buffer;
+	uint32_t						buffer_len;
+	uint32_t						buffer_alloc_size;
 
 	FILE*							m_fw;
-	unsigned char					m_ts_pack_size;
-	unsigned short					m_PID;
+	uint8_t							m_ts_pack_size;
+	uint16_t						m_PID;
 
 	// PMT rough information
-	unsigned short					m_PCR_PID;
-	unordered_map<unsigned short, unsigned char>
+	uint16_t						m_PCR_PID;
+	unordered_map<uint16_t, uint8_t>
 									m_stream_types;
 
 public:
-	CPayloadBuf(FILE* fw, unsigned char nTSPackSize);
-	CPayloadBuf(unsigned short PID);
+	CPayloadBuf(FILE* fw, uint8_t nTSPackSize);
+	CPayloadBuf(uint16_t PID);
 
 	~CPayloadBuf();
 
-	int PushTSBuf(unsigned long idxTSPack, unsigned char* pBuf, unsigned char offStart, unsigned char offEnd);
+	int PushTSBuf(uint32_t idxTSPack, uint8_t* pBuf, uint8_t offStart, uint8_t offEnd);
 	/*!	@brief Replace the PID with specified PID in the current TS packs */
 	int Process(std::unordered_map<int, int>& pid_maps);
 
 	void Reset();
 
-	int WriteBack(unsigned long off, unsigned char* pBuf, unsigned long cbSize);
+	int WriteBack(unsigned int off, unsigned char* pBuf, unsigned long cbSize);
 
 	unsigned short GetPID() { return m_PID; }
 };
@@ -238,14 +238,14 @@ inline long long ConvertToLongLong(std::string& str)
 	return idx > 0 ? ret : -1LL;
 }
 
-inline long long GetPTSValue(unsigned char* pkt_data)
+inline int64_t GetPTSValue(unsigned char* pkt_data)
 {
-	long long ts;
-	ts = ((long long)(pkt_data[0] & 0x0e)) << 29;	//requires 33 bits
-	ts |= ((long long)pkt_data[1] << 22);
-	ts |= ((long long)pkt_data[2] & 0xfe) << 14;
-	ts |= ((long long)pkt_data[3] << 7);
-	ts |= ((long long)pkt_data[4] >> 1);
+	int64_t ts;
+	ts  = ((int64_t)(pkt_data[0] & 0x0e)) << 29;	//requires 33 bits
+	ts |= ((int64_t)pkt_data[1] << 22);
+	ts |= ((int64_t)pkt_data[2] & 0xfe) << 14;
+	ts |= ((int64_t)pkt_data[3] << 7);
+	ts |= ((int64_t)pkt_data[4] >> 1);
 	return ts;
 }
 

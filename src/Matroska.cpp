@@ -1193,7 +1193,7 @@ namespace Matroska
 					cur_char_width += 3 + (level - 1)*level_span;
 
 				if (g_mapIDDesc.find(ID) != g_mapIDDesc.end())
-					cur_char_width += strlen(EBML_element_descriptors[g_mapIDDesc[ID]].Element_Name);
+					cur_char_width += (int)strlen(EBML_element_descriptors[g_mapIDDesc[ID]].Element_Name);
 
 				return cur_char_width;
 			}
@@ -1288,17 +1288,17 @@ namespace Matroska
 			szText = szLine + indent;
 
 		if (ptr_element->parent == nullptr)
-			sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
+			sprintf_s(szText, line_chars - (szText - szLine), ".\n");
 		else
 		{
 			if (g_mapIDDesc.find(ptr_element->ID) == g_mapIDDesc.end())
 				return;
 
-			int32_t desc_idx = g_mapIDDesc[ptr_element->ID];
-			if (desc_idx < 0 || desc_idx >= _countof(Matroska::EBML_element_descriptors))
+			size_t desc_idx = g_mapIDDesc[ptr_element->ID];
+			if (desc_idx >= _countof(Matroska::EBML_element_descriptors))
 				return;
 
-			int cbWritten = strlen(Matroska::EBML_element_descriptors[desc_idx].Element_Name);
+			int cbWritten = (int)strlen(Matroska::EBML_element_descriptors[desc_idx].Element_Name);
 			memcpy(szText, Matroska::EBML_element_descriptors[desc_idx].Element_Name, cbWritten);
 
 			char szTemp[256];
@@ -1309,7 +1309,7 @@ namespace Matroska
 				switch (i)
 				{
 				case 1:
-					cbWritten = sprintf_s(szTemp, _countof(szTemp), "% 9Xh", Matroska::EBML_element_descriptors[desc_idx].EBML_ID);
+					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%9" PRIX32 "h", Matroska::EBML_element_descriptors[desc_idx].EBML_ID);
 					break;
 				case 2:
 					cbWritten = sprintf_s(szTemp, _countof(szTemp), "%s", Matroska::EBML_element_descriptors[desc_idx].bMandatory?"mand.":"");
@@ -1328,10 +1328,10 @@ namespace Matroska
 				nWritePos += column_widths[i] + 1;
 			}
 
-			sprintf_s(szLine + nWritePos, line_chars - nWritePos, "\r\n");
+			sprintf_s(szLine + nWritePos, line_chars - nWritePos, "\n");
 		}
 
-		printf(szLine);
+		printf("%s", szLine);
 
 		delete[] szLine;
 
@@ -1399,7 +1399,7 @@ namespace Matroska
 			memcpy(szLine + nWritePos + (column_widths[i] - strlen(szColumns[i])) / 2, szColumns[i], strlen(szColumns[i]));
 			nWritePos += column_widths[i] + 1;
 		}
-		printf(szLine);
+		printf("%s", szLine);
 
 		delete[] szLine;
 
@@ -1431,9 +1431,9 @@ namespace Matroska
 
 			u32ID = (uint32_t)bs.PeekBits((nLeadingZeros + 1) << 3);
 			
-			//printf("Element ID: 0X%X, file offset: %lld(0X%llX).\n", u32ID, bs.Tell()/8, bs.Tell()/8);
+			//printf("Element ID: 0X%X, file offset: %lld(0X%" PRIX64 ").\n", u32ID, bs.Tell()/8, bs.Tell()/8);
 
-			int32_t idxDesc = -1;
+			size_t idxDesc = SIZE_MAX;
 
 			// Find the element ID of global elements
 			if (g_mapGlobalIDDesc.find(u32ID) != g_mapGlobalIDDesc.end())
@@ -1461,7 +1461,7 @@ namespace Matroska
 						{
 							printf("[Matroska] Unexpected element_ID: 0X%X, its level: %d is not equal to its master element level: %d + 1.\n",
 								u32ID, levelChild, levelContainer);
-							idxDesc = -1;
+							idxDesc = SIZE_MAX;
 						}
 						else if (g_mapParentIDs.find(u32ID) == g_mapParentIDs.end())
 						{
@@ -1486,7 +1486,7 @@ namespace Matroska
 				return ((ClusterElement*)pContainer)->LoadBlockGroup(bs);
 			}
 
-			if (idxDesc >= 0)
+			if (idxDesc != SIZE_MAX)
 			{
 				switch (EBML_element_descriptors[idxDesc].data_type)
 				{
@@ -1554,7 +1554,7 @@ namespace Matroska
 		}
 		catch (std::exception& e)
 		{
-			printf("exception: %s\r\n", e.what());
+			printf("exception: %s\n", e.what());
 			return -1;
 		}
 

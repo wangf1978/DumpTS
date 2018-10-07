@@ -68,7 +68,7 @@ namespace QTFF
 					if (Key_size > 8)
 						Key_value.resize(Key_size - 8);
 				}
-			}PACKED;
+			};
 
 			uint32_t			Entry_count;
 			std::vector<Entry>	Entries;
@@ -76,6 +76,7 @@ namespace QTFF
 			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = RET_CODE_SUCCESS;
+				const size_t entry_header_size = sizeof(int32_t) + sizeof(int32_t);
 
 				iRet = ISOBMFF::FullBox::Unpack(bs);
 				if (iRet < 0)
@@ -94,15 +95,14 @@ namespace QTFF
 				if (Entry_count <= 0)
 					goto done;
 
-				const size_t entry_header_size = sizeof(int32_t) + sizeof(int32_t);
 				while (left_bytes >= entry_header_size && Entries.size() < (size_t)Entry_count)
 				{
 					Entries.emplace_back(bs);
 
 					left_bytes -= entry_header_size;
-					if (left_bytes + entry_header_size >= Entries.back().Key_size)
+					if (Entries.back().Key_size > 0 && left_bytes + entry_header_size >= (uint64_t)Entries.back().Key_size)
 					{
-						size_t key_value_size = (size_t)(Entries.back().Key_size - entry_header_size);
+						int key_value_size = (int)(Entries.back().Key_size - entry_header_size);
 						bs.Read((uint8_t*)(&Entries.back().Key_value[0]), key_value_size);
 						left_bytes -= key_value_size;
 					}
@@ -113,7 +113,7 @@ namespace QTFF
 				return iRet;
 			}
 
-		}PACKED;
+		};
 
 		struct MetaDataItemListAtom : public ISOBMFF::Box
 		{
@@ -169,11 +169,12 @@ namespace QTFF
 						if (iRet < 0)
 							return iRet;
 
+						int left_bytes;
 						uint64_t box_left_bytes = LeftBytes(bs);
-						if (box_left_bytes > (size_t)-1)
+						if (box_left_bytes > INT32_MAX)
 							goto done;
 
-						size_t left_bytes = (size_t)box_left_bytes;
+						left_bytes = (int)box_left_bytes;
 						if (left_bytes > 0)
 						{
 							Value.resize(left_bytes);
@@ -184,7 +185,7 @@ namespace QTFF
 						SkipLeftBits(bs);
 						return iRet;
 					}
-				}PACKED;
+				};
 
 				struct ItemInformationAtom : public ISOBMFF::FullBox
 				{
@@ -229,7 +230,7 @@ namespace QTFF
 						ReadString(bs, Name);
 						return iRet;
 					}
-				}PACKED;
+				};
 
 				ItemInformationAtom*		item_information_atom;
 				NameAtom*					name_atom;
@@ -297,7 +298,7 @@ namespace QTFF
 					SkipLeftBits(bs);
 					return iRet;
 				}
-			}PACKED;
+			};
 
 			std::vector<MetadataItemAtom*>	metadata_items;
 
@@ -335,7 +336,7 @@ namespace QTFF
 				SkipLeftBits(bs);
 				return iRet;
 			}
-		}PACKED;
+		};
 
 		struct CountryListAtom : public ISOBMFF::FullBox
 		{
@@ -348,7 +349,7 @@ namespace QTFF
 					if (CountryCount > 0)
 						Countries.reserve(CountryCount);
 				}
-			}PACKED;
+			};
 
 			uint32_t			Entry_count;
 			std::vector<Entry>	Entries;
@@ -388,7 +389,7 @@ namespace QTFF
 				return iRet;
 			}
 
-		}PACKED;
+		};
 
 		struct LanguageListAtom : public ISOBMFF::FullBox
 		{
@@ -401,7 +402,7 @@ namespace QTFF
 					if (CountryCount > 0)
 						Languages.reserve(CountryCount);
 				}
-			}PACKED;
+			};
 
 			uint32_t			Entry_count;
 			std::vector<Entry>	Entries;
@@ -441,7 +442,7 @@ namespace QTFF
 				return iRet;
 			}
 
-		}PACKED;
+		};
 
 		ISOBMFF::HandlerBox*	handler_atom = nullptr;
 		MetaDataHeaderAtom*			header_atom = nullptr;
@@ -662,14 +663,14 @@ namespace QTFF
 
 		virtual int Unpack(CBitstream& bs)
 		{
+			uint64_t left_bytes;
+			Box* ptr_box = nullptr;
 			int iRet = _UnpackHeader(bs);
 
 			if (iRet < 0)
 				goto done;
 
-			uint64_t left_bytes = LeftBytes(bs);
-			Box* ptr_box = nullptr;
-
+			left_bytes = LeftBytes(bs);
 			while (left_bytes >= MIN_BOX_SIZE && LoadOneBoxBranch(this, bs, &ptr_box) >= 0)
 			{
 				if (left_bytes < ptr_box->size)

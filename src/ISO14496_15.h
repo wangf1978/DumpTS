@@ -148,7 +148,7 @@ namespace ISOBMFF
 			catch(...)
 			{ }
 		}
-	}PACKED;
+	};
 
 	struct MPEG4ExtensionDescriptorsBox : public Box
 	{
@@ -188,7 +188,7 @@ namespace ISOBMFF
 			return 0;
 		}
 
-	}PACKED;
+	};
 
 	struct AVCDecoderConfigurationRecord
 	{
@@ -304,7 +304,7 @@ namespace ISOBMFF
 			return 0;
 		}
 
-	}PACKED;
+	};
 
 	struct AVCConfigurationBox : public Box
 	{
@@ -426,7 +426,7 @@ namespace ISOBMFF
 					delete v;
 			}
 
-		}PACKED;
+		};
 
 		uint8_t					configurationVersion;
 		uint8_t					general_profile_space : 2;
@@ -500,7 +500,7 @@ namespace ISOBMFF
 			return 0;
 		}
 
-	}PACKED;
+	};
 
 	struct LHEVCDecoderConfigurationRecord
 	{
@@ -551,7 +551,7 @@ namespace ISOBMFF
 			return 0;
 		}
 
-	}PACKED;
+	};
 
 	/*
 	Sample Entry and Box Types: 'hvc1', 'hev1', 'hvcC'
@@ -731,7 +731,7 @@ namespace ISOBMFF
 			uint32_t	maxBitrate;
 			uint32_t	avgBitrate;
 
-		}PACKED;
+		};
 
 		struct LAYER
 		{
@@ -740,7 +740,7 @@ namespace ISOBMFF
 			std::vector<uint8_t>
 						direct_ref_layerIDs;
 			uint8_t		dimension_identifier[16];
-		}PACKED;
+		};
 
 		uint16_t		scalability_mask;
 		uint8_t			reserved_0 : 2;
@@ -841,7 +841,7 @@ namespace ISOBMFF
 			return iRet;
 		}
 
-	}PACKED;
+	};
 
 	struct OperatingPointsInformation : public VisualSampleGroupEntry
 	{
@@ -854,7 +854,7 @@ namespace ISOBMFF
 		{
 			return oinf.Unpack(bs);
 		}			
-	}PACKED;
+	};
 
 	struct TemporalLayerEntry : public VisualSampleGroupEntry
 	{
@@ -906,6 +906,8 @@ namespace ISOBMFF
 		virtual	int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe) = 0;
 		virtual int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit) = 0;
 		virtual int Flush() = 0;
+
+		virtual ~INALAUSampleRepacker() {}
 	};
 
 	struct NALAUSampleRepackerBase : public INALAUSampleRepacker

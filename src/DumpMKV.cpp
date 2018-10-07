@@ -46,20 +46,20 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 	int32_t desc_idx = ptr_element->GetDescIdx(ptr_element->ID);
 
 	if (ptr_element->container == nullptr)
-		sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
-	else if (desc_idx < 0 || desc_idx >= _countof(Matroska::EBML_element_descriptors))
-		sprintf_s(szText, line_chars - (szText - szLine), "Unknown Element(0X%X), size: %lld\r\n", ptr_element->ID, ptr_element->Size);
+		sprintf_s(szText, line_chars - (szText - szLine), ".\n");
+	else if (desc_idx < 0 || desc_idx >= (int32_t)_countof(Matroska::EBML_element_descriptors))
+		sprintf_s(szText, line_chars - (szText - szLine), "Unknown Element(0X%X), size: %" PRIu64 "\n", ptr_element->ID, ptr_element->Size);
 	else
 	{
 		int cbWritten = 0;
 		if (Matroska::EBML_element_descriptors[desc_idx].data_type == Matroska::EBML_DT_MASTER)
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size: %lld)",
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size: %" PRIu64 ")",
 				Matroska::EBML_element_descriptors[desc_idx].Element_Name, ptr_element->Size);
 		else if (Matroska::EBML_element_descriptors[desc_idx].data_type == Matroska::EBML_DT_BINARY && ptr_element->ID == 0xA3)
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size:% 8lld): ",
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size:%8" PRIu64 "): ",
 				Matroska::EBML_element_descriptors[desc_idx].Element_Name, ptr_element->Size);
 		else
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size: %lld): ", 
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%s (Size: %" PRIu64 "): ",
 				Matroska::EBML_element_descriptors[desc_idx].Element_Name, ptr_element->Size);
 
 		if (cbWritten > 0)
@@ -69,10 +69,10 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 		switch (Matroska::EBML_element_descriptors[desc_idx].data_type)
 		{
 		case Matroska::EBML_DT_UNSIGNED_INTEGER:
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%llu", ((Matroska::UnsignedIntegerElement*)ptr_element)->uVal);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%" PRIu64 "", ((Matroska::UnsignedIntegerElement*)ptr_element)->uVal);
 			break;
 		case Matroska::EBML_DT_SIGNED_INTEGER:
-			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%lld", ((Matroska::SignedIntegerElement*)ptr_element)->iVal);
+			cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%" PRIi64 "", ((Matroska::SignedIntegerElement*)ptr_element)->iVal);
 			break;
 		case Matroska::EBML_DT_DATE:
 			{
@@ -101,10 +101,10 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 		if (cbWritten > 0)
 			szText += cbWritten;
 
-		sprintf_s(szText, line_chars - (szText - szLine), "\r\n");
+		sprintf_s(szText, line_chars - (szText - szLine), "\n");
 	}
 
-	printf(szLine);
+	printf("%s", szLine);
 
 	delete[] szLine;
 
@@ -239,8 +239,8 @@ int DumpMKVOneStream(Matroska::EBMLElement* root, Matroska::EBMLElement* track, 
 		{
 			if (pESRepacker->Seek(TrackBlockMap->GetBytePos(i), TrackBlockMap->Block_fines[i].is_simple_block ? ES_SEEK_MATROSKA_SIMPLE_BLOCK : ES_SEEK_MATROSKA_BLOCK_GROUP) < 0)
 			{
-				printf("[Matroska] Failed to seek to the %s#%d in the cluster %p \n", 
-					TrackBlockMap->Block_fines[i].is_simple_block ? "SimpleBlock":"BlockGroup", i, cluster);
+				printf("[Matroska] Failed to seek to the %s#%" PRIu32 " in the cluster %p \n", 
+					TrackBlockMap->Block_fines[i].is_simple_block ? "SimpleBlock":"BlockGroup", (uint32_t)i, cluster);
 				iRet = RET_CODE_ERROR;
 				goto done;
 			}
@@ -307,7 +307,7 @@ int DumpMKV()
 		track_id = ConvertToLongLong(g_params["trackid"]);
 		if (track_id <= 0 || track_id > UINT32_MAX)
 		{
-			printf("The specified track-id is out of range.\r\n");
+			printf("The specified track-id is out of range.\n");
 			return -1;
 		}
 	}

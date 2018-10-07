@@ -22,10 +22,17 @@ int RefactorTS()
 	FILE *fp = NULL, *fw = NULL;
 	unordered_map<unsigned short, CPayloadBuf*> pPayloadBufs;
 
+	unsigned long pes_buffer_len = 0;
+	unsigned char buf_head_offset = 0;	// dumpopt&DUMP_BD_M2TS ? 4 : 0;
+	unsigned char ts_pack_size = TS_PACKET_SIZE - 4;	// dumpopt&DUMP_BD_M2TS ? TS_PACKET_SIZE : TS_PACKET_SIZE - 4;
+	unsigned char dest_ts_pack_size = TS_PACKET_SIZE - 4;
+
+	unsigned long ts_pack_idx = 0;
+
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
 	{
-		printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["input"].c_str(), errn);
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		goto done;
 	}
 
@@ -34,7 +41,7 @@ int RefactorTS()
 		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
 		if (errn != 0 || fw == NULL)
 		{
-			printf("Failed to open the file: %s {errno: %d}.\r\n", g_params["output"].c_str(), errn);
+			printf("Failed to open the file: %s {errno: %d}.\n", g_params["output"].c_str(), errn);
 			goto done;
 		}
 	}
@@ -129,21 +136,15 @@ int RefactorTS()
 		}
 	}
 
-	unsigned long pes_buffer_len = 0;
-	unsigned char buf_head_offset = 0;	// dumpopt&DUMP_BD_M2TS ? 4 : 0;
-	unsigned char ts_pack_size = TS_PACKET_SIZE - 4;	// dumpopt&DUMP_BD_M2TS ? TS_PACKET_SIZE : TS_PACKET_SIZE - 4;
-
 	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("m2ts") == 0)
 		ts_pack_size = TS_PACKET_SIZE;
 
-	unsigned char dest_ts_pack_size = TS_PACKET_SIZE - 4;
 	if (g_params.find("outputfmt") != g_params.end() && g_params["outputfmt"].compare("m2ts") == 0)
 	{
 		buf_head_offset = 4;
 		dest_ts_pack_size = TS_PACKET_SIZE;
 	}
 
-	unsigned long ts_pack_idx = 0;
 	while (true)
 	{
 		size_t nRead = fread(buf, 1, ts_pack_size, fp);
@@ -199,7 +200,7 @@ int RefactorTS()
 		int index = buf_head_offset + 4;
 		unsigned char payload_unit_start = buf[buf_head_offset + 1] & 0x40;
 		unsigned char adaptation_field_control = (buf[buf_head_offset + 3] >> 4) & 0x03;
-		unsigned char discontinuity_counter = buf[buf_head_offset + 3] & 0x0f;
+		//unsigned char discontinuity_counter = buf[buf_head_offset + 3] & 0x0f;
 
 		if (pPayloadBufs.find(PID) != pPayloadBufs.end())
 		{
@@ -215,7 +216,7 @@ int RefactorTS()
 		if (adaptation_field_control & 0x02)
 			index += buf[buf_head_offset + 4] + 1;
 
-		if (payload_unit_start || !payload_unit_start && pes_buffer_len > 0)
+		if (payload_unit_start || (!payload_unit_start && pes_buffer_len > 0))
 		{
 			pPayloadBufs[PID]->PushTSBuf(ts_pack_idx, buf, index, dest_ts_pack_size);
 		}

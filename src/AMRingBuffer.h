@@ -27,7 +27,6 @@ SOFTWARE.
 #ifndef _LINEAR_RING_BUFFER_H_
 #define _LINEAR_RING_BUFFER_H_
 
-#include <Windows.h>
 #include <assert.h>
 
 typedef void* AMLinearRingBuffer;
@@ -62,7 +61,7 @@ int					AM_LRB_GetSize(AMLinearRingBuffer ring_buffer);
 
 /* the upper function are thread-safe, but usage is a little complex */
 
-unsigned char*		AM_LRB_DetachBuffer(AMLinearRingBuffer ring_buffer, BOOL bFreeLRB=FALSE);
+unsigned char*		AM_LRB_DetachBuffer(AMLinearRingBuffer ring_buffer, bool bFreeLRB=false);
 AMLinearRingBuffer	AM_LRB_Clone(AMLinearRingBuffer ring_buffer);
 void				AM_LRB_Destroy(AMLinearRingBuffer& ring_buffer);
 

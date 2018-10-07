@@ -212,22 +212,22 @@ struct HCOD_TREE
 			szText = szLine + indent;
 
 		if (parent == nullptr)
-			sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
+			sprintf_s(szText, line_chars - (szText - szLine), ".\n");
 		else
 		{
-			int cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%llXh", codeword);
+			int cbWritten = sprintf_s(szText, line_chars - (szText - szLine), "%" PRIX64 "h", codeword);
 			szText += cbWritten;
 
 			if (left == nullptr && right == nullptr)
 			{
-				cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " (value: %lld, length: %d)", value, length);
+				cbWritten = sprintf_s(szText, line_chars - (szText - szLine), " (value: %" PRIi64 ", length: %d)", value, length);
 				szText += cbWritten;
 			}
 
-			sprintf_s(szText, line_chars - (szText - szLine), "\r\n");
+			sprintf_s(szText, line_chars - (szText - szLine), "\n");
 		}
 
-		fprintf(fp, szLine);
+		fprintf(fp, "%s", szLine);
 
 		delete[] szLine;
 
@@ -265,10 +265,11 @@ bool LoadVLCTable(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3]
 	bool bRet = false;
 	FILE* fp = nullptr;
 	char* file_buf = nullptr;
+	int64_t file_size;
 
 	auto is_delimiter = [](char c) {
 		const static char delimiters[] = { ' ', '\t', '\r', '\n', ';', ',', '/', '\\',  ':' };
-		for (int i = 0; i < _countof(delimiters); i++) {
+		for (size_t i = 0; i < _countof(delimiters); i++) {
 			if (delimiters[i] == c)
 				return true;
 		}
@@ -288,10 +289,10 @@ bool LoadVLCTable(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3]
 		goto done;
 	}
 
-	int64_t file_size = _ftelli64(fp);
+	file_size = _ftelli64(fp);
 	if (file_size <= 0 || file_size > INT32_MAX)
 	{
-		printf("The file size(%lld) is unexpected.\n", file_size);
+		printf("The file size(%" PRIi64 ") is unexpected.\n", file_size);
 		goto done;
 	}
 
@@ -299,63 +300,65 @@ bool LoadVLCTable(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3]
 	file_buf = new (std::nothrow) char[(size_t)file_size];
 	if (file_buf == nullptr)
 	{
-		printf("Failed to allocate the memory with %lld bytes.\n", file_size);
+		printf("Failed to allocate the memory with %" PRIi64 " bytes.\n", file_size);
 		goto done;
 	}
 
 	if (g_verbose_level > 0)
 		printf("begin load VLC tables...\n");
 
-	size_t cbRead = fread(file_buf, 1, (size_t)file_size, fp);
-
-	char* p = file_buf;
-	char* file_buf_end = file_buf + cbRead;
-	while (p < file_buf_end)
 	{
-		// Try to get 3 numbers
-		int64_t vals[3];
-		char* pstart, *pend;
-		int i = 0;
-		for (; i < 3; i++)
-		{
-			while (p < file_buf_end && is_delimiter(*p))p++;
+		size_t cbRead = fread(file_buf, 1, (size_t)file_size, fp);
 
-			if (p >= file_buf_end)
+		char* p = file_buf;
+		char* file_buf_end = file_buf + cbRead;
+		while (p < file_buf_end)
+		{
+			// Try to get 3 numbers
+			int64_t vals[3];
+			char* pstart, *pend;
+			int i = 0;
+			for (; i < 3; i++)
+			{
+				while (p < file_buf_end && is_delimiter(*p))p++;
+
+				if (p >= file_buf_end)
+					break;
+
+				pstart = p;
+
+				p++;
+				while (p < file_buf_end && !is_delimiter(*p))p++;
+
+				pend = p;
+
+				if (ConvertToInt(pstart, pend, vals[i], fmts[i]) == false)
+				{
+					std::string str(pstart, pend);
+					printf("Hit an invalid number value: %s", str.c_str());
+					goto done;
+				}
+
+				if (g_verbose_level > 0)
+					printf(i == 2 ? "%" PRIX64 "\t" : "%" PRIi64 "\t", vals[i]);
+			}
+			if (g_verbose_level > 0)
+				printf("\n");
+
+			if (i < 3)
 				break;
 
-			pstart = p;
-
-			p++;
-			while (p < file_buf_end && !is_delimiter(*p))p++;
-
-			pend = p;
-
-			if (ConvertToInt(pstart, pend, vals[i], fmts[i]) == false)
+			if (vals[1] <= 0 || ((uint64_t)vals[1] > sizeof(uint64_t) << 3))
 			{
-				std::string str(pstart, pend);
-				printf("Hit an invalid number value: %s", str.c_str());
+				printf("Unexpected bit-length value: %" PRIi64 ".\n", vals[1]);
 				goto done;
 			}
 
-			if (g_verbose_level > 0)
-				printf(i == 2 ? "%llX\t" : "%lld\t", vals[i]);
-		}
-		if (g_verbose_level > 0)
-			printf("\n");
-
-		if (i < 3)
-			break;
-
-		if (vals[1] <= 0 || vals[1] > sizeof(uint64_t) << 3)
-		{
-			printf("Unexpected bit-length value: %lld.\n", vals[1]);
-			goto done;
+			VLC_tables.push_back(std::make_tuple(vals[0], (uint8_t)vals[1], (uint64_t)vals[2]));
 		}
 
-		VLC_tables.push_back(std::make_tuple(vals[0], (uint8_t)vals[1], (uint64_t)vals[2]));
+		bRet = true;
 	}
-
-	bRet = true;
 
 done:
 	if (fp != nullptr)
@@ -391,7 +394,7 @@ void GenerateHuffmanBinarySearchArray(const char* szHeaderFileName, INT_VALUE_LI
 		if (LoadVLCTable(szHeaderFileName, fmts, VLC_tables) == false)
 		{
 			printf("Failed to load Huffman VLC codebook from the file: %s.\n", szHeaderFileName);
-			return;
+			goto done;
 		}
 
 		htree = LoadHuffmanTree(VLC_tables);
@@ -399,114 +402,116 @@ void GenerateHuffmanBinarySearchArray(const char* szHeaderFileName, INT_VALUE_LI
 	else
 		htree = LoadHuffmanTree(Scalefactor_Huffman_Codebook);
 
-	// Push every node to a array
-	int nTreeNodesCount = htree->GetChildrenCount() + 1;
-	nodes.reserve(nTreeNodesCount);
-
-	nodes.push_back(htree);
-
-	size_t nPos = 0, nNextPos = nodes.size();
-	layer_node_count.push_back(1);
-	while (nNextPos > nPos)
 	{
-		layer_node_count.push_back(0);
-		for (size_t i = nPos; i < nNextPos; i++)
+		// Push every node to a array
+		int nTreeNodesCount = htree->GetChildrenCount() + 1;
+		nodes.reserve(nTreeNodesCount);
+
+		nodes.push_back(htree);
+
+		size_t nPos = 0, nNextPos = nodes.size();
+		layer_node_count.push_back(1);
+		while (nNextPos > nPos)
 		{
-			if (nodes[i]->left)
+			layer_node_count.push_back(0);
+			for (size_t i = nPos; i < nNextPos; i++)
 			{
-				nodes.push_back(nodes[i]->left);
-				layer_node_count.back()++;
+				if (nodes[i]->left)
+				{
+					nodes.push_back(nodes[i]->left);
+					layer_node_count.back()++;
+				}
+
+				if (nodes[i]->right)
+				{
+					nodes.push_back(nodes[i]->right);
+					layer_node_count.back()++;
+				}
 			}
 
-			if (nodes[i]->right)
+			nPos = nNextPos;
+			nNextPos = nodes.size();
+		}
+
+		if (g_verbose_level > 0)
+			printf("Generate a Huffman VLC binary search array for VLC decoding:\n");
+
+		int64_t VMax = htree->GetMaxValue();
+		int64_t VMin = htree->GetMinValue();
+
+		FILE* outfile = wfp == nullptr ? stdout : wfp;
+
+		const char* strVType = "";
+		if (VMin >= 0)
+		{
+			if (VMax <= (int64_t)UINT8_MAX)
+				strVType = "uint8_t";
+			else if (VMax <= (int64_t)UINT16_MAX)
+				strVType = "uint16_t";
+			else if (VMax <= (int64_t)UINT32_MAX)
+				strVType = "uint32_t";
+			else
+				strVType = "int64_t";
+		}
+		else
+		{
+			if (VMin >= (int64_t)INT8_MIN && VMax <= (int64_t)INT8_MAX)
+				strVType = "int8_t";
+			else if (VMin >= (int64_t)INT16_MIN && VMax <= (int64_t)INT16_MAX)
+				strVType = "int16_t";
+			else if (VMin >= (int64_t)INT32_MIN && VMax <= (int64_t)INT32_MAX)
+				strVType = "int32_t";
+			else
+				strVType = "int64_t";
+		}
+
+		fprintf(outfile, "%s hcb[][2] = {\n", strVType);
+		char szRecord[256];
+
+		int iFirst = 1, iSecond = 2;
+		int iLayerPos = 0, nextLayerPos = 0;
+		uint8_t cur_layer = 0;
+		for (size_t i = 0; i < nodes.size(); i++)
+		{
+			if (cur_layer != nodes[i]->length)
 			{
-				nodes.push_back(nodes[i]->right);
-				layer_node_count.back()++;
+				iLayerPos = 0;
+				nextLayerPos = 0;
+				cur_layer = nodes[i]->length;
 			}
+
+			iFirst = layer_node_count[nodes[i]->length] - iLayerPos + nextLayerPos;
+			iSecond = iFirst + 1;
+			int cbWritten = 0;
+			if (nodes[i]->left == nullptr && nodes[i]->right == nullptr)
+				cbWritten = sprintf_s(szRecord, _countof(szRecord), "    {%" PRIi64 ", 0},", nodes[i]->value);
+			else
+			{
+				if (nodes[i]->left != nullptr)
+					nextLayerPos++;
+
+				if (nodes[i]->right != nullptr)
+					nextLayerPos++;
+
+				cbWritten = sprintf_s(szRecord, _countof(szRecord), "    {%d, %d},", iFirst, iSecond);
+			}
+
+			assert(cbWritten <= 40 && cbWritten > 0);
+
+			for (int c = 0; c < 40 - cbWritten; c++)
+				szRecord[cbWritten + c] = ' ';
+			szRecord[40] = '\0';
+
+			if (nodes[i]->left == nullptr && nodes[i]->right == nullptr)
+				fprintf(outfile, "%s// leaf node (V:%" PRIi64 ", L:%d C:0X%" PRIX64 ")\n", szRecord, nodes[i]->value, nodes[i]->length, nodes[i]->codeword);
+			else
+				fprintf(outfile, "%s\n", szRecord);
+
+			iLayerPos++;
 		}
 
-		nPos = nNextPos;
-		nNextPos = nodes.size();
+		fprintf(outfile, "};\n");
 	}
-
-	if (g_verbose_level > 0)
-		printf("Generate a Huffman VLC binary search array for VLC decoding:\n");
-
-	int64_t VMax = htree->GetMaxValue();
-	int64_t VMin = htree->GetMinValue();
-
-	FILE* outfile = wfp == nullptr ? stdout : wfp;
-
-	const char* strVType = "";
-	if (VMin >= 0)
-	{
-		if (VMax <= (int64_t)UINT8_MAX)
-			strVType = "uint8_t";
-		else if (VMax <= (int64_t)UINT16_MAX)
-			strVType = "uint16_t";
-		else if (VMax <= (int64_t)UINT32_MAX)
-			strVType = "uint32_t";
-		else
-			strVType = "int64_t";
-	}
-	else
-	{
-		if (VMin >= (int64_t)INT8_MIN && VMax <= (int64_t)INT8_MAX)
-			strVType = "int8_t";
-		else if (VMin >= (int64_t)INT16_MIN && VMax <= (int64_t)INT16_MAX)
-			strVType = "int16_t";
-		else if (VMin >= (int64_t)INT32_MIN && VMax <= (int64_t)INT32_MAX)
-			strVType = "int32_t";
-		else
-			strVType = "int64_t";
-	}
-
-	fprintf(outfile, "%s hcb[][2] = {\n", strVType);
-	char szRecord[256];
-
-	int iFirst = 1, iSecond = 2;
-	int iLayerPos = 0, nextLayerPos = 0;
-	uint8_t cur_layer = 0;
-	for (size_t i = 0; i < nodes.size(); i++)
-	{
-		if (cur_layer != nodes[i]->length)
-		{
-			iLayerPos = 0;
-			nextLayerPos = 0;
-			cur_layer = nodes[i]->length;
-		}
-
-		iFirst = layer_node_count[nodes[i]->length] - iLayerPos + nextLayerPos;
-		iSecond = iFirst + 1;
-		int cbWritten = 0;
-		if (nodes[i]->left == nullptr && nodes[i]->right == nullptr)
-			cbWritten = sprintf_s(szRecord, _countof(szRecord), "    {%lld, 0},", nodes[i]->value);
-		else
-		{
-			if (nodes[i]->left != nullptr)
-				nextLayerPos++;
-
-			if (nodes[i]->right != nullptr)
-				nextLayerPos++;
-
-			cbWritten = sprintf_s(szRecord, _countof(szRecord), "    {%d, %d},", iFirst, iSecond);
-		}
-
-		assert(cbWritten <= 40 && cbWritten > 0);
-
-		for (int c = 0; c < 40 - cbWritten; c++)
-			szRecord[cbWritten + c] = ' ';
-		szRecord[40] = '\0';
-
-		if (nodes[i]->left == nullptr && nodes[i]->right == nullptr)
-			fprintf(outfile, "%s// leaf node (V:%lld, L:%d C:0X%llX)\n", szRecord, nodes[i]->value, nodes[i]->length, nodes[i]->codeword);
-		else
-			fprintf(outfile, "%s\n", szRecord);
-
-		iLayerPos++;
-	}
-
-	fprintf(outfile, "};\n");
 
 done:
 	if (wfp != nullptr)
@@ -518,7 +523,7 @@ done:
 
 void PrintHuffmanTree(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr)
 {
-	FILE* wfp = NULL;
+	FILE* wfp = NULL, *outfile = stdout;
 	HCOD_TREE* htree = nullptr;
 	Huffman_Codebook VLC_tables;
 
@@ -529,9 +534,10 @@ void PrintHuffmanTree(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmt
 			printf("Failed to open the output file: %s.\n", szOutputFile);
 			goto done;
 		}
+
+		outfile = wfp;
 	}
 
-	FILE* outfile = wfp == nullptr ? stdout : wfp;
 	if (szHeaderFileName != nullptr)
 	{
 		// Try to load VLC table into the memory

@@ -102,8 +102,8 @@ int AM_LRB_SkipReadPtr(AMLinearRingBuffer ring_buffer, unsigned int skip_count)
 		return RET_CODE_INVALID_PARAMETER;
 
 	// Skip count should not exceed MAX_UINT
-	if (skip_count > INT_MAX)
-		skip_count = INT_MAX;
+	if (skip_count > INT32_MAX)
+		skip_count = INT32_MAX;
 
 	int actual_skip_count = skip_count;
 	AM_Linear_Ring_Buffer* ptr_ring_buffer = (AM_Linear_Ring_Buffer*)ring_buffer;
@@ -124,8 +124,8 @@ int AM_LRB_SkipWritePtr(AMLinearRingBuffer ring_buffer, unsigned int skip_count)
 		return RET_CODE_INVALID_PARAMETER;
 
 	// Skip count should not exceed MAX_UINT
-	if (skip_count > INT_MAX)
-		skip_count = INT_MAX;
+	if (skip_count > INT32_MAX)
+		skip_count = INT32_MAX;
 
 	int actual_skip_count = (int)skip_count;
 	AM_Linear_Ring_Buffer* ptr_ring_buffer = (AM_Linear_Ring_Buffer*)ring_buffer;
@@ -193,7 +193,7 @@ int	AM_LRB_Reset(AMLinearRingBuffer ring_buffer)
 	return RET_CODE_SUCCESS;
 }
 
-unsigned char* AM_LRB_DetachBuffer(AMLinearRingBuffer ring_buffer, BOOL bFreeLRB)
+unsigned char* AM_LRB_DetachBuffer(AMLinearRingBuffer ring_buffer, bool bFreeLRB)
 {
 	if (ring_buffer == NULL)
 		return NULL;

@@ -235,7 +235,7 @@ namespace ISOBMFF
 
 		BoxTree() :BoxTree(UINT32_MAX, -1, 1) {}
 		BoxTree(uint32_t box_type, int8_t box_level, bool bMandatory)
-			:type(box_type), level(box_level), mandatory(bMandatory ? 1 : 0) {}
+			:level(box_level), mandatory(bMandatory ? 1 : 0), type(box_type){}
 
 		~BoxTree()
 		{
@@ -354,7 +354,7 @@ namespace ISOBMFF
 			szText = szLine + indent;
 
 		if (ptr_element->parent == nullptr)
-			sprintf_s(szText, line_chars - (szText - szLine), ".\r\n");
+			sprintf_s(szText, line_chars - (szText - szLine), ".\n");
 		else
 		{
 			char szTemp[256];
@@ -386,10 +386,10 @@ namespace ISOBMFF
 				szText = szLine + nWritePos;
 			}
 
-			sprintf_s(szLine + nWritePos, line_chars - nWritePos, "\r\n");
+			sprintf_s(szLine + nWritePos, line_chars - nWritePos, "\n");
 		}
 
-		printf(szLine);
+		printf("%s", szLine);
 
 		delete[] szLine;
 
@@ -462,7 +462,7 @@ namespace ISOBMFF
 			memcpy(szLine + nWritePos + (column_widths[i] - strlen(szColumns[i])) / 2, szColumns[i], strlen(szColumns[i]));
 			nWritePos += column_widths[i] + 1;
 		}
-		printf(szLine);
+		printf("%s", szLine);
 
 		delete[] szLine;
 
@@ -890,7 +890,7 @@ namespace ISOBMFF
 		catch (std::exception& e)
 		{
 			if (g_verbose_level > 0)
-				printf("exception: %s\r\n", e.what());
+				printf("exception: %s\n", e.what());
 			return -1;
 		}
 
@@ -1058,6 +1058,7 @@ namespace ISOBMFF
 	int SampleGroupDescriptionBox::Unpack(CBitstream& bs)
 	{
 		int iRet = 0;
+		Box* ptr_mdia_child = nullptr;
 
 		if ((iRet = FullBox::Unpack(bs)) < 0)
 			return iRet;
@@ -1112,15 +1113,17 @@ namespace ISOBMFF
 			goto done;
 		}
 
-		auto ptr_mdia_container = container->container->container;
-
-		// find hdlr box
-		Box* ptr_mdia_child = ptr_mdia_container->first_child;
-		while (ptr_mdia_child != nullptr)
 		{
-			if (ptr_mdia_child->type == 'hdlr')
-				break;
-			ptr_mdia_child = ptr_mdia_child->next_sibling;
+			auto ptr_mdia_container = container->container->container;
+
+			// find hdlr box
+			ptr_mdia_child = ptr_mdia_container->first_child;
+			while (ptr_mdia_child != nullptr)
+			{
+				if (ptr_mdia_child->type == 'hdlr')
+					break;
+				ptr_mdia_child = ptr_mdia_child->next_sibling;
+			}
 		}
 
 		if (ptr_mdia_child == nullptr)

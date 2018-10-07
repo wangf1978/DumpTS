@@ -24,6 +24,18 @@
       <UniqueIdentifier>{b30a9368-ce80-4ec3-bcc7-8a2a3cd030e4}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
+    <Filter Include="src\Header Files\LibPlatform">
+      <UniqueIdentifier>{1da7f8ba-dfad-474b-914a-79a9e04edcb1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="build">
+      <UniqueIdentifier>{b3ae2f7d-9d21-4786-b1a7-d2998ad127bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="build\linux">
+      <UniqueIdentifier>{da1f7449-312e-4dbe-9652-2e10d727cfd8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="build\linux\common">
+      <UniqueIdentifier>{78b32510-e004-4c59-84ea-ab391c091a85}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\README.md" />
@@ -32,6 +44,12 @@
     </None>
     <None Include="..\..\doc\index.html">
       <Filter>doc</Filter>
+    </None>
+    <None Include="..\linux\common\Toolchain.mk">
+      <Filter>build\linux\common</Filter>
+    </None>
+    <None Include="..\linux\Makefile">
+      <Filter>build\linux</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -168,6 +186,36 @@
     </ClInclude>
     <ClInclude Include="..\..\src\StdAfx.h">
       <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\basetsd.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\basetyps.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\minwindef.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\platdef.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\rpc.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\sal.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\tchar.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\Unknwn.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\winerror.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\wtypes.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
