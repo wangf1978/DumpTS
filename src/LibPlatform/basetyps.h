@@ -148,7 +148,7 @@ typedef struct _GUID
 #endif /* GUID_DEFINED */
 
 #ifndef ATTRIBUTE_WEAK
-#ifdef __linux__
+#if !defined(_WIN32)
 #define ATTRIBUTE_WEAK __attribute__ ((weak))
 #else
 #define ATTRIBUTE_WEAK

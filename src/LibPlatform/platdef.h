@@ -10,7 +10,7 @@
 #include <io.h>
 #include <conio.h>
 
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__APPLE__) && defined(__MACH__)
 #include <unistd.h>
 #include <winerror.h>
 #include <termios.h>
@@ -19,6 +19,10 @@
 #include <basetyps.h>
 #include <wtypes.h>
 #include <Unknwn.h>
+
+#if __cplusplus > 199711L
+#define register      // Deprecated in C++11.
+#endif  // #if __cplusplus > 199711L
 
 #define _MAX_PATH   260 // max. length of full pathname
 #define _MAX_DRIVE  3   // max. length of drive component

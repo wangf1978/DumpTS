@@ -11,7 +11,7 @@
 #define _MINWINDEF_
 #pragma once
 
-#ifndef __linux__
+#ifdef _WIN32
 #include <specstrings.h>
 
 #include <winapifamily.h>
@@ -40,7 +40,7 @@ typedef void * HANDLE;
 #endif
 
 #endif
-#if defined(__linux__) || WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
+#if !defined(_WIN32) || WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
 
 #ifndef NO_STRICT
 #ifndef STRICT
@@ -201,7 +201,7 @@ typedef int                 INT;
 typedef unsigned int        UINT;
 typedef unsigned int        *PUINT;
 
-#ifndef __linux__
+#ifdef _WIN32
 #ifndef NT_INCLUDED
 #include <winnt.h>
 #endif /* NT_INCLUDED */
@@ -261,7 +261,7 @@ typedef INT_PTR (WINAPI *PROC)(void);
 
 typedef WORD                ATOM;   //BUGBUG - might want to remove this from minwin
 
-#ifndef __linux__
+#ifdef _WIN32
 DECLARE_HANDLE(HKEY);
 typedef HKEY *PHKEY;
 DECLARE_HANDLE(HMETAFILE);
@@ -300,7 +300,7 @@ typedef struct _FILETIME {
 #endif
 
 #endif /* WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) */
-#ifndef __linux__
+#ifdef _WIN32
 #pragma endregion
 #endif
 

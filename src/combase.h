@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef __linux__
+#if !defined(_WIN32)
 #include <minwindef.h>
 #endif
 #include <basetyps.h>
@@ -24,7 +24,7 @@
         return GetCOMOwner()->Release();									\
     }
 
-#ifdef __linux__
+#if !defined(_WIN32)
 #define ATTRIBUTE_WEAK __attribute__ ((weak))
 #else
 #define ATTRIBUTE_WEAK
@@ -34,7 +34,7 @@
 		EXTERN_C _declspec(selectany) const GUID FAR name ATTRIBUTE_WEAK \
         = { l, w1, w2, { b1, b2,  b3,  b4,  b5,  b6,  b7,  b8 } }
 
-#ifndef __linux__
+#if defined(_WIN32)
 // {00000000-0000-0000-C000-000000000046}
 AMP_DEFINE_GUID(IID_IUnknown, 
 	0x00000000, 0x0000, 0x0000, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46);

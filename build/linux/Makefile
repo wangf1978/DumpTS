@@ -3,7 +3,7 @@ OBJECTDIR := ./obj
 REAL_SOURCEDIR := $(shell cd $(SOURCEDIR); pwd)
 REAL_OBJECTDIR := $(shell mkdir -p $(OBJECTDIR); cd obj; pwd)
 
-include common/Toolchain.mk
+include ../common/Toolchain.mk
 
 #CXXFLAGS += -fno-rtti 
 CXXFLAGS += $(CPUOPTION)
