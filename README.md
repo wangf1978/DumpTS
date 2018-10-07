@@ -23,7 +23,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     2. VS2017/vc15<br>
         Open build/DumpTS_vc15.sln and build it
 - Linux<br>
-    Here are steps to build and install this application:
+    *Make sure gcc with modern C++11/14 support is installed*<br>
+    Here are steps to build and install this application
     ```
     git clone https://github.com/wangf1978/DumpTS.git
     cd DumpTS/build/linux
@@ -32,6 +33,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     ./DumpTS --help
     ```
 - MacOS<br>
+    *Make sure clang with modern C++11/14 support is installed*<br>
     Here are steps to build and install this application:
     ```
     git clone https://github.com/wangf1978/DumpTS.git
@@ -122,12 +124,12 @@ Show the detailed information for MMT packets, payloads, messages, tables and de
 ```
 DumpTS e:\00301.mmts --CID=0 --pid=0x100 --output=e:\00301.hevc
 ```
-Extract HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
+Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 ```
-dumpts AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --showinfo --srcfmt=huffman_codebook
+DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --showinfo --srcfmt=huffman_codebook
 ```
 Load huffman-codebook from the specified file, and print its huffman-tree
 ```
-dumpts AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
+DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
 ```
 Load huffman-codebook from the specified file, and print binary search table for huffman-tree
