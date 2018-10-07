@@ -29,7 +29,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     cd DumpTS/build/linux
     make
     cd ../../bin/linux/
-    DumpTS --help
+    ./DumpTS --help
     ```
 - MacOS<br>
     Here are steps to build and install this application:
@@ -38,7 +38,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     cd DumpTS/build/macos
     make
     cd ../../bin/macos/
-    DumpTS --help
+    ./DumpTS --help
     ```
 ***(\*) both x64 and x86 are supported***
 
