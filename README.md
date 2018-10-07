@@ -40,7 +40,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     cd ../../bin/macos/
     DumpTS --help
     ```
-<br>***(\*) both x64 and x86 are supported***
+***(\*) both x64 and x86 are supported***
 
 # How to run it?
 
