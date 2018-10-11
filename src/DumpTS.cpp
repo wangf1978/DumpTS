@@ -192,7 +192,7 @@ bool VerifyCommandLine()
 		return false;
 	}
 
-	if ((ret = _access(g_params["input"].c_str(), 4)) != 0)
+	if ((ret = _access(g_params["input"].c_str(), R_OK)) != 0)
 	{
 		printf("Failed to open the input file: %s {error code: %d}.\n", g_params["input"].c_str(), errno);
 		return false;
@@ -201,7 +201,7 @@ bool VerifyCommandLine()
 	//
 	// For output file
 	//
-	if (g_params.find("output") != g_params.end() && (ret = _access(g_params["output"].c_str(), 2)) != 0)
+	if (g_params.find("output") != g_params.end() && (ret = _access(g_params["output"].c_str(), W_OK)) != 0)
 	{
 		if (errno != ENOENT)
 		{
@@ -460,12 +460,12 @@ void PrintHelp()
 	printf("\t--help\t\t\tPrint this message");
 
 	printf("\nExamples:\n");
-	printf("\tDumpTS c:\\00001.m2ts --output=c:\\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
-	printf("\tDumpTS c:\\test.ts --output=c:\\00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\n");
-	printf("\tDumpTS c:\\test.mp4 --output=c:\\test1.mp4 --removebox unkn\n");
-	printf("\tDumpTS c:\\test.mp4 --output=c:\\test.hevc --trackid=0\n");
-	printf("\tDumpTS c:\\codebook.txt --srcfmt=huffman_codebook --showinfo\n");
-	printf("\tDumpTS c:\\codebook.txt --srcfmt=huffman_codebook --outputfmt=binary_search_table\n");
+	printf("\tDumpTS 00001.m2ts --output=00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts\n");
+	printf("\tDumpTS test.ts --output=00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts\n");
+	printf("\tDumpTS test.mp4 --output=test1.mp4 --removebox=unkn\n");
+	printf("\tDumpTS test.mp4 --output=test.hevc --trackid=0\n");
+	printf("\tDumpTS codebook.txt --srcfmt=huffman_codebook --showinfo\n");
+	printf("\tDumpTS codebook.txt --srcfmt=huffman_codebook --outputfmt=binary_search_table\n");
 
 	return;
 }

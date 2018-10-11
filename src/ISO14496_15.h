@@ -270,7 +270,7 @@ namespace ISOBMFF
 					left_bytes -= 2 + pictureParameterSetNALUnits.back()->nalUnitLength;
 				}
 
-				if (AVCProfileIndication == 100 || AVCProfileIndication == 110 || AVCProfileIndication == 122 || AVCProfileIndication == 144)
+				if (left_bytes > 0 && (AVCProfileIndication == 100 || AVCProfileIndication == 110 || AVCProfileIndication == 122 || AVCProfileIndication == 144))
 				{
 					if (left_bytes < 4)
 						return RET_CODE_BOX_TOO_SMALL;

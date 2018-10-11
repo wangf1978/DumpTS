@@ -70,7 +70,7 @@ namespace ISOBMFF
 		/*
 		If the most significant bit of size is 1, it means 
 			the size value in Box object is 1, 
-			the largesize value is the left bits.
+			the large-size value is the left bits.
 		*/
 		struct
 		{
@@ -239,13 +239,13 @@ namespace ISOBMFF
 			}
 		}
 
-			/*!	@brief Find the box by the specified pattern, for example, /meta/iloc
-				@param pattern the find pattern contains FOURCC tags and '/'
-				@remarks as for the patter, if it starts with /, it means a absolute pattern;
-				If it starts with ., start find the box from the current pattern;
-				otherwise it is relative pattern
-			*/
-			std::vector<Box*> FindBox(const char* pattern);
+		/*!	@brief Find the box by the specified pattern, for example, /meta/iloc
+			@param pattern the find pattern contains FOURCC tags and '/'
+			@remarks as for the patter, if it starts with /, it means a absolute pattern;
+			If it starts with ., start find the box from the current pattern;
+			otherwise it is relative pattern
+		*/
+		std::vector<Box*> FindBox(const char* pattern);
 
 		void RemoveChildBox(Box* child) noexcept
 		{

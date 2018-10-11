@@ -142,6 +142,205 @@ int CopyBoxTypeName(char* szText, int ccSize, uint32_t box_type)
 	return ccSize - ccSizeLeft;
 }
 
+/*
+using BoxSlice =  tuple<Box, header_part, box_part_offset, box_part_size>;
+using BoxSlices = std::vector<BoxSlice>;
+*/
+using BoxSlice = tuple<Box*, bool, uint64_t, uint64_t>;
+using BoxSlices = std::vector<BoxSlice>;
+
+int FlushBoxSlice(BoxSlice& box_slice, FILE* fp, FILE* fw)
+{
+	uint8_t buf[2048];
+	Box* ptr_cur_box = std::get<0>(box_slice);
+	if (ptr_cur_box == nullptr)
+		return RET_CODE_NOTHING_TODO;
+
+	bool header_part = std::get<1>(box_slice);
+	uint64_t box_part_offset = std::get<2>(box_slice);
+	uint64_t box_part_size = std::get<3>(box_slice);
+
+	assert(ptr_cur_box->start_bitpos % 8 == 0);
+	assert(header_part == true || (ptr_cur_box->start_bitpos >> 3) < box_part_offset);
+
+	uint64_t file_offset = header_part ? (ptr_cur_box->start_bitpos >> 3) : box_part_offset;
+	uint32_t box_size = ptr_cur_box->largesize_used ? 1U : (uint32_t)ptr_cur_box->size;
+	uint32_t box_type = ptr_cur_box->type;
+	uint64_t box_large_size = ptr_cur_box->largesize_used ? ptr_cur_box->size : 0;
+
+	if (g_verbose_level > 0)
+	{
+		printf("File offset: %" PRIu64 "(0X%" PRIX64 "), Header Part: %s, Part size: %" PRIu64 "\n", file_offset, file_offset, header_part?"Yes":"No", box_part_size);
+		printf("    box-type: %c%c%c%c(0X%08X), box_size: %" PRIu32 ", large_box_size: %" PRIu64 "\n",
+			isprint((box_type >> 24) & 0xFF) ? ((box_type >> 24) & 0xFF) : '.',
+			isprint((box_type >> 16) & 0xFF) ? ((box_type >> 16) & 0xFF) : '.',
+			isprint((box_type >>  8) & 0xFF) ? ((box_type >>  8) & 0xFF) : '.',
+			isprint((box_type) & 0xFF) ? ((box_type) & 0xFF) : '.', box_type, box_size, box_large_size);
+	}
+
+	if (file_offset >= INT64_MAX)
+		return RET_CODE_INVALID_PARAMETER;
+
+	if (box_part_size == 0)
+	{
+		// If the box slice size is set 0 for the header part, it means the whole box will be written
+		if (header_part == true)
+			box_part_size = ptr_cur_box->size == 0 ? UINT64_MAX : ptr_cur_box->size;
+		else
+			return RET_CODE_INVALID_PARAMETER;
+	}
+
+	if (header_part)
+	{
+		buf[0] = (box_size >> 24) & 0xFF;
+		buf[1] = (box_size >> 16) & 0xFF;
+		buf[2] = (box_size >>  8) & 0xFF;
+		buf[3] = (box_size) & 0xFF;
+		buf[4] = (box_type >> 24) & 0xFF;
+		buf[5] = (box_type >> 16) & 0xFF;
+		buf[6] = (box_type >>  8) & 0xFF;
+		buf[7] = (box_type) & 0xFF;
+		if (fwrite(buf, 1, 8, fw) != 8)
+			return RET_CODE_ERROR;
+
+		if (box_size == 1)
+		{
+			buf[0] = (uint8_t)((box_large_size >> 56) & 0xFF);
+			buf[1] = (uint8_t)((box_large_size >> 48) & 0xFF);
+			buf[2] = (uint8_t)((box_large_size >> 40) & 0xFF);
+			buf[3] = (uint8_t)((box_large_size >> 32) & 0xFF);
+			buf[4] = (uint8_t)((box_large_size >> 24) & 0xFF);
+			buf[5] = (uint8_t)((box_large_size >> 16) & 0xFF);
+			buf[6] = (uint8_t)((box_large_size >>  8) & 0xFF);
+			buf[7] = (uint8_t)(box_large_size & 0xFF);
+			if (fwrite(buf, 1, 8, fw) != 8)
+				return RET_CODE_ERROR;
+		}
+
+		uint8_t box_header_size = (uint8_t)(box_size == 1 ? 16 : 8);
+		if (box_part_size < box_header_size)
+			return RET_CODE_INVALID_PARAMETER;
+
+		box_part_size -= box_header_size;
+		file_offset += box_header_size;
+	}
+
+	// Only box header exist
+	if (box_part_size == 0)
+		return RET_CODE_SUCCESS;
+
+	if (_fseeki64(fp, (int64_t)file_offset, SEEK_SET) != 0)
+		return RET_CODE_ERROR;
+
+	while (box_part_size > 0)
+	{
+		size_t actual_read_size = 0UL;
+		size_t read_size = (size_t)AMP_MIN(box_part_size, 2048);
+		if ((actual_read_size = fread(buf, 1, read_size, fp)) != read_size)
+		{
+			if (!feof(fp))
+				return RET_CODE_ERROR;
+			else
+				box_part_size = 0;	// exit the loop from the next round
+		}
+
+		if (fwrite(buf, 1, actual_read_size, fw) != actual_read_size)
+			return RET_CODE_ERROR;
+
+		if (box_part_size >= actual_read_size)
+			box_part_size -= actual_read_size;
+		else if (box_part_size != 0)
+			return RET_CODE_ERROR;	// Should never happen
+	}
+
+	return RET_CODE_SUCCESS;
+}
+
+/*!	@brief Fill the box slices
+	@retval 0 No slice is filled
+	@retval 1 Available slice(s) are filled
+	@retval 2 Available slice(s) are filled, and there are the son children to be a removed box
+*/
+int FillBoxSlices(Box* cur_box, BoxSlices& box_slices, const std::set<uint32_t>& remove_box_types)
+{
+	if (cur_box == nullptr)
+		return 0;
+
+	int iRet = 1;
+	bool bHeaderPart = true;
+	uint64_t src_start_pos = cur_box->start_bitpos >> 3;
+	uint64_t real_box_size = cur_box->size == 0 ? UINT64_MAX : cur_box->size;
+
+	Box* child = cur_box->first_child;
+	if (child == nullptr)
+	{
+		// No child, copy this box directly
+		box_slices.push_back({ cur_box, bHeaderPart, cur_box->start_bitpos>>3, real_box_size });
+		return 1;
+	}
+
+	uint64_t last_box_end_pos = src_start_pos;
+	for (; child != nullptr; child = child->next_sibling)
+	{
+		if (remove_box_types.find(child->type) != remove_box_types.end())
+		{
+			// Decrease its parents' size by its own size
+			Box* pParent = child->container;
+			while (pParent != nullptr)
+			{
+				if (pParent->container == nullptr)
+					break;
+
+				if (pParent->size > child->size)
+					pParent->size -= child->size;
+
+				pParent = pParent->container;
+			}
+
+			// This box is to be removed
+			if ((child->start_bitpos >> 3) > last_box_end_pos)
+			{
+				box_slices.push_back({ cur_box, bHeaderPart, last_box_end_pos, (child->start_bitpos >> 3) - last_box_end_pos });
+				bHeaderPart = false;
+			}
+
+			last_box_end_pos = child->size == 0 ? UINT64_MAX : ((child->start_bitpos >> 3) + child->size);
+			iRet = 2;
+
+			if (child->size == 0)	// The removed box extend to the file end
+				break;
+
+			continue;
+		}
+
+		if (last_box_end_pos != UINT64_MAX && last_box_end_pos < (child->start_bitpos >> 3))
+		{
+			box_slices.push_back({ cur_box, bHeaderPart, last_box_end_pos, (child->start_bitpos >> 3) - last_box_end_pos });
+			last_box_end_pos = (child->start_bitpos >> 3);
+			bHeaderPart = false;
+		}
+
+		last_box_end_pos = child->size == 0 ? UINT64_MAX : ((child->start_bitpos >> 3) + child->size);
+
+		// child->size may be changed in this procedure
+		if (FillBoxSlices(child, box_slices, remove_box_types) == 2)
+			iRet = 2;
+
+		if (child->size == 0)
+			break;
+	}
+	
+	if (last_box_end_pos != UINT64_MAX)
+	{
+		if (cur_box->size == 0)
+			box_slices.push_back({ cur_box, bHeaderPart, last_box_end_pos, UINT64_MAX });
+		else if (last_box_end_pos < src_start_pos + cur_box->size)
+			box_slices.push_back({ cur_box, bHeaderPart, last_box_end_pos, (src_start_pos + cur_box->size) - last_box_end_pos });
+	}
+
+	return iRet;
+}
+
 int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes_Layout* box_layouts=NULL, int32_t verbose=0)
 {
 	int iRet = 0;
@@ -150,7 +349,7 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 	uint16_t used_size = 0;
 	memset(uuid_str, 0, sizeof(uuid_str));
 
-	if (_fseeki64(fp, start_pos, SEEK_SET) != 0)
+	if (_fseeki64(fp, start_pos, SEEK_SET) != 0 || feof(fp) || start_pos >= end_pos)
 		return 0;
 
 	if (fread_s(box_header, sizeof(box_header), 1U, sizeof(box_header), fp) < sizeof(box_header))
@@ -236,53 +435,27 @@ int ListBoxes(FILE* fp, int level, int64_t start_pos, int64_t end_pos, MP4_Boxes
 	return ListBoxes(fp, level, start_pos, end_pos, box_layouts, verbose);
 }
 
-int RefineMP4File(const std::string& src_filename, const std::string& dst_filename, std::map<uint32_t, bool>& removed_box_types)
+int RemoveBoxes(FILE* fp, FILE* fw, std::set<uint32_t>& removed_box_types)
 {
 	using FILE_SLICE = std::tuple<int64_t/*start_pos*/, int64_t/*end_pos*/>;
 
-	int iRet = -1;
+	int iRet = RET_CODE_ERROR;
 	uint8_t* buf = NULL;
-	std::string write_pathname;
-	MP4_Boxes_Layout mp4_boxes_layout;
-	std::vector<FILE_SLICE> holes;
-	std::vector<FILE_SLICE> merged_holes;
-	std::tuple<int64_t, int64_t> prev_hole = { 0, 0 };
-	std::vector<FILE_SLICE> file_copy_slices;
-	// At first visit all boxes in MP4 file, and generated a table of boxes
-
+	size_t cache_size = 4096;
 	int64_t s = 0, /*e = 0, */file_size;
-	const size_t cache_size = 4096;
-
-	FILE* fp = NULL, *fw = NULL;
-	errno_t errn = fopen_s(&fp, src_filename.c_str(), "rb");
-	if (errn != 0 || fp == NULL)
-	{
-		printf("Failed to open the file: %s {errno: %d}.\n", src_filename.c_str(), errn);
-		goto done;
-	}
 
 	// Get file size
 	_fseeki64(fp, 0, SEEK_END);
 	file_size = _ftelli64(fp);
 	_fseeki64(fp, 0, SEEK_SET);
 
-	if (src_filename == dst_filename)
-	{
-		std::hash<std::string> hasher;
-		size_t hash_val = hasher(src_filename);
-		write_pathname += src_filename;
-		write_pathname += "~";
-		write_pathname += std::to_string(hash_val);
+	MP4_Boxes_Layout mp4_boxes_layout;
+	std::vector<FILE_SLICE> holes;
+	std::vector<FILE_SLICE> merged_holes;
+	std::tuple<int64_t, int64_t> prev_hole = { 0, 0 };
+	std::vector<FILE_SLICE> file_copy_slices;
 
-		if (_access(write_pathname.c_str(), 0) == 0)
-		{
-			printf("Can't create a temporary file path to refine the original MP4 file.\n");
-			goto done;
-		}			
-	}
-	else
-		write_pathname = dst_filename;
-
+	// At first visit all boxes in MP4 file, and generated a table of boxes
 	if ((iRet = ListBoxes(fp, 0, 0, file_size, &mp4_boxes_layout, 0)) == -1)
 	{
 		goto done;
@@ -299,7 +472,7 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 	{
 		uint32_t box_type = std::get<0>(box);
 		if (removed_box_types.find(box_type) != removed_box_types.end())
-			holes.push_back({std::get<1>(box), std::get<2>(box)});
+			holes.push_back({ std::get<1>(box), std::get<2>(box) });
 	}
 
 	/* Merge the holes in the original file */
@@ -338,25 +511,18 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 		goto done;
 	}
 
-	errn = fopen_s(&fw, write_pathname.c_str(), "wb");
-	if (errn != 0 || fw == NULL)
-	{
-		printf("Failed to open the file: %s {errno: %d}.\n", write_pathname.c_str(), errn);
-		goto done;
-	}
-
 	// generate the copy slice
 	for (auto hole : merged_holes)
 	{
 		if (s != std::get<0>(hole))
 			file_copy_slices.push_back({ s, std::get<0>(hole) });
-	
+
 		s = std::get<1>(hole);
 	}
 
 	if (s < file_size)
-		file_copy_slices.push_back({s, file_size});
-	
+		file_copy_slices.push_back({ s, file_size });
+
 	buf = new uint8_t[cache_size];
 	// begin to copy the data byte-2-byte
 	for (auto slice : file_copy_slices)
@@ -384,29 +550,137 @@ int RefineMP4File(const std::string& src_filename, const std::string& dst_filena
 			break;
 	}
 
-	if (fp != NULL)
-	{
-		fclose(fp); fp = NULL;
-	}
+	iRet = RET_CODE_SUCCESS;
 
-	if (fw != NULL)
-	{
-		fclose(fw); fw = NULL;
-	}
+done:
+	if (buf != NULL)
+		delete[] buf;
 
-	if (write_pathname != dst_filename)
-	{
-		if (_access(dst_filename.c_str(), 0) == 0)
-			_unlink(dst_filename.c_str());
+	return iRet;
+}
 
-		if (rename(write_pathname.c_str(), dst_filename.c_str()) != 0)
+int RefineMP4File(Box* root_box, const std::string& src_filename, const std::string& dst_filename, std::set<uint32_t>& removed_box_types)
+{
+	int iRet = -1;
+	errno_t errn;
+	std::string write_pathname;
+	FILE *fp = nullptr, *fw = nullptr;
+	if (src_filename == dst_filename)
+	{
+		std::hash<std::string> hasher;
+		size_t hash_val = hasher(src_filename);
+		write_pathname += src_filename;
+		write_pathname += "_";
+		write_pathname += std::to_string(hash_val);
+
+		if (_access(write_pathname.c_str(), F_OK) == 0)
 		{
-			printf("Failed to rename the file: %s to the file: %s.\n", write_pathname.c_str(), dst_filename.c_str());
-			goto done;
+			// Try to find another temporary swap file
+			unsigned int itries = 0;
+			while (itries < INT8_MAX)
+			{
+				std::string new_write_pathnmae = write_pathname + "_" + std::to_string(itries);
+				if (_access(new_write_pathnmae.c_str(), F_OK) != 0)
+				{
+					write_pathname = new_write_pathnmae;
+					break;
+				}
+
+				itries++;
+			}
+			
+			if (itries >= INT8_MAX)
+			{
+				printf("Can't find a temporary file to refine the original MP4 file.\n");
+				goto done;
+			}
+		}			
+	}
+	else
+		write_pathname = dst_filename;
+
+	errn = fopen_s(&fp, src_filename.c_str(), "rb");
+	if (errn != 0 || fp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", src_filename.c_str(), errn);
+		goto done;
+	}
+
+	errn = fopen_s(&fw, write_pathname.c_str(), "wb");
+	if (errn != 0 || fw == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", write_pathname.c_str(), errn);
+		goto done;
+	}
+
+	if (root_box != nullptr)
+	{
+		BoxSlices box_slices;
+		bool bBoxRemoved = false;
+		Box* pChild = root_box->first_child;
+		while (pChild != nullptr)
+		{
+			if (removed_box_types.find(pChild->type) != removed_box_types.end())
+			{
+				bBoxRemoved = true;
+				pChild = pChild->next_sibling;
+				continue;
+			}
+			
+			if (FillBoxSlices(pChild, box_slices, removed_box_types) == 2)
+				bBoxRemoved = true;
+
+			pChild = pChild->next_sibling;
+		}
+
+		if (!bBoxRemoved)
+			printf("The specified box-type(s) are not found in the current ISOBMFF file.\n");
+		else
+		{
+			for (auto& slice : box_slices)
+			{
+				if ((iRet = FlushBoxSlice(slice, fp, fw)) < 0)
+					break;
+			}
 		}
 	}
+	else
+		iRet = RemoveBoxes(fp, fw, removed_box_types);
 
-	iRet = 0;
+	if (fp != NULL) {
+		fclose(fp); fp = nullptr;
+	}
+
+	if (fw != NULL) {
+		fclose(fw); fw = nullptr;
+	}
+
+	if (iRet >= 0)
+	{
+		if (write_pathname != dst_filename)
+		{
+			if (_access(dst_filename.c_str(), F_OK) == 0)
+			{
+				if (_unlink(dst_filename.c_str()) == 0)
+				{
+					if (rename(write_pathname.c_str(), dst_filename.c_str()) != 0)
+					{
+						printf("Failed to rename the file: %s to the file: %s.\n", write_pathname.c_str(), dst_filename.c_str());
+						goto done;
+					}
+				}
+				else
+					printf("Failed to delete the destination file \"%s\" to rename the intermediate file to the destination file.\n", dst_filename.c_str());
+			}
+		}
+	}
+	else
+	{
+		// Remove the temporary file
+		printf("Failed to remove the boxes, delete the temporary file: %s.\n", write_pathname.c_str());
+		if (_unlink(write_pathname.c_str()) != 0)
+			printf("Failed to remove the temporary immediate filename: %s.\n", write_pathname.c_str());
+	}
 
 done:
 	if (fp != NULL)
@@ -414,9 +688,6 @@ done:
 
 	if (fw != NULL)
 		fclose(fw);
-
-	if (buf != NULL)
-		delete[] buf;
 
 	return iRet;
 }
@@ -1603,10 +1874,12 @@ int DumpMP4()
 {
 	int iRet = -1;
 
-	CFileBitstream bs(g_params["input"].c_str(), 4096, &iRet);
-
 	auto& root_box = Box::CreateRootBox();
-	root_box.Load(bs);
+
+	{
+		CFileBitstream bs(g_params["input"].c_str(), 4096, &iRet);
+		root_box.Load(bs);
+	}
 
 	Box* ptr_box = nullptr;
 	bool bMovieTrackAbsent = false;
@@ -1661,14 +1934,14 @@ int DumpMP4()
 
 	if (g_params.find("removebox") != g_params.end())
 	{
-		std::map<uint32_t, bool> removed_box_types;
+		std::set<uint32_t> removed_box_types;
 		std::string& str_remove_boxtypes = g_params["removebox"];
 
 		if (str_remove_boxtypes.length() == 0 ||
 			str_remove_boxtypes.compare("''") == 0 ||
 			str_remove_boxtypes.compare("\"\"") == 0)
 		{
-			removed_box_types[0] = true;
+			removed_box_types.insert(0);
 		}
 		else
 		{
@@ -1699,7 +1972,7 @@ int DumpMP4()
 			{
 				if (passed_char_count == 4)
 				{
-					removed_box_types[box_type] = true;
+					removed_box_types.insert(box_type);
 					passed_char_count = 0;
 				}
 
@@ -1714,10 +1987,10 @@ int DumpMP4()
 			}
 
 			if (passed_char_count == 4)
-				removed_box_types[box_type] = true;
+				removed_box_types.insert(box_type);
 		}
 
-		if ((iRet = RefineMP4File(g_params["input"], g_params.find("output") == g_params.end() ? g_params["input"] : g_params["output"], removed_box_types), g_verbose_level) < 0)
+		if ((iRet = RefineMP4File(&root_box, g_params["input"], g_params.find("output") == g_params.end() ? g_params["input"] : g_params["output"], removed_box_types), g_verbose_level) < 0)
 			return iRet;
 	}
 	else if (g_params.find("trackid") != g_params.end())

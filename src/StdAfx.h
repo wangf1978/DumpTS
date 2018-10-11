@@ -18,6 +18,7 @@
 #include <memory.h>
 #include <string>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <tuple>
 #include <algorithm>
@@ -109,6 +110,15 @@
 
 #define RET_CODE_BOX_TOO_SMALL			   -2100			// ISO 14496-12 box size is too small, and can't unpack the information according to spec
 #define RET_CODE_BOX_INCOMPATIBLE		   -2101			// the current stream is incompatible with ISO 14496-12
+
+#define RET_CODE_CONTINUE					256
+#define RET_CODE_UOP_COMPLETED				257
+#define RET_CODE_ALREADY_EXIST				500
+#define RET_CODE_NOTHING_TODO				501
+#define RET_CODE_REQUIRE_MORE_MEM			502
+#define RET_CODE_DELAY_APPLY				503
+#define RET_CODE_PSR_OVERWRITE				504
+#define RET_CODE_CONTINUE_NAVICMD			505
 
 enum FLAG_VALUE
 {
