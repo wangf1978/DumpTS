@@ -296,7 +296,7 @@ int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, uns
 
 	audio_info.stream_coding_type = stream_type;
 
-	unsigned char audio_sampling_frequency;
+	unsigned char audio_sampling_frequency = 0;
 	if (sync_code == FBA_SYNC_CODE)
 	{
 		audio_info.audio_info.bits_per_sample = 24;

@@ -982,7 +982,7 @@ done:
 			printf("--- Chunk ID ------------- Chunk Offset --\n");
 			for (size_t i = 0; i < pChunkOffsetBox->chunk_offset.size(); i++)
 			{
-				printf(" #%-10" PRIsize "             %10d\n", i+1, pChunkOffsetBox->chunk_offset[i]);
+				printf(" #%-10lu             %10d\n", i+1, pChunkOffsetBox->chunk_offset[i]);
 			}
 		}
 		else if (box_type == 'co64')
@@ -994,7 +994,7 @@ done:
 			printf("--- Chunk ID ------------- Chunk Offset --\n");
 			for (size_t i = 0; i < pLargeChunkOffsetBox->chunk_offset.size(); i++)
 			{
-				printf(" #%-10" PRIsize "             %10" PRIu64 "\n", i+1, pLargeChunkOffsetBox->chunk_offset[i]);
+				printf(" #%-10lu             %10" PRIu64 "\n", i+1, pLargeChunkOffsetBox->chunk_offset[i]);
 			}
 		}
 		else if (box_type == 'stsz')
@@ -1008,7 +1008,7 @@ done:
 			{
 				printf("-- Sample ID ------------- Sample Size --\n");
 				for (size_t i = 0; i < pSampleSizeBox->entry_size.size(); i++)
-					printf("  #%-10" PRIsize "            % 10d\n", i+1, pSampleSizeBox->entry_size[i]);
+					printf("  #%-10lu            % 10d\n", i+1, pSampleSizeBox->entry_size[i]);
 			}
 		}
 		else if (box_type == 'stsd')
@@ -1022,7 +1022,7 @@ done:
 				for (size_t idx = 0; idx < cbBuf; idx++)
 				{
 					if (idx % 16 == 0)
-						printf("\t\t %03" PRIsize "  ", idx);
+						printf("\t\t %03lu  ", idx);
 
 					printf("%02X  ", pBuf[idx]);
 					if ((idx + 1) % 8 == 0)
@@ -1099,7 +1099,7 @@ done:
 
 						for (size_t i = 0; i < config->AVCConfig->numOfSequenceParameterSets; i++)
 						{
-							printf("\tSequenceParameterSet#%" PRIsize " (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnitLength);
+							printf("\tSequenceParameterSet#%lu (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnitLength);
 							PrintBinaryBuf(&config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnit[0], config->AVCConfig->sequenceParameterSetNALUnits[i]->nalUnit.size());
 						}
 
@@ -1107,7 +1107,7 @@ done:
 
 						for (size_t i = 0; i < config->AVCConfig->numOfPictureParameterSets; i++)
 						{
-							printf("\tPictureParameterSet#%" PRIsize " (nalUnitLength: %d)\n", i, config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnitLength);
+							printf("\tPictureParameterSet#%lu (nalUnitLength: %d)\n", i, config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnitLength);
 							PrintBinaryBuf(&config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnit[0], config->AVCConfig->pictureParameterSetNALUnits[i]->nalUnit.size());
 						}
 
@@ -1121,7 +1121,7 @@ done:
 
 							for (size_t i = 0; i < config->AVCConfig->numOfSequenceParameterSetExt; i++)
 							{
-								printf("\tSequenceParameterSetExt#%" PRIsize " (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnitLength);
+								printf("\tSequenceParameterSetExt#%lu (nalUnitLength: %d)\n", i, config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnitLength);
 								PrintBinaryBuf(&config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnit[0], config->AVCConfig->sequenceParameterSetExtNALUnits[i]->nalUnit.size());
 							}
 						}
@@ -1160,9 +1160,9 @@ done:
 			for (size_t i = 0; i < pCompositionOffsetBox->entries.size(); i++)
 			{
 				if (pCompositionOffsetBox->version == 1)
-					printf("   #%-10" PRIsize "      %-10" PRIu32 "            %-10" PRId32 "\n", i + 1UL, pCompositionOffsetBox->entries[i].v1.sample_count, pCompositionOffsetBox->entries[i].v1.sample_offset);
+					printf("   #%-10lu      %-10" PRIu32 "            %-10" PRId32 "\n", i + 1UL, pCompositionOffsetBox->entries[i].v1.sample_count, pCompositionOffsetBox->entries[i].v1.sample_offset);
 				else if (pCompositionOffsetBox->version == 0)
-					printf("   #%-10" PRIsize "      %-10" PRIu32 "            %-10" PRId32 "\n", i + 1UL, pCompositionOffsetBox->entries[i].v0.sample_count, pCompositionOffsetBox->entries[i].v0.sample_offset);
+					printf("   #%-10lu      %-10" PRIu32 "            %-10" PRId32 "\n", i + 1UL, pCompositionOffsetBox->entries[i].v0.sample_count, pCompositionOffsetBox->entries[i].v0.sample_offset);
 			}
 		}
 		else if (box_type == 'stts')
@@ -1180,9 +1180,9 @@ done:
 			printf("== Entry ID ===== Sample Count ========= Sample Delta ==\n");
 			for (size_t i = 0; i < pTimeToSampleBox->entries.size(); i++)
 				if (timescale == 0)
-					printf("  #%-10" PRIsize "      %-10" PRIu32 "          %10" PRIu32 "\n", i + 1UL, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta);
+					printf("  #%-10lu      %-10" PRIu32 "          %10" PRIu32 "\n", i + 1UL, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta);
 				else
-					printf("  #%-10" PRIsize "      %-10" PRIu32 "          %10" PRIu32 "(%" PRIu32 ".%03" PRIu32 "s)\n", i + 1UL, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta,
+					printf("  #%-10lu      %-10" PRIu32 "          %10" PRIu32 "(%" PRIu32 ".%03" PRIu32 "s)\n", i + 1UL, pTimeToSampleBox->entries[i].sample_count, pTimeToSampleBox->entries[i].sample_delta,
 						pTimeToSampleBox->entries[i].sample_delta / timescale, pTimeToSampleBox->entries[i].sample_delta * 1000 / timescale % 1000);
 		}
 		else if (box_type == 'cslg')
@@ -1203,7 +1203,7 @@ done:
 			printf("entry_count: %" PRIu32 "\n", pSyncSampleBox->entry_count);
 			printf("== Entry ID ====== sample_number ===\n");
 			for (size_t i = 0; i < pSyncSampleBox->sample_numbers.size(); i++)
-				printf("   #%-10" PRIsize "      %10" PRIu32 "\n", i, pSyncSampleBox->sample_numbers[i]);
+				printf("   #%-10lu      %10" PRIu32 "\n", i, pSyncSampleBox->sample_numbers[i]);
 		}
 	}
 #endif

@@ -17,7 +17,7 @@ else
 CXXFLAGS	+= -O2
 endif
 
-WARN := -Wall -Wno-switch-enum -Wno-switch -Wno-multichar -Wno-shift-overflow -Wno-unused-variable
+WARN := -Wall -Wno-switch-enum -Wno-switch -Wno-multichar -Wno-shift-overflow -Wno-unused-variable -Wno-bitfield-constant-conversion 
 PREPROC := -D__int64="long long"
 
 EXECUTABLE := DumpTS

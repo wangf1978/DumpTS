@@ -3580,7 +3580,7 @@ namespace ISOBMFF
 					return 0;
 				}
 
-			}PACKED;
+			};
 
 			/*
 			Box Type: 'mdia'
@@ -4069,7 +4069,7 @@ namespace ISOBMFF
 								SkipLeftBits(bs);
 								return 0;
 							}
-						}PACKED;
+						};
 
 						struct ColourInformationBox : public Box
 						{
@@ -4438,7 +4438,7 @@ namespace ISOBMFF
 								SkipLeftBits(bs);
 								return iRet;
 							}
-						}PACKED;
+						};
 
 						/*
 						Box Types: 'stsd'

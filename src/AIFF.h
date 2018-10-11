@@ -264,7 +264,7 @@ namespace AIFF
 			}
 
 			fprintf(out, FIX_HEADER_FMT_STR ": %-16" PRIu32 "%s\n", szIndent, "offset", offset, "");
-			fprintf(out, FIX_HEADER_FMT_STR ": %-16" PRIu16 "%s\n", szIndent, "blocksize", blocksize, "");
+			fprintf(out, FIX_HEADER_FMT_STR ": %-16" PRIu32 "%s\n", szIndent, "blocksize", blocksize, "");
 		}
 	};
 
@@ -343,7 +343,7 @@ namespace AIFF
 			fprintf(out, FIX_HEADER_FMT_STR ": %-16" PRIu16 "%s\n", szIndent, "numMarkers", numMarkers, "");
 			for (size_t i = 0; i < Markers.size(); i++)
 			{
-				fprintf(out, FIX_HEADER_FMT_STR ": %" PRIsize "\n", szIndent, "Marker index", i);
+				fprintf(out, FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Marker index", i);
 				fprintf(out, "    " FIX_HEADER_FMT_STR ": %-16" PRIi16 "%s\n", szIndent, "id", Markers[i].id, "a number that uniquely identifies the marker within a FORM AIFC");
 				fprintf(out, "    " FIX_HEADER_FMT_STR ": %-16" PRIu32 "%s\n", szIndent, "position", Markers[i].position, "The marker's position in the sound data");
 
@@ -431,7 +431,7 @@ namespace AIFF
 			fprintf(out, FIX_HEADER_FMT_STR ": %-16u%s\n", szIndent, "numMarkers", numComments, "");
 			for (size_t i = 0; i < comments.size(); i++)
 			{
-				fprintf(out, FIX_HEADER_FMT_STR ": %" PRIsize "\n", szIndent, "Comment index", i);
+				fprintf(out, FIX_HEADER_FMT_STR ": %lu\n", szIndent, "Comment index", i);
 				fprintf(out, "    " FIX_HEADER_FMT_STR ": %s\n", szIndent, "timeStamp", DateTimeStr(comments[i].timeStamp).c_str());
 				fprintf(out, "    " FIX_HEADER_FMT_STR ": %-16" PRIi16 "%s\n", szIndent, "marker", comments[i].marker, comments[i].marker==0?"this comment is not linked to a marker":"the ID of that marker");
 				fprintf(out, "    " FIX_HEADER_FMT_STR ": %-16" PRIu16 "%s\n", szIndent, "count", comments[i].count, "the length of the text that makes up the comment");

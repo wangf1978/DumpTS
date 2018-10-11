@@ -368,10 +368,4 @@ inline long InterlockedExchangeAdd(
 
 #endif	// _WIN32
 
-#if defined(__x86_64__) || defined(_WIN64)
-#define PRIsize	PRIu64
-#else
-#define PRIsize PRIu32
-#endif
-
 #endif

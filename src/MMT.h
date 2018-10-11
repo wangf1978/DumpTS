@@ -649,7 +649,7 @@ namespace MMT
 
 				for (size_t i = 0; i < offsets.size(); i++)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%" PRIsize "\n", szIndent, "MPU_timestamps", i);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": #%lu\n", szIndent, "MPU_timestamps", i);
 					uint16_t dts_pts_offset = std::get<0>(offsets[i]);
 					uint16_t pts_offset = std::get<1>(offsets[i]);
 					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "dts_pts_offset", dts_pts_offset, dts_pts_offset);
@@ -1690,7 +1690,7 @@ namespace MMT
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "location_count", location_count);
 				for (size_t i = 0; i < MMT_general_location_infos.size(); i++)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIsize "\n", szIndent, "location idx", i);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %lu\n", szIndent, "location idx", i);
 					MMT_general_location_infos[i].Print(fp, indent + 4);
 				}
 
