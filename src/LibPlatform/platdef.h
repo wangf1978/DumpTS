@@ -57,6 +57,7 @@ typedef int								errno_t;
 
 inline errno_t fopen_s(FILE** pFile, const char *filename, const char *mode)
 {
+	errno = 0;
 	FILE* fp = fopen(filename, mode);
 	if (pFile != NULL)
 		*pFile = fp;
