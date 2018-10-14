@@ -74,107 +74,109 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
  
 Here are some examples of command lines: 
 - Show TS information
-```
-DumpTS 00001.m2ts --showinfo
-Program Number: 1, program_map_PID: 0X100(256).
-Program(PID:0X0100)
-        Stream#0, PID: 0X12A1, stm_type: 0X90 (Unknown)
-        Stream#1, PID: 0X1100, stm_type: 0X83 (Dolby Lossless Audio)
-        Stream#2, PID: 0X1011, stm_type: 0X24 (HEVC Video)
-        Stream#3, PID: 0X12A0, stm_type: 0X90 (Unknown)
-        Stream#4, PID: 0X1015, stm_type: 0X24 (HEVC Video)
-```
-it will show the PAT and PMT informations of 00001.m2ts
+    ```
+    DumpTS 00001.m2ts --showinfo
+    Program Number: 1, program_map_PID: 0X100(256).
+    Program(PID:0X0100)
+            Stream#0, PID: 0X12A1, stm_type: 0X90 (Unknown)
+            Stream#1, PID: 0X1100, stm_type: 0X83 (Dolby Lossless Audio)
+            Stream#2, PID: 0X1011, stm_type: 0X24 (HEVC Video)
+            Stream#3, PID: 0X12A0, stm_type: 0X90 (Unknown)
+            Stream#4, PID: 0X1015, stm_type: 0X24 (HEVC Video)
+    ```
+    it will show the PAT and PMT informations of 00001.m2ts
 
 - Show TS elementary stream media and codec information
-```
-DumpTS 00001.m2ts --pid=0x1100 --showinfo
-Dolby Lossless Audio Stream information:
-        PID: 0X1100.
-        Stream Type: 131(0X83).
-        Sample Frequency: 48000 (HZ).
-        Bits Per Sample: 24.
-        Channel Layout: 7.1ch(L, C, R, Ls, Rs, Lrs, Rrs, LFE).
-Dolby Lossless Audio Stream information:
-        PID: 0X1100.
-        Stream Type: 131(0X83).
-        Sample Frequency: 48000 (HZ).
-        Bits Per Sample: 24.
-        Channel Layout: 7.1ch(L, C, R, Ls, Rs, Lrs, Rrs, LFE).
-        Bitrate: 4202.683 mbps.
-```
-It will show the elementary audio stream information, including channel layout, sample frequency and so on
+    ```
+    DumpTS 00001.m2ts --pid=0x1100 --showinfo
+    Dolby Lossless Audio Stream information:
+            PID: 0X1100.
+            Stream Type: 131(0X83).
+            Sample Frequency: 48000 (HZ).
+            Bits Per Sample: 24.
+            Channel Layout: 7.1ch(L, C, R, Ls, Rs, Lrs, Rrs, LFE).
+    Dolby Lossless Audio Stream information:
+            PID: 0X1100.
+            Stream Type: 131(0X83).
+            Sample Frequency: 48000 (HZ).
+            Bits Per Sample: 24.
+            Channel Layout: 7.1ch(L, C, R, Ls, Rs, Lrs, Rrs, LFE).
+            Bitrate: 4202.683 mbps.
+    ```
+    It will show the elementary audio stream information, including channel layout, sample frequency and so on
 
 - Dump ES stream from TS/M2TS file
-```
-DumpTS 00001.m2ts --output=c:\00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts  
-```
-It will dump a hevc es stream with PID 0x1011 from the m2ts stream file: c:\00001.m2ts, and print the PTS of every frame.
+    ```
+    DumpTS 00001.m2ts --output=00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts  
+    ```
+    It will dump a hevc es stream with PID 0x1011 from the m2ts stream file: 00001.m2ts, and print the PTS of every frame.
 
 - Change the PID value for the specified ES
-```
-DumpTS test.ts --output=00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts  
-```
-It will re-factor the file: c:\test.ts, and replace the PID 0x100 with 0x1011 in TS pack and PSI, and convert it to a m2ts
+    ```
+    DumpTS test.ts --output=00001.m2ts --pid=0x100 --destpid=0x1011 --srcfmt=ts --outputfmt=m2ts  
+    ```
+    It will re-factor the file: test.ts, and replace the PID 0x100 with 0x1011 in TS pack and PSI, and convert it to a m2ts
 
 - Dump ES stream with PID and stream_id_extension from a TS/M2TS file
-```
-DumpTS 00022.m2ts --output=00022.mlp --pid=0x1100 --srcfmt=m2ts --outputfmt=es 
---stream_id_extension=0x72  
-```
-It will dump a MLP sub-stream from C:\00022.m2ts with the PID 0x1100 and stream\_id\_extension in PES: 0x72
+    ```
+    DumpTS 00022.m2ts --output=00022.mlp --pid=0x1100 --srcfmt=m2ts --outputfmt=es 
+    --stream_id_extension=0x72  
+    ```
+    It will dump a MLP sub-stream from 00022.m2ts with the PID 0x1100 and stream\_id\_extension in PES: 0x72
 
 - Remove the specified MP4 Box(es)
-```
-DumpTS test.mp4 --showinfo --removebox='unkn'
-```
-Show the MP4 file box layout, and remove box with type 'unkn'
+    ```
+    DumpTS test.mp4 --showinfo --removebox='unkn'
+    ```
+    Show the MP4 file box layout, and remove box with type 'unkn'
 
 - Dump sample data of the specified track from MP4 stream
-```
-DumpTS tes.mp4 --output=test.hevc --trackid=1 --outputfmt=es
-```
-Dump the track#1 of test.mp4, and save its sample data to the file test.hevc with NAL annex-b byte stream format, the VSP, SPS and PPS will be merged into elementary stream data.
-```
+    ```
+    DumpTS tes.mp4 --output=test.hevc --trackid=1 --outputfmt=es
+    ```
+    Dump the track#1 of test.mp4, and save its sample data to the file test.hevc with NAL annex-b byte stream format, the VSP, SPS and PPS will be merged into elementary stream data.
+
 - Show Box information
-DumpTS test.mp4 --trackid=1 --boxtype=stsd --showinfo
-```
-Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-depth and so on
-```
+    ```
+    DumpTS test.mp4 --trackid=1 --boxtype=stsd --showinfo
+    ```
+    Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-depth and so on
+
 - Show WebM media and codec information
-DumpTS av1.webm --showinfo
-```
-Show the tree view for the EBML elements of av1.webm
+    ```
+    DumpTS av1.webm --showinfo
+    ```
+    Show the tree view for the EBML elements of av1.webm
 
 - Extract block data of the specified track from WebM file 
-```
-DumpTS tearsofsteel_4sec0025_3840x2160.y4m-20000.av1.webm --trackid=1 --output=tearsofsteel_4sec0025_4K.av1
-```
-Extract av1 video stream from .webm file
+    ```
+    DumpTS tearsofsteel_4sec0025_3840x2160.y4m-20000.av1.webm --trackid=1 --output=tearsofsteel_4sec0025_4K.av1
+    ```
+    Extract av1 video stream from .webm file
 
 - Show MMT/TLV container inforamtion
-```
-DumpTS 00301.mmts --showinfo
-```
-Show the MMT payload information, including PLT, MPT and asset/elementary information
+    ```
+    DumpTS 00301.mmts --showinfo
+    ```
+    Show the MMT payload information, including PLT, MPT and asset/elementary information
 
 - Show data fields of each TLV/IPv4/IPv6/MMT/message/table/descriptor/MPU/MFU 
-```
-DumpTS 00301.mmts --showpack
-```
-Show the detailed information for MMT packets, payloads, messages, tables and descriptors
+    ```
+    DumpTS 00301.mmts --showpack
+    ```
+    Show the detailed information for MMT packets, payloads, messages, tables and descriptors
 
 - Extract ES data from MMT/TLV file
-```
-DumpTS 00301.mmts --CID=0 --pid=0x100 --output=e00301.hevc
-```
-Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
+    ```
+    DumpTS 00301.mmts --CID=0 --pid=0x100 --output=e00301.hevc
+    ```
+    Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 - Other utilities
-```
-DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --showinfo --srcfmt=huffman_codebook
-```
-Load huffman-codebook from the specified file, and print its huffman-tree
-```
-DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
-```
-Load huffman-codebook from the specified file, and print binary search table for huffman-tree
+    ```
+    DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --showinfo --srcfmt=huffman_codebook
+    ```
+    Load huffman-codebook from the specified file, and print its huffman-tree
+    ```
+    DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
+    ```
+    Load huffman-codebook from the specified file, and print binary search table for huffman-tree
