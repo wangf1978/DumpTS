@@ -335,7 +335,7 @@ bool LoadVLCTable(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3]
 				if (ConvertToInt(pstart, pend, vals[i], fmts[i]) == false)
 				{
 					std::string str(pstart, pend);
-					printf("Hit an invalid number value: %s", str.c_str());
+					printf("Hit an invalid number value: %s\n", str.c_str());
 					goto done;
 				}
 

@@ -66,6 +66,13 @@ inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL
 
 		if (literal_fmt == FMT_AUTO)
 		{
+			// Check sign
+			if (*ps == '-')
+			{
+				bNegative = true;
+				ps++;
+			}
+
 			// still not decided
 			auto pc = ps;
 			for (; pc < pe; pc++)
