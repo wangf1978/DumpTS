@@ -1260,6 +1260,10 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 				}
 			}
 		}
+		else if(pSampleDescBox->handler_type == 'soun')
+		{
+
+		}
 	}
 
 	if (g_verbose_level >= 1)
@@ -1521,6 +1525,26 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 
 			cbLeft -= lengthSizeMinusOne + 1 + NALUnitLength;
 			bFirstNALUnit = false;
+		}
+
+		if (cbLeft == 0)
+			iRet = RET_CODE_SUCCESS;
+	}
+	else
+	{
+		uint8_t buf[2048];
+		int64_t cbLeft = sample_size;
+
+		while (cbLeft > 0)
+		{
+			size_t nCpyCnt = (size_t)AMP_MIN(2048, cbLeft);
+			if ((nCpyCnt = fread(buf, 1, nCpyCnt, fp)) == 0)
+				break;
+
+			if (fw != nullptr)
+				fwrite(buf, 1, nCpyCnt, fw);
+
+			cbLeft -= nCpyCnt;
 		}
 
 		if (cbLeft == 0)
