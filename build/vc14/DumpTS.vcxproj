@@ -353,6 +353,19 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\RVLCcodebook.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\RVLCEscCodebook.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb1.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb10.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb11.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb2.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb3.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb4.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb5.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb6.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb7.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb8.txt" />
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb9.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -222,5 +222,44 @@
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt">
       <Filter>test\materials\huffmancodebook</Filter>
     </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\RVLCEscCodebook.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\RVLCcodebook.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb4.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb5.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb6.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb7.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb8.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb9.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb10.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb11.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb1.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb2.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb3.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
   </ItemGroup>
 </Project>

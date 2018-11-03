@@ -134,10 +134,15 @@ void ParseCommandLine(int argc, char* argv[])
 
 	for (; iarg < argc; iarg++)
 	{
+		bool bOption = false;
 		std::string strArg = argv[iarg];
 		if (strArg.find("--") == 0)
+		{
+			bOption = true;
 			strArg = strArg.substr(2);
+		}
 
+		bool bFound = false;
 		for (size_t i = 0; i < _countof(str_arg_prefixes); i++)
 		{
 			if (strArg.find(str_arg_prefixes[i] + "=") == 0)
@@ -146,13 +151,18 @@ void ParseCommandLine(int argc, char* argv[])
 				if (strArg.compare("removebox") != 0)
 					std::transform(strVal.begin(), strVal.end(), strVal.begin(), ::tolower);
 				g_params[str_arg_prefixes[i]] = strVal;
+				bFound = true;
 				break;
 			}
 			else if (strArg == str_arg_prefixes[i])
 			{
 				g_params[str_arg_prefixes[i]] = "";
+				bFound = true;
 			}
 		}
+
+		if (!bFound && bOption)
+			printf("Unsupported options \"%s\"\n", strArg.c_str());
 	}
 
 	unordered_map<std::string, std::string>::const_iterator iter = g_params.cbegin();
@@ -347,6 +357,7 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
 		else if (iter->second.compare("huffman_codebook") == 0 ||
+			iter->second.compare(0, strlen("spectrum_huffman_codebook_"), "spectrum_huffman_codebook_") == 0 ||
 			iter->second.compare("aiff") == 0 ||
 			iter->second.compare("mmt") == 0)
 			bIgnorePreparseTS = true;
@@ -474,9 +485,10 @@ extern void PrintCRCList();
 extern CRC_TYPE GetCRCType(const char* szCRCName);
 extern uint8_t GetCRCWidth(CRC_TYPE type);
 extern const char* GetCRCName(CRC_TYPE type);
-extern void GenerateHuffmanBinarySearchArray(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr);
-extern void PrintHuffmanTree(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr);
+extern void GenerateHuffmanBinarySearchArray(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr, int spectrum_hcb_idx = -1);
+extern void PrintHuffmanTree(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT fmts[3], const char* szOutputFile = nullptr, int spectrum_hcb_idx=-1);
 extern int DumpHuffmanCodeBook();
+extern int DumpSpectrumHuffmanCodeBook(int nCodebookNumber);
 extern int DumpAIFF();
 
 void CalculateCRC()
@@ -626,6 +638,8 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	auto iter_srcfmt = g_params.find("srcfmt");
+
 	// If the output format is ES/PES, and PID is also specified, go into the DumpOneStream mode
 	if (g_params.find("crc") != g_params.end())
 	{
@@ -638,23 +652,39 @@ int main(int argc, char* argv[])
 			CalculateCRC();
 		}
 	}
-	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mp4") == 0)
+	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mp4") == 0)
 	{
 		nDumpRet = DumpMP4();
 	}
-	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mkv") == 0)
+	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mkv") == 0)
 	{
 		nDumpRet = DumpMKV();
 	}
-	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("huffman_codebook") == 0)
+	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("huffman_codebook") == 0)
 	{
 		nDumpRet = DumpHuffmanCodeBook();
 	}
-	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("aiff") == 0)
+	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare(0, strlen("spectrum_huffman_codebook_"), "spectrum_huffman_codebook_") == 0)
+	{
+		int64_t idx_spectrum_hcb = -1;
+		auto str_idx = iter_srcfmt->second.substr(strlen("spectrum_huffman_codebook_"));
+		const char* p_str_idx_start = str_idx.c_str();
+		const char* p_str_idx_end = p_str_idx_start + str_idx.length();
+		if (ConvertToInt((char*)p_str_idx_start, (char*)p_str_idx_end, idx_spectrum_hcb))
+		{
+			nDumpRet = DumpSpectrumHuffmanCodeBook((int)idx_spectrum_hcb);
+		}
+		else
+		{
+			nDumpRet = -1;
+			printf("Failed to specify the spectrum huffman codebook: %s.\n", iter_srcfmt->second.c_str());
+		}
+	}
+	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("aiff") == 0)
 	{
 		nDumpRet = DumpAIFF();
 	}
-	else if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("mmt") == 0)
+	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mmt") == 0)
 	{
 		nDumpRet = DumpMMT();
 	}
