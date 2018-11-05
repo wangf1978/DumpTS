@@ -453,8 +453,9 @@ void PrintHelp()
 		"\t\t\t\t\taiff: Apple AIFF, or AIFC file\n"
 		"\t\t\t\t\tmmt: MPEG Media Transport stream\n"
 		"\t\t\t\t\thuffman_codebook: Huffman-codebook text file including VLC tables\n"
+		"\t\t\t\t\tspectrum_huffman_codebook_1~11: Spectrum-Huffman-codebook text file including VLC tables\n"
 		"\t\t\t\t(*)If it is not specified, decide it by its file extension or find the sync-word to decide it\n");
-	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes, es and binary_search_table\n");
+	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes, es, binary_search_table and sourcecode\n");
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\n");

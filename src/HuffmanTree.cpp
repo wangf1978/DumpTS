@@ -92,7 +92,7 @@ std::tuple<bool, int8_t, uint8_t> spectrum_hcb_params[] = {
 
 bool GetSpectrumQuad(int spectrum_hcb_idx, int value, int& w, int& x, int& y, int& z)
 {
-	if (spectrum_hcb_idx < 0 || spectrum_hcb_idx >= _countof(spectrum_hcb_params))
+	if (spectrum_hcb_idx < 0 || spectrum_hcb_idx >= (int)_countof(spectrum_hcb_params))
 		return false;
 
 	if (std::get<1>(spectrum_hcb_params[spectrum_hcb_idx]) != 4)
@@ -125,7 +125,7 @@ bool GetSpectrumQuad(int spectrum_hcb_idx, int value, int& w, int& x, int& y, in
 
 bool GetSpectrumPair(int spectrum_hcb_idx, int value, int& y, int& z)
 {
-	if (spectrum_hcb_idx < 0 || spectrum_hcb_idx >= _countof(spectrum_hcb_params))
+	if (spectrum_hcb_idx < 0 || spectrum_hcb_idx >= (int)_countof(spectrum_hcb_params))
 		return false;
 
 	if (std::get<1>(spectrum_hcb_params[spectrum_hcb_idx]) != 2)
@@ -339,7 +339,7 @@ struct HCOD_TREE
 			if (left == nullptr && right == nullptr)
 			{
 				bool bGotValueLayout = false;
-				if (spectrum_hcb_idx >= 0 && spectrum_hcb_idx < _countof(spectrum_hcb_params))
+				if (spectrum_hcb_idx >= 0 && spectrum_hcb_idx < (int)_countof(spectrum_hcb_params))
 				{
 					if (std::get<1>(spectrum_hcb_params[spectrum_hcb_idx]) == 4)
 					{
@@ -724,6 +724,12 @@ void GenerateSourceCode(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT f
 	std::vector<HCOD_TREE*> nodes;
 	std::vector<uint8_t> layer_node_count;
 
+	int Dimension = -1;
+	char szFmtStr[256];
+	int VLC_items_per_line = 5;
+	int nMaxCharsOfValue = 0, nMaxCharsOfLength = 0, nMaxCharsOfCodeBits = 0;
+	int nMaxCharsOfW = 0, nMaxCharsOfX = 0, nMaxCharsOfY = 0, nMaxCharsOfZ = 0;
+
 	HCOD_TREE::spectrum_hcb_idx = spectrum_hcb_idx;
 
 	if (szOutputFile != nullptr)
@@ -756,13 +762,7 @@ void GenerateSourceCode(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT f
 		return std::get<0>(a) < std::get<0>(b);
 	});
 
-	int Dimension = -1;
-	char szFmtStr[256];
-	int VLC_items_per_line = 5;
-	int nMaxCharsOfValue = 0, nMaxCharsOfLength = 0, nMaxCharsOfCodeBits = 0;
-	int nMaxCharsOfW = 0, nMaxCharsOfX = 0, nMaxCharsOfY = 0, nMaxCharsOfZ = 0;
-
-	if (spectrum_hcb_idx >= 0 && spectrum_hcb_idx < _countof(spectrum_hcb_params))
+	if (spectrum_hcb_idx >= 0 && spectrum_hcb_idx < (int)_countof(spectrum_hcb_params))
 	{
 		if (std::get<1>(spectrum_hcb_params[spectrum_hcb_idx]) == 4)
 			Dimension = 4;
@@ -826,7 +826,7 @@ void GenerateSourceCode(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT f
 
 	if (Dimension == 4)
 	{
-		fprintf(outfile, "using VLC_ITEM_QUAD = std::tuple<std::tuple<int64_t, int, int, int>, uint8_t, uint64_t>;\n");
+		fprintf(outfile, "using VLC_ITEM_QUAD = std::tuple<std::tuple<int64_t, int, int, int, int>, uint8_t, uint64_t>;\n");
 		fprintf(outfile, "using Spectrum_Huffman_Codebook_Quad = std::vector<VLC_ITEM_QUAD>;\n");
 		sprintf_s(szFmtStr, _countof(szFmtStr), "{ {%%%d" PRIu64 ", %%%dd, %%%dd, %%%dd, %%%dd}, %%%d" PRIu8 ", 0x%%-%d" PRIx64 "},",
 			nMaxCharsOfValue, nMaxCharsOfW, nMaxCharsOfX, nMaxCharsOfY, nMaxCharsOfZ, nMaxCharsOfLength, nMaxCharsOfCodeBits);
