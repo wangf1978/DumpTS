@@ -149,7 +149,7 @@ using BoxSlices = std::vector<BoxSlice>;
 using BoxSlice = tuple<Box*, bool, uint64_t, uint64_t>;
 using BoxSlices = std::vector<BoxSlice>;
 
-int FlushBoxSlice(BoxSlice& box_slice, FILE* fp, FILE* fw)
+int FlushBoxSlice(BoxSlice& box_slice, FILE* fp, FILE* fw, uint64_t nMDATShift)
 {
 	uint8_t buf[2048];
 	Box* ptr_cur_box = std::get<0>(box_slice);
@@ -231,6 +231,102 @@ int FlushBoxSlice(BoxSlice& box_slice, FILE* fp, FILE* fw)
 
 	if (_fseeki64(fp, (int64_t)file_offset, SEEK_SET) != 0)
 		return RET_CODE_ERROR;
+
+	if (nMDATShift > 0 && (box_type == 'stco' || box_type == 'co64'))
+	{
+		size_t actual_read_size = 0UL;
+		size_t read_size = 8;
+		if ((actual_read_size = fread(buf, 1, read_size, fp)) != read_size)
+		{
+			if (!feof(fp))
+				return RET_CODE_ERROR;
+			else
+				box_part_size = 0;	// exit the loop from the next round
+		}
+
+		if (fwrite(buf, 1, actual_read_size, fw) != actual_read_size)
+			return RET_CODE_ERROR;
+
+		if (box_part_size >= actual_read_size)
+			box_part_size -= actual_read_size;
+		else if (box_part_size != 0)
+			return RET_CODE_ERROR;	// Should never happen
+
+		uint32_t entry_size = box_type == 'stco' ? 4 : 8;
+		uint32_t entry_count = ((uint32_t)buf[4] << 24) | ((uint32_t)buf[5] << 16) | ((uint32_t)buf[6] << 8) | (uint32_t)buf[7];
+		uint32_t left_entry_count = (uint32_t)(box_part_size / entry_size);
+
+		entry_count = AMP_MIN(entry_count, left_entry_count);
+
+		if (entry_count > 0)
+		{
+			uint8_t *chunk_offsets = new uint8_t[entry_count*entry_size];
+			if ((actual_read_size = fread(chunk_offsets, 1, entry_count*entry_size, fp)) != entry_count*entry_size)
+			{
+				delete[] chunk_offsets;
+				printf("[MP4] Failed to read %" PRIu32 " bytes for 'stco' and 'co64' box.\n", entry_count*entry_size);
+				return RET_CODE_ERROR;
+			}
+
+			for (uint32_t i = 0; i < entry_count; i++)
+			{
+				if (box_type == 'stco')
+				{
+					uint32_t chunk_offset = ((uint32_t)chunk_offsets[i*entry_size] << 24) | ((uint32_t)chunk_offsets[i*entry_size + 1] << 16) |
+						((uint32_t)chunk_offsets[i*entry_size + 2] << 8) | (uint32_t)chunk_offsets[i*entry_size + 3];
+					if ((uint64_t)chunk_offset < nMDATShift)
+					{
+						printf("[MP4] the original chunk offset: %" PRIu32 " seems not to be correct.\n", chunk_offset);
+						chunk_offset = 0;
+					}
+					else
+						chunk_offset -= (uint32_t)nMDATShift;
+
+					chunk_offsets[i*entry_size] = (chunk_offset >> 24) & 0xFF;
+					chunk_offsets[i*entry_size + 1] = (chunk_offset >> 16) & 0xFF;
+					chunk_offsets[i*entry_size + 2] = (chunk_offset >>  8) & 0xFF;
+					chunk_offsets[i*entry_size + 3] = (chunk_offset) & 0xFF;
+				}
+				else if (box_type == 'co64')
+				{
+					uint64_t chunk_offset = ((uint64_t)chunk_offsets[i*entry_size] << 56) | 
+						((uint64_t)chunk_offsets[i*entry_size + 1] << 48) |
+						((uint64_t)chunk_offsets[i*entry_size + 2] << 40) | 
+						((uint64_t)chunk_offsets[i*entry_size + 3] << 32) |
+						((uint64_t)chunk_offsets[i*entry_size + 4] << 24) |
+						((uint64_t)chunk_offsets[i*entry_size + 5] << 16) |
+						((uint64_t)chunk_offsets[i*entry_size + 6] <<  8) |
+						((uint32_t)chunk_offsets[i*entry_size + 7]);
+					if (chunk_offset < nMDATShift)
+					{
+						chunk_offset = 0;
+						printf("[MP4] the original chunk offset: %" PRIu64 " seems not to be correct.\n", chunk_offset);
+					}
+					else
+						chunk_offset -= nMDATShift;
+
+					chunk_offsets[i*entry_size] = (chunk_offset >> 56) & 0xFF;
+					chunk_offsets[i*entry_size + 1] = (chunk_offset >> 48) & 0xFF;
+					chunk_offsets[i*entry_size + 2] = (chunk_offset >> 40) & 0xFF;
+					chunk_offsets[i*entry_size + 3] = (chunk_offset >> 32) & 0xFF;
+					chunk_offsets[i*entry_size + 4] = (chunk_offset >> 24) & 0xFF;
+					chunk_offsets[i*entry_size + 5] = (chunk_offset >> 16) & 0xFF;
+					chunk_offsets[i*entry_size + 6] = (chunk_offset >>  8) & 0xFF;
+					chunk_offsets[i*entry_size + 7] = (chunk_offset) & 0xFF;
+				}
+			}
+
+			if (fwrite(chunk_offsets, 1, entry_count*entry_size, fw) != entry_count*entry_size)
+			{
+				delete[] chunk_offsets;
+				return RET_CODE_ERROR;
+			}
+
+			delete[] chunk_offsets;
+		}
+
+		box_part_size = (left_entry_count > entry_count) ? (left_entry_count - entry_count)*entry_size : 0;
+	}
 
 	while (box_part_size > 0)
 	{
@@ -617,6 +713,7 @@ int RefineMP4File(Box* root_box, const std::string& src_filename, const std::str
 	{
 		BoxSlices box_slices;
 		bool bBoxRemoved = false;
+		uint64_t nMDATChunkShiftAhead = 0;
 		Box* pChild = root_box->first_child;
 		while (pChild != nullptr)
 		{
@@ -633,13 +730,45 @@ int RefineMP4File(Box* root_box, const std::string& src_filename, const std::str
 			pChild = pChild->next_sibling;
 		}
 
+		// Find 'mdat' chunk is shifted or not
+		uint64_t nPostMDATChunkOffset = 0;
+		for (auto& slice : box_slices)
+		{
+			Box* ptr_cur_box = std::get<0>(slice);
+			if (ptr_cur_box == nullptr)
+				continue;
+
+			bool header_part = std::get<1>(slice);
+			uint64_t box_part_offset = std::get<2>(slice);
+			uint64_t box_part_size = std::get<3>(slice);
+
+			if (g_verbose_level >= 99)
+			{
+				printf("[MP4] '%c%c%c%c', header_part: %d, offset: %" PRIu64 ", size: %" PRIu64 ".\n",
+					(ptr_cur_box->type >> 24) & 0xFF, (ptr_cur_box->type >> 16) & 0xFF, (ptr_cur_box->type >> 8) & 0xFF, ptr_cur_box->type & 0xFF,
+					header_part, box_part_offset, box_part_size);
+			}
+
+			if (ptr_cur_box->type == 'mdat' && header_part)
+			{
+				if ((ptr_cur_box->start_bitpos >> 3) > nPostMDATChunkOffset)
+				{
+					nMDATChunkShiftAhead = (ptr_cur_box->start_bitpos >> 3) - nPostMDATChunkOffset;
+					printf("[MP4] The 'mdat' chunk is shift ahead %" PRIu64 " bytes.\n", nMDATChunkShiftAhead);
+				}
+				break;
+			}
+
+			nPostMDATChunkOffset += box_part_size;
+		}
+
 		if (!bBoxRemoved)
 			printf("The specified box-type(s) are not found in the current ISOBMFF file.\n");
 		else
 		{
 			for (auto& slice : box_slices)
 			{
-				if ((iRet = FlushBoxSlice(slice, fp, fw)) < 0)
+				if ((iRet = FlushBoxSlice(slice, fp, fw, nMDATChunkShiftAhead)) < 0)
 					break;
 			}
 		}
@@ -2014,7 +2143,7 @@ int DumpMP4()
 				removed_box_types.insert(box_type);
 		}
 
-		if ((iRet = RefineMP4File(&root_box, g_params["input"], g_params.find("output") == g_params.end() ? g_params["input"] : g_params["output"], removed_box_types), g_verbose_level) < 0)
+		if ((iRet = RefineMP4File(&root_box, g_params["input"], g_params.find("output") == g_params.end() ? g_params["input"] : g_params["output"], removed_box_types)) < 0)
 			return iRet;
 	}
 	else if (g_params.find("trackid") != g_params.end())
