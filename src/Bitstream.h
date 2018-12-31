@@ -48,6 +48,17 @@
 #define CURBITS_MASK(bits)			bits == 32 ? UINT32_MAX : ~(UINT32_MAX << bits)
 #endif
 
+enum BITSTREAM_ALIGNMENT
+{
+	BYTE_ALIGNMENT,
+	WORD_ALIGNMENT,
+	DWORD_ALIGNMENT,
+	QWORD_ALIGNMENT,
+	NEXT_ALIGNMENT,										// realign to the next cache bits
+	BEGIN_ALIGNMENT,									// realign to its start position
+	END_ALIGNMENT										// realign to the end position, it may trigger request new bitstream
+};
+
 class CBitstream
 {
 	// bit-stream cursor information, which is used to get/peek value from bit-stream
@@ -71,6 +82,9 @@ public:
 	/*!	@brief Get bits value from the current bitstream. */
 	virtual uint64_t	GetBits(int n);
 
+	/*!	@brief Get sign-bits value from the current bitstream. */
+	virtual int64_t		GetSignBits(int n);
+
 	/*!	@brief Peek bits value without changing bitstream status
 		@remarks if bitstream is related with Ring-Chunk(type=BST_TYPE_RINGCHUNK), in the current chunk,
 		the left bits is not enough for peeking, the exception will be raised. */
@@ -82,6 +96,8 @@ public:
 	virtual int			Seek(uint64_t bit_pos);
 	/*!	@brief Read data from the bit-stream */
 	virtual int			Read(uint8_t* buffer, int cbSize);
+	/*! @brief Peek data from the bit-stream, and the read cursor will not move forward */
+	virtual int			Peek(uint8_t* buffer, int cbSize);
 
 	/*!	@brief Get one byte from bit-stream. */
 	uint8_t				GetByte();
@@ -99,6 +115,9 @@ public:
 	int32_t				GetLong();
 	/*!	@brief Get one 64-bit signed integer from bit-stream. */
 	int64_t				GetLongLong();
+
+	int					Realign(BITSTREAM_ALIGNMENT bstAlign = BYTE_ALIGNMENT);
+	bool				IsAlign(BITSTREAM_ALIGNMENT bstAlign = BYTE_ALIGNMENT);
 
 	template <typename T>
 	void				GetBits(int n, T& val);
@@ -134,6 +153,7 @@ public:
 	virtual uint64_t	Tell(uint64_t* left_bits_in_bst = NULL);
 	/*!	@brief Seek to the absolute position in the specified bit-stream. */
 	virtual int			Seek(uint64_t bit_pos);
+	virtual int			Peek(uint8_t* buffer, int cbSize);
 
 protected:
 	virtual void		_FillCurrentBits(bool bPeek = false);

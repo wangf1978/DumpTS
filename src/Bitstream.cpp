@@ -54,6 +54,7 @@ int CBitstream::GetAllLeftBits()
 
 void CBitstream::_UpdateCurBits(bool bEos)
 {
+	DBG_UNREFERENCED_PARAMETER(bEos);
 	if (cursor.p + sizeof(CURBITS_TYPE) <= cursor.p_end)
 	{
 		cursor.curbits = CURBITS_VALUE(cursor.p);
@@ -77,6 +78,7 @@ void CBitstream::_Advance_InCacheBits(int n)
 
 void CBitstream::_FillCurrentBits(bool bPeek)
 {
+	DBG_UNREFERENCED_PARAMETER(bPeek);
 	// Fill the curbits
 	// It may be also external buffer or inner buffer type except the read-out ring-chunk buffer type.
 	if (cursor.p < cursor.p_end)
@@ -112,7 +114,7 @@ uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bThrowExceptionHitStartCod
 
 	while (n > 0 && cursor.bits_left > 0)
 	{
-		int nProcessed = std::min(n, cursor.bits_left);
+		int nProcessed = AMP_MIN(n, cursor.bits_left);
 		CURBITS_TYPE nMask = CURBITS_MASK(cursor.bits_left);
 		nRet <<= nProcessed;
 		nRet |= (cursor.curbits&nMask) >> (cursor.bits_left - nProcessed);
@@ -143,7 +145,7 @@ int64_t CBitstream::SkipBits(int64_t skip_bits)
 	int64_t ret_skip_bits = skip_bits;
 	while (skip_bits > 0 && cursor.p < cursor.p_end)
 	{
-		int nProcessed = (int)std::min(skip_bits, (int64_t)cursor.bits_left);
+		int nProcessed = (int)AMP_MIN(skip_bits, (int64_t)cursor.bits_left);
 		_Advance_InCacheBits(nProcessed);
 
 		if (cursor.bits_left == 0)
@@ -165,6 +167,20 @@ uint64_t CBitstream::GetBits(int n)
 		throw std::invalid_argument("invalid parameter");
 
 	return _GetBits(n);
+}
+
+int64_t CBitstream::GetSignBits(int n)
+{
+	uint64_t u64Val = GetBits(n);
+
+	if (n == 0 || (u64Val&(1ULL << (n - 1))) == 0)
+		return u64Val;
+
+	if (n == 64)
+		return -((int64_t)((~u64Val) + 1ULL));
+	
+	uint64_t nMask = (1 << n) - 1;
+	return -((int64_t)(((~u64Val)&nMask) + 1ULL));
 }
 
 uint64_t CBitstream::PeekBits(int n)
@@ -207,7 +223,7 @@ int CBitstream::Seek(uint64_t bit_pos)
 
 	uint8_t* ptr_dest = cursor.p_start + (bit_pos + cursor.start_offset * 8) / (sizeof(CURBITS_TYPE) * 8) * sizeof(CURBITS_TYPE);
 	size_t bytes_left = (size_t)(cursor.p_end - cursor.p);
-	size_t bits_left = std::min(bytes_left, sizeof(CURBITS_TYPE)) * 8 - (bit_pos + cursor.start_offset * 8) % (sizeof(CURBITS_TYPE) * 8);
+	size_t bits_left = AMP_MIN(bytes_left, sizeof(CURBITS_TYPE)) * 8 - (bit_pos + cursor.start_offset * 8) % (sizeof(CURBITS_TYPE) * 8);
 
 	cursor.p = ptr_dest;
 	_UpdateCurBits();
@@ -251,6 +267,102 @@ int CBitstream::Read(uint8_t* buffer, int cbSize)
 	} while (cbSize > 0);
 
 	return orig_size - cbSize;
+}
+
+int CBitstream::Peek(uint8_t* buffer, int cbSize)
+{
+	if (cbSize < 0)
+		return RET_CODE_INVALID_PARAMETER;
+
+	if (cursor.bits_left % 8 != 0)
+		return RET_CODE_NEEDBYTEALIGN;
+
+	// Wrong pointer
+	if (cursor.p_end < cursor.p || cursor.p_end > cursor.p + INT32_MAX)
+		return RET_CODE_ERROR;
+
+	uint8_t* p_start = cursor.p + AMP_MIN((cursor.p_end - cursor.p), (int)sizeof(CURBITS_TYPE)) - cursor.bits_left / 8;
+	int nAllLeftBits = GetAllLeftBits();
+
+	if (nAllLeftBits <= 0)
+		return 0;
+
+	int peek_bytes = AMP_MIN((nAllLeftBits/8), cbSize);
+
+	if (peek_bytes > 0)
+		memcpy(buffer, p_start, peek_bytes);
+
+	return peek_bytes;
+}
+
+int CBitstream::Realign(BITSTREAM_ALIGNMENT bstAlign)
+{
+	if (bstAlign == BYTE_ALIGNMENT)
+	{
+		// If the current mode is also under write mode, and cache bits has been switched
+		cursor.p = cursor.p_start;
+		cursor.bits_left = 0;
+
+		_UpdateCurBits();
+
+		return RET_CODE_SUCCESS;
+	}
+	else if (bstAlign == END_ALIGNMENT)
+	{
+		cursor.p = cursor.p_end;
+		cursor.bits_left = 0;
+		return RET_CODE_SUCCESS;
+	}
+
+	int skip_bits = 0, align_bits = 0;
+	size_t nPos = (8 * (cursor.p - cursor.p_start) + (sizeof(cursor.curbits) * 8) - cursor.bits_left - cursor.start_offset * 8);
+	switch (bstAlign)
+	{
+	case BYTE_ALIGNMENT: align_bits = 8; break;
+	case WORD_ALIGNMENT: align_bits = 16; break;
+	case DWORD_ALIGNMENT:align_bits = 32; break;
+	case QWORD_ALIGNMENT:align_bits = 64; break;
+	case NEXT_ALIGNMENT: align_bits = sizeof(CURBITS_TYPE); break;
+	}
+	if (align_bits == 0)
+		return RET_CODE_INVALID_PARAMETER;
+
+	int pos_mod = (int)(nPos%align_bits);
+	if ((skip_bits = (pos_mod == 0 ? 0 : (align_bits - pos_mod))) == 0)
+		return RET_CODE_SUCCESS;
+
+	int nAllLeftBits = GetAllLeftBits();
+	// check whether to be able skip "skip_bits"
+	if (nAllLeftBits >= skip_bits)
+		SkipBits(skip_bits);
+	else
+		return RET_CODE_IGNORE_REQUEST;
+
+	return RET_CODE_SUCCESS;
+}
+
+bool CBitstream::IsAlign(BITSTREAM_ALIGNMENT bstAlign)
+{
+	if (bstAlign == BEGIN_ALIGNMENT)
+		return cursor.p == cursor.p_start && cursor.bits_left == (int)(sizeof(CURBITS_TYPE) - cursor.start_offset) * 8 ? true : false;
+	else if (bstAlign == END_ALIGNMENT)
+		return cursor.p == cursor.p_end && cursor.bits_left == 0 ? true : false;
+
+	int align_bits = 0;
+	size_t nPos = (8 * (cursor.p - cursor.p_start) + (sizeof(cursor.curbits) * 8) - cursor.bits_left - cursor.start_offset * 8);
+	switch (bstAlign)
+	{
+	case BYTE_ALIGNMENT: align_bits = 8; break;
+	case WORD_ALIGNMENT: align_bits = 16; break;
+	case DWORD_ALIGNMENT:align_bits = 32; break;
+	case QWORD_ALIGNMENT:align_bits = 64; break;
+	case NEXT_ALIGNMENT: align_bits = sizeof(CURBITS_TYPE); break;
+	}
+	if (align_bits == 0)
+		return false;
+
+	int pos_mod = (int)(nPos%align_bits);
+	return (pos_mod == 0 ? 0 : (align_bits - pos_mod)) == 0 ? true : false;
 }
 
 CBitstream::~CBitstream()
@@ -313,6 +425,9 @@ CFileBitstream::~CFileBitstream()
 		fclose(m_fp);
 		m_fp = NULL;
 	}
+
+	if (cursor.p_start)
+		delete[] cursor.p_start;
 }
 
 int64_t CFileBitstream::SkipBits(int64_t skip_bits)
@@ -408,7 +523,7 @@ int CFileBitstream::Seek(uint64_t bitpos)
 		_FillCurrentBits();
 
 		// Locate to bit position
-		cursor.bits_left = (int)(std::min((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) << 3) - (int)(bitpos % align_bitcount);
+		cursor.bits_left = (int)(AMP_MIN((size_t)(cursor.p_end - cursor.p), sizeof(CURBITS_TYPE)) << 3) - (int)(bitpos % align_bitcount);
 
 		iRet = 0;
 	}
@@ -426,6 +541,53 @@ int CFileBitstream::Seek(uint64_t bitpos)
 	}
 
 	return iRet;
+}
+
+int CFileBitstream::Peek(uint8_t* buffer, int cbSize)
+{
+	if (cbSize < 0)
+		return RET_CODE_INVALID_PARAMETER;
+
+	if (cursor.bits_left % 8 != 0)
+		return RET_CODE_NEEDBYTEALIGN;
+
+	// Wrong pointer
+	if (cursor.p_end < cursor.p || cursor.p_end > cursor.p + INT32_MAX)
+		return RET_CODE_ERROR;
+
+	ptrdiff_t cache_buf_size = cursor.p_end - cursor.p_start;
+	uint8_t* p_start = cursor.p + AMP_MIN(cache_buf_size, (int)sizeof(CURBITS_TYPE)) - cursor.bits_left / 8;
+	int nAllLeftBits = GetAllLeftBits();
+
+	if (nAllLeftBits <= 0)
+		return 0;
+
+	if ((nAllLeftBits >> 3) >= cbSize)
+	{
+		memcpy(buffer, p_start, cbSize);
+		return cbSize;
+	}
+
+	if (m_filemappos < 0)
+		throw std::out_of_range("invalid file position");
+
+	uint64_t bitpos_in_cache_buffer = (uint64_t)((cache_buf_size << 3) - nAllLeftBits);
+
+	long long fpos = _ftelli64(m_fp);
+
+	if (_fseeki64(m_fp, m_filemappos + (bitpos_in_cache_buffer >> 3), SEEK_SET) != 0)
+		return -1;
+
+	size_t cbRead = fread(buffer, 1, cbSize, m_fp);
+
+	if (cbRead > INT_MAX)
+		throw std::out_of_range("unexpected read return value");
+
+	// restore the file position
+	if (_fseeki64(m_fp, fpos, SEEK_SET) != 0)
+		throw std::range_error("can't restore the file position");
+
+	return (int)cbRead;
 }
 
 void CFileBitstream::_FillCurrentBits(bool bPeek)

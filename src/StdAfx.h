@@ -27,6 +27,7 @@
 #include <tchar.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <climits>
 #include "LibPlatform/platdef.h"
 
 #ifdef _DEBUG
@@ -98,6 +99,8 @@
 #define RET_CODE_ERROR_PERMISSION		   -6
 #define RET_CODE_INVALID_PARAMETER		   -7
 #define RET_CODE_OUTOFMEMORY			   -8
+
+#define RET_CODE_IGNORE_REQUEST			   -521
 
 #define RET_CODE_NEEDMOREINPUT			   -1000
 #define RET_CODE_NEEDBYTEALIGN			   -1001
