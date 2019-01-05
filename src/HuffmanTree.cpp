@@ -80,7 +80,7 @@ Huffman_Codebook Scalefactor_Huffman_Codebook = {
 			31				1					2					16 (with ESC 2047)		Table 4.A.12
 */
 std::tuple<bool, int8_t, uint8_t> spectrum_hcb_params[] = {
-	{ false, -1, 0 },{ false, 4, 1 },{ false, 4, 1 },{ true, 4, 1 },
+	{ false, -1, 0 },{ false, 4, 1 },{ false, 4, 1 },{ true, 4, 2 },
 	{ true, 4, 2 },{ false, 2, 4 },{ false, 2, 4 },{ true, 2, 7 },
 	{ true, 2, 7 },{ true, 2, 12 },{ true, 2, 12 },{ true, 2, 16 },
 	{ false, -1, 0 },{ false, -1, 0 },{ false, -1, 0 },{ false, -1, 0 },
