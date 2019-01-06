@@ -303,7 +303,8 @@ int PrepareParams()
 					_stricmp(file_name_ext.c_str(), ".m4v") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".m4s") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".heif") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".heic") == 0)
+					_stricmp(file_name_ext.c_str(), ".heic") == 0 ||
+					_stricmp(file_name_ext.c_str(), ".avif") == 0)
 					g_params["srcfmt"] = "mp4";
 				else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mka") == 0 ||
