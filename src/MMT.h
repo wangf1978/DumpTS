@@ -1814,6 +1814,7 @@ namespace MMT
 				if (left_bits < ((uint64_t)MPT_descriptors_length << 3))
 					return RET_CODE_BOX_TOO_SMALL;
 
+				MPT_descriptors_bytes.resize(MPT_descriptors_length);
 				bs.Read(&MPT_descriptors_bytes[0], MPT_descriptors_length);
 				left_bits -= (uint64_t)MPT_descriptors_length << 3;
 			}
