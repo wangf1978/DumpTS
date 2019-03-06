@@ -226,9 +226,16 @@ bool VerifyCommandLine()
 	if (g_params.find("pid") != g_params.end())
 	{
 		long long pid = ConvertToLongLong(g_params["pid"]);
-		if (!(pid >= 0 && pid <= 0x1FFF))
+		uint16_t max_pid = 0x1fff;
+
+		// MMT can have PIDs > 0x1FFF
+		auto iter = g_params.find("srcfmt");
+		if (iter->second.compare("mmt") == 0)
+			max_pid = 0xffff;
+
+		if (!(pid >= 0 && pid <= max_pid))
 		{
-			printf("The specified PID: %s is invalid, please make sure it is between 0 to 0x1FFF inclusive.\n", g_params["pid"].c_str());
+			printf("The specified PID: %s is invalid, please make sure it is between 0 to 0x%04x inclusive.\n", g_params["pid"].c_str(), max_pid);
 			return false;
 		}
 	}
