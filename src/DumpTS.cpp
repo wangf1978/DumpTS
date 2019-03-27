@@ -450,7 +450,7 @@ void PrintHelp()
 {
 	printf("Usage: DumpTS.exe [SourceMediaFile] [OPTION]...\n");
 	printf("\t--output\t\tThe output dumped file path\n");
-	printf("\t--pid\t\t\tThe PID of dumped stream\n");
+	printf("\t--pid\t\t\tThe PID of dumped TS stream, or the packet_id of dumped MMT asset\n");
 	printf("\t--trackid\t\tThe track id of dumped ISOBMFF\n");
 	printf("\t--destpid\t\tThe PID of source stream will be placed with this PID\n");
 	printf("\t--srcfmt\t\tThe source format, including: \n"
@@ -463,6 +463,7 @@ void PrintHelp()
 		"\t\t\t\t\thuffman_codebook: Huffman-codebook text file including VLC tables\n"
 		"\t\t\t\t\tspectrum_huffman_codebook_1~11: Spectrum-Huffman-codebook text file including VLC tables\n"
 		"\t\t\t\t(*)If it is not specified, decide it by its file extension or find the sync-word to decide it\n");
+	printf("\t--CID\t\t\tthe context ID of a header compressed IP packet in MMT/TLV stream\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes, es, binary_search_table and sourcecode\n");
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
@@ -626,17 +627,17 @@ int main(int argc, char* argv[])
 	// Parse the command line
 	ParseCommandLine(argc, argv);
 
-	// Verify the command line
-	if (VerifyCommandLine() == false)
-	{
-		PrintHelp();
-		return -1;
-	}
-
 	// Prepare the dumping parameters
 	if (PrepareParams() < 0)
 	{
 		printf("Failed to prepare the dump parameters.\n");
+		return -1;
+	}
+
+	// Verify the command line
+	if (VerifyCommandLine() == false)
+	{
+		PrintHelp();
 		return -1;
 	}
 
