@@ -380,6 +380,7 @@ int ShowMMTPackageInfo()
 	int nParsedTLVPackets = 0;
 	int nIPv4Packets = 0, nIPv6Packets = 0, nHdrCompressedIPPackets = 0, nTransmissionControlSignalPackets = 0, nNullPackets = 0, nOtherPackets = 0;
 	TreeCIDPAMsgs CIDPAMsgs;
+	std::vector<uint8_t> fullPAMessage;
 
 	try
 	{
@@ -460,17 +461,49 @@ int ShowMMTPackageInfo()
 
 				// Check whether the current PA message contains a complete message
 				if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
+					pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
 					pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag == 1)
 				{
-					for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+					if (fullPAMessage.size() > 0)
 					{
-						auto& v = std::get<1>(m);
-						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size());
+						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+						{
+							auto& v = std::get<1>(m);
+							if (v.size() > 0)
+							{
+								size_t orig_size = fullPAMessage.size();
+								fullPAMessage.resize(orig_size + v.size());
+								memcpy(&fullPAMessage[orig_size], &v[0], v.size());
+							}
+						}
+						
+						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size());
+
+						fullPAMessage.clear();
+					}
+					else
+					{
+						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+						{
+							auto& v = std::get<1>(m);
+							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size());
+						}
 					}
 				}
 				else
 				{
+					assert(pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages.size() <= 1);
 					// Need add the data into the ring buffer, and parse it later
+					for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+					{
+						auto& v = std::get<1>(m);
+						if (v.size() > 0)
+						{
+							size_t orig_size = fullPAMessage.size();
+							fullPAMessage.resize(orig_size + v.size());
+							memcpy(&fullPAMessage[orig_size], &v[0], v.size());
+						}
+					}
 				}
 			}
 

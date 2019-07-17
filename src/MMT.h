@@ -2489,7 +2489,7 @@ namespace MMT
 						if (left_bits < ((length_extension_flag ? 4ULL : 2ULL) << 3))
 							return RET_CODE_BOX_TOO_SMALL;
 
-						uint32_t message_length = bs.GetDWord();
+						uint32_t message_length = length_extension_flag ? bs.GetDWord() : bs.GetWord();
 						messages.push_back(std::make_tuple(message_length, std::vector<uint8_t>()));
 						auto& message_bytes = std::get<1>(messages.back());
 
