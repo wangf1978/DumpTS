@@ -330,8 +330,8 @@ namespace ISOBMFF
 
 		/*
 		When one or more of the following conditions are true, the zero_byte syntax element shall be present:
-		– The nal_unit_type within the nal_unit( ) syntax structure is equal to VPS_NUT, SPS_NUT or PPS_NUT.
-		– The byte stream NAL unit syntax structure contains the first NAL unit of an access unit in decoding order, as specified in clause 7.4.2.4.4
+		- The nal_unit_type within the nal_unit( ) syntax structure is equal to VPS_NUT, SPS_NUT or PPS_NUT.
+		- The byte stream NAL unit syntax structure contains the first NAL unit of an access unit in decoding order, as specified in clause 7.4.2.4.4
 		*/
 		bool bStartNewAccessUnitFound = false;
 		for (auto& v : m_vNonVCLNUs)

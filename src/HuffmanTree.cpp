@@ -44,7 +44,7 @@ Huffman_Codebook Scalefactor_Huffman_Codebook = {
 
 /*
 	AAC spec 
-	Table 4.151 – Spectrum Huffman codebooks parameters
+	Table 4.151 - Spectrum Huffman codebooks parameters
 	Codebook number, i	unsigned_cb[i]	Dimension of codebook	LAV for codebook	Codebook listed in Table
 			0				-					-						0					-
 			1				0					4						1					Table 4.A.2
