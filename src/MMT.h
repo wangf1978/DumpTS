@@ -1959,7 +1959,7 @@ namespace MMT
 
 			message_id = bs.GetWord();
 			version = bs.GetByte();
-			length = bs.GetWord(); //bs.GetDWord();
+			length = bs.GetWord();
 
 			return nRet;
 		}
@@ -2242,7 +2242,7 @@ namespace MMT
 
 								Data_Units.emplace_back();
 								auto& back = Data_Units.back();
-								back.data_unit_length = left_payload_data_len; //bs.GetWord();
+								back.data_unit_length = left_payload_data_len;
 								back.movie_fragment_sequence_number = bs.GetDWord();
 								back.sample_number = bs.GetDWord();
 								back.offset = bs.GetDWord();
