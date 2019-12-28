@@ -2263,7 +2263,7 @@ namespace MMT
 								{
 									int actual_payload_size = (int)AMP_MIN((uint64_t)back.data_unit_length - 14, (left_bits >> 3));
 									// Make a defensive fix here to avoid the data_unit_length exceed the left_payload_data_len, and cause out of range of reading data
-									actual_payload_size = (int)AMP_MIN((uint64_t)left_payload_data_len, actual_payload_size);
+									actual_payload_size = (int)AMP_MIN(left_payload_data_len, actual_payload_size);
 									if (actual_payload_size > 0)
 									{
 										back.MFU_data_bytes.resize(actual_payload_size);

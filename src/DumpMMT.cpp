@@ -8,7 +8,8 @@
 extern std::unordered_map<std::string, std::string> g_params;
 extern int g_verbose_level;
 
-int g_TLV_packets_per_display = 20;
+#define DEFAULT_TLV_PACKETS_PER_DISPLAY 20
+int g_TLV_packets_per_display = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 
 int ShowMMTTLVPacks()
 {
@@ -100,7 +101,7 @@ int ShowMMTTLVPacks()
 			delete pTLVPacket;
 
 			nParsedTLVPackets++;
-			if ((nParsedTLVPackets%g_TLV_packets_per_display) == 0)
+			if ((nParsedTLVPackets%g_TLV_packets_per_display) == 0 && g_TLV_packets_per_display != std::numeric_limits<decltype(g_TLV_packets_per_display)>::max())
 			{
 				printf("Press any key to continue...\n");
 				char chk = _getch();
@@ -887,8 +888,19 @@ int DumpMMT()
 {
 	int nDumpRet = 0;
 
-	if (g_params.find("showpack") != g_params.end())
+	auto iter_showpack = g_params.find("showpack");
+	if (iter_showpack != g_params.end())
 	{
+		int64_t display_pages = DEFAULT_TLV_PACKETS_PER_DISPLAY;
+		const char* szPages = iter_showpack->second.c_str();
+		if (ConvertToInt((char*)szPages, (char*)szPages + iter_showpack->second.length(), display_pages))
+		{
+			if (display_pages <= 0)
+				g_TLV_packets_per_display = std::numeric_limits<decltype(g_TLV_packets_per_display)>::max();
+			else
+				g_TLV_packets_per_display = decltype(g_TLV_packets_per_display)(display_pages);
+		}
+
 		return ShowMMTTLVPacks();
 	}
 	else if (g_params.find("pid") != g_params.end())
