@@ -1959,7 +1959,10 @@ namespace MMT
 
 			message_id = bs.GetWord();
 			version = bs.GetByte();
-			length = bs.GetDWord();
+			if (message_id == 0x8000 || message_id == 0x8001 || message_id == 0x8002)
+				length = bs.GetWord();
+			else
+				length = bs.GetDWord();
 
 			return nRet;
 		}
@@ -2259,6 +2262,8 @@ namespace MMT
 								if (left_payload_data_len > 0 && left_bits > 0)
 								{
 									int actual_payload_size = (int)AMP_MIN((uint64_t)back.data_unit_length - 14, (left_bits >> 3));
+									// Make a defensive fix here to avoid the data_unit_length exceed the left_payload_data_len, and cause out of range of reading data
+									actual_payload_size = (int)AMP_MIN((uint64_t)left_payload_data_len, actual_payload_size);
 									if (actual_payload_size > 0)
 									{
 										back.MFU_data_bytes.resize(actual_payload_size);
