@@ -115,6 +115,7 @@ void ParseCommandLine(int argc, char* argv[])
 	std::string str_arg_prefixes[] = {
 		"output", 
 		"pid", 
+		"CID",
 		"trackid", 
 		"boxtype", 
 		"destpid", 
