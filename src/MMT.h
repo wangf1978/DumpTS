@@ -2252,8 +2252,7 @@ namespace MMT
 								back.priority = bs.GetByte();
 								back.dependency_counter = bs.GetByte();
 
-								if (left_bits < ((uint64_t)back.data_unit_length << 3) + 16 ||
-									back.data_unit_length < 14)
+								if (left_bits < ((uint64_t)back.data_unit_length << 3) + 16)
 									return RET_CODE_BOX_TOO_SMALL;
 
 								left_bits -= 16ULL << 3;
@@ -2261,7 +2260,15 @@ namespace MMT
 
 								if (left_payload_data_len > 0 && left_bits > 0)
 								{
-									int actual_payload_size = (int)AMP_MIN((uint64_t)back.data_unit_length - 14, (left_bits >> 3));
+									int actual_payload_size = 0;
+									if (back.data_unit_length < 14)
+									{
+										actual_payload_size = 0;//Just skip this MFU data bytes
+									}
+									else
+									{
+										actual_payload_size = (int)AMP_MIN((uint64_t)back.data_unit_length - 14, (left_bits >> 3));
+									}
 									// Make a defensive fix here to avoid the data_unit_length exceed the left_payload_data_len, and cause out of range of reading data
 									actual_payload_size = (int)AMP_MIN(left_payload_data_len, actual_payload_size);
 									if (actual_payload_size > 0)
