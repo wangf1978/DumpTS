@@ -637,22 +637,63 @@ int DumpMMTOneStream()
 	int nFilterTLVPackets = 0, nFilterMFUs = 0, nParsedTLVPackets = 0;
 	TreeCIDPAMsgs CIDPAMsgs;
 	uint32_t asset_type = 0;
-	CESRepacker* pESRepacker = nullptr;
+	CESRepacker* pESRepacker[2] = { nullptr };
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
 	if (g_params.find("input") == g_params.end())
 		return -1;
 
+	int iterPID = g_params["pid"].find("&");
+	const char* sp;
+	const char* ep;
 	int64_t i64Val = -1LL;
-	const char* sp = g_params["pid"].c_str();
-	const char* ep = sp + g_params["pid"].length();
-	if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+	int PIDN = 0;
+	uint16_t src_packet_id[2];
+	std::string Outputfiles[2];
+	auto iterParam = g_params.find("output");
+	if (iterPID ==0)//Only one pid this case
 	{
-		printf("Please specify a valid packet_id.\n");
-		return RET_CODE_ERROR;
+		sp = g_params["pid"].c_str();
+		ep = sp + g_params["pid"].length();
+		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+		{
+			printf("Please specify a valid packet_id.\n");
+			return RET_CODE_ERROR;
+		}
+		src_packet_id[0] = (uint16_t)i64Val;
+		PIDN = 0;
 	}
-	uint16_t src_packet_id = (uint16_t)i64Val;
+	else//Two pids
+	{
+		std::string PIDs;
+		PIDs = g_params["pid"].substr(0, iterPID);
+		sp = PIDs.c_str();
+		ep = sp + PIDs.length();
+			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			{
+				printf("Please specify a valid packet_id.\n");
+				return RET_CODE_ERROR;
+			}
+		src_packet_id[0] = (uint16_t)i64Val;
+		Outputfiles[0] = iterParam->second;
+		if (Outputfiles[0].rfind(".") == std::string::npos)// No dot in output file name
+			Outputfiles[0] += ".";
+		Outputfiles[1] = Outputfiles[0];
+		Outputfiles[0].insert(Outputfiles[0].rfind("."), "_" + PIDs);
+
+		PIDs = g_params["pid"].substr(iterPID+1, g_params["pid"].length());
+		sp = PIDs.c_str();
+		ep = sp + PIDs.length();
+		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+		{
+			printf("Please specify a valid packet_id for the second pid.\n");
+			return RET_CODE_ERROR;
+		}
+		src_packet_id[1] = (uint16_t)i64Val;
+		Outputfiles[1].insert(Outputfiles[1].rfind("."), "_" + PIDs);
+		PIDN = 1;
+	}
 
 	int filter_CID = -1;
 	auto iterCID = g_params.find("CID");
@@ -725,43 +766,52 @@ int DumpMMTOneStream()
 				// Check whether it is a control message MMT packet
 				if (pHeaderCompressedIPPacket->MMTP_Packet == nullptr || (
 					pHeaderCompressedIPPacket->MMTP_Packet->Payload_type != 2 &&
-					pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id))
+					(pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id[0]&&
+						pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id[1])))
 					goto Skip;
 
-				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id)
+				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ||
+					pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[1])
 					nFilterTLVPackets++;
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 				{
 					// Create a new ES re-packer to repack the NAL unit to an Annex-B bitstream
-					if (pESRepacker == nullptr)
+					for (int i = 0; i <=PIDN; i++) {
+						if (pESRepacker[i] == nullptr)
+						{
+							ES_REPACK_CONFIG config;
+							memset(&config, 0, sizeof(config));
+
+							ES_BYTE_STREAM_FORMAT dstESFmt = ES_BYTE_STREAM_RAW;
+							if (IS_HEVC_STREAM(asset_type))
+							{
+								config.codec_id = CODEC_ID_V_MPEGH_HEVC;
+								dstESFmt = ES_BYTE_STREAM_HEVC_ANNEXB;
+							}
+							else if (IS_AVC_STREAM(asset_type))
+							{
+								config.codec_id = CODEC_ID_V_MPEG4_AVC;
+								dstESFmt = ES_BYTE_STREAM_AVC_ANNEXB;
+							}
+							else if (asset_type == 'mp4a')
+								config.codec_id = CODEC_ID_A_MPEG4_AAC;
+							//memset(config.es_output_file_path, 0, sizeof(config.es_output_file_path));
+							strcpy_s(config.es_output_file_path, _countof(config.es_output_file_path), Outputfiles[i].c_str());
+
+							pESRepacker[i] = new CESRepacker(ES_BYTE_STREAM_NALUNIT_WITH_LEN, dstESFmt);
+							pESRepacker[i]->Config(config);
+							pESRepacker[i]->Open(nullptr);
+						}
+					}
+
+					if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0])
 					{
-						ES_REPACK_CONFIG config;
-						memset(&config, 0, sizeof(config));
-
-						ES_BYTE_STREAM_FORMAT dstESFmt = ES_BYTE_STREAM_RAW;
-						if (IS_HEVC_STREAM(asset_type))
-						{
-							config.codec_id = CODEC_ID_V_MPEGH_HEVC;
-							dstESFmt = ES_BYTE_STREAM_HEVC_ANNEXB;
-						}
-						else if (IS_AVC_STREAM(asset_type))
-						{
-							config.codec_id = CODEC_ID_V_MPEG4_AVC;
-							dstESFmt = ES_BYTE_STREAM_AVC_ANNEXB;
-						}
-						else if (asset_type == 'mp4a')
-							config.codec_id = CODEC_ID_A_MPEG4_AAC;
-
-						auto iterParam = g_params.find("output");
-						if (iterParam != g_params.end())
-							strcpy_s(config.es_output_file_path, _countof(config.es_output_file_path), iterParam->second.c_str());
-						else
-							memset(config.es_output_file_path, 0, sizeof(config.es_output_file_path));
-
-						pESRepacker = new CESRepacker(ES_BYTE_STREAM_NALUNIT_WITH_LEN, dstESFmt);
-						pESRepacker->Config(config);
-						pESRepacker->Open(nullptr);
+						PIDN = 0;
+					}
+					else
+					{
+						PIDN = 1;
 					}
 
 					for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Data_Units)
@@ -774,7 +824,7 @@ int DumpMMTOneStream()
 							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
 							asset_type,
 							actual_fragmenttion_indicator,
-							&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker);
+							&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[PIDN]);
 
 						if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
 						{
@@ -815,7 +865,7 @@ int DumpMMTOneStream()
 							auto& v = std::get<1>(m);
 							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), &bChanged) == 0 && bChanged)
 							{
-								uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id);
+								uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id[PIDN]);
 								if (new_asset_type != 0 && new_asset_type != asset_type)
 									asset_type = new_asset_type;
 							}
@@ -852,13 +902,15 @@ int DumpMMTOneStream()
 		}
 	}
 
-	if (pESRepacker != nullptr)
-	{
-		pESRepacker->Flush();
+	for (int i = 0; i <= 1; i++) {
+		if (pESRepacker[i] != nullptr)
+		{
+			pESRepacker[i]->Flush();
 
-		pESRepacker->Close();
-		delete pESRepacker;
-		pESRepacker = nullptr;
+			pESRepacker[i]->Close();
+			delete pESRepacker[i];
+			pESRepacker[i] = nullptr;
+		}
 	}
 
 	auto end_time = std::chrono::high_resolution_clock::now();
@@ -866,8 +918,8 @@ int DumpMMTOneStream()
 	printf("Total cost: %f ms\n", std::chrono::duration<double, std::milli>(end_time - start_time).count());
 
 	printf("Total input TLV packets: %d.\n", nParsedTLVPackets);
-	printf("Total MMT/TLV packets with the packet_id(0X%X): %d\n", src_packet_id, nFilterTLVPackets);
-	printf("Total MFUs in MMT/TLV packets with the packet_id(0X%X): %d\n", src_packet_id, nFilterMFUs);
+	printf("Total MMT/TLV packets with the packet_id(0X%X&0X%X): %d\n", src_packet_id[0], src_packet_id[1], nFilterTLVPackets);
+	printf("Total MFUs in MMT/TLV packets with the packet_id(0X%X&0X%X): %d\n", src_packet_id[0], src_packet_id[1], nFilterMFUs);
 
 	return nRet;
 }
