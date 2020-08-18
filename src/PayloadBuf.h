@@ -47,6 +47,12 @@ using namespace std;
 #define SESF_TELETEXT_STREAM				0x06
 #define TTML_STREAM							0x06
 
+// extend
+#define PRESENTATION_GRAPHICS				0x90
+#define INTERACTIVE_GRAPHICS				0x91
+#define SUBTITLE							0x92
+#define MPEG1_VIDEO_STREAM					0x01
+
 /*
 	0x0A						Multi-protocol Encapsulation
 	0x0B						DSM-CC U-N Messages
@@ -59,6 +65,7 @@ using namespace std;
 #define DSMCC_TYPE_D						0x0D
 
 #define STREAM_TYPE_NAMEA(st)	(\
+	(st) == MPEG1_VIDEO_STREAM?"MPEG1 Video":(\
 	(st) == MPEG2_VIDEO_STREAM?"MPEG2 Video":(\
 	(st) == MPEG4_AVC_VIDEO_STREAM?"MPEG4 AVC Video":(\
 	(st) == SMPTE_VC1_VIDEO_STREAM?"VC1 Video":(\
@@ -71,7 +78,7 @@ using namespace std;
 	(st) == HDMV_LPCM_AUDIO_STREAM?"HDMV LPCM Audio":(\
 	(st) == DOLBY_AC3_AUDIO_STREAM?"AC3 Audio":(\
 	(st) == DTS_AUDIO_STREAM?"DTS Audio":(\
-	(st) == DOLBY_LOSSLESS_AUDIO_STREAM?"Dolby Lossless Audio":(\
+	(st) == DOLBY_LOSSLESS_AUDIO_STREAM?"Dolby Lossless Audio (TrueHD/Atmos)":(\
 	(st) == DD_PLUS_AUDIO_STREAM?"DD+ Audio":(\
 	(st) == DTS_HD_EXCEPT_XLL_AUDIO_STREAM?"DTS-HD audio":(\
 	(st) == DTS_HD_XLL_AUDIO_STREAM?"DTS-HD Lossless Audio":(\
@@ -80,10 +87,13 @@ using namespace std;
 	(st) == DD_PLUS_SECONDARY_AUDIO_STREAM?"DD+ Secondary Audio":(\
 	(st) == DTS_HD_SECONDARY_AUDIO_STREAM?"DTS LBR Audio":(\
 	(st) == SESF_TELETEXT_STREAM?"Teletext, ARIB subtitle or TTML":(\
+	(st) == PRESENTATION_GRAPHICS?"PGS":(\
+	(st) == INTERACTIVE_GRAPHICS?"IGS":(\
+	(st) == SUBTITLE?"SUB":(\
 	(st) == DSMCC_TYPE_A?"DSM-CC Multi-protocol Encapsulation":(\
 	(st) == DSMCC_TYPE_B?"DSM-CC DSM-CC U-N Messages":(\
 	(st) == DSMCC_TYPE_C?"DSM-CC DSM-CC Stream Descriptors":(\
-	(st) == DSMCC_TYPE_D?"DSM-CC SM-CC Sections":"Unknown")))))))))))))))))))))))))
+	(st) == DSMCC_TYPE_D?"DSM-CC SM-CC Sections":"Unknown")))))))))))))))))))))))))))))
 
 enum MPEG_SYSTEM_TYPE
 {
