@@ -1,0 +1,265 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="test">
+      <UniqueIdentifier>{8e2e1acb-aad9-43d9-a854-e14eb6b21bda}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="test\materials">
+      <UniqueIdentifier>{5e97c8e9-00da-40c9-9826-875f8cc784ec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="test\materials\huffmancodebook">
+      <UniqueIdentifier>{3959540d-42d5-403d-9425-c32c2ba9db6a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="doc">
+      <UniqueIdentifier>{0d33c21b-a8c9-46b4-a28f-32f05fa6650f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{9a8bd0f3-773e-480e-9244-cd18e4549340}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Header Files">
+      <UniqueIdentifier>{cab7c47d-5779-498a-a627-fac1d244b2e4}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="src\Source Files">
+      <UniqueIdentifier>{b30a9368-ce80-4ec3-bcc7-8a2a3cd030e4}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
+    </Filter>
+    <Filter Include="src\Header Files\LibPlatform">
+      <UniqueIdentifier>{1da7f8ba-dfad-474b-914a-79a9e04edcb1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="build">
+      <UniqueIdentifier>{b3ae2f7d-9d21-4786-b1a7-d2998ad127bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="build\linux">
+      <UniqueIdentifier>{da1f7449-312e-4dbe-9652-2e10d727cfd8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="build\linux\common">
+      <UniqueIdentifier>{78b32510-e004-4c59-84ea-ab391c091a85}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" />
+    <None Include="..\..\doc\references.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\index.html">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\linux\common\Toolchain.mk">
+      <Filter>build\linux\common</Filter>
+    </None>
+    <None Include="..\linux\Makefile">
+      <Filter>build\linux</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\AIFF.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMRingBuffer.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AudChMap.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Bitstream.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\combase.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\crc.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpMKV.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpMMT.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpMP4.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpStream.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpTS.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ESRepacker.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\HuffmanTree.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\IP.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ISO14496_1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ISO14496_12.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ISO14496_15.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Matroska.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\MMT.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\PartitialTS.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\PayloadBuf.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\QTFF.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\RefactorTS.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\StdAfx.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\AIFF.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMRingBuffer.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AudChMap.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\av1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\Bitstream.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\CodecID.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\combase.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\crc.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\DataUtil.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\DumpTS.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ESRepacker.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\IP.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ISO14496_1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ISO14496_12.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ISO14496_15.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\Matroska.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\MMT.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\PayloadBuf.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\QTFF.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\StdAfx.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\basetsd.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\basetyps.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\minwindef.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\platdef.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\rpc.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\sal.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\tchar.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\Unknwn.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\winerror.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\LibPlatform\wtypes.h">
+      <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\RVLCEscCodebook.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\RVLCcodebook.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb4.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb5.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb6.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb7.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb8.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb9.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb10.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb11.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb1.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb2.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+    <Text Include="..\..\test\materials\huffmancodebook\Spectrum_Huffman_cb3.txt">
+      <Filter>test\materials\huffmancodebook</Filter>
+    </Text>
+  </ItemGroup>
+</Project>
