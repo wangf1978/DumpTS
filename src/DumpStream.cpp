@@ -1581,6 +1581,8 @@ int FlushPSIBuffer(FILE* fw, unsigned char* psi_buffer, int psi_buffer_len, int 
 int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char* pes_buffer, int pes_buffer_len, int dumpopt, int &raw_data_len, int stream_id = -1, int stream_id_extension = -1)
 {
 	int iret = 0;
+	int64_t d64PTS = INT64_MIN, d64DTS = INT64_MIN;
+	char szLog[512] = { 0 };
 	raw_data_len = 0;
 	if (pes_buffer_len >= 9)
 	{
@@ -1701,6 +1703,24 @@ int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char*
 					raw_data_len = pes_len - 3 - pes_hdr_len;
 
 				raw_data = pes_buffer + pes_hdr_len + 9;
+				{
+					uint8_t* pHdrStart = pes_buffer + 9;
+					if (PTS_DTS_flags & 0x2)
+					{
+						if (pes_buffer_len >= pes_hdr_len + 9)
+							d64PTS = GetPTSValue(pHdrStart);
+
+						pHdrStart += 5;
+					}
+
+					if (PTS_DTS_flags & 0x01)
+					{
+						if (pes_buffer_len >= pes_hdr_len + 9)
+							d64DTS = GetPTSValue(pHdrStart);
+
+						pHdrStart += 5;
+					}
+				}
 			}
 			else
 			{
@@ -1764,8 +1784,43 @@ int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char*
 				else
 				{
 					static int PktIndex = 0;
-					int64_t pts = GetPTSValue(pes_buffer + 9);
-					printf("PktIndex:%d, PTS value is %" PRId64 "(0X%" PRIX64 ").\n", PktIndex++, pts, pts);
+					size_t ccLog = sizeof(szLog) / sizeof(szLog[0]);
+					int ccWritten = 0;
+					int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+
+					if (ccWrittenOnce > 0)
+					{
+						if (d64PTS == INT64_MIN)
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", PTS: %22c", ' ');
+						else
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", PTS: %10" PRId64 "(%9" PRIX64 "h)", d64PTS, d64PTS);
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					if (ccWrittenOnce > 0)
+					{
+						if (d64DTS == INT64_MIN)
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", DTS: %22c", ' ');
+						else
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", DTS: %10" PRId64 "(%9" PRIX64 "h)", d64DTS, d64DTS);
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					if (ccWrittenOnce > 0)
+					{
+						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", PES pkt len: %10d, ES len: %10d", pes_buffer_len, raw_data_len);
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					printf("%s.\n", szLog);
 				}
 			}
 		}

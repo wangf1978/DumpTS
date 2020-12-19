@@ -30,6 +30,113 @@
 #include <climits>
 #include "LibPlatform/platdef.h"
 
+#ifdef _WIN32
+#define AMP_CUR_THREAD_ID()			(::GetCurrentThreadId())
+#define STRICMP							_tcsicmp
+#define STRNICMP						_tcsnicmp
+#define STRCMP							_tcscmp
+#define SSCANF							_stscanf_s
+#define STRUPR(s,l)						_tcsupr_s(s, l)
+#define STRCPY(s,l,ss)					_tcscpy_s(s,l,ss)
+#define STRCAT(s,l,ss)					_tcscat_s(s,l,ss)
+#define STRNCPY(s,l,ss,n)				_tcsncpy_s(s,l,ss,n)
+#define _STPRINTF_S(s,l,f,...)			_stprintf_s(s,l,f,__VA_ARGS__)
+#define	_SNTPRINTF_S(s,l,cc,f,...)		_sntprintf_s(s, l, cc, f, __VA_ARGS__)
+#define _VSNTPRINTF_S(s,l,c,f,a)		_vsntprintf_s(s,l,c,f,a)
+
+#define MBCSICMP						_stricmp
+#define MBCSNICMP						_strnicmp
+#define MBCSCPY(s,l,ss)					strcpy_s(s,l,ss)
+#define MBCSCAT(s,l,ss)					strcat_s(s,l,ss)
+#define MBCSNCPY(s,l,ss,n)				strncpy_s(s,l,ss,n)
+#define	MBCSPRINTF_S(s,l,f,...)			sprintf_s(s,l,f, __VA_ARGS__)
+#define	MBCSNPRINTF_S(s,l,cc,f,...)		_snprintf_s(s,l,cc, f, __VA_ARGS__)
+#define MBCSVSNPRINTF_S(s,l,c,f,a)		_vsnprintf_s(s,l,c,f,a)
+
+#define WCSICMP							_wcsicmp
+#define WCSNICMP						_wcsnicmp
+#define WCSCPY(s,l,ss)					wcscpy_s(s,l,ss)
+#define WCSCAT(s,l,ss)					wcscat_s(s,l,ss)
+#define WCSNCPY(s,l,ss,n)				wcsncpy_s(s,l,ss,n)
+#define	WCSPRINTF_S(s,l,f,...)			swprintf_s(s,l,f, __VA_ARGS__)
+#define	WCSNPRINTF_S(s,l,cc,f,...)		_snwprintf_s(s,l,cc, f, __VA_ARGS__)
+#define WCSVSNPRINTF_S(s,l,c,f,a)		_vsnwprintf_s(s,l,c,f,a)
+
+#ifdef _UNICODE
+#define FOPEN(fp, n, a)					fp=_tfsopen(n, _T(a), _SH_DENYNO)
+#else
+#define FOPEN(fp, n, a)					fp=_fsopen(n, a, _SH_DENYNO)
+#endif
+#define FOPENA(fp, n, a)				fp=_fsopen(n, a, _SH_DENYNO)
+#define FOPENW(fp, n, a)				fp=_wfsopen(n, a, _SH_DENYNO)
+
+#define UNLINK(p)						_tunlink(p)
+#define _ACCESS							_access
+#define _OPEN							_open
+#define _CLOSE							_close
+#define _READ							_read
+#define _WRITE							_write
+#define _LSEEKI64						_lseeki64
+#define _LOCALTIME(a, b)				localtime_s(a, b)
+#define _TZSET							_tzset
+#define	mkdir(path, mode)				_tmkdir(path)
+#define _MKDIR(path, mode)				_mkdir(path)
+#if __cplusplus > 199711L || defined(_MSVC_LANG) && _MSVC_LANG >= 201402L
+#define MEMCPY(d,ds,s,ss)				memcpy_s(d,ds,s,ss)
+#else
+#define MEMCPY(d,ds,s,ss)				memcpy(d,s,ss)
+#endif
+#define FSEEK64							_fseeki64
+#define FTELL64							_ftelli64
+#elif defined(__linux__)
+#define AMP_CUR_THREAD_ID()  			((unsigned long)pthread_self())
+#define STRCMP							strcmp
+#define STRNICMP						strncasecmp
+#define STRUPR(s,l)						_strupr(s)	
+#define STRICMP							strcasecmp
+#define SSCANF							sscanf
+#define STRCPY(s,l,ss)					strcpy(s,ss)
+#define STRCAT(s,l,ss)					strcat(s,ss)
+#define STRNCPY(s,l,ss,n)				strncpy(s,ss,n)
+#define _STPRINTF_S(s,l,f,...)			_stprintf(s,f,##__VA_ARGS__)
+#define	_SNTPRINTF_S(s,l,cc,f,...)		_sntprintf(s, cc+1, f, ##__VA_ARGS__)
+#define _VSNTPRINTF_S(s,l,c,f,a)		_vsntprintf(s,c+1,f,a)
+
+#define MBCSICMP						strcasecmp
+#define MBCSNICMP						strncasecmp
+#define MBCSCPY(s,l,ss)					strcpy(s,ss)
+#define MBCSCAT(s,l,ss)					strcat(s,ss)
+#define MBCSNCPY(s,l,ss,n)				strncpy(s,ss,n)
+#define	MBCSPRINTF_S(s,l,f,...)			sprintf(s,f, ##__VA_ARGS__)
+#define	MBCSNPRINTF_S(s,l,cc,f,...)		snprintf(s,cc+1,f, ##__VA_ARGS__)
+#define MBCSVSNPRINTF_S(s,l,c,f,a)		vsnprintf(s,c+1,f,a)
+
+#define WCSICMP							wcscasecmp
+#define WCSNICMP						wcsncasecmp
+#define WCSCPY(s,l,ss)					wcscpy(s,ss)
+#define WCSCAT(s,l,ss)					wcscat(s,ss)
+#define WCSNCPY(s,l,ss,n)				wcsncpy(s,ss,n)
+#define	WCSPRINTF_S(s,l,f,...)			swprintf(s,l, f, ##__VA_ARGS__)
+#define	WCSNPRINTF_S(s,l,cc,f,...)		swprintf(s,cc+1,f, ##__VA_ARGS__)
+#define WCSVSNPRINTF_S(s,l,c,f,a)		vswprintf(s,c+1,f,a)
+
+#define _ACCESS							access
+#define _MKDIR(path, mode)				mkdir(path, mode)
+#define FOPEN(fp, n, a)					fp = fopen(n, a);
+#define FOPENA(fp, n, a)				fp = fopen(n, a);
+#define UNLINK(p)						unlink(p)
+#define _OPEN							open
+#define _CLOSE							close
+#define _READ							read
+#define _WRITE							write
+#define _LSEEKI64						lseek64
+#define _LOCALTIME(a, b)				a = localtime(b)
+#define _TZSET							_tzset
+#define MEMCPY(d,ds,s,ss)				memcpy(d,s,ss)
+#define FSEEK64							fseeko
+#define FTELL64							ftello
+#endif // _WIN32
+
 #ifdef _DEBUG
 #define AMP_Assert( expr ) if( !(expr) ) { \
 	_tprintf(_T("[AMPSDK] ** Assertion failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
