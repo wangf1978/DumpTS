@@ -16,6 +16,16 @@ using namespace std;
 #define DUMP_WAV							(1<<5)		// MSFT wave file
 #define DUMP_MEDIA_INFO_VIEW				(1<<6)
 
+#define SID_PROGRAM_STREAM_MAP				0xBC
+#define SID_PRIVATE_STREAM_1				0xBD
+#define SID_PADDING_STREAM					0xBE
+#define SID_PRIVATE_STREAM_2				0xBF
+#define SID_ECM								0xF0
+#define SID_EMM								0xF1
+#define SID_PROGRAM_STREAM_DIRECTORY		0xFF
+#define SID_DSMCC_STREAM					0xF2
+#define SID_H222_1_TYPE_E					0xF8
+
 #define PID_PROGRAM_ASSOCIATION_TABLE		0x0000
 
 #define IS_PES_PAYLOAD(p)					((p)[0] == 0 && (p)[1] == 0 && (p)[2] == 1 && (p)[3] >= 0xBC)

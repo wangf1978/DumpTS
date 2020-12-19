@@ -1592,119 +1592,132 @@ int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char*
 			int pes_stream_id = pes_buffer[3];
 			int pes_stream_id_extension = -1;
 			int pes_len = pes_buffer[4] << 8 | pes_buffer[5];
-			int pes_hdr_len = pes_buffer[8];
-			unsigned char PTS_DTS_flags = (pes_buffer[7] >> 6) & 0x3;
-			unsigned char ESCR_flag = (pes_buffer[7] >> 5) & 0x1;
-			unsigned char ES_rate_flag = (pes_buffer[7] >> 4) & 0x1;
-			unsigned char DSM_trick_mode_flag = (pes_buffer[7] >> 3) & 0x1;
-			unsigned char additional_copy_info_flag = (pes_buffer[7] >> 2) & 0x1;
-			unsigned char PES_CRC_flag = (pes_buffer[7] >> 1) & 0x1;
-			unsigned char pes_hdr_extension_flag = pes_buffer[7] & 0x1;
+			int pes_hdr_len = 0;
+			unsigned char* raw_data = NULL;
 
-			if (PTS_DTS_flags == 2)
-				off += 5;
-			else if (PTS_DTS_flags == 3)
-				off += 10;
+			if (pes_stream_id != SID_PROGRAM_STREAM_MAP &&
+				pes_stream_id != SID_PRIVATE_STREAM_1 &&
+				pes_stream_id != SID_PADDING_STREAM &&
+				pes_stream_id != SID_PRIVATE_STREAM_2 &&
+				pes_stream_id != SID_ECM &&
+				pes_stream_id != SID_EMM &&
+				pes_stream_id != SID_PROGRAM_STREAM_DIRECTORY &&
+				pes_stream_id != SID_DSMCC_STREAM &&
+				pes_stream_id != SID_H222_1_TYPE_E) {
+				unsigned char PTS_DTS_flags = (pes_buffer[7] >> 6) & 0x3;
+				unsigned char ESCR_flag = (pes_buffer[7] >> 5) & 0x1;
+				unsigned char ES_rate_flag = (pes_buffer[7] >> 4) & 0x1;
+				unsigned char DSM_trick_mode_flag = (pes_buffer[7] >> 3) & 0x1;
+				unsigned char additional_copy_info_flag = (pes_buffer[7] >> 2) & 0x1;
+				unsigned char PES_CRC_flag = (pes_buffer[7] >> 1) & 0x1;
+				unsigned char pes_hdr_extension_flag = pes_buffer[7] & 0x1;
 
-			if (ESCR_flag)
-				off += 6;
+				int pes_hdr_len = pes_buffer[8];
 
-			if (ES_rate_flag)
-				off += 3;
+				if (PTS_DTS_flags == 2)
+					off += 5;
+				else if (PTS_DTS_flags == 3)
+					off += 10;
 
-			if (DSM_trick_mode_flag)
-				off += 1;
+				if (ESCR_flag)
+					off += 6;
 
-			if (additional_copy_info_flag)
-				off += 1;
+				if (ES_rate_flag)
+					off += 3;
 
-			if (PES_CRC_flag)
-				off += 2;
+				if (DSM_trick_mode_flag)
+					off += 1;
 
-			if (off >= pes_buffer_len)
-				return -1;
+				if (additional_copy_info_flag)
+					off += 1;
 
-			if (pes_hdr_extension_flag)
-			{
-				unsigned char PES_private_data_flag = (pes_buffer[off] >> 7) & 0x1;
-				unsigned char pack_header_field_flag = (pes_buffer[off] >> 6) & 0x1;
-				unsigned char program_packet_sequence_counter_flag = (pes_buffer[off] >> 5) & 0x1;
-				unsigned char PSTD_buffer_flag = (pes_buffer[off] >> 4) & 0x1;
-				unsigned char PES_extension_flag_2 = pes_buffer[off] & 0x1;
-				off += 1;
-
-				if (PES_private_data_flag)
-					off += 16;
-
-				if (pack_header_field_flag)
-				{
-					off++;
-
-					if (off >= pes_buffer_len)
-						return -1;
-
-					off += pes_buffer[off];
-				}
-
-				if (program_packet_sequence_counter_flag)
-					off += 2;
-
-				if (PSTD_buffer_flag)
+				if (PES_CRC_flag)
 					off += 2;
 
 				if (off >= pes_buffer_len)
 					return -1;
 
-				if (PES_extension_flag_2)
+				if (pes_hdr_extension_flag)
 				{
-					unsigned char PES_extension_field_length = pes_buffer[off] & 0x7F;
+					unsigned char PES_private_data_flag = (pes_buffer[off] >> 7) & 0x1;
+					unsigned char pack_header_field_flag = (pes_buffer[off] >> 6) & 0x1;
+					unsigned char program_packet_sequence_counter_flag = (pes_buffer[off] >> 5) & 0x1;
+					unsigned char PSTD_buffer_flag = (pes_buffer[off] >> 4) & 0x1;
+					unsigned char PES_extension_flag_2 = pes_buffer[off] & 0x1;
+					off += 1;
 
-					off++;
+					if (PES_private_data_flag)
+						off += 16;
+
+					if (pack_header_field_flag)
+					{
+						off++;
+
+						if (off >= pes_buffer_len)
+							return -1;
+
+						off += pes_buffer[off];
+					}
+
+					if (program_packet_sequence_counter_flag)
+						off += 2;
+
+					if (PSTD_buffer_flag)
+						off += 2;
 
 					if (off >= pes_buffer_len)
 						return -1;
 
-					if (PES_extension_field_length > 0)
+					if (PES_extension_flag_2)
 					{
-						unsigned char stream_id_extension_flag = (pes_buffer[off] >> 7) & 0x1;
-						if (stream_id_extension_flag == 0)
+						unsigned char PES_extension_field_length = pes_buffer[off] & 0x7F;
+
+						off++;
+
+						if (off >= pes_buffer_len)
+							return -1;
+
+						if (PES_extension_field_length > 0)
 						{
-							pes_stream_id_extension = pes_buffer[off];
+							unsigned char stream_id_extension_flag = (pes_buffer[off] >> 7) & 0x1;
+							if (stream_id_extension_flag == 0)
+							{
+								pes_stream_id_extension = pes_buffer[off];
+							}
 						}
 					}
 				}
+
+				// filter it by stream_id and stream_id_extension
+				if (stream_id != -1 && stream_id != pes_stream_id)
+					return 1;	// mis-match with stream_id filter
+
+				if (stream_id_extension != -1 && pes_stream_id_extension != -1 && stream_id_extension != pes_stream_id_extension)
+					return 1;	// mis-match with stream_id filter
+
+				if (pes_len == 0)
+					raw_data_len = pes_buffer_len - pes_hdr_len - 9;
+				else
+					raw_data_len = pes_len - 3 - pes_hdr_len;
+
+				raw_data = pes_buffer + pes_hdr_len + 9;
 			}
-
-			// filter it by stream_id and stream_id_extension
-			if (stream_id != -1 && stream_id != pes_stream_id)
-				return 1;	// mis-match with stream_id filter
-
-			if (stream_id_extension != -1 && pes_stream_id_extension != -1 && stream_id_extension != pes_stream_id_extension)
-				return 1;	// mis-match with stream_id filter
-
-			if (pes_len == 0)
-				raw_data_len = pes_buffer_len - pes_hdr_len - 9;
 			else
-				raw_data_len = pes_len - 3 - pes_hdr_len;
-
-			unsigned char* raw_data = pes_buffer + pes_hdr_len + 9;
+			{
+				raw_data_len = pes_len;
+				raw_data = pes_buffer + 6;
+			}
 
 			// Check the media information of current elementary stream
 			if (DUMP_MEDIA_INFO_VIEW&dumpopt)
 			{
-				int raw_buf_len = 0;
-				if (pes_len == 0)
-					raw_buf_len = pes_buffer_len - pes_hdr_len - 9;
-				else
-					raw_buf_len = pes_len - 3 - pes_hdr_len;
-
-				if (raw_buf_len > 0)
-					CheckRawBufferMediaInfo(PID, stream_type, pes_buffer + pes_hdr_len + 9, raw_data_len);
+				if (raw_data_len > 0)
+					CheckRawBufferMediaInfo(PID, stream_type, raw_data, raw_data_len);
 			}
 
 			if ((dumpopt&DUMP_RAW_OUTPUT) || (dumpopt&DUMP_PCM) || (dumpopt&DUMP_WAV))
 			{
-				if (pes_buffer_len < pes_len + 6 || pes_buffer_len < pes_hdr_len + 9)
+				if (raw_data_len < 0)
 				{
 					if (g_verbose_level >= 1)
 						printf("The PES buffer length(%d) is too short, it is expected to be greater than %d.\n", pes_buffer_len, std::max(pes_len + 6, pes_hdr_len + 9));
