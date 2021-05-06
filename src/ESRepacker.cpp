@@ -50,7 +50,7 @@ int CESRepacker::Config(ES_REPACK_CONFIG es_repack_config)
 		{
 			if (es_repack_config.pHEVCConfigRecord == nullptr)
 			{
-				printf("HEVCDecoderConfigurationRecord informaiton is required to repack HEVC NAL access unit sample.\n");
+				printf("HEVCDecoderConfigurationRecord information is required to repack HEVC NAL access unit sample.\n");
 				return RET_CODE_INVALID_PARAMETER;
 			}
 		}

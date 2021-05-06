@@ -706,6 +706,7 @@ int DumpMMTOneStream()
 	}
 
 	std::string& szInputFile = g_params["input"];
+	bool bExplicitVideoStreamDump = g_params.find("video") == g_params.end() ? false : true;
 
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
 
@@ -796,6 +797,15 @@ int DumpMMTOneStream()
 							}
 							else if (asset_type == 'mp4a')
 								config.codec_id = CODEC_ID_A_MPEG4_AAC;
+							else
+							{
+								if (bExplicitVideoStreamDump)
+								{
+									// skip it
+									printf("Video stream(asset_type: %d), need find known assert type for video stream at first!!!!\n", asset_type);
+									continue;
+								}
+							}
 							//memset(config.es_output_file_path, 0, sizeof(config.es_output_file_path));
 							strcpy_s(config.es_output_file_path, _countof(config.es_output_file_path), Outputfiles[i].c_str());
 

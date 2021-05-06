@@ -70,6 +70,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--listmkvEBML**|*N/A*|List EBML elements defined in Matroska spec|
 |**--dashinitmp4**|*filename*|the initialization MP4 file to describe the DASH stream global information|
 |**--VLCTypes**|*[ahdob][ahdob][ahdob]*|Specify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, "aah" means:<br>Value and length will be parsed according to literal string, codeword will be parsed according as hexadecimal|
+|**--video**|*N/A*|indicate the current dumped stream is a video stream explictly|
 |**--verbose**|*0~n*|print more message in the intermediate process|
  
 Here are some examples of command lines: 

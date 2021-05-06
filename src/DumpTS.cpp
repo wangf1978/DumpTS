@@ -130,7 +130,8 @@ void ParseCommandLine(int argc, char* argv[])
 		"crc",
 		"dashinitmp4", 
 		"VLCTypes",
-		"verbose"
+		"video",
+		"verbose",
 	};
 
 	for (; iarg < argc; iarg++)
