@@ -131,6 +131,8 @@ void ParseCommandLine(int argc, char* argv[])
 		"dashinitmp4", 
 		"VLCTypes",
 		"video",
+		"start",
+		"end",
 		"verbose",
 	};
 
@@ -479,6 +481,9 @@ void PrintHelp()
 	printf("\t--listmkvebml\t\tShow EBML elements defined in Matroska specification and exit\n");
 	printf("\t--dashinitmp4\t\tSpecify the DASH initialization mp4 file to process m4s\n");
 	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
+	printf("\t--video\t\t\tThe current dumped stream is a video stream\n");
+	printf("\t--start\t\t\tSpecify where to start dumping the stream, for ts, in the unit of TS pack.\n");
+	printf("\t--end\t\t\tSpecify where to stop dumping the stream, for ts, in the unit of TS pack.\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
 	printf("\t--help\t\t\tPrint this message");
 

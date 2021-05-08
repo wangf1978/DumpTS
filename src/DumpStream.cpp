@@ -5,6 +5,8 @@
 #include "Bitstream.h"
 #include "DumpTS.h"
 #include "AudChMap.h"
+#include <limits>
+#include <type_traits>
 
 using namespace std;
 
@@ -1857,6 +1859,8 @@ int DumpOneStream()
 	int stream_id = -1;
 	int stream_id_extension = -1;
 	unsigned long ts_pack_idx = 0;
+	int64_t start_tspck_pos = -1LL;
+	int64_t end_tspck_pos = -1LL;
 
 	unordered_map<unsigned short, CPSIBuf*> pPSIBufs;
 	unordered_map<unsigned short, unsigned char> stream_types;
@@ -1932,10 +1936,58 @@ int DumpOneStream()
 		dumpopt |= DUMP_MEDIA_INFO_VIEW;
 	}
 
+	if (g_params.find("start") != g_params.end())
+	{
+		start_tspck_pos = ConvertToLongLong(g_params["start"]);
+
+		// Check the start ts pack position
+		if (start_tspck_pos < 0 || (unsigned long long)start_tspck_pos >= g_dump_status.num_of_packs)
+		{
+			iRet = RET_CODE_INVALID_PARAMETER;
+			printf("The current start pack pos(%" PRId64 ") exceed the valid range [0, %" PRIu64 ").\n", start_tspck_pos, g_dump_status.num_of_packs);
+			goto done;
+		}
+
+		if (FSEEK64(fp, start_tspck_pos*ts_pack_size, SEEK_SET) != 0)
+		{
+			iRet = RET_CODE_ERROR;
+			printf("Failed to seek the specified position {err: %d}.\n", ferror(fp));
+			goto done;
+		}
+
+		g_dump_status.cur_pack_idx = start_tspck_pos;
+		ts_pack_idx = (unsigned long)start_tspck_pos;
+	}
+	else
+		start_tspck_pos = 0;
+
+	if (g_params.find("end") != g_params.end())
+	{
+		end_tspck_pos = ConvertToLongLong(g_params["end"]);
+
+		// Check the end ts pack position
+		if (end_tspck_pos <= 0 || (unsigned long long)end_tspck_pos > g_dump_status.num_of_packs)
+		{
+			iRet = RET_CODE_INVALID_PARAMETER;
+			printf("The current end pack pos(%" PRId64 ") exceed the valid range (0, %" PRIu64 "].\n", end_tspck_pos, g_dump_status.num_of_packs);
+			goto done;
+		}
+	}
+	else
+		end_tspck_pos = std::numeric_limits<decltype(end_tspck_pos)>::max();
+
 	g_dump_status.state = DUMP_STATE_RUNNING;
 
 	while (true)
 	{
+		// Check whether to reach the stopping position or not
+		if (g_dump_status.cur_pack_idx >= (unsigned long long)end_tspck_pos)
+		{
+			if (end_tspck_pos != std::numeric_limits<decltype(end_tspck_pos)>::max())
+				printf("Reach the end position: %" PRId64 ", stop dumping the stream.\n", end_tspck_pos);
+			break;
+		}
+
 		uint16_t nRead = (uint16_t)fread(buf, 1, ts_pack_size, fp);
 		if (nRead < ts_pack_size)
 			break;
