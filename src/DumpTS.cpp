@@ -131,6 +131,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"dashinitmp4", 
 		"VLCTypes",
 		"video",
+		"progseq",
 		"start",
 		"end",
 		"verbose",
@@ -726,7 +727,43 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		if (g_params.find("output") == g_params.end())
+		// copy whole TS or a part of TS
+		if (g_params.find("outputfmt") != g_params.end() && _stricmp(g_params["outputfmt"].c_str(), "copy") == 0)
+		{
+			if (g_params.find("output") == g_params.end())
+			{
+				// give an output file name
+				char szExt[_MAX_EXT];
+				memset(szExt, 0, sizeof(szExt));
+				std::string& src_filepath = g_params["input"];
+				_splitpath_s(src_filepath.c_str(), NULL, 0, NULL, 0, NULL, 0, szExt, _MAX_EXT);
+
+				std::string strNewFilePath;
+				size_t ccExt = strlen(szExt);
+				if (ccExt > 0)
+					strNewFilePath = src_filepath.substr(0, src_filepath.length() - strlen(szExt));
+				else
+					strNewFilePath = src_filepath;
+
+				if (g_params.find("progseq") != g_params.end())
+					strNewFilePath += "_ps_" + g_params["progseq"];
+
+				if (g_params.find("start") != g_params.end())
+					strNewFilePath += "_spnstart_" + g_params["start"];
+
+				if (g_params.find("end") != g_params.end())
+					strNewFilePath += "_spnend_" + g_params["end"];
+
+				strNewFilePath += szExt;
+				g_params["output"] = strNewFilePath;
+			}
+
+			g_params["outputfmt"] = "copy";
+			g_params["pid"] = "-1";
+			DumpOneStream();
+			goto done;
+		}
+		else if (g_params.find("output") == g_params.end())
 		{
 			// No output file is specified
 			// Check whether pid and showinfo is there

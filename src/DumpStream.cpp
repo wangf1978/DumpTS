@@ -1861,10 +1861,16 @@ int DumpOneStream()
 	unsigned long ts_pack_idx = 0;
 	int64_t start_tspck_pos = -1LL;
 	int64_t end_tspck_pos = -1LL;
+	int sProgSeqID = -1;
+	int curProgSeqID = -1;
+	bool bCopyOriginalStream = false;
+	std::vector<uint8_t> unwritten_pmt_buf;
+	std::vector<uint8_t> unwritten_pat_buf;
 
 	unordered_map<unsigned short, CPSIBuf*> pPSIBufs;
 	unordered_map<unsigned short, unsigned char> stream_types;
 	unordered_map<unsigned short, unordered_map<unsigned short, unsigned char>> prev_PMT_stream_types;
+	unordered_map<unsigned short, uint8_t> mapPSIVersionNumbers;
 
 	PSI_PROCESS_CONTEXT psi_process_ctx;
 	psi_process_ctx.pPSIPayloads = &pPSIBufs;
@@ -1976,6 +1982,29 @@ int DumpOneStream()
 	else
 		end_tspck_pos = std::numeric_limits<decltype(end_tspck_pos)>::max();
 
+	if (g_params.find("progseq") != g_params.end())
+		sProgSeqID = (int)ConvertToLongLong(g_params["progseq"]);
+
+	if (g_params.find("outputfmt") != g_params.end())
+	{
+		bCopyOriginalStream = _stricmp(g_params["outputfmt"].c_str(), "copy") == 0 ? true : false;
+		if (g_verbose_level > 0)
+		{
+			if (start_tspck_pos > 0 || end_tspck_pos > 0 && end_tspck_pos != std::numeric_limits<decltype(end_tspck_pos)>::max())
+				printf("copy a part of the original stream file.\n");
+			else if (curProgSeqID >= 0)
+				printf("copy the #%d program sequence of the original stream file.\n", curProgSeqID);
+			else
+				printf("copy the original stream file.\n");
+		}
+	}
+
+	if (sProgSeqID >= 0)
+	{
+		unwritten_pat_buf.reserve(6144);
+		unwritten_pmt_buf.reserve(6144);	// 32 TS packets
+	}
+
 	g_dump_status.state = DUMP_STATE_RUNNING;
 
 	while (true)
@@ -1995,6 +2024,19 @@ int DumpOneStream()
 		unsigned short PID = (buf[buf_head_offset + 1] & 0x1f) << 8 | buf[buf_head_offset + 2];
 
 		bool bPSI = pPSIBufs.find(PID) != pPSIBufs.end() ? true : false;
+
+		if (bCopyOriginalStream)
+		{
+			if (sProgSeqID == -1 && fw != NULL)
+				fwrite(buf, 1, ts_pack_size, fw);
+			else
+			{
+				if (sProgSeqID >= 0 && curProgSeqID == sProgSeqID && !bPSI)
+				{
+					fwrite(buf, 1, ts_pack_size, fw);
+				}
+			}
+		}
 
 		// Continue the parsing when PAT/PMT is hit
 		if (PID != sPID && !bPSI)
@@ -2031,6 +2073,9 @@ int DumpOneStream()
 
 					pPSIBufs[PID]->Reset();
 				}
+
+				if (PID == PID_PROGRAM_ASSOCIATION_TABLE)
+					unwritten_pat_buf.clear();
 			}
 
 			if (PID == sPID && pes_buffer_len > 0)
@@ -2062,12 +2107,79 @@ int DumpOneStream()
 			if (pPSIBufs[PID]->PushTSBuf(ts_pack_idx, buf, index, (unsigned char)g_ts_fmtinfo.packet_size) >= 0)
 			{
 				// Try to process PSI buffer
-				int nProcessPMTRet = pPSIBufs[PID]->ProcessPSI();
+				int nProcessPSIRet = pPSIBufs[PID]->ProcessPSI();
 				// If process PMT result is -1, it means the buffer is too small, don't reset the buffer.
-				if (nProcessPMTRet != -1)
-					pPSIBufs[PID]->Reset();
+				if (nProcessPSIRet != -1)
+				{
+					if (sProgSeqID >= 0)
+					{
+						if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+						{
+							bool bNewProgramSeq = false;
+							if (mapPSIVersionNumbers.find(PID) != mapPSIVersionNumbers.end())
+							{
+								if (pPSIBufs[PID]->version_number != mapPSIVersionNumbers[PID])
+									bNewProgramSeq = true;
+							}
+							else
+								bNewProgramSeq = true;
 
-				if (nProcessPMTRet == 0)
+							if (bNewProgramSeq)
+							{
+								curProgSeqID++;
+								if (curProgSeqID == sProgSeqID)
+								{
+									if (fw != NULL)
+									{
+										if (unwritten_pat_buf.size() > 0)
+											fwrite(unwritten_pat_buf.data(), 1, unwritten_pat_buf.size(), fw);
+
+										if (unwritten_pmt_buf.size() > 0)
+											fwrite(unwritten_pmt_buf.data(), 1, unwritten_pmt_buf.size(), fw);
+
+										fwrite(buf, 1, ts_pack_size, fw);
+									}
+								}
+
+								mapPSIVersionNumbers[PID] = pPSIBufs[PID]->version_number;
+							}
+
+							unwritten_pat_buf.clear();
+							unwritten_pmt_buf.clear();
+						}
+						else if (PID == PID_PROGRAM_ASSOCIATION_TABLE)
+						{
+							int number_of_programs = 0;
+							// Check how many program in the current PAT, if number of programs is greater than 1, stop the process
+							for (auto iter = pPSIBufs.begin(); iter != pPSIBufs.end(); iter++)
+							{
+								if ((*iter).second->table_id == TID_TS_program_map_section)
+									number_of_programs++;
+							}
+
+							if (number_of_programs > 1)
+							{
+								printf("Can only pick up the part of TS stream with only one program.\n");
+								iRet = -1;
+								goto done;
+							}
+
+							std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pat_buf));
+						}
+					}
+
+					pPSIBufs[PID]->Reset();
+				}
+				else
+				{
+					if (sProgSeqID >= 0 && pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+						std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pmt_buf));
+
+					if (sProgSeqID >= 0 && PID == PID_PROGRAM_ASSOCIATION_TABLE)
+						std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pat_buf));
+				}
+
+				if (nProcessPSIRet == 0)
 				{
 					if (dumpopt & DUMP_MEDIA_INFO_VIEW)
 					{
