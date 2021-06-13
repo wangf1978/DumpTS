@@ -3,6 +3,7 @@
 - **ISOBMFF**: ISO-based Media File Format, the file extension is normally *.mp4, .mov, m4a, m4v, .m4s, .heif, .heic, .avif*
 - **Matroska**: a multimedia container format based on EBML (Extensible Binary Meta Language), the file extension is normally *.mkv, .mka, .mk3d and .webm*
 - **MMT**: MPEG Media Transport stream, the file extension is normally *.mmts* 
+- **PS**: MPEG program stream, the file extension is normally *.vob, .vro, .mpg, .mpeg* 
 
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
@@ -42,7 +43,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     cd ../../bin/macos/
     ./DumpTS --help
     ```
-***(\*) both x64 and x86 are supported***
+    ***(\*) both x64 and x86 are supported***
 
 # How to run it?
 
@@ -58,6 +59,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--srcfmt**|*ts, m2ts, tts, <br>mp4, <br>mkv, <br>huffman_codebook, <br>spectrum_huffman_codebook_n, <br>aiff, <br>mmt*|the source media format, Including: ts, m2ts, mp4, mkv and huffman_codebook,if it is not specified, find the sync-word to decide it. <BR>BTW:<BR>**mp4**: <br>it is for the ISOBMFF, for example, .mov, .mp4, .m4s, .m4a, .heic, .heif...<BR>**mkv**:<br>it is for Matroska based file-format, for example, .mkv, .webm...<BR>**huffman_codebook:**<br>the VLC tables<BR>**spectrum_huffman_codebook_1~9:**<br>AAC spectrum huffman_codebook 1~11<BR>**aiff:**<br>AIFF or AIFF-C<br>**mmt:**<br>The MMT/TLV stream|
 |**--outputfmt**|*ts, m2ts, <br>pes, <br>es, <br>wav, pcm, <br>binary_search_table, <br>sourcecode, <br>copy*|the destination dumped format, including: ts, m2ts, pes, es and so on<br>**binary_search_table:**<br>generate the binary search table for Huffman VLC codebook<br>**sourcecode:**<br>generate C/C++ source code<br>**copy**<br>copy the original stream|
 |**--stream_id**|*0xhh*|the stream_id in PES header of dumped stream|
+|**--sub_stream_id**|*0xhh*|the sub_stream_id in the private data of pack of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--removebox**|*xxxx*|remove the box elements in MP4 file|
 |**--boxtype**|*xxxx*|**For ISOBMFF/mp4 source:**<BR>the box type FOURCC, i.e. --boxtype=stsd<BR>**For Matroska/mkv source:**<BR>the EBML ID, i.e. --boxtype=0x1A45DFA3|
@@ -75,7 +77,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--start**|ddd/0xhhh|specify where to start dumping the stream data, <BR>for TS, the value should be in unit of TS pack|
 |**--end**|ddd/0xhhh|specify where to stop dumping the stream data, <BR>for TS, the value should be in unit of TS pack|
 |**--verbose**|*0~n*|print more message in the intermediate process|
- 
+
 Here are some examples of command lines: 
 - Show TS information
     ```
@@ -204,13 +206,13 @@ Here are some examples of command lines:
        |         |--Bh
        |              |--16h ((value: 43, w: 0, x: 0, y: 1, z: 0), length: 5)
        |              |--17h ((value: 31, w: 0, x: -1, y: 0, z: 0), length: 5)
-    ```
+  ```
     Load spectrum huffman-codebook#1 from the specified file, and print its huffman-tree
     ```
     DumpTS Spectrum_Huffman_cb1.txt --VLCTypes=aah --srcfmt=spectrum_huffman_codebook_1 --outputfmt=sourcecode
     using VLC_ITEM_QUAD = std::tuple<std::tuple<int64_t, int, int, int>, uint8_t, uint64_t>;
     using Spectrum_Huffman_Codebook_Quad = std::vector<VLC_ITEM_QUAD>;
-
+  
     Spectrum_Huffman_Codebook_Quad VLC_tables_quad = {
         { { 0, -1, -1, -1, -1}, 11, 0x7f8}, { { 1, -1, -1, -1,  0},  9, 0x1f1},
         { { 2, -1, -1, -1,  1}, 11, 0x7fd}, { { 3, -1, -1,  0, -1}, 10, 0x3f5},
@@ -220,7 +222,7 @@ Here are some examples of command lines:
         { {10, -1,  0, -1,  0},  7, 0x72 }, { {11, -1,  0, -1,  1}, 10, 0x3f4},
         ......
     };
-
+  
     uint8_t hcb[][2] = {
         {1, 2},
         {40, 0},                            // leaf node (V-index:40(V: 40) L:1 C:0X0)

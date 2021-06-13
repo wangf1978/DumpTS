@@ -1377,7 +1377,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	return iParseRet;
 }
 
-int WriteWaveFileBuffer(FILE* fw, unsigned PID, int stream_type, unsigned char* es_buffer, int es_buffer_len)
+int WriteWaveFileBuffer(FILE* fw, int stream_type, unsigned char* es_buffer, int es_buffer_len)
 {
 	if (fw == NULL)
 		return -1;
@@ -1580,7 +1580,16 @@ int FlushPSIBuffer(FILE* fw, unsigned char* psi_buffer, int psi_buffer_len, int 
 	return iret;
 }
 
-int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char* pes_buffer, int pes_buffer_len, int dumpopt, int &raw_data_len, int stream_id = -1, int stream_id_extension = -1)
+int FlushPESBuffer(FILE* fw, 
+	unsigned short PID, 
+	int stream_type, 
+	unsigned char* pes_buffer, 
+	int pes_buffer_len, 
+	int dumpopt, 
+	int &raw_data_len, 
+	int stream_id = -1, 
+	int stream_id_extension = -1,
+	int sub_stream_id = -1)
 {
 	int iret = 0;
 	int64_t d64PTS = INT64_MIN, d64DTS = INT64_MIN;
@@ -1759,7 +1768,7 @@ int FlushPESBuffer(FILE* fw, unsigned short PID, int stream_type, unsigned char*
 
 					if (dumpopt&DUMP_WAV)
 					{
-						iret = WriteWaveFileBuffer(fw, PID, stream_type, raw_data, raw_data_len);
+						iret = WriteWaveFileBuffer(fw, stream_type, raw_data, raw_data_len);
 					}
 
 					// strip the LPCM header (4 bytes)
@@ -1990,7 +1999,7 @@ int DumpOneStream()
 		bCopyOriginalStream = _stricmp(g_params["outputfmt"].c_str(), "copy") == 0 ? true : false;
 		if (g_verbose_level > 0)
 		{
-			if (start_tspck_pos > 0 || end_tspck_pos > 0 && end_tspck_pos != std::numeric_limits<decltype(end_tspck_pos)>::max())
+			if (start_tspck_pos > 0 || (end_tspck_pos > 0 && end_tspck_pos != std::numeric_limits<decltype(end_tspck_pos)>::max()))
 				printf("copy a part of the original stream file.\n");
 			else if (curProgSeqID >= 0)
 				printf("copy the #%d program sequence of the original stream file.\n", curProgSeqID);

@@ -34,8 +34,9 @@ extern int	RefactorTS();
 extern int	DumpOneStream();
 extern int	DumpPartialTS();
 extern int	DumpMP4();
-extern int  DumpMKV();
+extern int	DumpMKV();
 extern int	DumpMMT();
+extern int	DumpOneStreamFromPS();
 
 bool TryFitMPEGSysType(FILE* rfp, MPEG_SYSTEM_TYPE eMPEGSysType, unsigned short& packet_size, unsigned short& num_of_prefix_bytes, unsigned short& num_of_suffix_bytes, bool& bEncrypted)
 {
@@ -124,7 +125,8 @@ void ParseCommandLine(int argc, char* argv[])
 		"showinfo",
 		"showpts", 
 		"showpack",
-		"stream_id", 
+		"stream_id",
+		"sub_stream_id",
 		"stream_id_extension", 
 		"removebox", 
 		"crc",
@@ -246,6 +248,19 @@ bool VerifyCommandLine()
 	}
 
 	//
+	// For stream_id
+	//
+	if (g_params.find("stream_id") != g_params.end())
+	{
+		long long stream_id = ConvertToLongLong(g_params["stream_id"]);
+		if (stream_id < 0 || stream_id > 0xff)
+		{
+			printf("The specified stream_id: %s is invalid, please make sure it is between 0 to %02x inclusive.\n", g_params["stream_id"].c_str(), 0xff);
+			return false;
+		}
+	}
+
+	//
 	// For Destination PID
 	//
 	if (g_params.find("destpid") != g_params.end())
@@ -309,6 +324,10 @@ int PrepareParams()
 					g_params["srcfmt"] = "ts";
 				else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
 					g_params["srcfmt"] = "tts";
+				else if (_stricmp(file_name_ext.c_str(), ".vob") == 0)
+					g_params["srcfmt"] = "vob";
+				else if (_stricmp(file_name_ext.c_str(), ".mpg") == 0 || _stricmp(file_name_ext.c_str(), ".mpeg") == 0)
+					g_params["srcfmt"] = "mpg";
 				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mov") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".m4a") == 0 ||
@@ -349,6 +368,22 @@ int PrepareParams()
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_TS;
 			g_ts_fmtinfo.packet_size = 188;
+			g_ts_fmtinfo.encrypted = false;
+			g_ts_fmtinfo.num_of_prefix_bytes = 0;
+			g_ts_fmtinfo.num_of_suffix_bytes = 0;
+		}
+		else if (iter->second.compare("mpg") == 0)
+		{
+			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_PS;
+			g_ts_fmtinfo.packet_size = 0xFFFF;
+			g_ts_fmtinfo.encrypted = false;
+			g_ts_fmtinfo.num_of_prefix_bytes = 0;
+			g_ts_fmtinfo.num_of_suffix_bytes = 0;
+		}
+		else if (iter->second.compare("vob") == 0)
+		{
+			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_DVD_VIDEO;
+			g_ts_fmtinfo.packet_size = 2048;
 			g_ts_fmtinfo.encrypted = false;
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
@@ -432,7 +467,8 @@ int PrepareDump()
 
 	g_dump_status.state = DUMP_STATE_INITIALIZE;
 
-	if (g_ts_fmtinfo.eMpegSys >= MPEG_SYSTEM_TS && g_ts_fmtinfo.eMpegSys <= MPEG_SYSTEM_BDAV)
+	if ((g_ts_fmtinfo.eMpegSys >= MPEG_SYSTEM_TS && g_ts_fmtinfo.eMpegSys <= MPEG_SYSTEM_BDAV) ||
+		(g_ts_fmtinfo.eMpegSys == MPEG_SYSTEM_DVD_VIDEO || g_ts_fmtinfo.eMpegSys == MPEG_SYSTEM_DVD_VR))
 	{
 		_fseeki64(rfp, 0, SEEK_END);
 		long long file_size = _ftelli64(rfp);
@@ -473,6 +509,7 @@ void PrintHelp()
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\n");
+	printf("\t--sub_stream_id\t\tThe sub_stream_id in the private data of pack of dumped stream\n");
 	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\n");
 	printf("\t--boxtype\t\tthe box type FOURCC\n");
 	printf("\t--showinfo\t\tPrint the media information of summary, layout or elementary stream in TS/ISOBMFF/Matroska file\n");
@@ -705,6 +742,22 @@ int main(int argc, char* argv[])
 	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mmt") == 0)
 	{
 		nDumpRet = DumpMMT();
+	}
+	else if (g_params.find("srcfmt") != g_params.end() && (g_params["srcfmt"].compare("vob") == 0 || 
+														   g_params["srcfmt"].compare("mpg") == 0))
+	{
+		if (g_params.find("stream_id") != g_params.end())
+		{
+			if (g_params.find("outputfmt") == g_params.end())
+				g_params["outputfmt"] = "es";
+
+			std::string& str_output_fmt = g_params["outputfmt"];
+
+			if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
+			{
+				nDumpRet = DumpOneStreamFromPS();
+			}
+		}
 	}
 	else if (g_params.find("pid") != g_params.end())
 	{

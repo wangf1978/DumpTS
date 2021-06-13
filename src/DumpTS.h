@@ -15,7 +15,7 @@ struct DUMP_STATUS
 {
 	int32_t			completed;				// Dump process is finished or not, 1: finished, 0: not finished
 	DUMP_STATE		state;					// Dump State
-	uint64_t		num_of_packs;			// Total number of TS packs
+	uint64_t		num_of_packs;			// Total number of TS/PS packs
 	uint64_t		cur_pack_idx;			// The current processing TS pack index
 
 	uint64_t		num_of_processed_payloads;

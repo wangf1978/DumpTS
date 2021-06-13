@@ -30,6 +30,7 @@ SOURCES := \
 	$(SOURCEDIR)/DumpMP4.cpp \
 	$(SOURCEDIR)/DumpStream.cpp \
 	$(SOURCEDIR)/DumpTS.cpp \
+	$(SOURCEDIR)/DumpPS.cpp \
 	$(SOURCEDIR)/ESRepacker.cpp \
 	$(SOURCEDIR)/HuffmanTree.cpp \
 	$(SOURCEDIR)/IP.cpp \

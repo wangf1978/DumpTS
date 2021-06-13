@@ -258,6 +258,7 @@
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
     <ClCompile Include="..\..\src\DumpMMT.cpp" />
     <ClCompile Include="..\..\src\DumpMP4.cpp" />
+    <ClCompile Include="..\..\src\DumpPS.cpp" />
     <ClCompile Include="..\..\src\DumpStream.cpp" />
     <ClCompile Include="..\..\src\DumpTS.cpp" />
     <ClCompile Include="..\..\src\ESRepacker.cpp" />

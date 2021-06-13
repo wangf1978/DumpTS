@@ -16,6 +16,10 @@ using namespace std;
 #define DUMP_WAV							(1<<5)		// MSFT wave file
 #define DUMP_MEDIA_INFO_VIEW				(1<<6)
 
+// For Program Stream
+#define DUMP_VOB							(1<<7)
+#define DUMP_MPG							(1<<8)
+
 #define SID_PROGRAM_STREAM_MAP				0xBC
 #define SID_PRIVATE_STREAM_1				0xBD
 #define SID_PADDING_STREAM					0xBE
