@@ -10,16 +10,13 @@ extern int g_verbose_level;
 extern DUMP_STATUS g_dump_status;
 extern TS_FORMAT_INFO	g_ts_fmtinfo;
 
-extern int FlushPESBuffer(FILE* fw,
-	unsigned short PID,
-	int stream_type,
+extern int FlushPESBuffer(
 	unsigned char* pes_buffer,
 	int pes_buffer_len,
-	int dumpopt,
 	int &raw_data_len,
-	int stream_id = -1,
-	int stream_id_extension = -1,
-	int sub_stream_id = -1);
+	PES_FILTER_INFO& filter_info,
+	FILE* fw,
+	int dumpopt);
 
 #define MPEG_PROGRAM_END_CODE					0xB9
 #define MPEG_PROGRAM_PACK_START_CODE			0xBA
@@ -43,6 +40,8 @@ int DumpOneStreamFromPS()
 	int cur_pes_len = 0;
 	int raw_data_len = 0;
 	int stream_type = -1;
+	STREAM_CAT stream_cat = STREAM_CAT_UNKNOWN;
+	int stream_number = 0;
 
 	int pes_buf_pos = 0;
 	int pes_buf_size = 10 * 1024 * 1024;
@@ -247,9 +246,13 @@ int DumpOneStreamFromPS()
 					// Skip it
 					pes_buf_pos = 0;
 				}
-				else if (pes_buffer[3] == stream_id)
+				else if (pes_buffer[3] >= MPEG_PROGRAM_MAP_STREAM_ID)
 				{
-					dump_ret = FlushPESBuffer(fw, 0x1FFF, stream_type, pes_buffer, pes_buf_pos, dumpopt, raw_data_len, stream_id, -1, sub_stream_id);
+					PES_FILTER_INFO pes_filter_info;
+					pes_filter_info.VOB.Stream_CAT = stream_cat;
+					pes_filter_info.VOB.StreamIndex = stream_number;
+
+					dump_ret = FlushPESBuffer(pes_buffer, pes_buf_pos, raw_data_len, pes_filter_info, fw, dumpopt);
 					pes_buf_pos = 0;
 				}
 				else
@@ -301,9 +304,13 @@ int DumpOneStreamFromPS()
 		pes_buf_pos += cbSize;
 	}
 
-	if (pes_buf_pos > 4 && pes_buffer[3] == stream_id)
+	if (pes_buf_pos > 4 && pes_buffer[3] >= MPEG_PROGRAM_MAP_STREAM_ID)
 	{
-		dump_ret = FlushPESBuffer(fw, 0x1FFF, stream_type, pes_buffer, pes_buf_pos, dumpopt, raw_data_len, stream_id, -1, sub_stream_id);
+		PES_FILTER_INFO pes_filter_info;
+		pes_filter_info.VOB.Stream_CAT = stream_cat;
+		pes_filter_info.VOB.StreamIndex = stream_number;
+
+		dump_ret = FlushPESBuffer(pes_buffer, pes_buf_pos, raw_data_len, pes_filter_info, fw, dumpopt);
 	}
 
 done:

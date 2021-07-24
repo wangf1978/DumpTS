@@ -1119,13 +1119,27 @@ int ParseMPEGAudioFrame(unsigned short PID, int stream_type, unsigned long sync_
 	return iRet;
 }
 
-int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize)
+int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, int dumpopt)
 {
 	unsigned char* p = pBuf;
 	int cbLeft = cbSize;
 	int iParseRet = -1;
 	unsigned char audio_program_id = 0;
 	STREAM_INFO stm_info;
+
+	if (dumpopt&DUMP_VOB)
+	{
+		unsigned char stream_id = (PID >> 8) & 0xFF;
+		unsigned char sub_stream_id = PID & 0xFF;
+		if ((stream_id & 0xF0) == 0xE0)	// Video
+		{
+
+		}
+		else if (stream_id == 0xBD)
+		{
+
+		}
+	}
 
 	// At first, check whether the stream type is already decided or not for the current dumped stream.
 	if (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM)
@@ -1580,21 +1594,29 @@ int FlushPSIBuffer(FILE* fw, unsigned char* psi_buffer, int psi_buffer_len, int 
 	return iret;
 }
 
-int FlushPESBuffer(FILE* fw, 
-	unsigned short PID, 
-	int stream_type, 
-	unsigned char* pes_buffer, 
-	int pes_buffer_len, 
-	int dumpopt, 
-	int &raw_data_len, 
-	int stream_id = -1, 
-	int stream_id_extension = -1,
-	int sub_stream_id = -1)
+int FlushPESBuffer(
+	unsigned char* pes_buffer,
+	int pes_buffer_len,
+	int &raw_data_len,
+	PES_FILTER_INFO& filter_info,
+	FILE* fw,
+	int dumpopt)
 {
 	int iret = 0;
+	int stream_type = -1;
+	int stream_id = -1;
+	int stream_id_extension = -1;
 	int64_t d64PTS = INT64_MIN, d64DTS = INT64_MIN;
 	char szLog[512] = { 0 };
 	raw_data_len = 0;
+
+	if (!(dumpopt&DUMP_VOB))
+	{
+		stream_type = filter_info.TS.stream_type;
+		stream_id = filter_info.TS.stream_id;
+		stream_id_extension = filter_info.TS.stream_id_extension;
+	}
+
 	if (pes_buffer_len >= 9)
 	{
 		if (pes_buffer[0] == 0 &&
@@ -1676,7 +1698,27 @@ int FlushPESBuffer(FILE* fw,
 						off += 2;
 
 					if (PSTD_buffer_flag)
+					{
+						if ((dumpopt&DUMP_VOB) && (pes_buffer[3] & 0xF0) == 0xE0)	// Adjust stream_type to 1 or 2 accurately for DVD-Video VOB
+						{
+							// it is a video stream
+							int P_STD_buffer_scale = (pes_buffer[off] >> 5) & 0x1;
+							if (P_STD_buffer_scale)
+							{
+								// According to DVD-Video Spec, P-STD buffer_size has below meaning
+								// 232: Payload according to ISO/IEC 13818-2)
+								//  46: Payload according to ISO/IEC 11172-2)
+								int P_STD_buffer_size = ((pes_buffer[off] & 0x1F) << 8) | pes_buffer[off + 1];
+								if (P_STD_buffer_size == 46)
+									stream_type = 1;
+								else if (P_STD_buffer_size == 232)
+									stream_type = 2;
+							}
+						}
+
 						off += 2;
+
+					}
 
 					if (off >= pes_buffer_len)
 						return -1;
@@ -1739,11 +1781,62 @@ int FlushPESBuffer(FILE* fw,
 				raw_data = pes_buffer + 6;
 			}
 
+			// Decide the actual filter information for DVD-Video VOB file
+			if (dumpopt&DUMP_VOB)
+			{
+				if (filter_info.VOB.StreamIndex >= 0 && filter_info.VOB.StreamIndex <= 0x0F)
+				{
+					if (filter_info.VOB.Stream_CAT == STREAM_CAT_VIDEO)
+					{
+						stream_id = 0xe0 | filter_info.VOB.StreamIndex;
+					}
+					else if (filter_info.VOB.Stream_CAT == STREAM_CAT_AUDIO)
+					{
+						// If the current ES is MPEG audio
+						if ((pes_buffer[3] & 0xF8) == 0xC0)
+						{
+							stream_id = 0xC8 | filter_info.VOB.StreamIndex;
+						}
+						else if (pes_buffer[3] == 0xbd && raw_data_len > 0)
+						{
+							stream_id = 0xbd;
+							if ((raw_data[0] & 0xF8) == 0xA0)	// LPCM
+							{
+
+							}
+							else if ((raw_data[0] & 0xF8) == 0x80)	// AC3
+							{
+
+							}
+							else if ((raw_data[0] & 0xF8) == 0x88)	// DTS
+							{
+
+							}
+						}
+					}
+					else if (filter_info.VOB.Stream_CAT == STREAM_CAT_SUBTITLE)
+					{
+
+					}
+				}
+				else
+					printf("Unexpected stream index value(%d) specified.\n", filter_info.VOB.StreamIndex);
+			}
+
 			// Check the media information of current elementary stream
 			if (DUMP_MEDIA_INFO_VIEW&dumpopt)
 			{
 				if (raw_data_len > 0)
-					CheckRawBufferMediaInfo(PID, stream_type, raw_data, raw_data_len);
+				{
+					int StreamUniqueID = 1;
+					// For DVD-Video VOB, PID = (STREAM_CAT << 8) | stream_number
+					if (dumpopt&DUMP_VOB)
+						StreamUniqueID = (filter_info.VOB.Stream_CAT << 8) | filter_info.VOB.StreamIndex;
+					else
+						StreamUniqueID = filter_info.TS.PID;
+
+					CheckRawBufferMediaInfo((unsigned short)StreamUniqueID, stream_type, raw_data, raw_data_len, dumpopt);
+				}
 			}
 
 			if ((dumpopt&DUMP_RAW_OUTPUT) || (dumpopt&DUMP_PCM) || (dumpopt&DUMP_WAV))
@@ -1777,7 +1870,11 @@ int FlushPESBuffer(FILE* fw,
 				}
 
 				if (fw != NULL && raw_data_len > 0 && !(dumpopt&DUMP_WAV))
+				{
+					if (dumpopt&DUMP_VOB)
+						;
 					fwrite(raw_data, 1, raw_data_len, fw);
+				}
 			}
 			else if (dumpopt&DUMP_PES_OUTPUT)
 			{
@@ -2096,9 +2193,14 @@ int DumpOneStream()
 				}
 				else
 				{
-					if ((dump_ret = FlushPESBuffer(fw, 
-						PID, stream_types.find(PID) == stream_types.end()?-1: stream_types[PID], 
-						pes_buffer, pes_buffer_len, dumpopt, raw_data_len, stream_id, stream_id_extension)) < 0)
+					PES_FILTER_INFO pes_filter_info;
+					pes_filter_info.TS.PID = sPID;
+					pes_filter_info.TS.stream_id = stream_id;
+					pes_filter_info.TS.stream_id_extension = stream_id_extension;
+					pes_filter_info.TS.stream_type = stream_types.find(sPID) == stream_types.end() ? -1 : stream_types[sPID];
+
+					if ((dump_ret = FlushPESBuffer(
+						pes_buffer, pes_buffer_len, raw_data_len, pes_filter_info, fw, dumpopt)) < 0)
 						printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
 				}
 
@@ -2282,9 +2384,13 @@ int DumpOneStream()
 		}
 		else
 		{
-			if ((dump_ret = FlushPESBuffer(fw,
-				sPID, stream_types.find(sPID) == stream_types.end() ? -1 : stream_types[sPID],
-				pes_buffer, pes_buffer_len, dumpopt, raw_data_len, stream_id, stream_id_extension)) < 0)
+			PES_FILTER_INFO pes_filter_info;
+			pes_filter_info.TS.PID = sPID;
+			pes_filter_info.TS.stream_id = stream_id;
+			pes_filter_info.TS.stream_id_extension = stream_id_extension;
+			pes_filter_info.TS.stream_type = stream_types.find(sPID) == stream_types.end() ? -1 : stream_types[sPID];
+			if ((dump_ret = FlushPESBuffer(
+				pes_buffer, pes_buffer_len, raw_data_len, pes_filter_info, fw, dumpopt)) < 0)
 			{
 				// At the last PES payload, don't show it except the verbose is set
 				if (g_verbose_level > 0)
