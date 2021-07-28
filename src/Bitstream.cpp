@@ -106,7 +106,12 @@ uint64_t CBitstream::_GetBits(int n, bool bPeek, bool bThrowExceptionHitStartCod
 	}
 
 	if (cursor.bits_left == 0)
+	{
+		if (_EOF())
+			throw std::out_of_range("reach EOF");
+
 		_UpdateCurBits();
+	}
 
 	// Activate a save_point for the current bit-stream cursor
 	if (bPeek)
@@ -487,6 +492,19 @@ uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
 	return (((uint64_t)m_filemappos) << 3) + bitpos_in_cache_buffer;
 }
 
+bool CFileBitstream::_EOF()
+{
+	if (m_filemappos >= 0)
+	{
+		int nAllLeftBits = GetAllLeftBits();
+		ptrdiff_t cache_buf_size = cursor.p_end - cursor.p_start;
+
+		return (nAllLeftBits + ((m_filesize - (m_filemappos + cache_buf_size)) << 3)) == 0 ? true : false;
+	}
+
+	return false;
+}
+
 int CFileBitstream::Seek(uint64_t bitpos)
 {
 	/*
@@ -603,14 +621,14 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 
 	size_t cbRead = 0;
 	bool bEos = feof(m_fp) ? true : false;
-	
-	m_filemappos = _ftelli64(m_fp);
 
 	int will_fill = cursor.buf_size;
 	uint8_t* will_read_from_buf = cursor.p_start;
 
 	if (!bEos)
 	{
+		m_filemappos = _ftelli64(m_fp);
+
 		// for peek case, don't overwrite the previous buffer, try to extend the cursor.p_end
 		if (bPeek)
 		{

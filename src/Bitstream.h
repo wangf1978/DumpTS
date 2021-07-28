@@ -130,6 +130,7 @@ protected:
 	virtual void		_UpdateCurBits(bool bEos = false);
 	virtual void		_Advance_InCacheBits(int n);
 	virtual void		_FillCurrentBits(bool bPeek = false);
+	virtual bool		_EOF() { return false; }
 	
 	void				CleanSavePoint() {save_point.p = NULL;}
 
@@ -157,6 +158,7 @@ public:
 
 protected:
 	virtual void		_FillCurrentBits(bool bPeek = false);
+	virtual bool		_EOF();
 
 protected:
 	FILE*				m_fp;

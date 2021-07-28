@@ -670,11 +670,11 @@ int DumpMMTOneStream()
 		PIDs = g_params["pid"].substr(0, iterPID);
 		sp = PIDs.c_str();
 		ep = sp + PIDs.length();
-			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
-			{
-				printf("Please specify a valid packet_id.\n");
-				return RET_CODE_ERROR;
-			}
+		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+		{
+			printf("Please specify a valid packet_id.\n");
+			return RET_CODE_ERROR;
+		}
 		src_packet_id[0] = (uint16_t)i64Val;
 		Outputfiles[0] = iterParam->second;
 		if (Outputfiles[0].rfind(".") == std::string::npos)// No dot in output file name
