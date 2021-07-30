@@ -38,6 +38,8 @@ int ShowMMTTLVPacks()
 	int nParsedTLVPackets = 0;
 	int nIPv4Packets = 0, nIPv6Packets = 0, nHdrCompressedIPPackets = 0, nTransmissionControlSignalPackets = 0, nNullPackets = 0, nOtherPackets = 0;
 
+	int nLocateSyncTry = 0;
+	bool bFindSync = false;
 	try
 	{
 		uint32_t tlv_hdr = 0;
@@ -49,9 +51,26 @@ int ShowMMTTLVPacks()
 			tlv_hdr = (uint32_t)bs.PeekBits(32);
 			if (((tlv_hdr >> 24) & 0xFF) != 0x7F)
 			{
-				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
-				nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
-				break;
+				bFindSync = false;
+				if (nLocateSyncTry > 10)
+				{
+					printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
+					nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+					break;
+				}
+				else
+				{
+					bs.SkipBits(8);
+					continue;
+				}
+			}
+			else
+			{
+				if (bFindSync == false)
+				{
+					nLocateSyncTry++;
+					bFindSync = true;
+				}
 			}
 
 			MMT::TLVPacket* pTLVPacket = nullptr;
@@ -383,6 +402,8 @@ int ShowMMTPackageInfo()
 	TreeCIDPAMsgs CIDPAMsgs;
 	std::vector<uint8_t> fullPAMessage;
 
+	int nLocateSyncTry = 0;
+	bool bFindSync = false;
 	try
 	{
 		uint32_t tlv_hdr = 0;
@@ -394,9 +415,26 @@ int ShowMMTPackageInfo()
 			tlv_hdr = (uint32_t)bs.PeekBits(32);
 			if (((tlv_hdr >> 24) & 0xFF) != 0x7F)
 			{
-				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
-				nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
-				break;
+				bFindSync = false;
+				if (nLocateSyncTry > 10)
+				{
+					printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
+					nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+					break;
+				}
+				else
+				{
+					bs.SkipBits(8);
+					continue;
+				}
+			}
+			else
+			{
+				if (bFindSync == false)
+				{
+					nLocateSyncTry++;
+					bFindSync = true;
+				}
 			}
 
 			MMT::TLVPacket* pTLVPacket = nullptr;
@@ -636,6 +674,7 @@ int DumpMMTOneStream()
 	int nRet = RET_CODE_SUCCESS;
 	int nFilterTLVPackets = 0, nFilterMFUs = 0, nParsedTLVPackets = 0;
 	TreeCIDPAMsgs CIDPAMsgs;
+	std::vector<uint8_t> fullPAMessage;
 	uint32_t asset_type = 0;
 	CESRepacker* pESRepacker[2] = { nullptr };
 
@@ -644,7 +683,7 @@ int DumpMMTOneStream()
 	if (g_params.find("input") == g_params.end())
 		return -1;
 
-	int iterPID = g_params["pid"].find("&");
+	int iterPID = (int)g_params["pid"].find("&");
 	const char* sp;
 	const char* ep;
 	int64_t i64Val = -1LL;
@@ -716,6 +755,8 @@ int DumpMMTOneStream()
 		return nRet;
 	}
 
+	int nLocateSyncTry = 0;
+	bool bFindSync = false;
 	try
 	{
 		uint32_t tlv_hdr = 0;
@@ -727,9 +768,26 @@ int DumpMMTOneStream()
 			tlv_hdr = (uint32_t)bs.PeekBits(32);
 			if (((tlv_hdr >> 24) & 0xFF) != 0x7F)
 			{
-				printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
-				nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
-				break;
+				bFindSync = false;
+				if (nLocateSyncTry > 10)
+				{
+					printf("[MMT/TLV] TLV header should start with 0x7F at file position: %" PRIu64 ".\n", bs.Tell() >> 3);
+					nRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+					break;
+				}
+				else
+				{
+					bs.SkipBits(8);
+					continue;
+				}
+			}
+			else
+			{
+				if (bFindSync == false)
+				{
+					nLocateSyncTry++;
+					bFindSync = true;
+				}
 			}
 
 			MMT::TLVPacket* pTLVPacket = nullptr;
@@ -768,7 +826,7 @@ int DumpMMTOneStream()
 				if (pHeaderCompressedIPPacket->MMTP_Packet == nullptr || (
 					pHeaderCompressedIPPacket->MMTP_Packet->Payload_type != 2 &&
 					(pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id[0]&&
-						pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id[1])))
+					 pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id[1])))
 					goto Skip;
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ||
@@ -867,23 +925,67 @@ int DumpMMTOneStream()
 
 					// Check whether the current PA message contains a complete message
 					if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
+						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
 						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag == 1)
 					{
-						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+						if (fullPAMessage.size() > 0)
 						{
+							for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+							{
+								auto& v = std::get<1>(m);
+								if (v.size() > 0)
+								{
+									size_t orig_size = fullPAMessage.size();
+									fullPAMessage.resize(orig_size + v.size());
+									memcpy(&fullPAMessage[orig_size], &v[0], v.size());
+								}
+							}
+
 							bool bChanged = false;
-							auto& v = std::get<1>(m);
-							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), &bChanged) == 0 && bChanged)
+							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), &bChanged) == 0 && bChanged)
 							{
 								uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id[PIDN]);
 								if (new_asset_type != 0 && new_asset_type != asset_type)
+								{
+									//printf("assert_type from 0x%X to 0x%X.\n", asset_type, new_asset_type);
 									asset_type = new_asset_type;
+								}
+							}
+
+							fullPAMessage.clear();
+						}
+						else
+						{
+							for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+							{
+								bool bChanged = false;
+								auto& v = std::get<1>(m);
+								if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), &bChanged) == 0 && bChanged)
+								{
+									uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id[PIDN]);
+									if (new_asset_type != 0 && new_asset_type != asset_type)
+									{
+										//printf("assert_type from 0x%X to 0x%X.\n", asset_type, new_asset_type);
+										asset_type = new_asset_type;
+									}
+								}
 							}
 						}
 					}
 					else
 					{
+						assert(pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages.size() <= 1);
 						// Need add the data into the ring buffer, and parse it later
+						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+						{
+							auto& v = std::get<1>(m);
+							if (v.size() > 0)
+							{
+								size_t orig_size = fullPAMessage.size();
+								fullPAMessage.resize(orig_size + v.size());
+								memcpy(&fullPAMessage[orig_size], &v[0], v.size());
+							}
+						}
 					}
 				}
 			}
