@@ -351,6 +351,7 @@ int CPSIBuf::ProcessPSI()
 		std::vector<std::tuple<unsigned short/* program number*/, unsigned short/*PMT PID*/>> PMT_PIDs;
 		PMT_PIDs.reserve(num_of_PMTs);
 
+		unsigned short network_PID = 0x1FFF;
 		// 4 bytes of CRC32, 4 bytes of PAT entry
 		while (ulMappedSize + 4 + 4 <= 3 + section_length + ulSectionStart)
 		{
@@ -359,6 +360,11 @@ int CPSIBuf::ProcessPSI()
 
 			if (program_number != 0)
 				PMT_PIDs.push_back({ program_number, PMT_PID });
+			else
+			{
+				network_PID = PMT_PID;
+				pPMTPayloads[network_PID] = new CPSIBuf(ctx_psi_process, network_PID);
+			}
 
 			ulMappedSize += 4;
 		}
@@ -370,7 +376,7 @@ int CPSIBuf::ProcessPSI()
 			auto PMT_iter = PMT_PIDs.cbegin();
 			for (; PMT_iter != PMT_PIDs.cend() && iter->first != std::get<1>(*PMT_iter); PMT_iter++);
 
-			if (PMT_iter == PMT_PIDs.cend() && iter->first != PID_PROGRAM_ASSOCIATION_TABLE)
+			if (PMT_iter == PMT_PIDs.cend() && (iter->first != PID_PROGRAM_ASSOCIATION_TABLE && iter->first != network_PID))
 			{
 				delete iter->second;
 				pPMTPayloads.erase(iter);
