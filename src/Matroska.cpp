@@ -1443,8 +1443,9 @@ namespace Matroska
 				if (pContainer->IsRoot())
 				{
 					// Find the element ID of level-0
-					if (g_mapLevel0IDDesc.find(u32ID) != g_mapLevel0IDDesc.end())
-						idxDesc = g_mapLevel0IDDesc[u32ID];
+					auto iter = g_mapLevel0IDDesc.find(u32ID);
+					if (iter != g_mapLevel0IDDesc.end())
+						idxDesc = iter->second;
 					else
 						printf("[Matroska] Unexpected element_ID: 0X%X, it should be a level-0 or global element.\n", u32ID);
 				}

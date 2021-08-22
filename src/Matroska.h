@@ -190,6 +190,7 @@ namespace Matroska
 		virtual int Unpack(CBitstream& bs)
 		{
 			// Read the element ID
+			//uint64_t start_bitpos = bs.Tell();
 			uint64_t u64Val = UnpackUnsignedIntVal(bs, 4, false);
 			if (u64Val == UINT64_MAX)
 				return -1;
@@ -201,7 +202,7 @@ namespace Matroska
 
 			Size = u64Val;
 
-			//printf("ID: 0X%X, Size: %lld(0X%" PRIX64 ")\n", ID, Size, Size);
+			//printf("ID: 0X%X, Size: %lld(0X%" PRIX64 "), start_bitpos: %lld\n", ID, Size, Size, start_bitpos);
 
 			return 0;
 		}
