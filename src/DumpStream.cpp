@@ -2048,6 +2048,11 @@ int DumpOneStream()
 		dumpopt |= DUMP_MEDIA_INFO_VIEW;
 	}
 
+	if (g_params.find("showSIT") != g_params.end())
+	{
+		dumpopt |= DUMP_DTV_SIT;
+	}
+
 	if (g_params.find("start") != g_params.end())
 	{
 		start_tspck_pos = ConvertToLongLong(g_params["start"]);
@@ -2166,7 +2171,7 @@ int DumpOneStream()
 			{
 				if (pPSIBufs.find(PID) != pPSIBufs.end())
 				{
-					if (pPSIBufs[PID]->ProcessPSI() == 0)
+					if (pPSIBufs[PID]->ProcessPSI(dumpopt) == 0)
 					{
 						// Update each PID stream type
 						if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
@@ -2218,7 +2223,7 @@ int DumpOneStream()
 			if (pPSIBufs[PID]->PushTSBuf(ts_pack_idx, buf, index, (unsigned char)g_ts_fmtinfo.packet_size) >= 0)
 			{
 				// Try to process PSI buffer
-				int nProcessPSIRet = pPSIBufs[PID]->ProcessPSI();
+				int nProcessPSIRet = pPSIBufs[PID]->ProcessPSI(dumpopt);
 				// If process PMT result is -1, it means the buffer is too small, don't reset the buffer.
 				if (nProcessPSIRet != -1)
 				{

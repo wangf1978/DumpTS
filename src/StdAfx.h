@@ -237,6 +237,8 @@ enum FLAG_VALUE
 	FLAG_UNKNOWN = 2,
 };
 
+void print_mem(uint8_t* pBuf, int cbSize, int indent);
+
 //{{AFX_INSERT_LOCATION}}
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 

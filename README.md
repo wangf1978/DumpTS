@@ -67,6 +67,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showinfo**|*N/A*|print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
 |**--showpack[=pagesize]**|*N/A*|Show packs in the specified TS/MMT/TLV stream file, pagesize<=0, show all packs w/o interrupt  |
 |**--showpts**|*N/A*|print the pts of every elementary stream packet|
+|**--showSIT**|*N/A*|print the SIT information, at present only supported ISDB Transport Stream|
 |**--listcrc**|*N/A*|List all CRC types supported in this program|
 |**--listmp4box**|*N/A*|List box types and descriptions defined in ISO-14496 spec|
 |**--listmkvEBML**|*N/A*|List EBML elements defined in Matroska spec|

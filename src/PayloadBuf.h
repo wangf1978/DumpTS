@@ -15,6 +15,7 @@ using namespace std;
 #define DUMP_PCM							(1<<4)		// Raw LPCM data
 #define DUMP_WAV							(1<<5)		// MSFT wave file
 #define DUMP_MEDIA_INFO_VIEW				(1<<6)
+#define DUMP_DTV_SIT						(1<<7)
 
 // For Program Stream
 #define DUMP_VOB							(1<<7)
@@ -31,6 +32,10 @@ using namespace std;
 #define SID_H222_1_TYPE_E					0xF8
 
 #define PID_PROGRAM_ASSOCIATION_TABLE		0x0000
+#define PID_CONDITIONAL_ACCESS_TABLE		0x0001
+#define PID_TRANSPORT_STREAM_DESCRIPTION_TABLE	\
+											0x0002
+#define PID_IPMP_CONTROL_INFORMATION_TABLE	0x0003
 
 #define IS_PES_PAYLOAD(p)					((p)[0] == 0 && (p)[1] == 0 && (p)[2] == 1 && (p)[3] >= 0xBC)
 
@@ -135,6 +140,17 @@ struct TS_FORMAT_INFO
 	bool						encrypted;
 };
 
+// Please see Table 2-28 ¨C Program-specific information
+enum PSI_TYPE
+{
+	PSI_PAT = 0,
+	PSI_PMT,
+	PSI_NIT,
+	PSI_CAT,
+	PSI_TSDT,
+	PSI_IPMP_CIT,
+};
+
 enum PSI_TABLE_ID {
 	TID_program_association_section = 0x00,
 	TID_conditional_access_section,
@@ -144,6 +160,8 @@ enum PSI_TABLE_ID {
 	TID_ISO_IEC_14496_object_descriptor_section,
 	TID_Metadata_section,
 	TID_IPMP_Control_Information_section,
+	TID_DIT = 0x7E,
+	TID_SIT = 0x7F,
 	TID_Forbidden = 0xFF
 };
 
@@ -216,7 +234,7 @@ public:
 		@retval -1 incompatible buffer
 		@retval -2 CRC verification failure
 		@retval -3 Unsupported or unimplemented */
-	int ProcessPSI();
+	int ProcessPSI(int dumpOptions);
 };
 
 class CPMTBuf : public CPSIBuf
