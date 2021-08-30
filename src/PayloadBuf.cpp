@@ -146,6 +146,7 @@ extern const char* aspect_ratio_names[16];
 extern const char* bit_depth_names[16];
 extern const char* dynamic_range_type_names[16];
 extern const char* color_space_names[16];
+extern const char* MPEG4_audio_profile_and_level_names[256];
 
 void PrintARIBDateTime(const char* szIndent, const char* szCaption,  uint8_t *p)
 {
@@ -220,6 +221,12 @@ void PrintDescriptor(int level, unsigned char* p)
 				print_mem(p, descriptor_length - 4, 4 * level);
 			}
 		}
+		break;
+	}
+	case 0x1C:	// MPEG-4_audio_descriptor
+	{
+		uint8_t MPEG4_audio_profile_and_level = *p++;
+		printf("%sMPEG-4_audio_profile_and_level: 0x%02X -- %s\n", szIndent, MPEG4_audio_profile_and_level, MPEG4_audio_profile_and_level_names[MPEG4_audio_profile_and_level]);
 		break;
 	}
 	case 0x42:	// staffing_descriptor
@@ -561,9 +568,9 @@ void PrintDescriptor(int level, unsigned char* p)
 		uint8_t still_picture_flag = ((*p) >> 7) & 0x1;
 		uint8_t sequence_end_code_flag = ((*p) >> 6) & 0x1;
 		uint8_t video_encode_format = ((*p) >> 2) & 0x0F;
-		printf("%sstill_picture_flag: %d\n", szIndent, still_picture_flag);
+		printf("%s    still_picture_flag: %d\n", szIndent, still_picture_flag);
 		printf("%ssequence_end_code_flag: %d\n", szIndent, sequence_end_code_flag);
-		printf("%svideo_encode_format: %d\n", szIndent, video_encode_format);
+		printf("%s   video_encode_format: %d\n", szIndent, video_encode_format);
 		break;
 	}
 	case 0xCD:	// TS_information_descriptor
