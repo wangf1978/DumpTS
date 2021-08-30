@@ -274,6 +274,7 @@
     <ClCompile Include="..\..\src\QTFF.cpp" />
     <ClCompile Include="..\..\src\RefactorTS.cpp" />
     <ClCompile Include="..\..\src\StdAfx.cpp" />
+    <ClCompile Include="..\..\src\system_13818_1.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h" />

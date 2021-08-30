@@ -70,7 +70,7 @@ void print_mem(uint8_t* pBuf, int cbSize, int indent)
 		}
 	}
 
-	ccWritten = snprintf(szWriteBuf, ccBufLen, "\n"); assert(ccWritten > 0);
+	//ccWritten = snprintf(szWriteBuf, ccBufLen, "\n"); assert(ccWritten > 0);
 	ccBufLen -= ccWritten; szWriteBuf += ccWritten;
 
 	printf("%s", szBuffer);

@@ -4,6 +4,8 @@
 #include <algorithm>
 
 std::unordered_map<unsigned char, std::string> g_SIT_descriptors= {
+	{0x05, "registration_descriptor"},
+	{0x1C, "MPEG-4_audio_descriptor"},
 	{0x42, "staffing_descriptor"},
 	{0x47, "bouquet_name_descriptor"},
 	{0x48, "service_descriptor"},
@@ -16,21 +18,64 @@ std::unordered_map<unsigned char, std::string> g_SIT_descriptors= {
 	{0x4F, "time_shifted_event_descriptor"},
 	{0x50, "component_descriptor"},
 	{0x51, "mosaic_descriptor"},
+	{0x52, "Stream identifier descriptor"},
 	{0x53, "Ca_identifier_descriptor"},
 	{0x54, "content_descriptor"},
 	{0x55, "parental_rating_descriptor"},
 	{0x63, "partial_transport_stream_descriptor"},
-	{0xC2, "network_identifier_descriptor"},
-	{0xC3, "partialTS_time_descriptor"},
-	{0xC4, "audio_component_descriptor"},
-	{0xC5, "hyperlink_descriptor"},
-	{0xC7, "data_contents_descriptor"},
-	{0xCD, "TS_information_descriptor"},
-	{0xCE, "exteniosn_broadcaster_name_descriptor"},
-	{0xD5, "series_descriptor"},
-	{0xD6, "event_group_descriptor"},
-	{0xD8, "broadcaster_descriptor"},
-	{0xD9, "component_group_descriptor"},
+	//{0xC2, "network_identifier_descriptor"},
+	//{0xC3, "partialTS_time_descriptor"},
+	//{0xC4, "audio_component_descriptor"},
+	//{0xC5, "hyperlink_descriptor"},
+	//{0xC7, "data_contents_descriptor"},
+	//{0xCD, "TS_information_descriptor"},
+	//{0xCE, "exteniosn_broadcaster_name_descriptor"},
+	//{0xD5, "series_descriptor"},
+	//{0xD6, "event_group_descriptor"},
+	//{0xD8, "broadcaster_descriptor"},
+	//{0xD9, "component_group_descriptor"},
+
+	{0xC0, "Hierarchical transmission descriptor"},
+	{0xC1, "Digital copy control descriptor"},
+	{0xC2, "Network identification descriptor"},
+	{0xC3, "Partial Transport Stream time descriptor"},
+	{0xC4, "Audio component descriptor"},
+	{0xC5, "Hyperlink descriptor"},
+	{0xC6, "Target region descriptor"},
+	{0xC7, "Data content descriptor"},
+	{0xC8, "Video decode control descriptor"},
+	{0xC9, "Download content descriptor"},
+	{0xCA, "CA_EMM_TS descriptor"},
+	{0xCB, "CA contract information descriptor"},
+	{0xCC, "CA service descriptor"},
+	{0xCD, "TS information descriptor"},
+	{0xCE, "Extended broadcaster descriptor"},
+	{0xCF, "Logo transmission descriptor"},
+	{0xD0, "Basic local event descriptor"},
+	{0xD1, "Reference descriptor"},
+	{0xD2, "Node relation descriptor"},
+	{0xD3, "Short node information descriptor"},
+	{0xD4, "STC reference descriptor"},
+	{0xD5, "Series descriptor"},
+	{0xD6, "Event group descriptor"},
+	{0xD7, "SI parameter descriptor"},
+	{0xD8, "Broadcaster name descriptor"},
+	{0xD9, "Component group descriptor"},
+	{0xDA, "SI prime TS descriptor"},
+	{0xDB, "Board information descriptor"},
+	{0xDC, "LDT linkage descriptor"},
+	{0xDD, "Connected transmission descriptor"},
+	{0xDE, "Content availability descriptor"},
+	{0xDF, "For tag value extension"},
+	{0xE0, "Service group descriptor"},
+	{0xF7, "Carousel compatible composite descriptor"},
+	{0xF8, "Conditional playback descriptor"},
+	{0xF9, "Cable TS division system descriptor"},
+	{0xFA, "Terrestrial delivery system descriptor"},
+	{0xFB, "Partial reception descriptor"},
+	{0xFC, "Emergency information descriptor"},
+	{0xFD, "Data component descriptor"},
+	{0xFE, "System management descriptor"},
 };
 
 std::unordered_map<unsigned char, std::string> g_service_types = {
@@ -94,6 +139,34 @@ std::string get_audio_component_type_name(uint8_t component_type)
 	return "";
 }
 
+extern const char* stream_type_names[256];
+extern const char* video_format_names[16];
+extern const char* frame_rate_names[16];
+extern const char* aspect_ratio_names[16];
+extern const char* bit_depth_names[16];
+extern const char* dynamic_range_type_names[16];
+extern const char* color_space_names[16];
+
+void PrintARIBDateTime(const char* szIndent, const char* szCaption,  uint8_t *p)
+{
+	uint16_t MJD = ((*p) << 8) | *(p + 1);
+	p += 2;
+
+	int K = 0;
+	int Y1 = (int)((MJD - 15078.2) / 365.25);
+	int M1 = int((MJD - 14956.1 - (int)(Y1*365.25)) / 30.6001);
+	int D = MJD - 14956 - (int)(Y1*365.25) - (int)(M1*30.6001);
+
+	if (M1 == 14 || M1 == 15)
+		K = 1;
+
+	int Y = Y1 + K;
+	int M = M1 - 1 - K * 12;
+	
+	printf("%s%s Date(yyyy-mm-dd): %d-%d-%d\n", szIndent, szCaption, Y + 1900, M, D);
+	printf("%s%s Time(HH:MM:SS): %d%d:%d%d:%d%d\n", szIndent, szCaption, (*p>>4)&0xF, *p&0xF, (*(p+1) >> 4) & 0xF, *(p+1) & 0xF, (*(p+2) >> 4) & 0xF, *(p+2) & 0xF);
+}
+
 void PrintDescriptor(int level, unsigned char* p)
 {
 	uint8_t* p0 = p;
@@ -104,13 +177,51 @@ void PrintDescriptor(int level, unsigned char* p)
 		memset(szIndent, ' ', 4 * level);
 
 	auto iter = g_SIT_descriptors.find(descriptor_tag);
-	printf("%sdescriptor_tag/descriptor_length: 0X%X/%d - %s\n", szIndent, 
+	printf("%sdescriptor_tag/descriptor_length: 0X%02X/% 3d - %s\n", szIndent, 
 		descriptor_tag, descriptor_length, iter == g_SIT_descriptors.cend() ? "Unsupported descriptor" : iter->second.c_str());
 
 	memset(szIndent, ' ', 4 * (level + 1));
 
 	switch (descriptor_tag)
 	{
+	case 0x05:	// registration_descriptor
+	{
+		uint32_t format_id = (*p << 24) | (*(p + 1) << 16) | (*(p + 2) << 8) | *(p + 3);
+		printf("%sformat identifier: 0x%08X(%c%c%c%c)\n", szIndent, (*p << 24) | (*(p + 1) << 16) | (*(p + 2) << 8) | *(p + 3),
+			isprint(*p) ? *p : '.', isprint(*(p + 1)) ? *(p + 1) : '.', isprint(*(p + 2)) ? *(p + 2) : '.', isprint(*(p + 3)) ? *(p + 3) : '.');
+		p += 4;
+		
+		if (format_id == 'HESE' && descriptor_length > 4)
+		{
+			p++;
+			uint8_t stream_type = *p++;
+			uint8_t video_format = ((*p) >> 4) & 0xF;
+			uint8_t frame_rate = ((*p) & 0xF);
+			p++;
+			uint8_t aspect_ratio = ((*p) >> 4) & 0xF;
+			uint8_t bit_depth = ((*p) & 0xF);
+			p++;
+			uint8_t dynamic_range = ((*p) >> 4) & 0xF;
+			uint8_t color_space = ((*p) & 0xF);
+
+			printf("%s  stream type: 0x%02X -- %s\n", szIndent, stream_type, stream_type_names[stream_type]);
+			printf("%s video format: 0x%X  -- %s\n", szIndent, video_format, video_format_names[video_format]);
+			printf("%s   frame rate: 0x%X  -- %s\n", szIndent, frame_rate, frame_rate_names[frame_rate]);
+			printf("%s aspect ratio: 0x%X  -- %s\n", szIndent, aspect_ratio, aspect_ratio_names[aspect_ratio]);
+			printf("%s    bit depth: 0x%X  -- %s\n", szIndent, bit_depth, bit_depth_names[bit_depth]);
+			printf("%sdynamic range: 0x%X  -- %s\n", szIndent, dynamic_range, dynamic_range_type_names[dynamic_range]);
+			printf("%s  color space: 0x%X  -- %s\n", szIndent, color_space, color_space_names[color_space]);
+		}
+		else
+		{
+			if (descriptor_length > 4)
+			{
+				printf("%sadditional_identification_info:\n", szIndent);
+				print_mem(p, descriptor_length - 4, 4 * level);
+			}
+		}
+		break;
+	}
 	case 0x42:	// staffing_descriptor
 	case 0x47:	// bouquet_name_descriptor
 		break;
@@ -233,7 +344,29 @@ void PrintDescriptor(int level, unsigned char* p)
 	}
 	case 0x51:	// mosaic_descriptor
 	case 0x53:	// Ca_identifier_descriptor
+		break;
+	case 0x52:	// Stream identifier descriptor
+	{
+		uint8_t component_tag = *p++;
+		printf("%scomponent_tag: 0x%02X\n", szIndent, component_tag);
+		break;
+	}
 	case 0x54:	// content_descriptor
+	{
+		uint8_t content_nibble_level_1 = ((*p) >> 4) & 0xF;
+		uint8_t content_nibble_level_2 = ((*p) & 0xF);
+		p++;
+		uint8_t user_nibble_1 = ((*p) >> 4) & 0xF;
+		uint8_t user_nibble_2 = ((*p) & 0xF);
+		p++;
+
+		printf("%s content_nibble_level_1: %d\n", szIndent, content_nibble_level_1);
+		printf("%s content_nibble_level_2: %d\n", szIndent, content_nibble_level_2);
+		printf("%s user_nibble: %d\n", szIndent, user_nibble_1);
+		printf("%s user_nibble: %d\n", szIndent, user_nibble_2);
+		
+		break;
+	}
 	case 0x55:	// parental_rating_descriptor
 		break;
 	case 0x63:	// partial_transport_stream_descriptor
@@ -253,6 +386,47 @@ void PrintDescriptor(int level, unsigned char* p)
 		}
 		break;
 	}
+	case 0xC1:	// digital_copy_control_descriptor
+	{
+		uint8_t digital_recording_control_data = ((*p)>>6)&0x3;
+		printf("%sDigital copy control information: %d -- %s\n", szIndent, digital_recording_control_data, 
+			digital_recording_control_data == 0?"Copy can be made without control condition":(
+			digital_recording_control_data == 1?"Defined by service provider":(
+			digital_recording_control_data == 2?"Copy can be made for only one generation":"Copy is forbidden")));
+		uint8_t maximum_bitrate_flag = ((*p) >> 5) & 0x1;
+		uint8_t component_control_flag = ((*p) >> 4) & 0x1;
+		p++;
+		if (maximum_bitrate_flag)
+		{
+			uint8_t maximum_bitrate = *p++;
+			printf("%sMaximum bitrate: %.2f Mbps\n", szIndent, maximum_bitrate / 4.0f);
+		}
+
+		if (component_control_flag)
+		{
+			int idx = 0;
+			uint8_t component_control_length = *p;
+			while (component_control_flag >= 2)
+			{
+				uint8_t component_tag = *p++;
+				printf("%scomponent tag: 0x%X\n", szIndent, component_tag);
+
+				uint8_t digital_recording_control_data = ((*p)>>6)&0x3;
+				printf("%s    Digital copy control information: %d -- %s\n", szIndent, digital_recording_control_data, 
+					digital_recording_control_data == 0?"Copy can be made without control condition":(
+					digital_recording_control_data == 1?"Defined by service provider":(
+					digital_recording_control_data == 2?"Copy can be made for only one generation":"Copy is forbidden")));
+				uint8_t maximum_bitrate_flag = ((*p) >> 5) & 0x1;
+				p++;
+				if (maximum_bitrate_flag)
+				{
+					uint8_t maximum_bitrate = *p++;
+					printf("%s    Maximum bitrate: %.2f Mbps\n", szIndent, maximum_bitrate / 4.0f);
+				}
+			}
+		}
+		break;
+	}
 	case 0xC2:	// network_identifier_descriptor
 	{
 		char country_code[3];
@@ -269,7 +443,24 @@ void PrintDescriptor(int level, unsigned char* p)
 		break;
 	}
 	case 0xC3:	// partialTS_time_descriptor
+	{
+		uint8_t event_version_number = *p++;
+		PrintARIBDateTime(szIndent, "event_start_time", p);
+		p += 5;
+		printf("%sduration: %02X:%02X:%02X\n", szIndent, *p, *(p + 1), *(p + 2));
+		p += 3;
+		printf("%soffset: %02X:%02X:%02X\n", szIndent, *p, *(p + 1), *(p + 2));
+		p += 3;
+		printf("%soffset_flag: %d\n", szIndent, (*p >> 2) & 0x1);
+		printf("%sother_descriptor_status: %d\n", szIndent, (*p >> 1) & 0x1);
+		printf("%sJST_time_flag: %d\n", szIndent, (*p) & 0x1);
+		if ((*p) & 0x1)
+		{
+			p++;
+			PrintARIBDateTime(szIndent, "JST_time", p);
+		}
 		break;
+	}
 	case 0xC4:	// audio_component_descriptor
 	{
 		uint8_t* p1 = p;
@@ -365,14 +556,45 @@ void PrintDescriptor(int level, unsigned char* p)
 			print_mem(p, text_length, level * 4);
 		break;
 	}
+	case 0xC8:	// Video decode control descriptor
+	{
+		uint8_t still_picture_flag = ((*p) >> 7) & 0x1;
+		uint8_t sequence_end_code_flag = ((*p) >> 6) & 0x1;
+		uint8_t video_encode_format = ((*p) >> 2) & 0x0F;
+		printf("%sstill_picture_flag: %d\n", szIndent, still_picture_flag);
+		printf("%ssequence_end_code_flag: %d\n", szIndent, sequence_end_code_flag);
+		printf("%svideo_encode_format: %d\n", szIndent, video_encode_format);
+		break;
+	}
 	case 0xCD:	// TS_information_descriptor
 	case 0xCE:	// exteniosn_broadcaster_name_descriptor
 	case 0xD5:	// series_descriptor
 	case 0xD6:	// event_group_descriptor
+		break;
 	case 0xD8:	// broadcaster_descriptor
-	case 0xD9:	// component_group_descriptor
+	{
+		if (descriptor_length > 0)
+			print_mem(p, descriptor_length, level * 4);
 		break;
 	}
+	case 0xD9:	// component_group_descriptor
+		break;
+	case 0xDE:	// content_availability_descriptor
+	{
+		uint8_t ICT = ((*p) >> 5) & 0x1;
+		uint8_t TAC = ((*p) >> 4) & 0x1;
+		uint8_t time_TAC = ((*p) >> 1) & 0x7;
+		uint8_t OP = (*p) & 0x1;
+
+		printf("%s                  Image constraint token: %d\n", szIndent, ICT);
+		printf("%s       Temporal accumulation control bit: %d\n", szIndent, TAC);
+		printf("%s Allowable time of temporal accumulation: %d\n", szIndent, time_TAC);
+		printf("%s                   Output protection bit: %d\n", szIndent, OP);
+		break;
+	}
+	}
+
+	printf("\n");
 }
 
 CPayloadBuf::CPayloadBuf(FILE* fw, uint8_t nTSPackSize)
@@ -718,6 +940,9 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 
 	if (m_PID == PID_PROGRAM_ASSOCIATION_TABLE && table_id == TID_program_association_section)
 	{
+		if ((dumpOptions&DUMP_PAT) && ctx_psi_process->bChanged)
+			printf("PAT(ver: %d):\n", version_number);
+
 		// check how many PMT entry exist in the current PAT
 		int num_of_PMTs = (section_length + ulSectionStart + 3 - ulMappedSize - 4) >> 2;
 		std::vector<std::tuple<unsigned short/* program number*/, unsigned short/*PMT PID*/>> PMT_PIDs;
@@ -733,6 +958,9 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 			// Network Information PID is also put into the vector, and it may be analyzed for SIT later
 			PMT_PIDs.push_back({ program_number, PMT_PID });
 
+			if ((dumpOptions&DUMP_PAT) && ctx_psi_process->bChanged)
+				printf("    program number: 0x%04X(%05d), %s:0x%X\n", 
+					program_number, program_number, program_number == 0?"Network_PID":"program_map_PID", PMT_PID);
 			ulMappedSize += 4;
 		}
 
@@ -766,6 +994,9 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 	}
 	else if (table_id == TID_TS_program_map_section)
 	{
+		if ((dumpOptions&DUMP_PMT) && ctx_psi_process->bChanged)
+			printf("PMT(ver: %d):\n", version_number);
+
 		// Process the current PMT, and get the related information.
 		if (ulMappedSize + 4 > buffer_len)
 			return -1;
@@ -773,13 +1004,32 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 		// Change PCR_PID
 		m_PCR_PID = (pBuf[ulMappedSize] & 0x1f) << 8 | pBuf[ulMappedSize + 1];
 
+		if ((dumpOptions&DUMP_PMT) && ctx_psi_process->bChanged)
+			printf("    PCR_PID: 0x%X\n", m_PCR_PID);
+
 		unsigned short program_info_length = (pBuf[ulMappedSize + 2] & 0xF) << 8 | pBuf[ulMappedSize + 3];
 		ulMappedSize += 4;
 
 		if (ulMappedSize + program_info_length > buffer_len)
 			return -1;
 
+		unsigned char* p = &pBuf[ulMappedSize];
 		ulMappedSize += program_info_length;
+
+		while (program_info_length >= 2)
+		{
+			unsigned char descriptor_tag = *p;
+			unsigned char descriptor_length = *(p + 1);
+
+			if ((dumpOptions&DUMP_PMT) && ctx_psi_process->bChanged)
+				PrintDescriptor(1, p);
+
+			p += 2 + descriptor_length;
+			if (program_info_length >= 2 + descriptor_length)
+				program_info_length -= 2 + descriptor_length;
+			else
+				program_info_length = 0;
+		}
 
 		// Reserve 4 bytes of CRC32 and 5 bytes of basic ES info (stream_type, reserved, elementary_PID, reserved and ES_info_length)
 		while (ulMappedSize + 5 + 4 <= 3 + section_length + ulSectionStart)
@@ -789,8 +1039,33 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 			m_stream_types[ES_PID] = stream_type;
 			unsigned short ES_info_length = (pBuf[ulMappedSize + 3] & 0xF) << 8 | pBuf[ulMappedSize + 4];
 
+			if ((dumpOptions&DUMP_PMT) && ctx_psi_process->bChanged)
+				printf("    ES_PID: 0x%X, stream_type: 0x%02X -- (%s):\n", ES_PID, stream_type, stream_type_names[stream_type]);
+
 			ulMappedSize += 5;
+			unsigned char* p = &pBuf[ulMappedSize];
 			ulMappedSize += ES_info_length;
+
+			if (ulMappedSize + 4 /*CRC32*/ > 3 + section_length + ulSectionStart)
+			{
+				// broken data
+				break;
+			}
+
+			while (ES_info_length >= 2)
+			{
+				unsigned char descriptor_tag = *p;
+				unsigned char descriptor_length = *(p + 1);
+
+				if ((dumpOptions&DUMP_PMT) && ctx_psi_process->bChanged)
+					PrintDescriptor(3, p);
+
+				p += 2 + descriptor_length;
+				if (ES_info_length >= 2 + descriptor_length)
+					ES_info_length -= 2 + descriptor_length;
+				else
+					ES_info_length = 0;
+			}
 		}
 
 		iRet = 0;

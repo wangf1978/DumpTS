@@ -126,6 +126,8 @@ void ParseCommandLine(int argc, char* argv[])
 		"showpts", 
 		"showpack",
 		"showSIT",
+		"showPAT",
+		"showPMT",
 		"stream_id",
 		"sub_stream_id",
 		"stream_id_extension", 
@@ -182,7 +184,9 @@ void ParseCommandLine(int argc, char* argv[])
 				iter->first.compare("showpts") == 0 || 
 				iter->first.compare("showinfo") == 0 ||
 				iter->first.compare("verbose") == 0 ||
-				iter->first.compare("showSIT") == 0)
+				iter->first.compare("showSIT") == 0 ||
+				iter->first.compare("showPMT") == 0 ||
+				iter->first.compare("showPAT") == 0)
 				printf("%s : yes\n", iter->first.c_str());
 			else
 				printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
@@ -516,6 +520,8 @@ void PrintHelp()
 	printf("\t--boxtype\t\tthe box type FOURCC\n");
 	printf("\t--showinfo\t\tPrint the media information of summary, layout or elementary stream in TS/ISOBMFF/Matroska file\n");
 	printf("\t--showSIT\t\tPrint the SIT information for DTV stream\n");
+	printf("\t--showPMT\t\tPrint the PMT information for stream\n");
+	printf("\t--showPAT\t\tPrint the PAT information for stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -823,7 +829,10 @@ int main(int argc, char* argv[])
 		{
 			// No output file is specified
 			// Check whether pid and showinfo is there
-			if (g_params.find("showinfo") != g_params.end() || g_params.find("showSIT") != g_params.end())
+			if (g_params.find("showinfo") != g_params.end() || 
+				g_params.find("showSIT") != g_params.end() || 
+				g_params.find("showPAT") != g_params.end() || 
+				g_params.find("showPMT") != g_params.end())
 			{
 				g_params["pid"] = "0";
 				DumpOneStream();

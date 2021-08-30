@@ -45,6 +45,7 @@ SOURCES := \
 	$(SOURCEDIR)/RefactorTS.cpp \
 	$(SOURCEDIR)/StdAfx.cpp \
 	$(SOURCEDIR)/combase.cpp \
+	$(SOURCEDIR)/system_13818_1.cpp \
 	$(SOURCEDIR)/crc.cpp
 	
 OBJECTS = $(patsubst $(SOURCEDIR)/%.c, $(OBJECTDIR)/%.o, $(patsubst $(SOURCEDIR)/%.cpp, $(OBJECTDIR)/%.o, $(SOURCES)))

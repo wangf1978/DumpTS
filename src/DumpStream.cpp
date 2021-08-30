@@ -2053,6 +2053,16 @@ int DumpOneStream()
 		dumpopt |= DUMP_DTV_SIT;
 	}
 
+	if (g_params.find("showPMT") != g_params.end())
+	{
+		dumpopt |= DUMP_PMT;
+	}
+
+	if (g_params.find("showPAT") != g_params.end())
+	{
+		dumpopt |= DUMP_PAT;
+	}
+
 	if (g_params.find("start") != g_params.end())
 	{
 		start_tspck_pos = ConvertToLongLong(g_params["start"]);

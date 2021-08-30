@@ -128,6 +128,9 @@
     <ClCompile Include="..\..\src\DumpPS.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\system_13818_1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
