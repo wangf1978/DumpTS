@@ -228,7 +228,7 @@ inline std::string DateTimeStr(uint64_t elapse_seconds_since_baseyear, int32_t b
 	else
 	{
 		strDateTime.reserve(64);
-		sprintf_s(&strDateTime[0], 64, "%04d-%02d-%02d %02dh:%02dm:%02d.%" PRIu64 "s", year, month, day, hour, minute, second, fraction_second);
+		sprintf_s(&strDateTime[0], 64, "%04d-%02d-%02d %02dh:%02dm:%02d.%-10" PRIu64 "s", year, month, day, hour, minute, second, fraction_second);
 	}
 	return strDateTime;
 }

@@ -379,7 +379,7 @@ namespace MMT
 			}
 
 			auto iter = MMT_SI_Descriptor_Descs.find(descriptor_tag);
-			fprintf(out, "%s++++++++++++++ Descriptor: %s +++++++++++++\n", szIndent, MMT_SI_Descriptor_Descs.cend() == iter?std::get<0>(iter->second):"");
+			fprintf(out, "%s++++++++++++++ Descriptor: %s +++++++++++++\n", szIndent, MMT_SI_Descriptor_Descs.cend() != iter?std::get<0>(iter->second):"");
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "file offset", start_bitpos >> 3);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%X\n", szIndent, "descriptor_tag", descriptor_tag);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "descriptor_length", descriptor_length);
@@ -583,7 +583,7 @@ namespace MMT
 				uint32_t seq_no = std::get<0>(MPU_sequence_present_timestamps[i]);
 				IP::NTPv4Data::NTPTimestampFormat& present_timestamp = std::get<1>(MPU_sequence_present_timestamps[i]);
 				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "(0X%" PRIX32 ")\n", szIndent, "mpu_sequence_number", seq_no, seq_no);
-				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "mpu_presentation_time", 
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 ".%-10" PRIu32 "s, %s\n", szIndent, "mpu_presentation_time", 
 					present_timestamp.Seconds, present_timestamp.Fraction, DateTimeStr(present_timestamp.Seconds, 1900, present_timestamp.Fraction).c_str());
 			}
 		}
@@ -918,6 +918,168 @@ namespace MMT
 			}
 		}
 
+	};
+
+	struct Additional_Arib_Subtitle_Info
+	{
+		uint8_t					subtitle_tag;
+		uint8_t					subtitle_info_version : 4;
+		uint8_t					start_mpu_sequence_number_flag : 1;
+		uint8_t					reserved_0 : 3;
+		uint8_t					ISO_639_language_code[3];
+		uint8_t					type : 2;
+		uint8_t					subtitle_format : 4;
+		uint8_t					OPM : 2;
+		uint8_t					TMD : 4;
+		uint8_t					DMF : 4;
+		uint8_t					resolution : 4;
+		uint8_t					compression_type : 4;
+		uint32_t				start_mpu_sequence_number;
+		uint64_t				reference_start_time;
+		uint8_t					reference_start_time_leap_indicator : 2;
+		uint8_t					reserved_1 : 6;
+	}PACKED;
+
+	struct MHDataComponentDescriptor : public MMTSIDescriptor
+	{
+		uint16_t				data_component_id;
+		std::vector<uint8_t>	additional_data_component_info;
+		Additional_Arib_Subtitle_Info*
+								arib_subtitle_info = NULL;
+
+		virtual ~MHDataComponentDescriptor(){
+			AMP_SAFEDEL(arib_subtitle_info);
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			data_component_id = bs.GetWord();
+
+			if (data_component_id == 0x0020)
+			{
+				arib_subtitle_info = new Additional_Arib_Subtitle_Info;
+				arib_subtitle_info->subtitle_tag = bs.GetByte();
+				arib_subtitle_info->subtitle_info_version = (uint8_t)bs.GetBits(4);
+				arib_subtitle_info->start_mpu_sequence_number_flag = (uint8_t)bs.GetBits(1);
+				arib_subtitle_info->reserved_0 = (uint8_t)bs.GetBits(3);
+				for (int i = 0; i < 3; i++)
+					arib_subtitle_info->ISO_639_language_code[i] = bs.GetByte();
+				arib_subtitle_info->type = (uint8_t)bs.GetBits(2);
+				arib_subtitle_info->subtitle_format = (uint8_t)bs.GetBits(4);
+				arib_subtitle_info->OPM = (uint8_t)bs.GetBits(2);
+				arib_subtitle_info->TMD = (uint8_t)bs.GetBits(4);
+				arib_subtitle_info->DMF = (uint8_t)bs.GetBits(4);
+				arib_subtitle_info->resolution = (uint8_t)bs.GetBits(4);
+				arib_subtitle_info->compression_type = (uint8_t)bs.GetBits(4);
+				if (arib_subtitle_info->start_mpu_sequence_number_flag)
+					arib_subtitle_info->start_mpu_sequence_number = bs.GetDWord();
+
+				if (arib_subtitle_info->TMD == 0x2)
+				{
+					arib_subtitle_info->reference_start_time = bs.GetQWord();
+					arib_subtitle_info->reference_start_time_leap_indicator = (uint8_t)bs.GetBits(2);
+					arib_subtitle_info->reserved_1 = (uint8_t)bs.GetBits(6);
+				}
+			}
+			else
+			{
+				left_bits -= 16;
+				if (left_bits > 0 && descriptor_length > 2)
+				{
+					additional_data_component_info.reserve(descriptor_length - 2);
+					int num_of_bytes = (int)(AMP_MIN(left_bits / 8, descriptor_length - 2));
+					for (int i = 0; i < num_of_bytes; i++)
+						additional_data_component_info.push_back(bs.GetByte());
+				}
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "data_component_id", data_component_id, data_component_id,
+				data_component_id == 0x20?" - Closed-caption coding system":(data_component_id == 0x21?"- Multimedia coding system":""));
+			if (data_component_id == 0x0020)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "subtitle_tag", arib_subtitle_info->subtitle_tag, arib_subtitle_info->subtitle_tag);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "subtitle_info_version", 
+					arib_subtitle_info->subtitle_info_version, arib_subtitle_info->subtitle_info_version);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "start_mpu_sequence_number_flag", arib_subtitle_info->start_mpu_sequence_number_flag);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %c%c%c\n", szIndent, "ISO_639_language_code", 
+					arib_subtitle_info->ISO_639_language_code[0], 
+					arib_subtitle_info->ISO_639_language_code[1], 
+					arib_subtitle_info->ISO_639_language_code[2]);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "type", 
+					arib_subtitle_info->type, 
+					arib_subtitle_info->type, 
+					arib_subtitle_info->type == 0?" - Closed-caption":(arib_subtitle_info->type == 1?" - Superimposition":""));
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "subtitle_format", 
+					arib_subtitle_info->subtitle_format, arib_subtitle_info->subtitle_format,
+					arib_subtitle_info->subtitle_format == 0?" - ARIB-TTML":"");
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "OPM", 
+					arib_subtitle_info->OPM, arib_subtitle_info->OPM,
+					arib_subtitle_info->OPM == 0?" - Live mode":(arib_subtitle_info->OPM == 1?" - Segment mode":(arib_subtitle_info->OPM == 2?" - Program mode":"")));
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "TMD", 
+					arib_subtitle_info->TMD, arib_subtitle_info->TMD,
+					arib_subtitle_info->TMD ==  0 ? " - UTC" : (
+					arib_subtitle_info->TMD ==  1 ? " - MH-EIT starttime for the starting point" : (
+					arib_subtitle_info->TMD ==  2 ? " - reference starttime for the starting point" : (
+					arib_subtitle_info->TMD ==  3 ? " - MPU timestamp for the starting point":(
+					arib_subtitle_info->TMD ==  4 ? " - NPT" : (
+					arib_subtitle_info->TMD ==  8 ? " - MPU Timestamp" : (
+					arib_subtitle_info->TMD == 15 ? " - without time control" : "")))))));
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "DMF", 
+					arib_subtitle_info->DMF, arib_subtitle_info->DMF, 
+					(arib_subtitle_info->DMF & 0xC) == 0x0 ? " - Automatic display when received" : (
+					(arib_subtitle_info->DMF & 0xC) == 0x4 ? " - Automatic non-display when received" : (
+					(arib_subtitle_info->DMF & 0xC) == 0x8 ? " - Selective display when received" : (
+					(arib_subtitle_info->DMF & 0xC) == 0xC ? " - Reserved for use in the future" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x0 ? " - Automatic display when playback" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x1 ? " - Automatic non-display when playback" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x2 ? " - Selective display when playback" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x3 ? " - Reserved for use in the future" : ""))))))));
+
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "resolution", 
+					arib_subtitle_info->resolution, arib_subtitle_info->resolution,
+					arib_subtitle_info->resolution == 0?" - 1920 x 1080":(arib_subtitle_info->resolution == 1?" - 3840 x 2160":(arib_subtitle_info->resolution == 2?" - 7680 x 4320":"")));
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "compression_type", arib_subtitle_info->compression_type, arib_subtitle_info->compression_type);
+
+
+				if (arib_subtitle_info->start_mpu_sequence_number_flag)
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "start_mpu_sequence_number", 
+						arib_subtitle_info->start_mpu_sequence_number, arib_subtitle_info->start_mpu_sequence_number);
+
+				if (arib_subtitle_info->TMD == 0x2)
+				{
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX)\n", szIndent, "reference_start_time", arib_subtitle_info->reference_start_time, arib_subtitle_info->reference_start_time);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "reference_start_time_leap_indicator", arib_subtitle_info->reference_start_time_leap_indicator, arib_subtitle_info->reference_start_time_leap_indicator);
+				}
+			}
+			else
+			{
+				print_mem(additional_data_component_info.data(), (int)additional_data_component_info.size(), (int)AMP_MIN(indent, 80));
+			}
+		}
 	};
 
 	struct MMTGeneralLocationInfo

@@ -3,6 +3,7 @@
 #include "AMRingBuffer.h"
 #include "MMT.h"
 #include "ESRepacker.h"
+#include "PayloadBuf.h"
 #include <chrono>
 
 extern std::unordered_map<std::string, std::string> g_params;
@@ -180,7 +181,7 @@ uint32_t FindAssetType(const TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint16_t pa
 	return 0;
 }
 
-int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf, bool* pbChange=nullptr)
+int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf, bool* pbChange=nullptr, int dumpOptions = 0)
 {
 	if (cbMsgBuf <= 0)
 		return RET_CODE_INVALID_PARAMETER;
@@ -231,7 +232,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				printf("\tFound a package with package_id: %" PRIu64 "(0X%" PRIX64 "), %s.\n", pkg_id, pkg_id, szLocInfo.c_str());
 			}
 
-			if (g_verbose_level > 0)
+			if (g_verbose_level > 0 || (dumpOptions&DUMP_PLT))
 				pPLT->Print(stdout, 8);
 			
 			// A new PLT is found
@@ -284,7 +285,8 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					bFoundNewMPT = true;
 					if (pbChange)
 						*pbChange = true;
-					printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+					if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+						printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
 				}
 				else
 				{
@@ -294,7 +296,8 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					bFoundNewMPT = true;
 					if (pbChange)
 						*pbChange = true;
-					printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+					if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+						printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
 				}
 			}
 			else
@@ -305,8 +308,9 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				bFoundNewMPT = true;
 				if (pbChange)
 					*pbChange = true;
-				printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: 0X%X(%u)...\n",
-					packet_id, packet_id, CID, CID);
+				if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+					printf("Found a new MPT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: 0X%X(%u)...\n",
+						packet_id, packet_id, CID, CID);
 			}
 
 			if (bFoundNewMPT && pMPT != nullptr)
@@ -314,16 +318,20 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				for (size_t k = 0; k < pMPT->assets.size(); k++)
 				{
 					auto& a = pMPT->assets[k];
-					printf("\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08X):\n", (uint32_t)k, a->asset_id, a->asset_id,
-						isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
-						isprint((a->asset_type >> 16) & 0xFF) ? ((a->asset_type >> 16) & 0xFF) : '.',
-						isprint((a->asset_type >>  8) & 0xFF) ? ((a->asset_type >>  8) & 0xFF) : '.',
-						isprint((a->asset_type) & 0xFF) ? ((a->asset_type) & 0xFF) : '.',
-						a->asset_type);
+					if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+					{
+						printf("\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08X):\n", (uint32_t)k, a->asset_id, a->asset_id,
+							isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
+							isprint((a->asset_type >> 16) & 0xFF) ? ((a->asset_type >> 16) & 0xFF) : '.',
+							isprint((a->asset_type >> 8) & 0xFF) ? ((a->asset_type >> 8) & 0xFF) : '.',
+							isprint((a->asset_type) & 0xFF) ? ((a->asset_type) & 0xFF) : '.',
+							a->asset_type);
+					}
 
 					for (auto& info : a->MMT_general_location_infos)
 					{
-						printf("\t\t%s\n", info.GetLocDesc().c_str());
+						if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+							printf("\t\t%s\n", info.GetLocDesc().c_str());
 					}
 
 					size_t left_descs_bytes = a->asset_descriptors_bytes.size();
@@ -334,11 +342,23 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 						MMT::MMTSIDescriptor* pDescr = nullptr;
 						switch (peek_desc_tag)
 						{
+						case 0x0001:	// MPUTimestampDescriptor
+							pDescr = new MMT::MPUTimestampDescriptor();
+							break;
 						case 0x8010:	// Video component Descriptor
 							pDescr = new MMT::VideoComponentDescriptor();
 							break;
 						case 0x8014:
 							pDescr = new MMT::MHAudioComponentDescriptor();
+							break;
+						case 0x8011:	// MH-stream identification descriptor:
+							pDescr = new MMT::MHStreamIdentifierDescriptor();
+							break;
+						case 0x8020:
+							pDescr = new MMT::MHDataComponentDescriptor();
+							break;
+						case 0x8026:	// MPUExtendedTimestampDescriptor
+							pDescr = new MMT::MPUExtendedTimestampDescriptor();
 							break;
 						default:
 							pDescr = new MMT::UnimplMMTSIDescriptor();
@@ -346,8 +366,15 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 
 						if (pDescr->Unpack(descs_bs) >= 0)
 						{
-							if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
+							if (dumpOptions&DUMP_MPT)
+							{
 								pDescr->Print(stdout, 28);
+							}
+							else if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
+							{
+								if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+									pDescr->Print(stdout, 28);
+							}
 
 							if (left_descs_bytes < pDescr->descriptor_length + 3UL)
 								break;
@@ -383,6 +410,7 @@ int ProcessMFU(uint16_t CID, uint64_t packet_id, uint8_t payload_type, uint32_t 
 
 int ShowMMTPackageInfo()
 {
+	int dumpopt = 0;
 	int nRet = RET_CODE_SUCCESS;
 	if (g_params.find("input") == g_params.end())
 		return -1;
@@ -395,6 +423,21 @@ int ShowMMTPackageInfo()
 	{
 		printf("Failed to open the file: %s.\n", szInputFile.c_str());
 		return nRet;
+	}
+
+	if (g_params.find("showinfo") != g_params.end())
+	{
+		dumpopt |= DUMP_MEDIA_INFO_VIEW;
+	}
+
+	if (g_params.find("showMPT") != g_params.end())
+	{
+		dumpopt |= DUMP_MPT;
+	}
+
+	if (g_params.find("showPLT") != g_params.end())
+	{
+		dumpopt |= DUMP_PLT;
 	}
 
 	int nParsedTLVPackets = 0;
@@ -516,7 +559,7 @@ int ShowMMTPackageInfo()
 							}
 						}
 						
-						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size());
+						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), nullptr, dumpopt);
 
 						fullPAMessage.clear();
 					}
@@ -525,7 +568,7 @@ int ShowMMTPackageInfo()
 						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
 						{
 							auto& v = std::get<1>(m);
-							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size());
+							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), nullptr, dumpopt);
 						}
 					}
 				}
@@ -558,85 +601,88 @@ int ShowMMTPackageInfo()
 		nRet = RET_CODE_ERROR;
 	}
 
-	printf("\nLayout of MMT:\n");
-
-	// Print PLT, MPT and asset tree
-	for (auto &m : CIDPAMsgs)
+	if (dumpopt&DUMP_MEDIA_INFO_VIEW)
 	{
-		printf("\tCID: 0X%X(%d):\n", m.first, m.first);
-		for (size_t i = 0; i < m.second.size(); i++)
+		printf("\nLayout of MMT:\n");
+
+		// Print PLT, MPT and asset tree
+		for (auto &m : CIDPAMsgs)
 		{
-			auto& plt = std::get<0>(m.second[i]);
-			auto& vmpt = std::get<1>(m.second[i]);
-			printf("\t\t#%04" PRIu32 " PLT (Package List Table):\n", (uint32_t)i);
-			for (size_t j=0;j<vmpt.size();j++)
+			printf("\tCID: 0X%X(%d):\n", m.first, m.first);
+			for (size_t i = 0; i < m.second.size(); i++)
 			{
-				auto& mpt = vmpt[j];
-
-				std::string szLocInfo;
-				// Get the packet_id of current MPT
-				if (plt != nullptr)
+				auto& plt = std::get<0>(m.second[i]);
+				auto& vmpt = std::get<1>(m.second[i]);
+				printf("\t\t#%04" PRIu32 " PLT (Package List Table):\n", (uint32_t)i);
+				for (size_t j = 0; j < vmpt.size(); j++)
 				{
-					for (auto& plt_pkg: plt->package_infos)
+					auto& mpt = vmpt[j];
+
+					std::string szLocInfo;
+					// Get the packet_id of current MPT
+					if (plt != nullptr)
 					{
-						if (std::get<1>(plt_pkg) == mpt->MMT_package_id)
+						for (auto& plt_pkg : plt->package_infos)
 						{
-							auto& info = std::get<2>(plt_pkg);
-							szLocInfo = info.GetLocDesc();
+							if (std::get<1>(plt_pkg) == mpt->MMT_package_id)
+							{
+								auto& info = std::get<2>(plt_pkg);
+								szLocInfo = info.GetLocDesc();
+							}
 						}
 					}
-				}
 
-				printf("\t\t\t#%05" PRIu32 " MPT (MMT Package Table), Package_id: 0X%" PRIX64 "(%" PRIu64 "), %s:\n", (uint32_t)j, mpt->MMT_package_id, mpt->MMT_package_id, szLocInfo.c_str());
-				for (size_t k = 0; k < mpt->assets.size(); k++)
-				{
-					auto& a = mpt->assets[k];
-					printf("\t\t\t\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08" PRIX32 "):\n", (uint32_t)k, a->asset_id, a->asset_id,
-						isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
-						isprint((a->asset_type >> 16) & 0xFF) ? ((a->asset_type >> 16) & 0xFF) : '.',
-						isprint((a->asset_type >>  8) & 0xFF) ? ((a->asset_type >>  8) & 0xFF) : '.',
-						isprint((a->asset_type) & 0xFF) ? ((a->asset_type) & 0xFF) : '.',
-						a->asset_type);
-
-					for (auto& info : a->MMT_general_location_infos)
+					printf("\t\t\t#%05" PRIu32 " MPT (MMT Package Table), Package_id: 0X%" PRIX64 "(%" PRIu64 "), %s:\n", (uint32_t)j, mpt->MMT_package_id, mpt->MMT_package_id, szLocInfo.c_str());
+					for (size_t k = 0; k < mpt->assets.size(); k++)
 					{
-						printf("\t\t\t\t\t%s\n", info.GetLocDesc().c_str());
-					}
+						auto& a = mpt->assets[k];
+						printf("\t\t\t\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08" PRIX32 "):\n", (uint32_t)k, a->asset_id, a->asset_id,
+							isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
+							isprint((a->asset_type >> 16) & 0xFF) ? ((a->asset_type >> 16) & 0xFF) : '.',
+							isprint((a->asset_type >> 8) & 0xFF) ? ((a->asset_type >> 8) & 0xFF) : '.',
+							isprint((a->asset_type) & 0xFF) ? ((a->asset_type) & 0xFF) : '.',
+							a->asset_type);
 
-					size_t left_descs_bytes = a->asset_descriptors_bytes.size();
-					CBitstream descs_bs(&a->asset_descriptors_bytes[0], a->asset_descriptors_bytes.size() << 3);
-					while (left_descs_bytes > 0)
-					{
-						uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
-						MMT::MMTSIDescriptor* pDescr = nullptr;
-						switch (peek_desc_tag)
+						for (auto& info : a->MMT_general_location_infos)
 						{
-						case 0x8010:	// Video component Descriptor
-							pDescr = new MMT::VideoComponentDescriptor();
-							break;
-						case 0x8014:
-							pDescr = new MMT::MHAudioComponentDescriptor();
-							break;
-						default:
-							pDescr = new MMT::UnimplMMTSIDescriptor();
+							printf("\t\t\t\t\t%s\n", info.GetLocDesc().c_str());
 						}
 
-						if (pDescr->Unpack(descs_bs) >= 0)
+						size_t left_descs_bytes = a->asset_descriptors_bytes.size();
+						CBitstream descs_bs(&a->asset_descriptors_bytes[0], a->asset_descriptors_bytes.size() << 3);
+						while (left_descs_bytes > 0)
 						{
-							if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
-								pDescr->Print(stdout, 40);
-
-							if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+							uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
+							MMT::MMTSIDescriptor* pDescr = nullptr;
+							switch (peek_desc_tag)
+							{
+							case 0x8010:	// Video component Descriptor
+								pDescr = new MMT::VideoComponentDescriptor();
 								break;
+							case 0x8014:
+								pDescr = new MMT::MHAudioComponentDescriptor();
+								break;
+							default:
+								pDescr = new MMT::UnimplMMTSIDescriptor();
+							}
 
-							left_descs_bytes -= pDescr->descriptor_length + 3UL;
+							if (pDescr->Unpack(descs_bs) >= 0)
+							{
+								if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
+									pDescr->Print(stdout, 40);
 
-							delete pDescr;
-						}
-						else
-						{
-							delete pDescr;
-							break;
+								if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+									break;
+
+								left_descs_bytes -= pDescr->descriptor_length + 3UL;
+
+								delete pDescr;
+							}
+							else
+							{
+								delete pDescr;
+								break;
+							}
 						}
 					}
 				}
@@ -1092,7 +1138,9 @@ int DumpMMT()
 		{
 			// No output file is specified
 			// Check whether pid and showinfo is there
-			if (g_params.find("showinfo") != g_params.end())
+			if (g_params.find("showinfo") != g_params.end() ||
+				g_params.find("showPLT") != g_params.end() ||
+				g_params.find("showMPT") != g_params.end())
 			{
 				ShowMMTPackageInfo();
 				goto done;
