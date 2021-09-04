@@ -12,7 +12,16 @@ extern int g_verbose_level;
 #define DEFAULT_TLV_PACKETS_PER_DISPLAY 20
 int g_TLV_packets_per_display = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 
-int ShowMMTTLVPacks()
+enum SHOW_TLV_PACK_OPTION
+{
+	SHOW_TLV_ALL = 0,
+	SHOW_TLV_IPv4,
+	SHOW_TLV_IPv6,
+	SHOW_TLV_HCIP,
+	SHOW_TLV_TCS,
+};
+
+int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 {
 	int nRet = RET_CODE_SUCCESS;
 	if (g_params.find("input") == g_params.end())
@@ -109,7 +118,16 @@ int ShowMMTTLVPacks()
 				break;
 			}
 
-			pTLVPacket->Print();
+			bool bFiltered = false;
+			if ((option) == SHOW_TLV_ALL ||
+				(option == SHOW_TLV_IPv4 && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_IPv4_packet) ||
+				(option == SHOW_TLV_IPv6 && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_IPv6_packet) ||
+				(option == SHOW_TLV_HCIP && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet) ||
+				(option == SHOW_TLV_TCS  && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Transmission_control_signal_packet))
+			{
+				pTLVPacket->Print();
+				bFiltered = true;
+			}
 
 			if (left_bits < (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3))
 			{
@@ -120,13 +138,16 @@ int ShowMMTTLVPacks()
 			left_bits -= (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3);
 			delete pTLVPacket;
 
-			nParsedTLVPackets++;
-			if ((nParsedTLVPackets%g_TLV_packets_per_display) == 0 && g_TLV_packets_per_display != std::numeric_limits<decltype(g_TLV_packets_per_display)>::max())
+			if (bFiltered)
 			{
-				printf("Press any key to continue...\n");
-				char chk = _getch();
-				if (chk == 0x3 || chk == 0x1A)	// Ctrl + C/Z, quit the loop
-					break;
+				nParsedTLVPackets++;
+				if ((nParsedTLVPackets%g_TLV_packets_per_display) == 0 && g_TLV_packets_per_display != std::numeric_limits<decltype(g_TLV_packets_per_display)>::max())
+				{
+					printf("Press any key to continue('q': quit)...\n");
+					char chk = _getch();
+					if (chk == 0x3 || chk == 0x1A || chk == 'q' || chk == 'Q')	// Ctrl + C/Z, quit the loop
+						break;
+				}
 			}
 		}
 	}
@@ -1099,7 +1120,11 @@ int DumpMMT()
 	int nDumpRet = 0;
 
 	auto iter_showpack = g_params.find("showpack");
-	if (iter_showpack != g_params.end())
+	if ((iter_showpack) != g_params.end() ||
+		(iter_showpack = g_params.find("showIPv4packet")) != g_params.end() ||
+		(iter_showpack = g_params.find("showIPv6packet")) != g_params.end() ||
+		(iter_showpack = g_params.find("showHCIPpacket")) != g_params.end() ||
+		(iter_showpack = g_params.find("showTCSpacket")) != g_params.end())
 	{
 		int64_t display_pages = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 		const char* szPages = iter_showpack->second.c_str();
@@ -1111,7 +1136,25 @@ int DumpMMT()
 				g_TLV_packets_per_display = decltype(g_TLV_packets_per_display)(display_pages);
 		}
 
-		return ShowMMTTLVPacks();
+		SHOW_TLV_PACK_OPTION option = SHOW_TLV_ALL;
+		if (STRICMP(iter_showpack->first.c_str(), "showIPv4packet") == 0)
+		{
+			option = SHOW_TLV_IPv4;
+		}
+		else if (STRICMP(iter_showpack->first.c_str(), "showIPv6packet") == 0)
+		{
+			option = SHOW_TLV_IPv6;
+		}
+		else if (STRICMP(iter_showpack->first.c_str(), "showHCIPpacket") == 0)
+		{
+			option = SHOW_TLV_HCIP;
+		}
+		else if (STRICMP(iter_showpack->first.c_str(), "showTCSpacket") == 0)
+		{
+			option = SHOW_TLV_TCS;
+		}
+
+		return ShowMMTTLVPacks(option);
 	}
 	else if (g_params.find("pid") != g_params.end())
 	{

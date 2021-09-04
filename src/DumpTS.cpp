@@ -125,6 +125,10 @@ void ParseCommandLine(int argc, char* argv[])
 		"showinfo",
 		"showpts", 
 		"showpack",
+		"showIPv4packet",	// Show TLV IPv4 packet
+		"showIPv6packet",	// Show TLV IPv6 packet
+		"showHCIPpacket",	// Show TLV Header Compressed IP packet
+		"showTCSpacket",	// Show TLV Transmission control signal packet
 		"showSIT",
 		"showPAT",
 		"showPLT",
