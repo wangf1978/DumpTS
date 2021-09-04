@@ -125,10 +125,10 @@ void ParseCommandLine(int argc, char* argv[])
 		"showinfo",
 		"showpts", 
 		"showpack",
-		"showIPv4packet",	// Show TLV IPv4 packet
-		"showIPv6packet",	// Show TLV IPv6 packet
-		"showHCIPpacket",	// Show TLV Header Compressed IP packet
-		"showTCSpacket",	// Show TLV Transmission control signal packet
+		"showIPv4pack",	// Show TLV IPv4 packet
+		"showIPv6pack",	// Show TLV IPv6 packet
+		"showHCIPpack",	// Show TLV Header Compressed IP packet
+		"showTCSpack",	// Show TLV Transmission control signal packet
 		"showSIT",
 		"showPAT",
 		"showPLT",
@@ -187,6 +187,10 @@ void ParseCommandLine(int argc, char* argv[])
 		if (iter->second.length() == 0)
 		{
 			if (iter->first.compare("showpack") == 0 ||
+				iter->first.compare("showIPv4pack") == 0 ||
+				iter->first.compare("showIPv6pack") == 0 ||
+				iter->first.compare("showHCIPpack") == 0 ||
+				iter->first.compare("showTCSpack") == 0 ||
 				iter->first.compare("showpts") == 0 || 
 				iter->first.compare("showinfo") == 0 ||
 				iter->first.compare("verbose") == 0 ||
@@ -528,10 +532,10 @@ void PrintHelp()
 	printf("\t--boxtype\t\tthe box type FOURCC\n");
 	printf("\t--showinfo\t\tPrint the media information of summary, layout or elementary stream in TS/ISOBMFF/Matroska file\n");
 	printf("\t--showpack\n");
-	printf("\t--showIPv4packet\n");
-	printf("\t--showIPv6packet\n");
-	printf("\t--showHCIPpacket\n");
-	printf("\t--showTCSpacket[ps]\tPrint the specified or all stream packet, only support TLV/MMT\n");
+	printf("\t--showIPv4pack\n");
+	printf("\t--showIPv6pack\n");
+	printf("\t--showHCIPpack\n");
+	printf("\t--showTCSpack[ps]\tPrint the specified or all stream packet, only support TLV/MMT\n");
 	printf("\t--showSIT\t\tPrint the SIT information for DTV stream\n");
 	printf("\t--showPMT\t\tPrint the PMT information in TS stream\n");
 	printf("\t--showPAT\t\tPrint the PAT information in TS stream\n");

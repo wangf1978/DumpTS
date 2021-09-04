@@ -1121,10 +1121,10 @@ int DumpMMT()
 
 	auto iter_showpack = g_params.find("showpack");
 	if ((iter_showpack) != g_params.end() ||
-		(iter_showpack = g_params.find("showIPv4packet")) != g_params.end() ||
-		(iter_showpack = g_params.find("showIPv6packet")) != g_params.end() ||
-		(iter_showpack = g_params.find("showHCIPpacket")) != g_params.end() ||
-		(iter_showpack = g_params.find("showTCSpacket")) != g_params.end())
+		(iter_showpack = g_params.find("showIPv4pack")) != g_params.end() ||
+		(iter_showpack = g_params.find("showIPv6pack")) != g_params.end() ||
+		(iter_showpack = g_params.find("showHCIPpack")) != g_params.end() ||
+		(iter_showpack = g_params.find("showTCSpack")) != g_params.end())
 	{
 		int64_t display_pages = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 		const char* szPages = iter_showpack->second.c_str();
@@ -1137,19 +1137,19 @@ int DumpMMT()
 		}
 
 		SHOW_TLV_PACK_OPTION option = SHOW_TLV_ALL;
-		if (STRICMP(iter_showpack->first.c_str(), "showIPv4packet") == 0)
+		if (STRICMP(iter_showpack->first.c_str(), "showIPv4pack") == 0)
 		{
 			option = SHOW_TLV_IPv4;
 		}
-		else if (STRICMP(iter_showpack->first.c_str(), "showIPv6packet") == 0)
+		else if (STRICMP(iter_showpack->first.c_str(), "showIPv6pack") == 0)
 		{
 			option = SHOW_TLV_IPv6;
 		}
-		else if (STRICMP(iter_showpack->first.c_str(), "showHCIPpacket") == 0)
+		else if (STRICMP(iter_showpack->first.c_str(), "showHCIPpack") == 0)
 		{
 			option = SHOW_TLV_HCIP;
 		}
-		else if (STRICMP(iter_showpack->first.c_str(), "showTCSpacket") == 0)
+		else if (STRICMP(iter_showpack->first.c_str(), "showTCSpack") == 0)
 		{
 			option = SHOW_TLV_TCS;
 		}
