@@ -527,6 +527,11 @@ void PrintHelp()
 	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\n");
 	printf("\t--boxtype\t\tthe box type FOURCC\n");
 	printf("\t--showinfo\t\tPrint the media information of summary, layout or elementary stream in TS/ISOBMFF/Matroska file\n");
+	printf("\t--showpack\n");
+	printf("\t--showIPv4packet\n");
+	printf("\t--showIPv6packet\n");
+	printf("\t--showHCIPpacket\n");
+	printf("\t--showTCSpacket[ps]\tPrint the specified or all stream packet, only support TLV/MMT\n");
 	printf("\t--showSIT\t\tPrint the SIT information for DTV stream\n");
 	printf("\t--showPMT\t\tPrint the PMT information in TS stream\n");
 	printf("\t--showPAT\t\tPrint the PAT information in TS stream\n");
