@@ -47,6 +47,7 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 
 	int nParsedTLVPackets = 0;
 	int nIPv4Packets = 0, nIPv6Packets = 0, nHdrCompressedIPPackets = 0, nTransmissionControlSignalPackets = 0, nNullPackets = 0, nOtherPackets = 0;
+	int nFilterPackets = 0;
 
 	int nLocateSyncTry = 0;
 	bool bFindSync = false;
@@ -99,7 +100,7 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 				nHdrCompressedIPPackets++;
 				break;
 			case MMT::TLV_Transmission_control_signal_packet:
-				pTLVPacket = new MMT::Undefined_TLVPacket();
+				pTLVPacket = new MMT::TransmissionControlSignalPacket();
 				nTransmissionControlSignalPackets++;
 				break;
 			case MMT::TLV_Null_packet:
@@ -138,10 +139,12 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 			left_bits -= (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3);
 			delete pTLVPacket;
 
+			nParsedTLVPackets++;
+
 			if (bFiltered)
 			{
-				nParsedTLVPackets++;
-				if ((nParsedTLVPackets%g_TLV_packets_per_display) == 0 && g_TLV_packets_per_display != std::numeric_limits<decltype(g_TLV_packets_per_display)>::max())
+				nFilterPackets++;
+				if ((nFilterPackets%g_TLV_packets_per_display) == 0 && g_TLV_packets_per_display != std::numeric_limits<decltype(g_TLV_packets_per_display)>::max())
 				{
 					printf("Press any key to continue('q': quit)...\n");
 					char chk = _getch();
@@ -517,7 +520,7 @@ int ShowMMTPackageInfo()
 				nHdrCompressedIPPackets++;
 				break;
 			case MMT::TLV_Transmission_control_signal_packet:
-				pTLVPacket = new MMT::Undefined_TLVPacket();
+				pTLVPacket = new MMT::TransmissionControlSignalPacket();
 				nTransmissionControlSignalPackets++;
 				break;
 			case MMT::TLV_Null_packet:

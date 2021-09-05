@@ -141,3 +141,12 @@ const std::unordered_map<uint16_t, std::tuple<const char*, const char*>> MMT::MM
 	{0xF002, {"MH-Extension format event Descriptor", "" } },
 	{0xF003, {"Event message Descriptor", "" } },
 };
+
+std::unordered_map<unsigned char, std::string> g_TLV_SI_descriptors = {
+	{0x40, "Network Name Descriptor"},
+	{0x41, "Service List Descriptor"},
+	{0x43, "Satellite Delivery System Descriptor"},
+	{0xCD, "Remote Control Key Descriptor"},
+	{0xFE, "System Management Descriptor"},
+};
+

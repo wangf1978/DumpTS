@@ -56,6 +56,20 @@
 #define MAX_FULL_TLV_PACKET_LENGTH			(MAX_TLV_PKT_DATA_LENGTH + 4)
 #define MMT_FIX_HEADER_FMT_STR				"%s%21s"
 
+#define SERVICE_TYPE_MEANING(t)	\
+	(t) == 0x00?"undefined":(\
+	(t) == 0x01?"Digital TV service":(\
+	(t) == 0x02?"Digital audio service":(\
+	(t) == 0xA1?"Special video service":(\
+	(t) == 0xA4?"Engineering service":(\
+	(t) == 0xC0?"Data service":(\
+	(t) == 0xC1?"Storage type service using TLV":(\
+	(t) == 0xC2?"Multimedia service":"undefined")))))))
+
+extern std::unordered_map<uint8_t, std::string> g_TLV_SI_descriptors;
+
+extern void PrintDescriptor(int level, unsigned char* p);
+
 namespace MMT
 {
 	enum TLV_PACKET_TYPE
@@ -3157,6 +3171,417 @@ namespace MMT
 			if (MMTP_Packet != nullptr)
 				MMTP_Packet->Print(fp, indent + 4);
 
+		}
+
+	}PACKED;
+
+	// RECOMMENDATION ITU-R BT.1869 - Multiplexing scheme for variable-length packets in digital multimedia broadcasting systems
+	struct _TransmissionControlSignalPacket : public TLVPacket
+	{
+		uint8_t					table_id;
+		uint16_t				section_syntax_indicator : 1;
+		uint16_t				reserved_0 : 1;
+		uint16_t				reserved_1 : 2;
+		uint16_t				section_length : 12;
+		uint16_t				table_id_extension;
+		uint8_t					reserved_2 : 2;
+		uint8_t					version_number : 5;
+		uint8_t					current_next_indicator : 1;
+		uint8_t					section_number;
+		uint8_t					last_section_number;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = TLVPacket::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+
+			if (left_bits < 12)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			table_id = bs.GetByte();
+			section_syntax_indicator = (uint16_t)bs.GetBits(1);
+			reserved_0 = (uint16_t)bs.GetBits(1);
+			reserved_1 = (uint16_t)bs.GetBits(2);
+			section_length = (uint16_t)bs.GetBits(12);
+			table_id_extension = bs.GetWord();
+			reserved_2 = (uint8_t)bs.GetBits(2);
+			version_number = (uint8_t)bs.GetBits(5);
+			current_next_indicator = (uint8_t)bs.GetBits(1);
+			section_number = bs.GetByte();
+			last_section_number = bs.GetByte();
+
+			return iRet;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			TLVPacket::Print(fp, indent);
+
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X\n", szIndent, "table_id", table_id);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "section_syntax_indicator", section_syntax_indicator);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "reserved_0", reserved_0);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%X\n", szIndent, "reserved_1", reserved_1);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X(%d)\n", szIndent, "section_length", section_length, section_length);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X\n", szIndent, "table_id_extension", table_id_extension);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X\n", szIndent, "reserved_2", reserved_2);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "version_number", version_number);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "current_next_indicator", current_next_indicator);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X(%d)\n", szIndent, "section_number", section_number, section_number);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X(%d)\n", szIndent, "last_section_number", last_section_number, last_section_number);
+		}
+
+	}PACKED;
+
+	struct TLVNIT
+	{
+		struct TLVStream
+		{
+			uint16_t				tlv_stream_id;
+			uint16_t				original_network_id;
+			uint16_t				reserved_for_future_use : 4;
+			uint16_t				tlv_stream_descriptors_length : 12;
+			std::vector<uint8_t*>	second_loop_descriptors;
+		}PACKED;
+
+		uint16_t				reserved_future_use_0 : 4;
+		uint16_t				network_descriptors_length : 12;
+
+		std::vector<uint8_t*>	first_loop_descriptors;
+
+		uint16_t				reserved_future_use_1 : 4;
+		uint16_t				TLV_stream_loop_length : 12;
+
+		std::vector<TLVStream*>	tlv_streams;
+		uint32_t				CRC_32;
+
+		~TLVNIT()
+		{
+			for (auto iter : tlv_streams){
+				if (iter == NULL)
+					continue;
+
+				for (auto iter2 : iter->second_loop_descriptors){
+					AMP_SAFEDEL(iter2);
+				}
+
+				AMP_SAFEDEL(iter);
+			}
+
+			for (auto iter : first_loop_descriptors){
+				AMP_SAFEDEL(iter);
+			}
+		}
+
+		void PrintTLVSIDescriptor(uint8_t* p, FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			uint8_t descriptor_tag = *p++;
+			uint8_t descriptor_length = *p++;
+			auto iter_des = g_TLV_SI_descriptors.find(descriptor_tag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X(%3d)/0x%02X(%3d) -- %s\n", szIndent, "descriptor_tag/len", 
+				descriptor_tag, descriptor_tag, descriptor_length, descriptor_length,
+				iter_des == g_TLV_SI_descriptors.cend() ? "Unsupported Descriptor" : iter_des->second.c_str());
+
+			switch (descriptor_tag)
+			{
+			case 0x40:
+			{
+				print_mem(p, descriptor_length - 2, indent + 4);
+				fprintf(out, "\n");
+				break;
+			}
+			case 0x41:
+			{
+				int loop = descriptor_length / 3;
+				for (int i = 0; i < loop; i++)
+				{
+					uint16_t service_id = ((*p) << 8) | *(p + 1);
+					p += 2;
+					uint8_t service_type = *p++;
+					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR "[%02d]: 0x%X\n", szIndent, "service_id", i, service_id);
+					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR "[%02d]: 0x%X -- %s\n", szIndent, "service_type", i, service_type, SERVICE_TYPE_MEANING(service_type));
+				}
+				fprintf(out, "\n");
+				break;
+			}
+			case 0x43:
+			{
+				uint32_t frequency = ((*p) << 24) | (*(p + 1) << 16) | (*(p + 2) << 8) | *(p + 3);
+
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d%d%d.%d%d%d%d%dGHZ\n", szIndent, "frequency",
+					(*p >> 4) & 0xF, (*p) & 0xF,
+					(*(p + 1) >> 4) & 0xF, (*(p + 1)) & 0xF,
+					(*(p + 2) >> 4) & 0xF, (*(p + 2)) & 0xF,
+					(*(p + 3) >> 4) & 0xF, (*(p + 3)) & 0xF);
+
+				p += 4;
+				uint16_t orbital_position = (*p << 8) | *(p + 1);
+
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d%d%d.%dGHZ\n", szIndent, "frequency",
+					(*p >> 4) & 0xF, (*p) & 0xF,
+					(*(p + 1) >> 4) & 0xF, (*(p + 1)) & 0xF);
+
+				p += 2;
+				uint8_t west_east_flag = (*p >> 7) & 0x1;
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "west_east_flag", west_east_flag);
+				uint8_t polarisation = (*p >> 5) & 0x3;
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d -- %s\n", szIndent, "polarisation", 
+					polarisation, polarisation == 0?"horizontal":(polarisation == 1?"vertical":(polarisation == 2?"Counter-clockwise rotation":"Clockwise rotation")));
+				uint8_t modulation = *p & 0x1F;
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%X(%s)\n", szIndent, "modulation",
+					modulation,
+					modulation == 0x1 ? "QPSK" : (
+					modulation == 0x8 ? "Wide band satellite digital broadcasting system" : (
+					modulation == 0x9 ? "2.6 GHz band satellite digital audio broadcasting system" : (
+					modulation == 0xA ? "Advanced narrow band CS digital broadcasting system" : (
+					modulation == 0xB ? "Advanced wide band satellite digital broadcasting system":"Clockwise rotation")))));
+				p += 1;
+				uint32_t symbol_rate = ((((*p) << 24) | (*(p + 1) << 16) | (*(p + 2) << 8) | *(p + 3)) >> 4) & 0xFFFFFFF;
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d%d%d.%d%d%d%d\n", szIndent, "symbol_rate",
+					(*p >> 4) & 0xF, (*p) & 0xF,
+					(*(p + 1) >> 4) & 0xF, (*(p + 1)) & 0xF,
+					(*(p + 2) >> 4) & 0xF, (*(p + 2)) & 0xF,
+					(*(p + 3) >> 4) & 0xF);
+				uint8_t FEC_inner = (*(p + 3) >> 4) & 0xF;
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%X(%s)\n", szIndent, "FEC_inner",
+					FEC_inner,
+					FEC_inner == 0x1 ? "Coding rate 1/2" : (
+					FEC_inner == 0x2 ? "Coding rate 2/3" : (
+					FEC_inner == 0x3 ? "Coding rate 3/4" : (
+					FEC_inner == 0x4 ? "Coding rate 5/6" : (
+					FEC_inner == 0x5 ? "Coding rate 7/8" : (
+					FEC_inner == 0x8 ? "Wide band satellite digital broadcasting system" : (
+					FEC_inner == 0x9 ? "2.6 GHz band satellite digital audio broadcasting system" : (
+					FEC_inner == 0xA ? "Advanced narrow band CS digital broadcasting system" : (
+					FEC_inner == 0xB ? "Advanced wide band satellite digital broadcasting system" : (
+					FEC_inner == 0xF ? "Without inner-code":"Unknown"))))))))));
+				p += 4;
+				fprintf(out, "\n");
+				break;
+			}
+			case 0xCD:
+			{
+				uint8_t num_of_remote_control_key_id = *p++;
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "num_of_remote_control_key_id", num_of_remote_control_key_id);
+				for (int i = 0; i < num_of_remote_control_key_id; i++)
+				{
+					uint8_t remote_control_key_id = *p++;
+					uint8_t service_id = (*p << 8) | *(p + 1);
+					p += 2;
+					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR "[%2d]: 0X%02X/0x%04X\n", szIndent, "key_id/service_id",
+						i, remote_control_key_id, service_id);
+				}
+				fprintf(out, "\n");
+				break;
+			}
+			case 0xFE:
+			{
+				uint8_t broadcasting_flag = (uint8_t)((*p) >> 6) & 0x3;
+				uint8_t broadcasting_identifier = (*p) & 0x3F;
+				p++;
+				uint8_t additional_broadcasting_identification = *p;
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%X\n", szIndent, "broadcasting_flag", broadcasting_flag);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%02X(%3d) // broadcasting_identifier\n", szIndent, "broadcasting_id", broadcasting_identifier, broadcasting_identifier);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%02X(%3d) // additional_broadcasting_identification\n", szIndent, "ext_broadcasting_id", additional_broadcasting_identification, additional_broadcasting_identification);
+				if (descriptor_length > 2)
+				{
+					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": \n", szIndent, "additional_identification_info");
+					print_mem(p, descriptor_length - 2, indent + 4);
+				}
+				fprintf(out, "\n");
+				break;
+			}
+			}
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			reserved_future_use_0 = (uint16_t)bs.GetBits(4);
+			network_descriptors_length = (uint16_t)bs.GetBits(12);
+
+			int cbUsed = network_descriptors_length;
+
+			while (cbUsed >= 2)
+			{
+				uint8_t descriptor_tag = bs.GetByte();
+				uint8_t descriptor_length = bs.GetByte();
+
+				uint8_t* pDes = new uint8_t[2 + descriptor_length];
+				pDes[0] = descriptor_tag;
+				pDes[1] = descriptor_length;
+				if (descriptor_length > 0)
+					bs.Read(pDes + 2, descriptor_length);
+
+				first_loop_descriptors.push_back(pDes);
+
+				cbUsed -= 2 + descriptor_length;
+			}
+
+			if (cbUsed != 0)
+				return RET_CODE_BUFFER_NOT_COMPATIBLE;
+
+			reserved_future_use_1 = (uint16_t)bs.GetBits(4);
+			TLV_stream_loop_length = (uint16_t)bs.GetBits(12);
+
+			cbUsed = TLV_stream_loop_length;
+			while (cbUsed >= 6)
+			{
+				TLVStream* stream = new TLVStream();
+				stream->tlv_stream_id = bs.GetWord();
+				stream->original_network_id = bs.GetWord();
+				stream->reserved_for_future_use = (uint16_t)bs.GetBits(4);
+				stream->tlv_stream_descriptors_length = (uint16_t)bs.GetBits(12);
+
+				int cbUsed2 = stream->tlv_stream_descriptors_length;
+				while (cbUsed2 >= 2)
+				{
+					uint8_t descriptor_tag = bs.GetByte();
+					uint8_t descriptor_length = bs.GetByte();
+
+					uint8_t* pDes = new uint8_t[2 + descriptor_length];
+					pDes[0] = descriptor_tag;
+					pDes[1] = descriptor_length;
+					if (descriptor_length > 0)
+						bs.Read(pDes + 2, descriptor_length);
+
+					stream->second_loop_descriptors.push_back(pDes);
+
+					cbUsed2 -= 2 + descriptor_length;
+				}
+
+				if (cbUsed2 != 0)
+				{
+					delete stream;
+					return RET_CODE_BUFFER_NOT_COMPATIBLE;
+				}
+
+				cbUsed -= 6 + stream->tlv_stream_descriptors_length;
+
+				tlv_streams.push_back(stream);
+			}
+
+			if (cbUsed != 0)
+				return RET_CODE_BUFFER_NOT_COMPATIBLE;
+
+			CRC_32 = bs.GetDWord();
+
+			return RET_CODE_SUCCESS;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%0X\n", szIndent, "reserved_future_use", reserved_future_use_0);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X(%d)\n", szIndent, "network_descriptors_length", network_descriptors_length, network_descriptors_length);
+
+			for (auto iter : first_loop_descriptors)
+			{
+				if (iter == NULL)
+					continue;
+
+				PrintTLVSIDescriptor(iter, fp, indent);
+			}
+
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%0X\n", szIndent, "reserved_future_use", reserved_future_use_0);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%02X(%d) // TLV_stream_loop_length\n", szIndent, "2nd_loop_length", TLV_stream_loop_length, TLV_stream_loop_length);
+
+			for (auto iter : tlv_streams)
+			{
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%04X(%d)\n", szIndent, "tlv_stream_id", iter->tlv_stream_id, iter->tlv_stream_id);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%04X(%d)\n", szIndent, "original_network_id", iter->original_network_id, iter->original_network_id);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%X\n", szIndent, "original_network_id", iter->reserved_for_future_use);
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%02X(%d) // tlv_stream_descriptors_length\n", szIndent, "descriptors_length", iter->tlv_stream_descriptors_length, iter->tlv_stream_descriptors_length);
+
+				for (auto iter2 : iter->second_loop_descriptors)
+				{
+					PrintTLVSIDescriptor(iter2, fp, indent + 4);
+				}
+			}
+
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%08X\n", szIndent, "CRC_32", CRC_32);
+		}
+	}PACKED;
+
+	struct TransmissionControlSignalPacket : public _TransmissionControlSignalPacket
+	{
+		TLVNIT*					tlv_nit = NULL;
+
+		TransmissionControlSignalPacket()
+		{
+
+		}
+
+		~TransmissionControlSignalPacket()
+		{
+			AMP_SAFEDEL(tlv_nit);
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = _TransmissionControlSignalPacket::Unpack(bs);
+			if (iRet < 0)
+			{
+				iRet = RET_CODE_BUFFER_TOO_SMALL;
+				goto done;
+			}
+
+			if (table_id == 0x40)
+			{
+				tlv_nit = new TLVNIT();
+				iRet = tlv_nit->Unpack(bs);
+			}
+
+		done:
+			SkipLeftBits(bs);
+			return iRet;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			_TransmissionControlSignalPacket::Print(fp, indent);
+			if (table_id)
+			{
+				if (tlv_nit)
+					tlv_nit->Print(fp, indent);
+			}
 		}
 
 	}PACKED;
