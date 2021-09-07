@@ -1096,6 +1096,194 @@ namespace MMT
 		}
 	};
 
+	struct ContentCopyControlDescriptor : public MMTSIDescriptor
+	{
+		struct ComponentControlDescriptor
+		{
+			uint16_t			component_tag;
+			uint8_t				digital_recording_control_data : 2;
+			uint8_t				maximum_bit_rate_flag : 1;
+			uint8_t				reserved_future_use_0 : 5;
+			uint8_t				reserved_future_use_1;
+			uint8_t				maximum_bitrate;
+
+			ComponentControlDescriptor(uint16_t tag, uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4, uint8_t brate)
+				: component_tag(tag), digital_recording_control_data(v1), maximum_bit_rate_flag(v2)
+				, reserved_future_use_0(v3), reserved_future_use_1(v4), maximum_bitrate(brate){
+			}
+		}PACKED;
+
+		uint8_t				digital_recording_control_data:2;
+		uint8_t				maximum_bit_rate_flag:1;
+		uint8_t				component_control_flag:1;
+		uint8_t				reserved_future_use_0 : 4;
+		uint8_t				reserved_future_use_1;
+
+		uint8_t				maximum_bitrate;
+		uint8_t				component_control_length;
+
+		std::vector< ComponentControlDescriptor>
+							component_controls;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			digital_recording_control_data = (uint8_t)bs.GetBits(2);
+			maximum_bit_rate_flag = (uint8_t)bs.GetBits(1);
+			component_control_flag = (uint8_t)bs.GetBits(1);
+			reserved_future_use_0 = (uint8_t)bs.GetBits(4);
+			reserved_future_use_1 = bs.GetByte();
+
+			if (maximum_bit_rate_flag)
+				maximum_bitrate = bs.GetByte();
+
+			if (component_control_flag)
+			{
+				component_control_length = bs.GetByte();
+				int control_left_bytes = component_control_length;
+				while (control_left_bytes >= 4)
+				{
+					uint16_t component_tag = bs.GetWord();
+					uint8_t component_digital_recording_control_data = (uint8_t)bs.GetBits(2);
+					uint8_t component_maximum_bit_rate_flag = (uint8_t)bs.GetBits(1);
+					uint8_t component_reserved_future_use_0 = (uint8_t)bs.GetBits(5);
+					uint8_t component_reserved_future_use_1 = bs.GetByte();
+					uint8_t component_maximum_bitrate = 0;
+					control_left_bytes -= 4;
+
+					if (component_maximum_bit_rate_flag)
+					{
+						if (control_left_bytes >= 1)
+						{
+							component_maximum_bitrate = bs.GetByte();
+							control_left_bytes -= 1;
+						}
+					}
+					
+					component_controls.emplace_back(component_tag, 
+						component_digital_recording_control_data,
+						component_maximum_bit_rate_flag,
+						component_reserved_future_use_0,
+						component_reserved_future_use_1,
+						component_maximum_bitrate);
+				}
+			}
+
+			SkipLeftBits(bs);
+			return iRet;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(%s)\n", szIndent, "Copy Control", 
+				digital_recording_control_data,
+				digital_recording_control_data == 0?"Able to be copied without restriction":(
+				digital_recording_control_data == 0?"Defined by broadcasters":(
+				digital_recording_control_data == 0?"Able to be copied for only one generation":"Prohibited to copy")));
+
+			if (maximum_bit_rate_flag)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d Mbps\n", szIndent, "maximum_bitrate", maximum_bitrate);
+			}
+
+			if (component_control_flag)
+			{
+				for (size_t i = 0; i < component_controls.size(); i++) {
+					fprintf(out, MMT_FIX_HEADER_FMT_STR "[#%zu]:\n", szIndent, "Component", i);
+					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%02X\n", szIndent, "component_tag", component_controls[i].component_tag);
+					fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%02X\n", szIndent, "component_copy_control", component_controls[i].digital_recording_control_data);
+					if (component_controls[i].maximum_bit_rate_flag)
+						fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": 0x%02X\n", szIndent, "maximum_bitrate", component_controls[i].maximum_bitrate);
+				}
+			}
+		}
+	};
+
+	struct ContentUsageControlDescriptor : public MMTSIDescriptor
+	{
+		uint8_t				remote_view_mode : 1;
+		uint8_t				copy_restriction_mode : 1;
+		uint8_t				image_constraint_token : 1;
+		uint8_t				reserved_future_use_0 : 5;
+		uint8_t				reserved_future_use_1 : 3;
+		uint8_t				retention_mode : 1;
+		uint8_t				retention_state : 3;
+		uint8_t				encryption_mode : 1;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			remote_view_mode = (uint8_t)bs.GetBits(1);
+			copy_restriction_mode = (uint8_t)bs.GetBits(1);
+			image_constraint_token = (uint8_t)bs.GetBits(1);
+			reserved_future_use_0 = (uint8_t)bs.GetBits(5);
+			reserved_future_use_1 = (uint8_t)bs.GetBits(3);
+			retention_mode = (uint8_t)bs.GetBits(1);
+			retention_state = (uint8_t)bs.GetBits(3);
+			encryption_mode = (uint8_t)bs.GetBits(1);
+
+			SkipLeftBits(bs);
+			return iRet;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(the remote viewing is %spossible)\n", szIndent, "remote_view_mode", remote_view_mode, remote_view_mode?"":"not ");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(the copy with the number limitation is %spossible)\n", szIndent, "copy_restriction_mode", copy_restriction_mode, copy_restriction_mode?"":"not ");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(%s)\n", szIndent, "img_constraint_token", 
+				image_constraint_token,
+				image_constraint_token?"the resolution of video signal output is not limited":"the resolution of video signal output must be limited");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(temporarily storing is %spossible)\n", szIndent, "retention_mode", retention_mode, retention_mode?"not ":"");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(temporarily storing time: %s)\n", szIndent, "retention_state", retention_state,
+				retention_state == 0?"Without limit":(
+				retention_state == 1?"One week":(
+				retention_state == 2?"Two days":(
+				retention_state == 3?"One day":(
+				retention_state == 4?"12 hours":(
+				retention_state == 5?"Six hours":(
+				retention_state == 6?"Three hours":"One hour and a half")))))));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d(%s)\n", szIndent, "encryption_mode", encryption_mode, 
+				encryption_mode?"it may not be processed for protection":"the IP interface output must be processed for protection");
+		}
+
+	} PACKED;
+
 	struct MMTGeneralLocationInfo
 	{
 		uint64_t			start_bitpos;

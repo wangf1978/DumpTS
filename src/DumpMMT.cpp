@@ -21,6 +21,21 @@ enum SHOW_TLV_PACK_OPTION
 	SHOW_TLV_TCS,
 };
 
+bool NeedShowMMTTable()
+{
+	return (g_params.find("showinfo") != g_params.end() ||
+			g_params.find("showPLT") != g_params.end() ||
+			g_params.find("showMPT") != g_params.end());
+}
+
+bool NeedShowMMTTLVPacket()
+{
+	return (g_params.find("showIPv4pack") != g_params.end() ||
+			g_params.find("showIPv6pack") != g_params.end() ||
+			g_params.find("showHCIPpack") != g_params.end() ||
+			g_params.find("showTCSpack") != g_params.end());
+}
+
 int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 {
 	int nRet = RET_CODE_SUCCESS;
@@ -205,7 +220,7 @@ uint32_t FindAssetType(const TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint16_t pa
 	return 0;
 }
 
-int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf, bool* pbChange=nullptr, int dumpOptions = 0)
+int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf, bool* pbChange=nullptr, int dumpOptions = 0, std::vector<uint16_t>& filter_packets_ids = std::vector<uint16_t>())
 {
 	if (cbMsgBuf <= 0)
 		return RET_CODE_INVALID_PARAMETER;
@@ -270,6 +285,9 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 		{
 			bool bFoundExistedMPT = false, bInPLTMPTs = false, bFoundNewMPT = false;;
 			MMT::MMTPackageTable* pMPT = (MMT::MMTPackageTable*)t;
+
+			//printf("\n=============MPT version: %d=============\n", t->version);
+
 			// Check whether the current MPT lies at the last PLT or not
 			if (iter->second.size() > 0)
 			{
@@ -285,7 +303,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				}
 
 				// Already found the existed MPT, continue the next table processing
-				if (bFoundExistedMPT == true)
+				if (bFoundExistedMPT == true && !(dumpOptions&DUMP_MPT))
 					continue;
 
 				auto& pPLT = std::get<0>(tuple_tree);
@@ -337,12 +355,89 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 						packet_id, packet_id, CID, CID);
 			}
 
+			if ((dumpOptions&DUMP_MPT))
+			{
+				printf("%21s: 0x%X\n", "table_id", pMPT->table_id);
+				printf("%21s: 0x%X\n", "version", pMPT->version);
+				printf("%21s: %d -- %s\n", "MPT_mode", pMPT->MPT_mode, 
+					pMPT->MPT_mode == 0?"MPT is processed according to the order of subset":(
+					pMPT->MPT_mode == 1?"After MPT of subset 0 is received, any subset which has the same version number can be processed":(
+					pMPT->MPT_mode == 2?"MPT of subset can be processed arbitrarily":"Unknown")));
+				printf("%21s: 0x%llX\n", "MMT_package_id", pMPT->MMT_package_id);
+
+				size_t left_descs_bytes = pMPT->MPT_descriptors_bytes.size();
+				CBitstream descs_bs(&pMPT->MPT_descriptors_bytes[0], pMPT->MPT_descriptors_bytes.size() << 3);
+				while (left_descs_bytes > 0)
+				{
+					uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
+					MMT::MMTSIDescriptor* pDescr = nullptr;
+					switch (peek_desc_tag)
+					{
+					case 0x0001:	// MPUTimestampDescriptor
+						pDescr = new MMT::MPUTimestampDescriptor();
+						break;
+					case 0x8010:	// Video component Descriptor
+						pDescr = new MMT::VideoComponentDescriptor();
+						break;
+					case 0x8014:
+						pDescr = new MMT::MHAudioComponentDescriptor();
+						break;
+					case 0x8011:	// MH-stream identification descriptor:
+						pDescr = new MMT::MHStreamIdentifierDescriptor();
+						break;
+					case 0x8020:
+						pDescr = new MMT::MHDataComponentDescriptor();
+						break;
+					case 0x8026:	// MPUExtendedTimestampDescriptor
+						pDescr = new MMT::MPUExtendedTimestampDescriptor();
+						break;
+					case 0x8038:	// Content copy control Descriptor
+						pDescr = new MMT::ContentCopyControlDescriptor();
+						break;
+					case 0x8039:	// Content usage control Descriptor
+						pDescr = new MMT::ContentUsageControlDescriptor();
+						break;
+					default:
+						pDescr = new MMT::UnimplMMTSIDescriptor();
+					}
+
+					if (pDescr->Unpack(descs_bs) >= 0)
+					{
+						pDescr->Print(stdout, 16);
+
+						if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+							break;
+
+						left_descs_bytes -= pDescr->descriptor_length + 3UL;
+
+						delete pDescr;
+					}
+					else
+					{
+						delete pDescr;
+						break;
+					}
+				}
+			}
+
 			if (bFoundNewMPT && pMPT != nullptr)
 			{
 				for (size_t k = 0; k < pMPT->assets.size(); k++)
 				{
+					// Check whether the current packet_id should be selected or not
+					bool bPacketIDFiltered = false;
+					if (filter_packets_ids.size() == 0)
+						bPacketIDFiltered = true;
+
 					auto& a = pMPT->assets[k];
-					if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+					for (auto& info : a->MMT_general_location_infos)
+					{
+						if (bPacketIDFiltered == false &&
+							std::find(filter_packets_ids.cbegin(), filter_packets_ids.cend(), info.packet_id) != filter_packets_ids.cend())
+							bPacketIDFiltered = true;
+					}
+
+					if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW) && bPacketIDFiltered)
 					{
 						printf("\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08X):\n", (uint32_t)k, a->asset_id, a->asset_id,
 							isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
@@ -354,7 +449,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 
 					for (auto& info : a->MMT_general_location_infos)
 					{
-						if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+						if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW) && bPacketIDFiltered)
 							printf("\t\t%s\n", info.GetLocDesc().c_str());
 					}
 
@@ -390,13 +485,13 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 
 						if (pDescr->Unpack(descs_bs) >= 0)
 						{
-							if (dumpOptions&DUMP_MPT)
+							if ((dumpOptions&DUMP_MPT) && bPacketIDFiltered)
 							{
 								pDescr->Print(stdout, 28);
 							}
 							else if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
 							{
-								if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW))
+								if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW) && bPacketIDFiltered)
 									pDescr->Print(stdout, 28);
 							}
 
@@ -462,6 +557,62 @@ int ShowMMTPackageInfo()
 	if (g_params.find("showPLT") != g_params.end())
 	{
 		dumpopt |= DUMP_PLT;
+	}
+
+	const char* sp;
+	const char* ep;
+	int64_t i64Val = -1LL;
+	std::vector<uint16_t> fitler_packet_ids;
+	auto pidIter = g_params.find("pid");
+	if (pidIter != g_params.end())
+	{
+		int iterPID = (int)pidIter->second.find("&");
+		if (iterPID == 0 || iterPID == std::string::npos)//Only one pid/packet_id this case
+		{
+			sp = pidIter->second.c_str();
+			ep = sp + pidIter->second.length();
+			if (iterPID == 0)
+				sp++;
+			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			{
+				printf("Please specify a valid packet_id.\n");
+				return RET_CODE_ERROR;
+			}
+			fitler_packet_ids.push_back((uint16_t)i64Val);
+		}
+		else//Two pids/packet_ids
+		{
+			std::string PIDs;
+			PIDs = pidIter->second.substr(0, iterPID);
+			sp = PIDs.c_str();
+			ep = sp + PIDs.length();
+			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			{
+				printf("Please specify a valid packet_id.\n");
+				return RET_CODE_ERROR;
+			}
+			fitler_packet_ids.push_back((uint16_t)i64Val);
+
+			PIDs = pidIter->second.substr(iterPID + 1, pidIter->second.length());
+			sp = PIDs.c_str();
+			ep = sp + PIDs.length();
+			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			{
+				printf("Please specify a valid packet_id for the second pid.\n");
+				return RET_CODE_ERROR;
+			}
+			fitler_packet_ids.push_back((uint16_t)i64Val);
+		}
+	}
+
+	int filter_CID = -1;
+	auto iterCID = g_params.find("CID");
+	if (iterCID != g_params.end())
+	{
+		sp = iterCID->second.c_str();
+		ep = sp + iterCID->second.length();
+		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == true && i64Val >= 0 && i64Val <= UINT16_MAX)
+			filter_CID = (int)i64Val;
 	}
 
 	int nParsedTLVPackets = 0;
@@ -541,6 +692,8 @@ int ShowMMTPackageInfo()
 
 			if (left_bits < (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3))
 			{
+				printf("The buffer is not enough(left-bits: 0x%llX, required bits: 0x%llX)!\n",
+					left_bits, (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3));
 				delete pTLVPacket;
 				break;
 			}
@@ -557,6 +710,8 @@ int ShowMMTPackageInfo()
 					goto Skip;
 
 				uint16_t CID = pHeaderCompressedIPPacket->Context_id;
+				if (filter_CID >= 0 && filter_CID != CID)
+					goto Skip;
 
 				// Check there is an existed CID there or not, if it does NOT exist, add one
 				if (CIDPAMsgs.find(CID) == CIDPAMsgs.end())
@@ -583,7 +738,7 @@ int ShowMMTPackageInfo()
 							}
 						}
 						
-						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), nullptr, dumpopt);
+						ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), nullptr, dumpopt, fitler_packet_ids);
 
 						fullPAMessage.clear();
 					}
@@ -592,7 +747,7 @@ int ShowMMTPackageInfo()
 						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
 						{
 							auto& v = std::get<1>(m);
-							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), nullptr, dumpopt);
+							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), nullptr, dumpopt, fitler_packet_ids);
 						}
 					}
 				}
@@ -746,6 +901,7 @@ int DumpMMTOneStream()
 	TreeCIDPAMsgs CIDPAMsgs;
 	std::vector<uint8_t> fullPAMessage;
 	uint32_t asset_type = 0;
+	char szLog[512] = { 0 };
 	CESRepacker* pESRepacker[2] = { nullptr };
 
 	auto start_time = std::chrono::high_resolution_clock::now();
@@ -753,55 +909,63 @@ int DumpMMTOneStream()
 	if (g_params.find("input") == g_params.end())
 		return -1;
 
-	int iterPID = (int)g_params["pid"].find("&");
 	const char* sp;
 	const char* ep;
 	int64_t i64Val = -1LL;
 	int PIDN = 0;
 	uint16_t src_packet_id[2];
 	std::string Outputfiles[2];
+	auto pidIter = g_params.find("pid");
 	auto iterParam = g_params.find("output");
-	if (iterPID ==0)//Only one pid this case
+	if (pidIter != g_params.end())
 	{
-		sp = g_params["pid"].c_str();
-		ep = sp + g_params["pid"].length();
-		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+		int iterPID = (int)pidIter->second.find("&");
+		if (iterPID == 0 || iterPID == std::string::npos)//Only one pid this case
 		{
-			printf("Please specify a valid packet_id.\n");
-			return RET_CODE_ERROR;
+			sp = pidIter->second.c_str();
+			ep = sp + pidIter->second.length();
+			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			{
+				printf("Please specify a valid packet_id.\n");
+				return RET_CODE_ERROR;
+			}
+			src_packet_id[0] = (uint16_t)i64Val;
+			PIDN = 0;
 		}
-		src_packet_id[0] = (uint16_t)i64Val;
-		PIDN = 0;
-	}
-	else//Two pids
-	{
-		std::string PIDs;
-		PIDs = g_params["pid"].substr(0, iterPID);
-		sp = PIDs.c_str();
-		ep = sp + PIDs.length();
-		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+		else//Two pids
 		{
-			printf("Please specify a valid packet_id.\n");
-			return RET_CODE_ERROR;
-		}
-		src_packet_id[0] = (uint16_t)i64Val;
-		Outputfiles[0] = iterParam->second;
-		if (Outputfiles[0].rfind(".") == std::string::npos)// No dot in output file name
-			Outputfiles[0] += ".";
-		Outputfiles[1] = Outputfiles[0];
-		Outputfiles[0].insert(Outputfiles[0].rfind("."), "_" + PIDs);
+			std::string PIDs;
+			PIDs = pidIter->second.substr(0, iterPID);
+			sp = PIDs.c_str();
+			ep = sp + PIDs.length();
+			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			{
+				printf("Please specify a valid packet_id.\n");
+				return RET_CODE_ERROR;
+			}
+			src_packet_id[0] = (uint16_t)i64Val;
+			if (iterParam != g_params.end())
+			{
+				Outputfiles[0] = iterParam->second;
+				if (Outputfiles[0].rfind(".") == std::string::npos)// No dot in output file name
+					Outputfiles[0] += ".";
+				Outputfiles[1] = Outputfiles[0];
+				Outputfiles[0].insert(Outputfiles[0].rfind("."), "_" + PIDs);
+			}
 
-		PIDs = g_params["pid"].substr(iterPID+1, g_params["pid"].length());
-		sp = PIDs.c_str();
-		ep = sp + PIDs.length();
-		if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
-		{
-			printf("Please specify a valid packet_id for the second pid.\n");
-			return RET_CODE_ERROR;
+			PIDs = pidIter->second.substr(iterPID + 1, pidIter->second.length());
+			sp = PIDs.c_str();
+			ep = sp + PIDs.length();
+			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			{
+				printf("Please specify a valid packet_id for the second pid.\n");
+				return RET_CODE_ERROR;
+			}
+			src_packet_id[1] = (uint16_t)i64Val;
+			if (iterParam != g_params.end())
+				Outputfiles[1].insert(Outputfiles[1].rfind("."), "_" + PIDs);
+			PIDN = 1;
 		}
-		src_packet_id[1] = (uint16_t)i64Val;
-		Outputfiles[1].insert(Outputfiles[1].rfind("."), "_" + PIDs);
-		PIDN = 1;
 	}
 
 	int filter_CID = -1;
@@ -1159,6 +1323,27 @@ int DumpMMT()
 
 		return ShowMMTTLVPacks(option);
 	}
+	else if (g_params.find("pid") == g_params.end() ||
+		NeedShowMMTTable() && g_params.find("output") == g_params.end())
+	{
+		if (g_params.find("output") == g_params.end())
+		{
+			// No output file is specified
+			// Check whether pid and showinfo is there
+			if (g_params.find("showinfo") != g_params.end() ||
+				g_params.find("showPLT") != g_params.end() ||
+				g_params.find("showMPT") != g_params.end())
+			{
+				ShowMMTPackageInfo();
+				goto done;
+			}
+			else
+			{
+				printf("Please specify a output file name with --output.\n");
+				goto done;
+			}
+		}
+	}
 	else if (g_params.find("pid") != g_params.end())
 	{
 		if (g_params.find("outputfmt") == g_params.end())
@@ -1180,23 +1365,7 @@ int DumpMMT()
 	}
 	else
 	{
-		if (g_params.find("output") == g_params.end())
-		{
-			// No output file is specified
-			// Check whether pid and showinfo is there
-			if (g_params.find("showinfo") != g_params.end() ||
-				g_params.find("showPLT") != g_params.end() ||
-				g_params.find("showMPT") != g_params.end())
-			{
-				ShowMMTPackageInfo();
-				goto done;
-			}
-			else
-			{
-				printf("Please specify a output file name with --output.\n");
-				goto done;
-			}
-		}
+		printf("Unsupported!\n");
 	}
 
 done:
