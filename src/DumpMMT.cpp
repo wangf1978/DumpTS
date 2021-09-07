@@ -359,7 +359,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 			{
 				printf("%21s: 0x%X\n", "table_id", pMPT->table_id);
 				printf("%21s: 0x%X\n", "version", pMPT->version);
-				printf("%21s: %d -- %s\n", "MPT_mode", pMPT->MPT_mode, 
+				printf("%21s: %d(%s)\n", "MPT_mode", pMPT->MPT_mode, 
 					pMPT->MPT_mode == 0?"MPT is processed according to the order of subset":(
 					pMPT->MPT_mode == 1?"After MPT of subset 0 is received, any subset which has the same version number can be processed":(
 					pMPT->MPT_mode == 2?"MPT of subset can be processed arbitrarily":"Unknown")));
@@ -981,6 +981,9 @@ int DumpMMTOneStream()
 	std::string& szInputFile = g_params["input"];
 	bool bExplicitVideoStreamDump = g_params.find("video") == g_params.end() ? false : true;
 
+	bool bListMMTPpacket = g_params.find("listMMTPpacket") != g_params.end();
+	bool bListMMTPpayload = g_params.find("listMMTPpayload") != g_params.end();
+
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
 
 	if (nRet < 0)
@@ -1050,6 +1053,7 @@ int DumpMMTOneStream()
 			// Detect the PLT and MPT, and show them
 			if (((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet)
 			{
+				bool bFiltered = false;
 				MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket = (MMT::HeaderCompressedIPPacket*)pTLVPacket;
 
 				uint16_t CID = pHeaderCompressedIPPacket->Context_id;
@@ -1065,12 +1069,61 @@ int DumpMMTOneStream()
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ||
 					pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[1])
+				{
+					bFiltered = true;
 					nFilterTLVPackets++;
+				}
+
+				if (bListMMTPpacket && bFiltered)
+				{
+					static int PktIndex = 0;
+					size_t ccLog = sizeof(szLog) / sizeof(szLog[0]);
+					int ccWritten = 0;
+					int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+
+					if (ccWrittenOnce > 0)
+					{
+						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", RAP: %d", pHeaderCompressedIPPacket->MMTP_Packet->RAP_flag);
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					if (ccWrittenOnce > 0)
+					{
+						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %14s", 
+							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0?"fragment MPU":(
+							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 2?"message":"unsupported"));
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					if (ccWrittenOnce > 0)
+					{
+						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_id:0x%04X", pHeaderCompressedIPPacket->MMTP_Packet->Packet_id);
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					if (ccWrittenOnce > 0)
+					{
+						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_seq_no:0x%04X", pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number);
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					printf("%s.\n", szLog);
+				}
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 				{
 					// Create a new ES re-packer to repack the NAL unit to an Annex-B bitstream
-					for (int i = 0; i <=PIDN; i++) {
+					for (int i = 0; i <= PIDN; i++) {
 						if (pESRepacker[i] == nullptr)
 						{
 							ES_REPACK_CONFIG config;
@@ -1323,8 +1376,7 @@ int DumpMMT()
 
 		return ShowMMTTLVPacks(option);
 	}
-	else if (g_params.find("pid") == g_params.end() ||
-		NeedShowMMTTable() && g_params.find("output") == g_params.end())
+	else if (g_params.find("pid") == g_params.end() || (NeedShowMMTTable() && g_params.find("output") == g_params.end()))
 	{
 		if (g_params.find("output") == g_params.end())
 		{
@@ -1351,7 +1403,9 @@ int DumpMMT()
 
 		std::string& str_output_fmt = g_params["outputfmt"];
 
-		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
+		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0) || 
+			g_params.find("listMMTPpacket") != g_params.end() ||
+			g_params.find("listMMTPpayload") != g_params.end())
 		{
 			nDumpRet = DumpMMTOneStream();
 		}

@@ -72,6 +72,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showPAT**|*N/A*|print the PAT information in TS stream|
 |**--showMPT**|*N/A*|print the MPT information in MMT/TLV stream|
 |**--showPLT**|*N/A*|print the PLT information in MMT/TLV stream|
+|**--listMMTPpacket**|*N/A*|List the specified MMTP packets|
+|**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
 |**--listcrc**|*N/A*|List all CRC types supported in this program|
 |**--listmp4box**|*N/A*|List box types and descriptions defined in ISO-14496 spec|
 |**--listmkvEBML**|*N/A*|List EBML elements defined in Matroska spec|

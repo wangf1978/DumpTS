@@ -134,6 +134,8 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPLT",
 		"showPMT",
 		"showMPT",
+		"listMMTPpacket",
+		"listMMTPpayload",
 		"stream_id",
 		"sub_stream_id",
 		"stream_id_extension", 
