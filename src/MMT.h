@@ -1010,7 +1010,7 @@ namespace MMT
 				if (left_bits > 0 && descriptor_length > 2)
 				{
 					additional_data_component_info.reserve(descriptor_length - 2);
-					int num_of_bytes = (int)(AMP_MIN(left_bits / 8, descriptor_length - 2));
+					int num_of_bytes = (int)(AMP_MIN(left_bits / 8, (uint64_t)(descriptor_length - 2)));
 					for (int i = 0; i < num_of_bytes; i++)
 						additional_data_component_info.push_back(bs.GetByte());
 				}
@@ -1085,7 +1085,7 @@ namespace MMT
 
 				if (arib_subtitle_info->TMD == 0x2)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %llu(0X%llX)\n", szIndent, "reference_start_time", arib_subtitle_info->reference_start_time, arib_subtitle_info->reference_start_time);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 ")\n", szIndent, "reference_start_time", arib_subtitle_info->reference_start_time, arib_subtitle_info->reference_start_time);
 					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "reference_start_time_leap_indicator", arib_subtitle_info->reference_start_time_leap_indicator, arib_subtitle_info->reference_start_time_leap_indicator);
 				}
 			}
@@ -2817,7 +2817,7 @@ namespace MMT
 				}
 
 				int ccWritten = 0;
-				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%9d", PktIndex++);
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
 
@@ -2851,7 +2851,7 @@ namespace MMT
 
 				if (ccWrittenOnce > 0)
 				{
-					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr_f: %d", Aggregate_flag);
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr: %d", Aggregate_flag);
 
 					if (ccWrittenOnce > 0)
 						ccWritten += ccWrittenOnce;
@@ -2883,7 +2883,7 @@ namespace MMT
 							if (du_idx == 0)
 								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ");
 							else
-								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%85s", szIndent, " ");
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%82s", szIndent, " ");
 
 							if (ccWrittenOnce > 0)
 								ccWritten += ccWrittenOnce;
@@ -3660,7 +3660,7 @@ namespace MMT
 			uint16_t				reserved_for_future_use : 4;
 			uint16_t				tlv_stream_descriptors_length : 12;
 			std::vector<uint8_t*>	second_loop_descriptors;
-		}PACKED;
+		};
 
 		uint16_t				reserved_future_use_0 : 4;
 		uint16_t				network_descriptors_length : 12;
@@ -3935,7 +3935,7 @@ namespace MMT
 
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0x%08X\n", szIndent, "CRC_32", CRC_32);
 		}
-	}PACKED;
+	};
 
 	struct TransmissionControlSignalPacket : public _TransmissionControlSignalPacket
 	{

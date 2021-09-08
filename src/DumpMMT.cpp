@@ -12,6 +12,8 @@ extern int g_verbose_level;
 #define DEFAULT_TLV_PACKETS_PER_DISPLAY 20
 int g_TLV_packets_per_display = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 
+std::vector<uint16_t> g_empty_uint16_vector;
+
 enum SHOW_TLV_PACK_OPTION
 {
 	SHOW_TLV_ALL = 0,
@@ -220,7 +222,7 @@ uint32_t FindAssetType(const TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint16_t pa
 	return 0;
 }
 
-int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf, bool* pbChange=nullptr, int dumpOptions = 0, std::vector<uint16_t>& filter_packets_ids = std::vector<uint16_t>())
+int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf, bool* pbChange=nullptr, int dumpOptions = 0, const std::vector<uint16_t>& filter_packets_ids = g_empty_uint16_vector)
 {
 	if (cbMsgBuf <= 0)
 		return RET_CODE_INVALID_PARAMETER;
@@ -363,7 +365,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					pMPT->MPT_mode == 0?"MPT is processed according to the order of subset":(
 					pMPT->MPT_mode == 1?"After MPT of subset 0 is received, any subset which has the same version number can be processed":(
 					pMPT->MPT_mode == 2?"MPT of subset can be processed arbitrarily":"Unknown")));
-				printf("%21s: 0x%llX\n", "MMT_package_id", pMPT->MMT_package_id);
+				printf("%21s: 0x%" PRIX64 "\n", "MMT_package_id", pMPT->MMT_package_id);
 
 				size_t left_descs_bytes = pMPT->MPT_descriptors_bytes.size();
 				CBitstream descs_bs(&pMPT->MPT_descriptors_bytes[0], pMPT->MPT_descriptors_bytes.size() << 3);
@@ -566,7 +568,7 @@ int ShowMMTPackageInfo()
 	auto pidIter = g_params.find("pid");
 	if (pidIter != g_params.end())
 	{
-		int iterPID = (int)pidIter->second.find("&");
+		size_t iterPID = pidIter->second.find("&");
 		if (iterPID == 0 || iterPID == std::string::npos)//Only one pid/packet_id this case
 		{
 			sp = pidIter->second.c_str();
@@ -692,8 +694,8 @@ int ShowMMTPackageInfo()
 
 			if (left_bits < (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3))
 			{
-				printf("The buffer is not enough(left-bits: 0x%llX, required bits: 0x%llX)!\n",
-					left_bits, (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3));
+				printf("The buffer is not enough(left-bits: 0x%" PRIX64 ", required bits: 0x%" PRIX32 ")!\n",
+					left_bits, (uint32_t)(((uint32_t)pTLVPacket->Data_length + 4UL) << 3));
 				delete pTLVPacket;
 				break;
 			}
@@ -921,7 +923,7 @@ int DumpMMTOneStream()
 	auto iterParam = g_params.find("output");
 	if (pidIter != g_params.end())
 	{
-		int iterPID = (int)pidIter->second.find("&");
+		size_t iterPID = pidIter->second.find("&");
 		if (iterPID == 0 || iterPID == std::string::npos)//Only one pid this case
 		{
 			sp = pidIter->second.c_str();
