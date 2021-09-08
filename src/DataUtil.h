@@ -168,6 +168,11 @@ inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL
 	return true;
 }
 
+inline bool ConvertToInt(const std::string& str, int64_t& ret_val, INT_VALUE_LITERAL_FORMAT literal_fmt = FMT_AUTO)
+{
+	return ConvertToInt((char*)str.c_str(), (char*)str.c_str() + str.length(), ret_val, literal_fmt);
+}
+
 inline int isLeapYear(int year) {
 	return (year % 400 == 0) || ((year % 100 != 0) && (year % 4 == 0));
 }

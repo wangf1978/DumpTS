@@ -926,13 +926,13 @@ int DumpMMTOneStream()
 		size_t iterPID = pidIter->second.find("&");
 		if (iterPID == 0 || iterPID == std::string::npos)//Only one pid this case
 		{
-			sp = pidIter->second.c_str();
-			ep = sp + pidIter->second.length();
-			if (ConvertToInt((char*)sp, (char*)ep, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
+			if (ConvertToInt(pidIter->second, i64Val) == false || i64Val < 0 || i64Val > UINT16_MAX)
 			{
 				printf("Please specify a valid packet_id.\n");
 				return RET_CODE_ERROR;
 			}
+			if (iterParam != g_params.end())
+				Outputfiles[0] = iterParam->second;
 			src_packet_id[0] = (uint16_t)i64Val;
 			PIDN = 0;
 		}
@@ -987,6 +987,16 @@ int DumpMMTOneStream()
 
 	bool bListMMTPpacket = g_params.find("listMMTPpacket") != g_params.end();
 	bool bListMMTPpayload = g_params.find("listMMTPpayload") != g_params.end();
+
+	int64_t filter_MPUSeqNumber = -1LL;
+	auto iterMPUSeqNo = g_params.find("MPUseqno");
+	if (iterMPUSeqNo != g_params.end())
+	{
+		if (ConvertToInt(iterMPUSeqNo->second, i64Val) && i64Val >= 0 && i64Val <= UINT32_MAX)
+			filter_MPUSeqNumber = i64Val;
+	}
+
+	bool bOutputByMFU = g_params.find("MFU") != g_params.end();
 
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
 
@@ -1083,6 +1093,12 @@ int DumpMMTOneStream()
 					pHeaderCompressedIPPacket->MMTP_Packet->PrintListItem();
 				}
 
+				if (filter_MPUSeqNumber != -1LL && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
+				{
+					if (filter_MPUSeqNumber != pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number)
+						bFiltered = false;
+				}
+
 				// Only support MPU payload at present
 				if (bListMMTPpayload && bFiltered && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 				{
@@ -1142,28 +1158,31 @@ int DumpMMTOneStream()
 					{
 						uint8_t actual_fragmenttion_indicator = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Aggregate_flag == 1 ? 
 							0 : (uint8_t)pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->fragmentation_indicator;
-
-						ProcessMFU(CID,
-							pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
-							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
-							asset_type,
-							actual_fragmenttion_indicator,
-							&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[PIDN]);
-
-						if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
+						
+						if (bFiltered)
 						{
-							fprintf(stdout, MMT_FIX_HEADER_FMT_STR ": %s \n", "", "NAL Unit",
-								actual_fragmenttion_indicator == 0 ? "Complete" : (
-								actual_fragmenttion_indicator == 1 ? "First" : (
-								actual_fragmenttion_indicator == 2 ? "Middle" : (
-								actual_fragmenttion_indicator == 3 ? "Last" : "Unknown"))));
-							for (size_t i = 0; i < m.MFU_data_bytes.size(); i++)
+							ProcessMFU(CID,
+								pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+								pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
+								asset_type,
+								actual_fragmenttion_indicator,
+								&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[PIDN]);
+
+							if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
 							{
-								if (i % 32 == 0)
-									fprintf(stdout, "\n" MMT_FIX_HEADER_FMT_STR "  ", "", "");
-								fprintf(stdout, "%02X ", m.MFU_data_bytes[i]);
+								fprintf(stdout, MMT_FIX_HEADER_FMT_STR ": %s \n", "", "NAL Unit",
+									actual_fragmenttion_indicator == 0 ? "Complete" : (
+										actual_fragmenttion_indicator == 1 ? "First" : (
+											actual_fragmenttion_indicator == 2 ? "Middle" : (
+												actual_fragmenttion_indicator == 3 ? "Last" : "Unknown"))));
+								for (size_t i = 0; i < m.MFU_data_bytes.size(); i++)
+								{
+									if (i % 32 == 0)
+										fprintf(stdout, "\n" MMT_FIX_HEADER_FMT_STR "  ", "", "");
+									fprintf(stdout, "%02X ", m.MFU_data_bytes[i]);
+								}
+								fprintf(stdout, "\n");
 							}
-							fprintf(stdout, "\n");
 						}
 
 						if (actual_fragmenttion_indicator || actual_fragmenttion_indicator == 3)
