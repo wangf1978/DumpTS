@@ -1055,13 +1055,13 @@ namespace MMT
 					arib_subtitle_info->OPM == 0?" - Live mode":(arib_subtitle_info->OPM == 1?" - Segment mode":(arib_subtitle_info->OPM == 2?" - Program mode":"")));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "TMD", 
 					arib_subtitle_info->TMD, arib_subtitle_info->TMD,
-					arib_subtitle_info->TMD ==  0 ? " - UTC" : (
-					arib_subtitle_info->TMD ==  1 ? " - MH-EIT starttime for the starting point" : (
-					arib_subtitle_info->TMD ==  2 ? " - reference starttime for the starting point" : (
-					arib_subtitle_info->TMD ==  3 ? " - MPU timestamp for the starting point":(
-					arib_subtitle_info->TMD ==  4 ? " - NPT" : (
-					arib_subtitle_info->TMD ==  8 ? " - MPU Timestamp" : (
-					arib_subtitle_info->TMD == 15 ? " - without time control" : "")))))));
+					arib_subtitle_info->TMD ==  0 ? "- UTC" : (
+					arib_subtitle_info->TMD ==  1 ? "- MH-EIT starttime for the starting point" : (
+					arib_subtitle_info->TMD ==  2 ? "- reference starttime for the starting point" : (
+					arib_subtitle_info->TMD ==  3 ? "- MPU timestamp for the starting point":(
+					arib_subtitle_info->TMD ==  4 ? "- NPT" : (
+					arib_subtitle_info->TMD ==  8 ? "- MPU Timestamp" : (
+					arib_subtitle_info->TMD == 15 ? "- without time control" : "")))))));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "DMF", 
 					arib_subtitle_info->DMF, arib_subtitle_info->DMF, 
 					(arib_subtitle_info->DMF & 0xC) == 0x0 ? " - Automatic display when received" : (
@@ -2530,7 +2530,7 @@ namespace MMT
 			uint16_t			Payload_length;
 			
 			uint16_t			Fragment_type : 4;
-			uint16_t			Time_data_flag : 1;
+			uint16_t			timed_flag : 1;
 			uint16_t			fragmentation_indicator : 2;
 			uint16_t			Aggregate_flag : 1;
 			uint16_t			fragment_counter : 8;
@@ -2556,7 +2556,7 @@ namespace MMT
 
 				Payload_length = bs.GetWord();
 				Fragment_type = (uint16_t)bs.GetBits(4);
-				Time_data_flag = (uint16_t)bs.GetBits(1);
+				timed_flag = (uint16_t)bs.GetBits(1);
 				fragmentation_indicator = (uint16_t)bs.GetBits(2);
 				Aggregate_flag = (uint16_t)bs.GetBits(1);
 
@@ -2569,7 +2569,7 @@ namespace MMT
 
 				if (Fragment_type == 2)
 				{
-					if (Time_data_flag == 1)
+					if (timed_flag == 1)
 					{
 						if (Aggregate_flag == 0)
 						{
@@ -2737,7 +2737,7 @@ namespace MMT
 					Fragment_type == 0?"MPU metadata":(
 					Fragment_type == 1?"Movie fragment metadata":(
 					Fragment_type == 2?"MFU":"Reserved")));
-				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "Time_data_flag", Time_data_flag);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d\n", szIndent, "timed_flag", timed_flag);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %d, %s\n", szIndent, "frag_indicator", fragmentation_indicator,
 					fragmentation_indicator == 0?"Undivided":(
 					fragmentation_indicator == 1?"Divided, Including the head part of the data before division":(
@@ -2754,7 +2754,7 @@ namespace MMT
 					for (auto& du : Data_Units)
 					{
 						fprintf(out, MMT_FIX_HEADER_FMT_STR ": [#%d]\n", szIndent, "DataUnit index", idx_data_unit);
-						if (Time_data_flag == 1)
+						if (timed_flag == 1)
 						{
 							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "DU_length", du.data_unit_length);
 							fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "MF_seq_no", du.movie_fragment_sequence_number);
@@ -2801,6 +2801,153 @@ namespace MMT
 				}
 			}
 
+			void PrintListItem(FILE* fp = nullptr, int indent = 0)
+			{
+				static int PktIndex = 0;
+				char szLog[1024] = { 0 };
+				size_t ccLog = sizeof(szLog) / sizeof(szLog[0]);
+
+				FILE* out = fp ? fp : stdout;
+				char szIndent[84];
+				memset(szIndent, 0, _countof(szIndent));
+				if (indent > 0)
+				{
+					int ccIndent = AMP_MIN(indent, 80);
+					memset(szIndent, ' ', ccIndent);
+				}
+
+				int ccWritten = 0;
+				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %5s", 
+						Fragment_type == 0?"MPU-M":(Fragment_type == 1?"MF-M":(Fragment_type == 2?"MFU":"")));
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", tf: %d", timed_flag);
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %6s", 
+						fragmentation_indicator == 0 ? "1+ DU" : (
+						fragmentation_indicator == 1 ? "Header":(
+						fragmentation_indicator == 2 ? "Middle":"Tail")));
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr_f: %d", Aggregate_flag);
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", Fc: %03d", fragment_counter);
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", MPUSeqNo: 0x%08X", MPU_sequence_number);
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (Fragment_type == 2)
+				{
+					int du_idx = 0;
+					for (auto& du : Data_Units)
+					{
+						if (ccWrittenOnce > 0)
+						{
+							if (du_idx == 0)
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ");
+							else
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%85s", szIndent, " ");
+
+							if (ccWrittenOnce > 0)
+								ccWritten += ccWrittenOnce;
+						}
+
+						if (ccWrittenOnce > 0)
+						{
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: % 5d", du.data_unit_length);
+
+							if (ccWrittenOnce > 0)
+								ccWritten += ccWrittenOnce;
+						}
+
+						if (timed_flag)
+						{
+							if (ccWrittenOnce > 0)
+							{
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", MFSeqNo: 0x%08X", du.movie_fragment_sequence_number);
+
+								if (ccWrittenOnce > 0)
+									ccWritten += ccWrittenOnce;
+							}
+
+							if (ccWrittenOnce > 0)
+							{
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", SampleNo: 0x%08X", du.sample_number);
+
+								if (ccWrittenOnce > 0)
+									ccWritten += ccWrittenOnce;
+							}
+
+							if (ccWrittenOnce > 0)
+							{
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", Offset: 0x%08X", du.offset);
+
+								if (ccWrittenOnce > 0)
+									ccWritten += ccWrittenOnce;
+							}
+
+							if (ccWrittenOnce > 0)
+							{
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", DepC: %d", du.dependency_counter);
+
+								if (ccWrittenOnce > 0)
+									ccWritten += ccWrittenOnce;
+							}
+						}
+						else
+						{
+							if (ccWrittenOnce > 0)
+							{
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", item_id: 0x%08X", du.item_id);
+
+								if (ccWrittenOnce > 0)
+									ccWritten += ccWrittenOnce;
+							}
+						}
+
+						du_idx++;
+					}
+				}
+
+				fprintf(out, "%s%s\n", szIndent, szLog);
+			}
 		};
 
 		struct ControlMessages
@@ -3180,9 +3327,80 @@ namespace MMT
 				if (ptr_Messages != nullptr)
 					ptr_Messages->Print(fp, indent + 4);
 			}
-			
 		}
 
+		void PrintListItem(FILE* fp = nullptr, int indent = 0)
+		{
+			static int PktIndex = 0;
+			char szLog[512] = { 0 };
+			size_t ccLog = sizeof(szLog) / sizeof(szLog[0]);
+
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			int ccWritten = 0;
+			int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+			if (ccWrittenOnce > 0)
+				ccWritten += ccWrittenOnce;
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", RAP: %d", RAP_flag);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %14s",
+					Payload_type == 0 ? "Fragment MPU" : (
+					Payload_type == 2 ? "Message" : "Unsupported"));
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_id:0x%04X", Packet_id);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_seq_no:0x%04X", Packet_sequence_number);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pcf:%d", Packet_counter_flag);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", FEC:%d", FEC_type);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			fprintf(out, "%s%s\n", szIndent, szLog);
+		}
 	}PACKED;
 
 	struct HeaderCompressedIPPacket : public TLVPacket

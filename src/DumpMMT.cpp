@@ -489,7 +489,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 							{
 								pDescr->Print(stdout, 28);
 							}
-							else if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
+							else if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014 || peek_desc_tag == 0x8020)
 							{
 								if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW) && bPacketIDFiltered)
 									pDescr->Print(stdout, 28);
@@ -841,13 +841,16 @@ int ShowMMTPackageInfo()
 							case 0x8014:
 								pDescr = new MMT::MHAudioComponentDescriptor();
 								break;
+							case 0x8020:
+								pDescr = new MMT::MHDataComponentDescriptor();
+								break;
 							default:
 								pDescr = new MMT::UnimplMMTSIDescriptor();
 							}
 
 							if (pDescr->Unpack(descs_bs) >= 0)
 							{
-								if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014)
+								if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014 || peek_desc_tag == 0x8020)
 									pDescr->Print(stdout, 40);
 
 								if (left_descs_bytes < pDescr->descriptor_length + 3UL)
@@ -901,7 +904,6 @@ int DumpMMTOneStream()
 	TreeCIDPAMsgs CIDPAMsgs;
 	std::vector<uint8_t> fullPAMessage;
 	uint32_t asset_type = 0;
-	char szLog[512] = { 0 };
 	CESRepacker* pESRepacker[2] = { nullptr };
 
 	auto start_time = std::chrono::high_resolution_clock::now();
@@ -913,7 +915,7 @@ int DumpMMTOneStream()
 	const char* ep;
 	int64_t i64Val = -1LL;
 	int PIDN = 0;
-	uint16_t src_packet_id[2];
+	uint32_t src_packet_id[2] = { UINT32_MAX, UINT32_MAX };
 	std::string Outputfiles[2];
 	auto pidIter = g_params.find("pid");
 	auto iterParam = g_params.find("output");
@@ -1076,48 +1078,13 @@ int DumpMMTOneStream()
 
 				if (bListMMTPpacket && bFiltered)
 				{
-					static int PktIndex = 0;
-					size_t ccLog = sizeof(szLog) / sizeof(szLog[0]);
-					int ccWritten = 0;
-					int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
-					if (ccWrittenOnce > 0)
-						ccWritten += ccWrittenOnce;
+					pHeaderCompressedIPPacket->MMTP_Packet->PrintListItem();
+				}
 
-					if (ccWrittenOnce > 0)
-					{
-						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", RAP: %d", pHeaderCompressedIPPacket->MMTP_Packet->RAP_flag);
-
-						if (ccWrittenOnce > 0)
-							ccWritten += ccWrittenOnce;
-					}
-
-					if (ccWrittenOnce > 0)
-					{
-						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %14s", 
-							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0?"fragment MPU":(
-							pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 2?"message":"unsupported"));
-
-						if (ccWrittenOnce > 0)
-							ccWritten += ccWrittenOnce;
-					}
-
-					if (ccWrittenOnce > 0)
-					{
-						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_id:0x%04X", pHeaderCompressedIPPacket->MMTP_Packet->Packet_id);
-
-						if (ccWrittenOnce > 0)
-							ccWritten += ccWrittenOnce;
-					}
-
-					if (ccWrittenOnce > 0)
-					{
-						ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_seq_no:0x%04X", pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number);
-
-						if (ccWrittenOnce > 0)
-							ccWritten += ccWrittenOnce;
-					}
-
-					printf("%s.\n", szLog);
+				// Only support MPU payload at present
+				if (bListMMTPpayload && bFiltered && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
+				{
+					pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->PrintListItem();
 				}
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
@@ -1317,8 +1284,16 @@ int DumpMMTOneStream()
 	printf("Total cost: %f ms\n", std::chrono::duration<double, std::milli>(end_time - start_time).count());
 
 	printf("Total input TLV packets: %d.\n", nParsedTLVPackets);
-	printf("Total MMT/TLV packets with the packet_id(0X%X&0X%X): %d\n", src_packet_id[0], src_packet_id[1], nFilterTLVPackets);
-	printf("Total MFUs in MMT/TLV packets with the packet_id(0X%X&0X%X): %d\n", src_packet_id[0], src_packet_id[1], nFilterMFUs);
+	if (src_packet_id[0] != UINT32_MAX && src_packet_id[1] != UINT32_MAX)
+	{
+		printf("Total MMT/TLV packets with the packet_id(0X%X&0X%X): %d\n", src_packet_id[0], src_packet_id[1], nFilterTLVPackets);
+		printf("Total MFUs in MMT/TLV packets with the packet_id(0X%X&0X%X): %d\n", src_packet_id[0], src_packet_id[1], nFilterMFUs);
+	}
+	else if (src_packet_id[0] != UINT32_MAX)
+	{
+		printf("Total MMT/TLV packets with the packet_id(0X%X): %d\n", src_packet_id[0], nFilterTLVPackets);
+		printf("Total MFUs in MMT/TLV packets with the packet_id(0X%X): %d\n", src_packet_id[0], nFilterMFUs);
+	}
 
 	return nRet;
 }
