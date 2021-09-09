@@ -1117,6 +1117,10 @@ int DumpMMTOneStream()
 				{
 					pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->PrintListItem();
 				}
+				else if (bListMMTPpayload && bFiltered && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 2)
+				{
+					pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem();
+				}
 
 				// Check whether need show the DU(s) in the MMTP payload
 				if (bShowDU &&

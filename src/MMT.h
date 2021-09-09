@@ -2972,8 +2972,9 @@ namespace MMT
 			int32_t				payload_data_len;
 			std::vector<uint8_t>
 								payload;
+			MMTPPacket*			ptr_MMTP_packet;
 
-			ControlMessages(int nPayloadDataLen) : payload_data_len(nPayloadDataLen) {
+			ControlMessages(MMTPPacket* pMMTPpkt, int nPayloadDataLen) : ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
 			}
 
 			~ControlMessages(){
@@ -3131,6 +3132,99 @@ namespace MMT
 				}
 			}
 
+			void PrintListItem(FILE* fp = nullptr, int indent = 0)
+			{
+				static int PktIndex = 0;
+				char szLog[1024] = { 0 };
+				size_t ccLog = sizeof(szLog) / sizeof(szLog[0]);
+
+				FILE* out = fp ? fp : stdout;
+				char szIndent[84];
+				memset(szIndent, 0, _countof(szIndent));
+				if (indent > 0)
+				{
+					int ccIndent = AMP_MIN(indent, 80);
+					memset(szIndent, ' ', ccIndent);
+				}
+
+				int ccWritten = 0;
+				//int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%9d", PktIndex++);
+				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PKTSeqNo:0x%08X", ptr_MMTP_packet->Packet_sequence_number);
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %6s", 
+						fragmentation_indicator == 0 ? "1+ DU" : (
+						fragmentation_indicator == 1 ? "Header":(
+						fragmentation_indicator == 2 ? "Middle":"Tail")));
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr: %d", Aggregate_flag);
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", Fc: %03d", fragment_counter);
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
+
+				int msg_idx = 0;
+				for (auto& msg : messages)
+				{
+					if (ccWrittenOnce > 0)
+					{
+						if (msg_idx == 0)
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ");
+						else
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%82s", szIndent, " ");
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					if (ccWrittenOnce > 0)
+					{
+						if (length_extension_flag)
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: % 10u(% 10zu)", std::get<0>(msg), std::get<1>(msg).size());
+						else
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: % 5u(% 5u)", std::get<0>(msg), (unsigned short)std::get<1>(msg).size());
+
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
+					}
+
+					size_t print_bytes = AMP_MIN(8, std::get<1>(msg).size());
+					for (size_t k = 0; k < print_bytes; k++)
+					{
+						if (ccWrittenOnce > 0)
+						{
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "%s%02X%s", 
+								k==0?", message bytes: ":" ", 
+								std::get<1>(msg)[k],
+								k+1== print_bytes && std::get<1>(msg).size() > 8?"...":"");
+							if (ccWrittenOnce > 0)
+								ccWritten += ccWrittenOnce;
+						}
+					}
+
+					msg_idx++;
+				}
+
+				fprintf(out, "%s%s\n", szIndent, szLog);
+			}
+
 		};
 
 		uint64_t			start_bitpos;
@@ -3260,7 +3354,7 @@ namespace MMT
 			}
 			else if (Payload_type == 2)
 			{
-				ptr_Messages = new ControlMessages(packet_data_len - left_unparsed_data_len);
+				ptr_Messages = new ControlMessages(this, packet_data_len - left_unparsed_data_len);
 				nRet = ptr_Messages->Unpack(bs);
 			}
 			else
