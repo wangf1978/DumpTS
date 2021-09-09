@@ -2542,8 +2542,9 @@ namespace MMT
 			int32_t				payload_data_len;
 			std::vector<uint8_t>
 								payload;
+			MMTPPacket*			ptr_MMTP_packet;
 
-			MPU(int nPayloadDataLen) : payload_data_len(nPayloadDataLen) {
+			MPU(MMTPPacket* pMMTPpkt, int nPayloadDataLen) : ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
 			}
 
 			int Unpack(CBitstream& bs)
@@ -2817,7 +2818,8 @@ namespace MMT
 				}
 
 				int ccWritten = 0;
-				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%9d", PktIndex++);
+				//int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%9d", PktIndex++);
+				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PKTSeqNo:0x%08X", ptr_MMTP_packet->Packet_sequence_number);
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
 
@@ -3131,7 +3133,7 @@ namespace MMT
 		uint32_t			Packet_counter_flag : 1;
 		uint32_t			FEC_type : 2;
 		uint32_t			Reserved_0 : 1;
-		uint32_t			Extension_header_flag : 1;
+		uint32_t			extension_flag : 1;
 		uint32_t			RAP_flag : 1;
 
 		uint32_t			Reserved_1 : 2;
@@ -3168,7 +3170,7 @@ namespace MMT
 
 		virtual ~MMTPPacket()
 		{
-			if (Extension_header_flag)
+			if (extension_flag)
 			{
 				AMP_SAFEDELA(Extension_header_field);
 			}
@@ -3196,7 +3198,7 @@ namespace MMT
 			Packet_counter_flag = (uint8_t)bs.GetBits(1);
 			FEC_type = (uint8_t)bs.GetBits(2);
 			Reserved_0 = (uint8_t)bs.GetBits(1);
-			Extension_header_flag = (uint8_t)bs.GetBits(1);
+			extension_flag = (uint8_t)bs.GetBits(1);
 			RAP_flag = (uint8_t)bs.GetBits(1);
 
 			Reserved_1 = (uint8_t)bs.GetBits(2);
@@ -3219,7 +3221,7 @@ namespace MMT
 				left_bits -= (4ULL << 3);
 			}
 
-			if (Extension_header_flag)
+			if (extension_flag)
 			{
 				if (left_bits < (4ULL << 3))
 					return RET_CODE_BOX_TOO_SMALL;
@@ -3248,7 +3250,7 @@ namespace MMT
 
 			if (Payload_type == 0)
 			{
-				ptr_MPU = new MPU(packet_data_len - left_unparsed_data_len);
+				ptr_MPU = new MPU(this, packet_data_len - left_unparsed_data_len);
 				nRet = ptr_MPU->Unpack(bs);
 			}
 			else if (Payload_type == 2)
@@ -3283,13 +3285,13 @@ namespace MMT
 																				FEC_type == 1?"Source packet among MMTP packets protected by AL-FEC":(
 																				FEC_type == 2?"Repair packet among MMTP packets protected by AL-FEC":(
 																				FEC_type == 3?"Reserved":"Unknown"))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Extension_header_flag", Extension_header_flag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "extension_flag", extension_flag);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "RAP_flag", RAP_flag);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 ", %s\n", szIndent, "Payload_type", Payload_type,
 				Payload_type == 0?"MPU, a media-aware fragment of the MPU":(
 				Payload_type == 1?"Generic object, A generic object such as a complete MPU or an object of another type":(
-				Payload_type == 2?"signalling message, one or more signalling messages or a fragment of a signalling message":(
-				Payload_type == 3?"repair symbol":"Undefined"))));
+				Payload_type == 2?"This involves more than or equal to one control message":(
+				Payload_type == 3?"This involves repair symbol of AL-FEC":"Undefined"))));
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%0" PRIX32 "(%" PRIu32 ")\n", szIndent, "Packet_id", Packet_id, Packet_id);
 
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u.%us\n", szIndent, "Delivery_timestamp", Delivery_timestamp.Seconds, Delivery_timestamp.Fraction);
@@ -3300,7 +3302,7 @@ namespace MMT
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Packet_counter", Packet_counter);
 			}
 
-			if (Extension_header_flag)
+			if (extension_flag)
 			{
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "Ext_header_type", Extension_header_type);
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u\n", szIndent, "Ext_header_length", Extension_header_length);
@@ -3345,7 +3347,8 @@ namespace MMT
 			}
 
 			int ccWritten = 0;
-			int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+			//int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+			int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PKTSeqNo:0x%08X", Packet_sequence_number);
 			if (ccWrittenOnce > 0)
 				ccWritten += ccWrittenOnce;
 
@@ -3375,13 +3378,13 @@ namespace MMT
 					ccWritten += ccWrittenOnce;
 			}
 
-			if (ccWrittenOnce > 0)
-			{
-				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_seq_no:0x%04X", Packet_sequence_number);
+			//if (ccWrittenOnce > 0)
+			//{
+			//	ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_seq_no:0x%04X", Packet_sequence_number);
 
-				if (ccWrittenOnce > 0)
-					ccWritten += ccWrittenOnce;
-			}
+			//	if (ccWrittenOnce > 0)
+			//		ccWritten += ccWrittenOnce;
+			//}
 
 			if (ccWrittenOnce > 0)
 			{
@@ -3394,6 +3397,23 @@ namespace MMT
 			if (ccWrittenOnce > 0)
 			{
 				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", FEC:%d", FEC_type);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ext_f:%d", Extension_header_type);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+
+			if (ccWrittenOnce > 0)
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", timestamp:%s", 
+					DateTimeStr(Delivery_timestamp.Seconds, 1900, Delivery_timestamp.Fraction).c_str());
 
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;

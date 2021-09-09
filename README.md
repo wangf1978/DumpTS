@@ -188,6 +188,36 @@ Here are some examples of command lines:
     ```
     DumpTS 00301.mmts --CID=0 --pid=0x100 --output=e00301.hevc
     ```
+- Show Data Unit in a MMTP payload
+    ```
+    packet_sequence_number: 0x0109895C, packet_id: 0xF200, MPU sequence number: 0x00000396:
+    DataUnit#0(MF_sequence_number: 0X00000000, 
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  00  00  00  03  46  03  50                                       | ....F.P
+
+    DataUnit#1(MF_sequence_number: 0X00000000,
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  00  00  00  B7  44  03  C0  76    F0  2C  21  FF  FE  10  D2  63 | ....D..v.,!....c
+     000010  38  E1  83  41  54  09  C5  08    64  C5  71  58  72  0E  88  A1 | 8..AT...d.qXr...
+     000020  0F  FA  69  A4  D5  A3  15  26    C8  62  C9  2C  8A  43  1C  B1 | ..i....&.b.,.C..
+     000030  04  11  12  51  C2  8C  71  61    61  D1  E0  90  50  B0  5D  06 | ...Q..qaa...P.].
+     000040  C4  50  87  FD  7A  F9  3F  11    FD  7E  6F  8A  F0  87  0D  60 | .P..z.?..~o....`
+     000050  8A  0A  08  A1  0F  FD  34  D2    6A  D1  8A  93  64  31  64  96 | ......4.j...d1d.
+     000060  45  21  8E  58  82  08  89  28    E1  46  38  B0  B0  E8  F0  48 | E!.X...(.F8....H
+     000070  28  58  2E  83  62  28  43  FF    5E  BE  4F  C4  7F  5F  9B  E2 | (X..b(C.^.O.._..
+     000080  BC  21  C3  58  22  82  82  28    43  FF  4D  34  9A  B4  62  A4 | .!.X"..(C.M4..b.
+     000090  D9  0C  59  25  91  48  63  96    20  82  22  4A  38  51  8E  2C | ..Y%.Hc. ."J8Q.,
+     0000A0  2C  3A  3C  12  0A  16  0B  A0    DA  10  FF  D7  AF  93  F1  1F | ,:<.............
+     0000B0  D7  E6  F8  AF  08  70  D6  08    A0  A1  20                     | .....p....
+
+    DataUnit#2(MF_sequence_number: 0X00000000,
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  00  00  00  0D  4E  03  01  07    04  00  00  03  02  00  00  05 | ....N...........
+     000010  80                                                               | .
+    ```
     Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 - Other utilities
     ```

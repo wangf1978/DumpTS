@@ -123,6 +123,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"srcfmt", 
 		"outputfmt",
 		"MPUseqno",
+		"PKTseqno",
 		"showinfo",
 		"showpts", 
 		"showpack",
@@ -135,6 +136,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPLT",
 		"showPMT",
 		"showMPT",
+		"showDU",		// show the DU in the MMTP payload
 		"listMMTPpacket",
 		"listMMTPpayload",
 		"stream_id",

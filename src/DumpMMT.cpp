@@ -368,56 +368,59 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				printf("%21s: 0x%" PRIX64 "\n", "MMT_package_id", pMPT->MMT_package_id);
 
 				size_t left_descs_bytes = pMPT->MPT_descriptors_bytes.size();
-				CBitstream descs_bs(&pMPT->MPT_descriptors_bytes[0], pMPT->MPT_descriptors_bytes.size() << 3);
-				while (left_descs_bytes > 0)
+				if (left_descs_bytes > 0)
 				{
-					uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
-					MMT::MMTSIDescriptor* pDescr = nullptr;
-					switch (peek_desc_tag)
+					CBitstream descs_bs(&pMPT->MPT_descriptors_bytes[0], pMPT->MPT_descriptors_bytes.size() << 3);
+					while (left_descs_bytes > 0)
 					{
-					case 0x0001:	// MPUTimestampDescriptor
-						pDescr = new MMT::MPUTimestampDescriptor();
-						break;
-					case 0x8010:	// Video component Descriptor
-						pDescr = new MMT::VideoComponentDescriptor();
-						break;
-					case 0x8014:
-						pDescr = new MMT::MHAudioComponentDescriptor();
-						break;
-					case 0x8011:	// MH-stream identification descriptor:
-						pDescr = new MMT::MHStreamIdentifierDescriptor();
-						break;
-					case 0x8020:
-						pDescr = new MMT::MHDataComponentDescriptor();
-						break;
-					case 0x8026:	// MPUExtendedTimestampDescriptor
-						pDescr = new MMT::MPUExtendedTimestampDescriptor();
-						break;
-					case 0x8038:	// Content copy control Descriptor
-						pDescr = new MMT::ContentCopyControlDescriptor();
-						break;
-					case 0x8039:	// Content usage control Descriptor
-						pDescr = new MMT::ContentUsageControlDescriptor();
-						break;
-					default:
-						pDescr = new MMT::UnimplMMTSIDescriptor();
-					}
-
-					if (pDescr->Unpack(descs_bs) >= 0)
-					{
-						pDescr->Print(stdout, 16);
-
-						if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+						uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
+						MMT::MMTSIDescriptor* pDescr = nullptr;
+						switch (peek_desc_tag)
+						{
+						case 0x0001:	// MPUTimestampDescriptor
+							pDescr = new MMT::MPUTimestampDescriptor();
 							break;
+						case 0x8010:	// Video component Descriptor
+							pDescr = new MMT::VideoComponentDescriptor();
+							break;
+						case 0x8014:
+							pDescr = new MMT::MHAudioComponentDescriptor();
+							break;
+						case 0x8011:	// MH-stream identification descriptor:
+							pDescr = new MMT::MHStreamIdentifierDescriptor();
+							break;
+						case 0x8020:
+							pDescr = new MMT::MHDataComponentDescriptor();
+							break;
+						case 0x8026:	// MPUExtendedTimestampDescriptor
+							pDescr = new MMT::MPUExtendedTimestampDescriptor();
+							break;
+						case 0x8038:	// Content copy control Descriptor
+							pDescr = new MMT::ContentCopyControlDescriptor();
+							break;
+						case 0x8039:	// Content usage control Descriptor
+							pDescr = new MMT::ContentUsageControlDescriptor();
+							break;
+						default:
+							pDescr = new MMT::UnimplMMTSIDescriptor();
+						}
 
-						left_descs_bytes -= pDescr->descriptor_length + 3UL;
+						if (pDescr->Unpack(descs_bs) >= 0)
+						{
+							pDescr->Print(stdout, 16);
 
-						delete pDescr;
-					}
-					else
-					{
-						delete pDescr;
-						break;
+							if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+								break;
+
+							left_descs_bytes -= pDescr->descriptor_length + 3UL;
+
+							delete pDescr;
+						}
+						else
+						{
+							delete pDescr;
+							break;
+						}
 					}
 				}
 			}
@@ -996,6 +999,16 @@ int DumpMMTOneStream()
 			filter_MPUSeqNumber = i64Val;
 	}
 
+	int64_t filter_PKTSeqNumber = -1LL;
+	auto iterPKTSeqNo = g_params.find("PKTseqno");
+	if (iterPKTSeqNo != g_params.end())
+	{
+		if (ConvertToInt(iterPKTSeqNo->second, i64Val) && i64Val >= 0 && i64Val <= UINT32_MAX)
+			filter_PKTSeqNumber = i64Val;
+	}
+
+	bool bShowDU = g_params.find("showDU") != g_params.end();
+
 	bool bOutputByMFU = g_params.find("MFU") != g_params.end();
 
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
@@ -1105,6 +1118,43 @@ int DumpMMTOneStream()
 					pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->PrintListItem();
 				}
 
+				// Check whether need show the DU(s) in the MMTP payload
+				if (bShowDU &&
+					(filter_MPUSeqNumber == -1LL || filter_MPUSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number) &&
+					(filter_PKTSeqNumber == -1LL || filter_PKTSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number) &&
+					((src_packet_id[0] == UINT32_MAX || pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0]) ||
+					 (src_packet_id[1] == UINT32_MAX || pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[1])))
+				{
+					if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
+					{
+						if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Fragment_type == 2)
+						{
+							printf("packet_sequence_number: 0x%08X, packet_id: 0x%04X, MPU sequence number: 0x%08X:\n",
+								pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number,
+								pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+								pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number);
+
+							size_t idxDU = 0;
+							for (auto& du: pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Data_Units)
+							{
+								if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->timed_flag)
+									printf("    DataUnit#%zu(MF_sequence_number: 0X%08X, sample_number: 0x%08X, offset: 0x%08X, priority: 0x%02X, dependency_counter: 0x%02X):\n", 
+										idxDU, du.movie_fragment_sequence_number, du.sample_number, du.offset, du.priority, du.dependency_counter);
+								else
+									printf("    DataUnit#%zu(item_id: 0x%08X):\n", idxDU, du.item_id);
+
+								print_mem(du.MFU_data_bytes.data(), (int)du.MFU_data_bytes.size(), 4);
+								printf("\n");
+								idxDU++;
+							}
+						}
+					}
+					else if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0x2)
+					{
+
+					}
+				}
+
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 				{
 					// Create a new ES re-packer to repack the NAL unit to an Annex-B bitstream
@@ -1172,9 +1222,9 @@ int DumpMMTOneStream()
 							{
 								fprintf(stdout, MMT_FIX_HEADER_FMT_STR ": %s \n", "", "NAL Unit",
 									actual_fragmenttion_indicator == 0 ? "Complete" : (
-										actual_fragmenttion_indicator == 1 ? "First" : (
-											actual_fragmenttion_indicator == 2 ? "Middle" : (
-												actual_fragmenttion_indicator == 3 ? "Last" : "Unknown"))));
+									actual_fragmenttion_indicator == 1 ? "First" : (
+									actual_fragmenttion_indicator == 2 ? "Middle" : (
+									actual_fragmenttion_indicator == 3 ? "Last" : "Unknown"))));
 								for (size_t i = 0; i < m.MFU_data_bytes.size(); i++)
 								{
 									if (i % 32 == 0)
