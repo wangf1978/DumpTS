@@ -152,7 +152,6 @@ std::unordered_map<unsigned char, std::string> g_TLV_SI_descriptors = {
 
 namespace MMT
 {
-
 	void PrintPacketIDAssignment()
 	{
 		printf("\n");
@@ -203,5 +202,179 @@ namespace MMT
 		printf("0x8009                                            M2 section message (MH-SIT is stored)\n");
 		printf("0x800A 每 0x8FFF                                   Reserved (provided by the Ministry or private standardization organization)\n");
 		printf("0x9000 每 0xFFFF                                   prepared by broadcasters\n");
+	}
+
+	void PrintMMTSITable()
+	{
+		printf("\n");
+		printf("*****************************************************************************\n");
+		printf("             ** Assignment of identifier of table of MMT-SI **\n");
+		printf("*****************************************************************************\n");
+		printf("Table ID                                          Table Name\n");
+		printf("-----------------------------------------------------------------------------\n");
+		printf("0x00                                              PA Table                                        \n");
+		printf("0x01                                              Subset 0 MPI Table                              \n");
+		printf("0x02 每 0x0F                                       Subset 1 MPI Table to subset 14 MPI Table       \n");
+		printf("0x10                                              Complete MPI Table                              \n");
+		printf("0x11 每 0x1F                                       Subset 0 MP Table to subset 14 MP Table         \n");
+		printf("0x20                                              Complete MP Table                               \n");
+		printf("0x21                                              CRI Table                                       \n");
+		printf("0x22                                              DCI Table                                       \n");
+		printf("0x23 每 0x7F                                       reserved for ISO/IEC (16-bit length table)      \n");
+		printf("0x80                                              PLT                                             \n");
+		printf("0x81                                              LCT                                             \n");
+		printf("0x82 每 0x83                                       ECM*1                                           \n");
+		printf("0x84 每 0x85                                       EMM*1                                           \n");
+		printf("0x86                                              CAT (MH)                                        \n");
+		printf("0x87 每 0x88                                       DCM                                             \n");
+		printf("0x89 每 0x8A                                       DMM                                             \n");
+		printf("0x8B                                              MH-EIT (present and next program of self-stream)\n");
+		printf("0x8C 每 0x9B                                       MH-EIT (schedule of self-stream)                \n");
+		printf("0x9C                                              MH-AIT (AIT controlled application)             \n");
+		printf("0x9D                                              MH-BIT                                          \n");
+		printf("0x9E                                              MH-SDTT                                         \n");
+		printf("0x9F                                              MH-SDT (self-stream)                            \n");
+		printf("0xA0                                              MH-SDT (other stream)                           \n");
+		printf("0xA1                                              MH-TOT                                          \n");
+		printf("0xA2                                              MH-CDT                                          \n");
+		printf("0xA3                                              DDM Table                                       \n");
+		printf("0xA4                                              DAM Table                                       \n");
+		printf("0xA5                                              DCC Table                                       \n");
+		printf("0xA6                                              EMT                                             \n");
+		printf("0xA7                                              MH-DIT                                          \n");
+		printf("0xA8                                              MH-SIT                                          \n");
+		printf("0xA9 每 0xDF                                       Reserved (provided by the Ministry or private standardization organization)\n");
+		printf("0xE0 每 0xFF                                       Table which is prepared by broadcasters\n");
+	}
+
+	void PrintMMTSIMessage()
+	{
+		printf("\n");
+		printf("*****************************************************************************\n");
+		printf("             ** Assignment of message identifier of MMT-SI **\n");
+		printf("*****************************************************************************\n");
+		printf("Message ID                                        Message\n");
+		printf("-----------------------------------------------------------------------------\n");
+		printf("0x0000                                            PA message\n");
+		printf("0x0001 每 0x000F                                   MPI message\n");
+		printf("0x0010 每 0x001F                                   MPT message\n");
+		printf("0x0200                                            CRI message\n");
+		printf("0x0201                                            DCI message\n");
+		printf("0x0202                                            AL-FEC message\n");
+		printf("0x0203                                            HRBM message\n");
+		printf("0x0204 每 0x6FFF                                   reserved for ISO/IEC (16-bit length message)\n");
+		printf("0x7000 每 0x7FFF                                   reserved for ISO/IEC (32-bit length message)\n");
+		printf("0x8000                                            M2 section message*1\n");
+		printf("0x8001                                            CA message*1\n");
+		printf("0x8002                                            M2 short section message\n");
+		printf("0x8003                                            Data transmission message\n");
+		printf("0x8004 每 0xDFFF                                   reserved (message whose length field is 16 bits)\n"
+			  "                                                   (provided by the Ministry or private standardization organization)\n");
+		printf("0xE000 每 0xEFFF                                   message which is prepared by broadcasters (message whose length field is 16 bits)\n");
+		printf("0xF000 每 0xF7FF                                   reserved (message whose length field is 32 bits)\n"
+			  "                                                   (provided by the Ministry or private standardization organization)\n");
+		printf("0xF800 每 0xFFFF                                   message which is prepared by broadcasters (message whose length field is 32 bits)\n");
+	}
+
+	void PrintMMTSIDescriptor()
+	{
+		printf("\n");
+		printf("*****************************************************************************\n");
+		printf("             ** Assignment of descriptor tag of MMT-SI **\n");
+		printf("*****************************************************************************\n");
+		printf("Descriptor tag value                              Descriptor name\n");
+		printf("-----------------------------------------------------------------------------\n");
+
+		printf("0x0000                                            CRI Descriptor*2\n");
+		printf("0x0001                                            MPU Time stamp Descriptor*1\n");
+		printf("0x0002                                            Dependency relationship Descriptor *1\n");
+		printf("0x0003                                            GFDT Descriptor*2\n");
+		printf("0x0004 每 0x3FFF                                   reserved for ISO/IEC (8-bit length descriptor)\n");
+		printf("0x4000 每 0x6FFF                                   reserved for ISO/IEC (16-bit length descriptor)\n");
+		printf("0x7000 每 0x7FFF                                   reserved for ISO/IEC (32-bit length descriptor)\n");
+		printf("0x8000                                            Asset group Descriptor\n");
+		printf("0x8001                                            Event package Descriptor\n");
+		printf("0x8002                                            Background color designation Descriptor\n");
+		printf("0x8003                                            MPU presentation area designation Descriptor\n");
+		printf("0x8004                                            Access control Descriptor*1\n");
+		printf("0x8005                                            Scramble system Descriptor*1\n");
+		printf("0x8006                                            Message certification system Descriptor\n");
+		printf("0x8007                                            Emergency information Descriptor (MH)*1\n");
+		printf("0x8008                                            MH-MPEG-4 audio Descriptor\n");
+		printf("0x8009                                            MH-MPEG-4 audio extension Descriptor\n");
+		printf("0x800A                                            MH-HEVC video Descriptor\n");
+		printf("0x800B                                            Reserved (those of which descriptor length field is 8 bits)\n"
+			   "                                                  (provided by the Ministry or private standardization organization)\n");
+		printf("0x800C                                            MH-Event group Descriptor\n");
+		printf("0x800D                                            MH-Service list Descriptor\n");
+		printf("0x800E 每 0x800F                                   Reserved (those of which descriptor length field is 8 bits)\n"
+			   "                                                  (provided by the Ministry or private standardization organization)\n");
+		printf("0x8010                                            Video component Descriptor\n");
+		printf("0x8011                                            MH-Stream identification Descriptor\n");
+		printf("0x8012                                            MH-Content Descriptor\n");
+		printf("0x8013                                            MH-Parental rate Descriptor\n");
+		printf("0x8014                                            MH-Audio component Descriptor\n");
+		printf("0x8015                                            MH-Object area Descriptor\n");
+		printf("0x8016                                            MH-Series Descriptor\n");
+		printf("0x8017                                            MH-SI transmission parameter Descriptor\n");
+		printf("0x8018                                            MH-Broadcaster name Descriptor\n");
+		printf("0x8019                                            MH-Service Descriptor\n");
+		printf("0x801A                                            IP data flow Descriptor\n");
+		printf("0x801B                                            MH-CA starting Descriptor\n");
+		printf("0x801C                                            MH-Type Descriptor\n");
+		printf("0x801D                                            MH-Info Descriptor\n");
+		printf("0x801E                                            MH-Expire Descriptor\n");
+		printf("0x801F                                            MH-CompressionType Descriptor\n");
+		printf("0x8020                                            MH-Data coding system Descriptor\n");
+		printf("0x8021                                            UTC-NPT reference Descriptor\n");
+		printf("0x8022                                            Reserved (those of which descriptor length field is 8 bits)\n"
+			   "                                                  (provided by the Ministry or private standardization organization)\n");
+		printf("0x8023                                            MH-Local time offset Descriptor\n");
+		printf("0x8024                                            MH-Component group Descriptor\n");
+		printf("0x8025                                            MH-Logo transmission Descriptor\n");
+		printf("0x8026                                            MPU Extension time stamp Descriptor\n");
+		printf("0x8027                                            MPU download content Descriptor\n");
+		printf("0x8028                                            MH-Network download content Descriptor\n");
+		printf("0x8029                                            MH-Application Descriptor\n");
+		printf("0x802A                                            MH-Transmission protocol Descriptor\n");
+		printf("0x802B                                            MH-Simple application location Descriptor\n");
+		printf("0x802C                                            MH-Application boundary authority setting Descriptor\n");
+		printf("0x802D                                            MH-Starting priority information Descriptor\n");
+		printf("0x802E                                            MH-Cache information Descriptor\n");
+		printf("0x802F                                            MH-Probabilistic application delay Descriptor\n");
+		printf("0x8030                                            Link destination PU Descriptor\n");
+		printf("0x8031                                            Lock cache designation Descriptor\n");
+		printf("0x8032                                            Unlock cache designation Descriptor\n");
+		printf("0x8033                                            MH-Download protection Descriptor*3\n");
+		printf("0x8034                                            Application service Descriptor\n");
+		printf("0x8035                                            MPU node Descriptor\n");
+		printf("0x8036                                            PU configuration Descriptor\n");
+		printf("0x8037                                            MH-Layered coding Descriptor\n");
+		printf("0x8038                                            Content copy control Descriptor\n");
+		printf("0x8039                                            Content usage control Descriptor\n");
+		printf("0x803A                                            MH-External application control Descriptor\n");
+		printf("0x803B                                            MH-Video recording and reproduction application Descriptor\n");
+		printf("0x803C                                            MH-Simple video recording and reproduction application location Descriptor\n");
+		printf("0x803D                                            MH-Application valid term Descriptor\n");
+		printf("0x803E                                            Related broadcaster Descriptor\n");
+		printf("0x803F                                            Multimedia service information Descriptor\n");
+		printf("0x8040                                            Emergency news Descriptor\n");
+		printf("0x8041                                            MH-CA contract information Descriptor*3\n");
+		printf("0x8042                                            MH-CA service Descriptor*3\n");
+		printf("0x8043 每 0xEBFF                                   Reserved (those of which descriptor length field is 8 bits)\n"
+			   "                                                  (provided by the Ministry or private standardization organization)\n");
+		printf("0xEC00 每 0xEFFF                                   Descriptor which is prepared by broadcasters\n"
+			   "                                                  (those of which descriptor length field is 8 bits)\n");
+		printf("0xF000                                            MH-Link Descriptor\n");
+		printf("0xF001                                            MH-Short format event Descriptor\n");
+		printf("0xF002                                            MH-Extension format event Descriptor\n");
+		printf("0xF003                                            Event message Descriptor\n");
+		printf("0xF004                                            MH-stuffing Descriptor*4\n");
+		printf("0xF005                                            MH-broadcast ID Descriptor*4\n");
+		printf("0xF006                                            MH-network identification Descriptor*4\n");
+		printf("0xF007 每 0xFBFF                                   Reserved (those of which descriptor length field is 16 bits)\n"
+			  "                                                   (provided by the Ministry or private standardization organization)\n");
+		printf("0xFC00 每 0xFFFF                                   Descriptor which is prepared by broadcasters\n"
+			   "                                                  (those of which descriptor length field is 16 bits)\n");
 	}
 }

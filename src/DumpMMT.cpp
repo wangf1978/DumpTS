@@ -1121,8 +1121,8 @@ int DumpMMTOneStream()
 				// Check whether need show the DU(s) in the MMTP payload
 				if (bShowDU &&
 					(filter_PKTSeqNumber == -1LL || filter_PKTSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number) &&
-					((src_packet_id[0] == UINT32_MAX || pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0]) ||
-					 (src_packet_id[1] == UINT32_MAX || pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[1])))
+					((src_packet_id[0] != UINT32_MAX && pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0]) ||
+					 (src_packet_id[1] != UINT32_MAX && pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[1])))
 				{
 					if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 					{

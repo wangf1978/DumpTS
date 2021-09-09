@@ -73,6 +73,9 @@ extern void PrintDescriptor(int level, unsigned char* p);
 namespace MMT
 {
 	void PrintPacketIDAssignment();
+	void PrintMMTSITable();
+	void PrintMMTSIMessage();
+	void PrintMMTSIDescriptor();
 
 	enum TLV_PACKET_TYPE
 	{

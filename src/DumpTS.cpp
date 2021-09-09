@@ -704,6 +704,21 @@ int main(int argc, char* argv[])
 		MMT::PrintPacketIDAssignment();
 		return 0;
 	}
+	else if (_stricmp(argv[1], "--listMMTSImsg") == 0)
+	{
+		MMT::PrintMMTSIMessage();
+		return 0;
+	}
+	else if (_stricmp(argv[1], "--listMMTSItable") == 0)
+	{
+		MMT::PrintMMTSITable();
+		return 0;
+	}
+	else if (_stricmp(argv[1], "--listMMTSIdesc") == 0)
+	{
+		MMT::PrintMMTSIDescriptor();
+		return 0;
+	}
 	else if (_stricmp(argv[1], "--help") == 0)
 	{
 		PrintHelp();
