@@ -192,14 +192,16 @@ Here are some examples of command lines:
     ```
     DumpTS 00301.mmts --CID=0 --pid=0x100 --output=e00301.hevc
     ```
+    Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 - Show Data Unit in a MMTP payload
     ```
+    DumpTS 00002.mmts --pid=0xF200 --PKTseqno=0x0109895C --showDU
     packet_sequence_number: 0x0109895C, packet_id: 0xF200, MPU sequence number: 0x00000396:
     DataUnit#0(MF_sequence_number: 0X00000000, 
              00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
              ----------------------------------------------------------------
      000000  00  00  00  03  46  03  50                                       | ....F.P
-
+    
     DataUnit#1(MF_sequence_number: 0X00000000,
              00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
              ----------------------------------------------------------------
@@ -215,14 +217,14 @@ Here are some examples of command lines:
      000090  D9  0C  59  25  91  48  63  96    20  82  22  4A  38  51  8E  2C | ..Y%.Hc. ."J8Q.,
      0000A0  2C  3A  3C  12  0A  16  0B  A0    DA  10  FF  D7  AF  93  F1  1F | ,:<.............
      0000B0  D7  E6  F8  AF  08  70  D6  08    A0  A1  20                     | .....p....
-
+    
     DataUnit#2(MF_sequence_number: 0X00000000,
              00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
              ----------------------------------------------------------------
      000000  00  00  00  0D  4E  03  01  07    04  00  00  03  02  00  00  05 | ....N...........
      000010  80                                                               | .
     ```
-    Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
+    print the data unit in MMTP packet with packet_sequence_number '0x0109895C' of stream with packet_id 0xF200 in 00002.mmts
 - Other utilities
     ```
     DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook
