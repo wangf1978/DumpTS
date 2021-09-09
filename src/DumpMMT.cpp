@@ -1120,38 +1120,57 @@ int DumpMMTOneStream()
 
 				// Check whether need show the DU(s) in the MMTP payload
 				if (bShowDU &&
-					(filter_MPUSeqNumber == -1LL || filter_MPUSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number) &&
 					(filter_PKTSeqNumber == -1LL || filter_PKTSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number) &&
 					((src_packet_id[0] == UINT32_MAX || pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0]) ||
 					 (src_packet_id[1] == UINT32_MAX || pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[1])))
 				{
 					if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 					{
-						if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Fragment_type == 2)
+						if (filter_MPUSeqNumber == -1LL || filter_MPUSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number)
 						{
-							printf("packet_sequence_number: 0x%08X, packet_id: 0x%04X, MPU sequence number: 0x%08X:\n",
-								pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number,
-								pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
-								pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number);
-
-							size_t idxDU = 0;
-							for (auto& du: pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Data_Units)
+							if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Fragment_type == 2)
 							{
-								if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->timed_flag)
-									printf("    DataUnit#%zu(MF_sequence_number: 0X%08X, sample_number: 0x%08X, offset: 0x%08X, priority: 0x%02X, dependency_counter: 0x%02X):\n", 
-										idxDU, du.movie_fragment_sequence_number, du.sample_number, du.offset, du.priority, du.dependency_counter);
-								else
-									printf("    DataUnit#%zu(item_id: 0x%08X):\n", idxDU, du.item_id);
+								printf("packet_sequence_number: 0x%08X, packet_id: 0x%04X, MPU sequence number: 0x%08X:\n",
+									pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number,
+									pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+									pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number);
 
-								print_mem(du.MFU_data_bytes.data(), (int)du.MFU_data_bytes.size(), 4);
-								printf("\n");
-								idxDU++;
+								size_t idxDU = 0;
+								for (auto& du : pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Data_Units)
+								{
+									if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->timed_flag)
+										printf("    DataUnit#%zu(MF_sequence_number: 0X%08X, sample_number: 0x%08X, offset: 0x%08X, priority: 0x%02X, dependency_counter: 0x%02X):\n",
+											idxDU, du.movie_fragment_sequence_number, du.sample_number, du.offset, du.priority, du.dependency_counter);
+									else
+										printf("    DataUnit#%zu(item_id: 0x%08X):\n", idxDU, du.item_id);
+
+									print_mem(du.MFU_data_bytes.data(), (int)du.MFU_data_bytes.size(), 4);
+									printf("\n");
+									idxDU++;
+								}
 							}
 						}
 					}
 					else if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0x2)
 					{
+						printf("packet_sequence_number: 0x%08X, packet_id: 0x%04X, fragmentation_indicator: %6s, aggr: %d\n",
+							pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number,
+							pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0?"1+ Msg":(
+							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0?"Header":(
+							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0?"Middle":"Tail")),
+							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag);
 
+						size_t idxMSG = 0;
+						for (auto& msg : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+						{
+							uint32_t len = std::get<0>(msg);
+							auto& msg_bytes = std::get<1>(msg);
+							printf("    Message#%zu(message length: %u):\n", idxMSG, len);
+							print_mem(msg_bytes.data(), (int)msg_bytes.size(), 4);
+							printf("\n");
+							idxMSG++;
+						}
 					}
 				}
 
