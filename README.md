@@ -78,6 +78,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
 |**--listcrc**|*N/A*|List all CRC types supported in this program|
 |**--listmp4box**|*N/A*|List box types and descriptions defined in ISO-14496 spec|
+|**--listMMTPpacketid**|*N/A*|Show Assignment of Packet ID of MMTP transmitting message and data|
 |**--listmkvEBML**|*N/A*|List EBML elements defined in Matroska spec|
 |**--dashinitmp4**|*filename*|the initialization MP4 file to describe the DASH stream global information|
 |**--VLCTypes**|*[ahdob][ahdob][ahdob]*|Specify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, "aah" means:<br>Value and length will be parsed according to literal string, codeword will be parsed according as hexadecimal|

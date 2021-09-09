@@ -72,6 +72,8 @@ extern void PrintDescriptor(int level, unsigned char* p);
 
 namespace MMT
 {
+	void PrintPacketIDAssignment();
+
 	enum TLV_PACKET_TYPE
 	{
 		TLV_Undefined_packet = 0x0,

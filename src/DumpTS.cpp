@@ -8,6 +8,7 @@
 #include "Bitstream.h"
 #include "crc.h"
 #include "Matroska.h"
+#include "MMT.h"
 
 using namespace std;
 
@@ -551,6 +552,7 @@ void PrintHelp()
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
 	printf("\t--listmkvebml\t\tShow EBML elements defined in Matroska specification and exit\n");
+	printf("\t--listMMTPpacketid\tShow Assignment of Packet ID of MMTP transmitting message and data\n");
 	printf("\t--dashinitmp4\t\tSpecify the DASH initialization mp4 file to process m4s\n");
 	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
 	printf("\t--video\t\t\tThe current dumped stream is a video stream\n");
@@ -695,6 +697,11 @@ int main(int argc, char* argv[])
 	else if (_stricmp(argv[1], "--listmkvEBML") == 0)
 	{
 		Matroska::PrintEBMLElements(INVALID_EBML_ID);
+		return 0;
+	}
+	else if (_stricmp(argv[1], "--listMMTPpacketid") == 0)
+	{
+		MMT::PrintPacketIDAssignment();
 		return 0;
 	}
 	else if (_stricmp(argv[1], "--help") == 0)
