@@ -2544,10 +2544,10 @@ namespace MMT
 
 			std::list<DataUnit>	Data_Units;
 
+			MMTPPacket*			ptr_MMTP_packet;
 			int32_t				payload_data_len;
 			std::vector<uint8_t>
 								payload;
-			MMTPPacket*			ptr_MMTP_packet;
 
 			MPU(MMTPPacket* pMMTPpkt, int nPayloadDataLen) : ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
 			}
@@ -2969,10 +2969,10 @@ namespace MMT
 			std::list<std::tuple<uint32_t, std::vector<uint8_t>>>
 								messages;
 
+			MMTPPacket*			ptr_MMTP_packet;
 			int32_t				payload_data_len;
 			std::vector<uint8_t>
 								payload;
-			MMTPPacket*			ptr_MMTP_packet;
 
 			ControlMessages(MMTPPacket* pMMTPpkt, int nPayloadDataLen) : ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
 			}
@@ -3197,9 +3197,9 @@ namespace MMT
 					if (ccWrittenOnce > 0)
 					{
 						if (length_extension_flag)
-							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: % 10u(% 10zu)", std::get<0>(msg), std::get<1>(msg).size());
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: %10u(%10zu)", std::get<0>(msg), std::get<1>(msg).size());
 						else
-							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: % 5u(% 5u)", std::get<0>(msg), (unsigned short)std::get<1>(msg).size());
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: %5u(%5u)", (uint16_t)std::get<0>(msg), (unsigned short)std::get<1>(msg).size());
 
 						if (ccWrittenOnce > 0)
 							ccWritten += ccWrittenOnce;
