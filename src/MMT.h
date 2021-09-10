@@ -3262,6 +3262,9 @@ namespace MMT
 			uint8_t*			MMTP_payload_data;
 		};
 
+		static std::unordered_map<uint16_t, uint64_t>
+								MMTP_packet_counts;
+
 		MMTPPacket(int nPacketDataLen): packet_data_len(nPacketDataLen) {
 			Extension_header_field = nullptr;
 			MMTP_payload_data = nullptr;
@@ -3361,6 +3364,12 @@ namespace MMT
 			{
 				printf("Does NOT support payload type: %" PRIu32 ".\n", Payload_type);
 			}
+
+			auto iter = MMTP_packet_counts.find(Packet_id);
+			if (iter == MMTP_packet_counts.end())
+				MMTP_packet_counts[Packet_id] = 0;
+			else
+				iter->second++;
 
 			return nRet;
 		}

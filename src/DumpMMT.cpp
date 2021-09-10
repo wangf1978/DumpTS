@@ -895,6 +895,10 @@ int ShowMMTPackageInfo()
 	printf("The number of IPv4 TLV packets: %d.\n", nIPv4Packets);
 	printf("The number of IPv6 TLV packets: %d.\n", nIPv6Packets);
 	printf("The number of Header Compressed IP packets: %d.\n", nHdrCompressedIPPackets);
+	for (const auto& iter : MMT::MMTPPacket::MMTP_packet_counts)
+	{
+		printf("    packet_id: 0x%04X, count: %" PRIu64 ".\n", iter.first, iter.second);
+	}
 	printf("The number of Transmission Control Signal TLV packets: %d.\n", nTransmissionControlSignalPackets);
 	printf("The number of Null TLV packets: %d.\n", nNullPackets);
 	printf("The number of other TLV packets: %d.\n", nOtherPackets);
