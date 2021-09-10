@@ -912,8 +912,9 @@ int DumpMMTOneStream()
 	int nFilterTLVPackets = 0, nFilterMFUs = 0, nParsedTLVPackets = 0;
 	TreeCIDPAMsgs CIDPAMsgs;
 	std::vector<uint8_t> fullPAMessage;
-	uint32_t asset_type = 0;
+	uint32_t asset_type[2] = { 0, 0 };
 	CESRepacker* pESRepacker[2] = { nullptr };
+	int filter_asset_idx = -1;
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -943,7 +944,7 @@ int DumpMMTOneStream()
 			src_packet_id[0] = (uint16_t)i64Val;
 			PIDN = 0;
 		}
-		else//Two pids
+		else//Two packet_ids
 		{
 			std::string PIDs;
 			PIDs = pidIter->second.substr(0, iterPID);
@@ -1182,6 +1183,8 @@ int DumpMMTOneStream()
 					}
 				}
 
+				filter_asset_idx = pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ? 0 : 1;
+
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 				{
 					// Create a new ES re-packer to repack the NAL unit to an Annex-B bitstream
@@ -1192,24 +1195,30 @@ int DumpMMTOneStream()
 							memset(&config, 0, sizeof(config));
 
 							ES_BYTE_STREAM_FORMAT dstESFmt = ES_BYTE_STREAM_RAW;
-							if (IS_HEVC_STREAM(asset_type))
+							if (asset_type[i] == 'hvc1' || asset_type[i] == 'hev1')
 							{
 								config.codec_id = CODEC_ID_V_MPEGH_HEVC;
 								dstESFmt = ES_BYTE_STREAM_HEVC_ANNEXB;
 							}
-							else if (IS_AVC_STREAM(asset_type))
-							{
-								config.codec_id = CODEC_ID_V_MPEG4_AVC;
-								dstESFmt = ES_BYTE_STREAM_AVC_ANNEXB;
-							}
-							else if (asset_type == 'mp4a')
+							else if (asset_type[i] == 'mp4a')
 								config.codec_id = CODEC_ID_A_MPEG4_AAC;
+							else if (asset_type[i] == 'stpp')
+								config.codec_id = CODEC_ID_MMT_ASSET_STPP;
+							else if (asset_type[i] == 'aapp')
+								config.codec_id = CODEC_ID_MMT_ASSET_AAPP;
+							else if (asset_type[i] == 'asgd')
+								config.codec_id = CODEC_ID_MMT_ASSET_ASGD;
+							else if (asset_type[i] == 'aagd')
+								config.codec_id = CODEC_ID_MMT_ASSET_AAGD;
 							else
 							{
-								if (bExplicitVideoStreamDump)
+								//
+								// Now skip the data before a valid MPT at default
+								//
+								//if (bExplicitVideoStreamDump)
 								{
 									// skip it
-									printf("Video stream(asset_type: %d), need find known assert type for video stream at first!!!!\n", asset_type);
+									printf("Video stream(asset_type: %d), need find known assert type for video stream at first!!!!\n", asset_type[i]);
 									continue;
 								}
 							}
@@ -1222,15 +1231,6 @@ int DumpMMTOneStream()
 						}
 					}
 
-					if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0])
-					{
-						PIDN = 0;
-					}
-					else
-					{
-						PIDN = 1;
-					}
-
 					for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Data_Units)
 					{
 						uint8_t actual_fragmenttion_indicator = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Aggregate_flag == 1 ? 
@@ -1241,9 +1241,9 @@ int DumpMMTOneStream()
 							ProcessMFU(CID,
 								pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
 								pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
-								asset_type,
+								asset_type[filter_asset_idx],
 								actual_fragmenttion_indicator,
-								&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[PIDN]);
+								&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[filter_asset_idx]);
 
 							if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
 							{
@@ -1296,11 +1296,14 @@ int DumpMMTOneStream()
 							bool bChanged = false;
 							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), &bChanged) == 0 && bChanged)
 							{
-								uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id[PIDN]);
-								if (new_asset_type != 0 && new_asset_type != asset_type)
+								for (int i = 0; i <= PIDN; i++)
 								{
-									//printf("assert_type from 0x%X to 0x%X.\n", asset_type, new_asset_type);
-									asset_type = new_asset_type;
+									uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id[i]);
+									if (new_asset_type != 0 && new_asset_type != asset_type[i])
+									{
+										//printf("assert_type from 0x%X to 0x%X.\n", asset_type, new_asset_type);
+										asset_type[i] = new_asset_type;
+									}
 								}
 							}
 
@@ -1314,11 +1317,14 @@ int DumpMMTOneStream()
 								auto& v = std::get<1>(m);
 								if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), &bChanged) == 0 && bChanged)
 								{
-									uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id[PIDN]);
-									if (new_asset_type != 0 && new_asset_type != asset_type)
+									for (int i = 0; i <= PIDN; i++)
 									{
-										//printf("assert_type from 0x%X to 0x%X.\n", asset_type, new_asset_type);
-										asset_type = new_asset_type;
+										uint32_t new_asset_type = FindAssetType(CIDPAMsgs, CID, src_packet_id[i]);
+										if (new_asset_type != 0 && new_asset_type != asset_type[i])
+										{
+											//printf("assert_type from 0x%X to 0x%X.\n", asset_type, new_asset_type);
+											asset_type[i] = new_asset_type;
+										}
 									}
 								}
 							}

@@ -35,4 +35,11 @@ enum CODEC_ID
 
 	CODEC_ID_A_VORBIS = 0x8000F000,
 	CODEC_ID_A_FLAC,
+
+	// Reserved for MMT/TLV container
+	CODEC_ID_MMT_ASSET_STPP = 0xA0000000,	// Timed text (closed-caption and superimposition)
+	CODEC_ID_MMT_ASSET_AAPP,				// Application
+	CODEC_ID_MMT_ASSET_ASGD,				// Synchronous type general-purpose data
+	CODEC_ID_MMT_ASSET_AAGD,				// Asynchronous type general-purpose data
+
 };
