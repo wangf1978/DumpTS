@@ -950,7 +950,7 @@ int ShowMMTPackageInfo()
 				(pkt_id) == 0x8009?", MH-SIT":""))))))))))));
 		}
 
-		printf("    CID: 0x%04x, packet_id: 0x%04X, count: %10" PRIu64 "%s\n", (iter.first >> 16) & 0xFFFF, iter.first & 0xFFFF, iter.second, pkt_desc);
+		printf("    CID: 0x%04x, packet_id: 0x%04X, count: %26s%s\n", (iter.first >> 16) & 0xFFFF, iter.first & 0xFFFF,GetReadableNum(iter.second).c_str(), pkt_desc);
 	}
 	printf("The number of Transmission Control Signal TLV packets: %d.\n", nTransmissionControlSignalPackets);
 	printf("The number of Null TLV packets: %d.\n", nNullPackets);

@@ -305,23 +305,15 @@ inline std::string GetReadableNum(uint64_t n)
 		int nGroup = (ccWritten + 2) / 3;
 		int nReminder = ccWritten % 3;
 		
-		strRet.reserve(ccWritten + nGroup * 3 + 1);
+		strRet.reserve(ccWritten + (nGroup - 1) * 3 + 1);
 		const char* p = szTmp;
 		for (int i = 0; i < nGroup; i++)
 		{
-			if (i == 0)
-			{
-				for (int c = 0; c < (nReminder == 0 ? 3 : nReminder); c++)
-					strRet.append(1, *p++);
-			}
-			else
-			{
-				if (nGroup > 1)
-					strRet.append(1, ',');
+			if (nGroup > 1 && i > 0)
+				strRet.append(1, ',');
 
-				for (int c = 0; c < 3; c++)
-					strRet.append(1, *p++);
-			}
+			for (int c = 0; c < (i > 0 || nReminder == 0 ? 3 : nReminder); c++)
+				strRet.append(1, *p++);
 		}
 	}
 
