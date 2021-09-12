@@ -2904,7 +2904,7 @@ namespace MMT
 							if (du_idx == 0)
 								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ");
 							else
-								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%82s", szIndent, " ");
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%83s", szIndent, " ");
 
 							if (ccWrittenOnce > 0)
 								ccWritten += ccWrittenOnce;

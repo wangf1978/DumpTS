@@ -260,7 +260,7 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					continue;
 			}
 
-			printf("Found a new PLT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+			printf("Found a new PLT with packet_id: %" PRIu64 "(0X%" PRIX64 ")(version: %d) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, t->version, CID, CID);
 
 			std::string szLocInfo;
 			// Get the packet_id of current MPT
@@ -814,7 +814,8 @@ int ShowMMTPackageInfo()
 			{
 				auto& plt = std::get<0>(m.second[i]);
 				auto& vmpt = std::get<1>(m.second[i]);
-				printf("\t\t#%04" PRIu32 " PLT (Package List Table):\n", (uint32_t)i);
+				if (plt != NULL)
+					printf("\t\t#%04" PRIu32 " PLT (Package List Table):\n", (uint32_t)i);
 				for (size_t j = 0; j < vmpt.size(); j++)
 				{
 					auto& mpt = vmpt[j];
@@ -833,11 +834,15 @@ int ShowMMTPackageInfo()
 						}
 					}
 
-					printf("\t\t\t#%05" PRIu32 " MPT (MMT Package Table), Package_id: 0X%" PRIX64 "(%" PRIu64 "), %s:\n", (uint32_t)j, mpt->MMT_package_id, mpt->MMT_package_id, szLocInfo.c_str());
+					const char* sztab = plt != nullptr ? "\t\t\t" : "\t\t";
+
+					printf("%s#%05" PRIu32 " MPT (MMT Package Table), Package_id: 0X%" PRIX64 "(%" PRIu64 "), %s:\n", 
+						sztab, (uint32_t)j, mpt->MMT_package_id, mpt->MMT_package_id, szLocInfo.c_str());
 					for (size_t k = 0; k < mpt->assets.size(); k++)
 					{
 						auto& a = mpt->assets[k];
-						printf("\t\t\t\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08" PRIX32 "):\n", (uint32_t)k, a->asset_id, a->asset_id,
+						printf("%s\t#%05" PRIu32 " Asset, asset_id: 0X%" PRIX64 "(%" PRIu64 "), asset_type: %c%c%c%c(0X%08" PRIX32 "):\n", 
+							sztab, (uint32_t)k, a->asset_id, a->asset_id,
 							isprint((a->asset_type >> 24) & 0xFF) ? ((a->asset_type >> 24) & 0xFF) : '.',
 							isprint((a->asset_type >> 16) & 0xFF) ? ((a->asset_type >> 16) & 0xFF) : '.',
 							isprint((a->asset_type >> 8) & 0xFF) ? ((a->asset_type >> 8) & 0xFF) : '.',
@@ -846,7 +851,7 @@ int ShowMMTPackageInfo()
 
 						for (auto& info : a->MMT_general_location_infos)
 						{
-							printf("\t\t\t\t\t%s\n", info.GetLocDesc().c_str());
+							printf("%s\t\t%s\n", sztab, info.GetLocDesc().c_str());
 						}
 
 						size_t left_descs_bytes = a->asset_descriptors_bytes.size();
@@ -873,7 +878,7 @@ int ShowMMTPackageInfo()
 							if (pDescr->Unpack(descs_bs) >= 0)
 							{
 								if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014 || peek_desc_tag == 0x8020)
-									pDescr->Print(stdout, 40);
+									pDescr->Print(stdout, plt ? 40 : 32);
 
 								if (left_descs_bytes < pDescr->descriptor_length + 3UL)
 									break;
@@ -997,7 +1002,7 @@ int DumpMMTOneStream()
 			if (iterParam != g_params.end())
 				Outputfiles[0] = iterParam->second;
 			src_packet_id[0] = (uint16_t)i64Val;
-			bDumpMPU = (src_packet_id[0] >= 0x9000 || src_packet_id[0] <= 0xFFFF);
+			bDumpMPU = (src_packet_id[0] >= 0x9000 && src_packet_id[0] <= 0xFFFF);
 			PIDN = 0;
 		}
 		else//Two packet_ids
@@ -1036,7 +1041,7 @@ int DumpMMTOneStream()
 
 			for (int i = 0; i <= PIDN; i++)
 			{
-				if ((bDumpMPU = (src_packet_id[i] >= 0x9000 || src_packet_id[i] <= 0xFFFF)))
+				if ((bDumpMPU = (src_packet_id[i] >= 0x9000 && src_packet_id[i] <= 0xFFFF)))
 					break;
 			}
 		}
@@ -1187,14 +1192,13 @@ int DumpMMTOneStream()
 
 					if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 2)
 					{
-						if (bFiltered || (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0 && bDumpMPU))
-							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem();
-						else
-						{
-							uint64_t CID_MPT_packet_id = (pHeaderCompressedIPPacket->Context_id << 16) | pHeaderCompressedIPPacket->MMTP_Packet->Packet_id;
-							if (CID_MPT_packet_id_set.find(CID_MPT_packet_id) != CID_MPT_packet_id_set.end())
-								pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem(nullptr, 0, true);
-						}
+						bool isMPT = false;
+						uint64_t CID_MPT_packet_id = (pHeaderCompressedIPPacket->Context_id << 16) | pHeaderCompressedIPPacket->MMTP_Packet->Packet_id;
+						if (CID_MPT_packet_id_set.find(CID_MPT_packet_id) != CID_MPT_packet_id_set.end())
+							isMPT = true;
+						
+						if (bFiltered || ((pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0 || isMPT) && bDumpMPU))
+							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem(nullptr, 0, isMPT);
 					}
 				}
 
