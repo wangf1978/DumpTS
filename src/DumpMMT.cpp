@@ -427,6 +427,13 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 
 			if (bFoundNewMPT && pMPT != nullptr)
 			{
+				uint32_t MPT_CID_packet_id = (uint32_t)((CID << 16) | packet_id);
+				auto iterMPTCIDPktAsset = MMT::MMTPPacket::MMTP_packet_asset_types.find(MPT_CID_packet_id);
+				if (iterMPTCIDPktAsset == MMT::MMTPPacket::MMTP_packet_asset_types.end())
+					MMT::MMTPPacket::MMTP_packet_asset_types[MPT_CID_packet_id].insert('mmpt');
+				else
+					iterMPTCIDPktAsset->second.insert('mmpt');
+
 				for (size_t k = 0; k < pMPT->assets.size(); k++)
 				{
 					// Check whether the current packet_id should be selected or not
@@ -456,6 +463,16 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					{
 						if (dumpOptions&(DUMP_MPT | DUMP_MEDIA_INFO_VIEW) && bPacketIDFiltered)
 							printf("\t\t%s\n", info.GetLocDesc().c_str());
+
+						if (info.location_type == 0 || info.location_type == 1 || info.location_type == 2)
+						{
+							uint32_t CID_packet_id = (CID << 16) | info.packet_id;
+							auto iterCIDPktAsset = MMT::MMTPPacket::MMTP_packet_asset_types.find(CID_packet_id);
+							if (iterCIDPktAsset == MMT::MMTPPacket::MMTP_packet_asset_types.end())
+								MMT::MMTPPacket::MMTP_packet_asset_types[CID_packet_id].insert(a->asset_type);
+							else
+								iterCIDPktAsset->second.insert(a->asset_type);
+						}
 					}
 
 					size_t left_descs_bytes = a->asset_descriptors_bytes.size();
@@ -897,7 +914,43 @@ int ShowMMTPackageInfo()
 	printf("The number of Header Compressed IP packets: %d.\n", nHdrCompressedIPPackets);
 	for (const auto& iter : MMT::MMTPPacket::MMTP_packet_counts)
 	{
-		printf("    packet_id: 0x%04X, count: %" PRIu64 ".\n", iter.first, iter.second);
+		char pkt_desc[256] = { 0 };
+		uint16_t pkt_id = (iter.first & 0xFFFF);
+		const auto& iterAsset = MMT::MMTPPacket::MMTP_packet_asset_types.find(iter.first);
+		if (iterAsset != MMT::MMTPPacket::MMTP_packet_asset_types.end())
+		{
+			for (const auto a : iterAsset->second)
+			{
+				MBCSPRINTF_S(pkt_desc, sizeof(pkt_desc), "%s%s", 
+					pkt_desc[0] == '\0' ? "" : ",", 
+					a == 'hev1' || a == 'hvc1'?", HEVC Video Stream":(
+					a == 'mp4a'? ", MPEG-4 AAC Audio Stream":(
+					a == 'stpp'?", Timed text":(
+					a == 'aapp'?", Application":(
+					a == 'asgd'?", Synchronous type general-purpose data":(
+					a == 'aagd'?", Asynchronous type general-purpose data":(
+					a == 'mmpt'?", MPT":"")))))));
+			}
+		}
+		else
+		{
+			MBCSPRINTF_S(pkt_desc, sizeof(pkt_desc), "%s%s",
+				pkt_desc[0] == '\0' ? "" : ",",
+				(pkt_id) == 0x0000?", PA Message":(
+				(pkt_id) == 0x0001?", CA Message":(
+				(pkt_id) == 0x8000?", MH-EIT":(
+				(pkt_id) == 0x8001?", MH-AIT":(
+				(pkt_id) == 0x8002?", MH-BIT":(
+				(pkt_id) == 0x8003?", H-SDTT":(
+				(pkt_id) == 0x8004?", MH-SDT":(
+				(pkt_id) == 0x8005?", MH-TOT":(
+				(pkt_id) == 0x8006?", MH-CDT":(
+				(pkt_id) == 0x8007?", Data Message":(
+				(pkt_id) == 0x8008?", MH-DIT":(
+				(pkt_id) == 0x8009?", MH-SIT":""))))))))))));
+		}
+
+		printf("    CID: 0x%04x, packet_id: 0x%04X, count: %10" PRIu64 "%s\n", (iter.first >> 16) & 0xFFFF, iter.first & 0xFFFF, iter.second, pkt_desc);
 	}
 	printf("The number of Transmission Control Signal TLV packets: %d.\n", nTransmissionControlSignalPackets);
 	printf("The number of Null TLV packets: %d.\n", nNullPackets);
@@ -915,6 +968,7 @@ int DumpMMTOneStream()
 	uint32_t asset_type[2] = { 0, 0 };
 	CESRepacker* pESRepacker[2] = { nullptr };
 	int filter_asset_idx = -1;
+	std::set<uint64_t> CID_MPT_packet_id_set;
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -929,6 +983,7 @@ int DumpMMTOneStream()
 	std::string Outputfiles[2];
 	auto pidIter = g_params.find("pid");
 	auto iterParam = g_params.find("output");
+	bool bDumpMPU = false;
 	if (pidIter != g_params.end())
 	{
 		size_t iterPID = pidIter->second.find("&");
@@ -942,6 +997,7 @@ int DumpMMTOneStream()
 			if (iterParam != g_params.end())
 				Outputfiles[0] = iterParam->second;
 			src_packet_id[0] = (uint16_t)i64Val;
+			bDumpMPU = (src_packet_id[0] >= 0x9000 || src_packet_id[0] <= 0xFFFF);
 			PIDN = 0;
 		}
 		else//Two packet_ids
@@ -977,6 +1033,12 @@ int DumpMMTOneStream()
 			if (iterParam != g_params.end())
 				Outputfiles[1].insert(Outputfiles[1].rfind("."), "_" + PIDs);
 			PIDN = 1;
+
+			for (int i = 0; i <= PIDN; i++)
+			{
+				if ((bDumpMPU = (src_packet_id[i] >= 0x9000 || src_packet_id[i] <= 0xFFFF)))
+					break;
+			}
 		}
 	}
 
@@ -1118,13 +1180,22 @@ int DumpMMTOneStream()
 				}
 
 				// Only support MPU payload at present
-				if (bListMMTPpayload && bFiltered && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
+				if (bListMMTPpayload)
 				{
-					pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->PrintListItem();
-				}
-				else if (bListMMTPpayload && bFiltered && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 2)
-				{
-					pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem();
+					if (bFiltered && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
+						pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->PrintListItem();
+
+					if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 2)
+					{
+						if (bFiltered || (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0 && bDumpMPU))
+							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem();
+						else
+						{
+							uint64_t CID_MPT_packet_id = (pHeaderCompressedIPPacket->Context_id << 16) | pHeaderCompressedIPPacket->MMTP_Packet->Packet_id;
+							if (CID_MPT_packet_id_set.find(CID_MPT_packet_id) != CID_MPT_packet_id_set.end())
+								pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem(nullptr, 0, true);
+						}
+					}
 				}
 
 				// Check whether need show the DU(s) in the MMTP payload
@@ -1218,7 +1289,11 @@ int DumpMMTOneStream()
 								//if (bExplicitVideoStreamDump)
 								{
 									// skip it
-									printf("Video stream(asset_type: %d), need find known assert type for video stream at first!!!!\n", asset_type[i]);
+									if (Outputfiles[i].length() > 0)
+									{
+										printf("Video stream(asset_type: %d), need find known asset type for video stream at first!!!!\n", asset_type[i]);
+									}
+
 									continue;
 								}
 							}
@@ -1275,6 +1350,7 @@ int DumpMMTOneStream()
 						CIDPAMsgs[CID] = emptyTreePLTMAP;
 					}
 
+					bool bPAMessageChanged = false;
 					// Check whether the current PA message contains a complete message
 					if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
 						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
@@ -1307,6 +1383,9 @@ int DumpMMTOneStream()
 								}
 							}
 
+							if (bChanged && pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0)
+								bPAMessageChanged = true;
+
 							fullPAMessage.clear();
 						}
 						else
@@ -1325,6 +1404,38 @@ int DumpMMTOneStream()
 											//printf("assert_type from 0x%X to 0x%X.\n", asset_type, new_asset_type);
 											asset_type[i] = new_asset_type;
 										}
+									}
+								}
+
+								if (bChanged && pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0 && bPAMessageChanged == false)
+									bPAMessageChanged = true;
+							}
+						}
+
+						if (bPAMessageChanged)
+						{
+							CID_MPT_packet_id_set.clear();
+							for (const auto& CIDPA : CIDPAMsgs)
+							{
+								uint64_t CID_packet_id = ((uint64_t)CIDPA.first) << 16;
+
+								for (const auto& entry : CIDPA.second)
+								{
+									auto PLT = std::get<0>(entry);
+									if (PLT == nullptr)
+										continue;
+
+									for (const auto &pkg_info : PLT->package_infos)
+									{
+										auto& pkg_loc_info = std::get<2>(pkg_info);
+										if (pkg_loc_info.location_type == 0)
+											CID_packet_id |= pkg_loc_info.packet_id;
+										else if (pkg_loc_info.location_type == 1)
+											CID_packet_id |= pkg_loc_info.MMTP_IPv4.packet_id;
+										else if (pkg_loc_info.location_type == 2)
+											CID_packet_id |= pkg_loc_info.MMTP_IPv6.packet_id;
+
+										CID_MPT_packet_id_set.insert(CID_packet_id);
 									}
 								}
 							}

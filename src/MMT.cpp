@@ -152,7 +152,8 @@ std::unordered_map<unsigned char, std::string> g_TLV_SI_descriptors = {
 
 namespace MMT
 {
-	std::unordered_map<uint16_t, uint64_t> MMTPPacket::MMTP_packet_counts;
+	std::unordered_map<uint32_t/*(CID<<16) | packet_id*/, uint64_t> MMTPPacket::MMTP_packet_counts;
+	std::unordered_map<uint32_t/*(CID<<16) | packet_id*/, std::set<uint32_t>> MMTPPacket::MMTP_packet_asset_types;
 
 	void PrintPacketIDAssignment()
 	{

@@ -294,3 +294,36 @@ inline double ConvertExtentToDouble(uint8_t bytes[10])
 
 	return (sign ? -1.0 : 1.0) * (normalizeCorrection + (double)fraction / ((1ULL << 63))) * pow(2, exp - 16383);
 }
+
+inline std::string GetReadableNum(uint64_t n)
+{
+	std::string strRet;
+	char szTmp[256] = { 0 };
+	int ccWritten = MBCSPRINTF_S(szTmp, sizeof(szTmp), "%d", n);
+	if (ccWritten > 0)
+	{
+		int nGroup = (ccWritten + 2) / 3;
+		int nReminder = ccWritten % 3;
+		
+		strRet.reserve(ccWritten + nGroup * 3 + 1);
+		const char* p = szTmp;
+		for (int i = 0; i < nGroup; i++)
+		{
+			if (i == 0)
+			{
+				for (int c = 0; c < (nReminder == 0 ? 3 : nReminder); c++)
+					strRet.append(1, *p++);
+			}
+			else
+			{
+				if (nGroup > 1)
+					strRet.append(1, ',');
+
+				for (int c = 0; c < 3; c++)
+					strRet.append(1, *p++);
+			}
+		}
+	}
+
+	return strRet;
+}

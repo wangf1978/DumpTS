@@ -66,6 +66,20 @@
 	(t) == 0xC1?"Storage type service using TLV":(\
 	(t) == 0xC2?"Multimedia service":"undefined")))))))
 
+#define MESSAGE_NAME_BY_PACKETID(pkt_id)	(\
+	(pkt_id) == 0x0000?"PA Message":(\
+	(pkt_id) == 0x0001?"CA Message":(\
+	(pkt_id) == 0x8000?"MH-EIT":(\
+	(pkt_id) == 0x8001?"MH-AIT":(\
+	(pkt_id) == 0x8002?"MH-BIT":(\
+	(pkt_id) == 0x8003?"H-SDTT":(\
+	(pkt_id) == 0x8004?"MH-SDT":(\
+	(pkt_id) == 0x8005?"MH-TOT":(\
+	(pkt_id) == 0x8006?"MH-CDT":(\
+	(pkt_id) == 0x8007?"Data Message":(\
+	(pkt_id) == 0x8008?"MH-DIT":(\
+	(pkt_id) == 0x8009?"MH-SIT":"Message"))))))))))))
+
 extern std::unordered_map<uint8_t, std::string> g_TLV_SI_descriptors;
 
 extern void PrintDescriptor(int level, unsigned char* p);
@@ -3132,7 +3146,7 @@ namespace MMT
 				}
 			}
 
-			void PrintListItem(FILE* fp = nullptr, int indent = 0)
+			void PrintListItem(FILE* fp = nullptr, int indent = 0, bool bForcedMPT = false)
 			{
 				static int PktIndex = 0;
 				char szLog[1024] = { 0 };
@@ -3152,6 +3166,13 @@ namespace MMT
 				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PKTSeqNo:0x%08X", ptr_MMTP_packet->Packet_sequence_number);
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
+
+				if (ccWrittenOnce > 0)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %12s", bForcedMPT?"MPT":MESSAGE_NAME_BY_PACKETID(ptr_MMTP_packet->Packet_id));
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
+				}
 
 				if (ccWrittenOnce > 0)
 				{
@@ -3248,6 +3269,7 @@ namespace MMT
 		uint16_t			Extension_header_type;
 		uint16_t			Extension_header_length;
 
+		uint16_t			CID;
 		int32_t				packet_data_len;
 
 		union
@@ -3262,10 +3284,13 @@ namespace MMT
 			uint8_t*			MMTP_payload_data;
 		};
 
-		static std::unordered_map<uint16_t, uint64_t>
+		static std::unordered_map<uint32_t/*(CID<<16) | packet_id*/, uint64_t>
 								MMTP_packet_counts;
+		static std::unordered_map<uint32_t/*(CID<<16) | packet_id*/, std::set<uint32_t>> 
+								MMTP_packet_asset_types;
 
-		MMTPPacket(int nPacketDataLen): packet_data_len(nPacketDataLen) {
+		MMTPPacket(uint16_t context_id, int nPacketDataLen)
+			: CID(context_id), packet_data_len(nPacketDataLen) {
 			Extension_header_field = nullptr;
 			MMTP_payload_data = nullptr;
 		}
@@ -3365,9 +3390,10 @@ namespace MMT
 				printf("Does NOT support payload type: %" PRIu32 ".\n", Payload_type);
 			}
 
-			auto iter = MMTP_packet_counts.find(Packet_id);
+			uint32_t CID_PKT_id = (CID << 16) | Packet_id;
+			auto iter = MMTP_packet_counts.find(CID_PKT_id);
 			if (iter == MMTP_packet_counts.end())
-				MMTP_packet_counts[Packet_id] = 0;
+				MMTP_packet_counts[CID_PKT_id] = 0;
 			else
 				iter->second++;
 
@@ -3631,7 +3657,7 @@ namespace MMT
 
 					uint64_t cur_bit_pos = bs.Tell();
 					
-					MMTP_Packet = new MMTPPacket((int)Data_length + 4 - (int)((cur_bit_pos - start_bitpos)>>3));
+					MMTP_Packet = new MMTPPacket(Context_id, (int)Data_length + 4 - (int)((cur_bit_pos - start_bitpos)>>3));
 					if ((iRet = MMTP_Packet->Unpack(bs)) < 0)
 						goto done;
 				}
@@ -3646,7 +3672,7 @@ namespace MMT
 			case 0x61:
 				{
 					uint64_t cur_bit_pos = bs.Tell();
-					MMTP_Packet = new MMTPPacket((int)Data_length + 4 - (int)((cur_bit_pos - start_bitpos) >> 3));
+					MMTP_Packet = new MMTPPacket(Context_id, (int)Data_length + 4 - (int)((cur_bit_pos - start_bitpos) >> 3));
 					if ((iRet = MMTP_Packet->Unpack(bs)) < 0)
 						goto done;
 				}
