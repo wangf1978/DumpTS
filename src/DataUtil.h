@@ -299,7 +299,7 @@ inline std::string GetReadableNum(uint64_t n)
 {
 	std::string strRet;
 	char szTmp[256] = { 0 };
-	int ccWritten = MBCSPRINTF_S(szTmp, sizeof(szTmp), "%d", n);
+	int ccWritten = MBCSPRINTF_S(szTmp, sizeof(szTmp), "%" PRIu64 "", n);
 	if (ccWritten > 0)
 	{
 		int nGroup = (ccWritten + 2) / 3;
