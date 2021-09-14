@@ -260,7 +260,8 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 					continue;
 			}
 
-			printf("Found a new PLT with packet_id: %" PRIu64 "(0X%" PRIX64 ")(version: %d) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, t->version, CID, CID);
+			if (g_verbose_level > 0)
+				printf("Found a new PLT with packet_id: %" PRIu64 "(0X%" PRIX64 ")(version: %d) in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, t->version, CID, CID);
 
 			std::string szLocInfo;
 			// Get the packet_id of current MPT
@@ -270,7 +271,8 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 				auto& info = std::get<2>(plt_pkg);
 				szLocInfo = info.GetLocDesc();
 
-				printf("\tFound a package with package_id: %" PRIu64 "(0X%" PRIX64 "), %s.\n", pkg_id, pkg_id, szLocInfo.c_str());
+				if (g_verbose_level > 0)
+					printf("\tFound a package with package_id: %" PRIu64 "(0X%" PRIX64 "), %s.\n", pkg_id, pkg_id, szLocInfo.c_str());
 			}
 
 			if (g_verbose_level > 0 || (dumpOptions&DUMP_PLT))
@@ -928,31 +930,31 @@ int ShowMMTPackageInfo()
 			{
 				MBCSPRINTF_S(pkt_desc, sizeof(pkt_desc), "%s%s", 
 					pkt_desc[0] == '\0' ? "" : ",", 
-					a == 'hev1' || a == 'hvc1'?", HEVC Video Stream":(
-					a == 'mp4a'? ", MPEG-4 AAC Audio Stream":(
-					a == 'stpp'?", Timed text":(
-					a == 'aapp'?", Application":(
-					a == 'asgd'?", Synchronous type general-purpose data":(
-					a == 'aagd'?", Asynchronous type general-purpose data":(
-					a == 'mmpt'?", MPT":"")))))));
+					a == 'hev1' || a == 'hvc1'?" - HEVC Video Stream":(
+					a == 'mp4a'?" - MPEG-4 AAC Audio Stream":(
+					a == 'stpp'?" - Timed text":(
+					a == 'aapp'?" - Application":(
+					a == 'asgd'?" - Synchronous type general-purpose data":(
+					a == 'aagd'?" - Asynchronous type general-purpose data":(
+					a == 'mmpt'?" - MPT":"")))))));
 			}
 		}
 		else
 		{
 			MBCSPRINTF_S(pkt_desc, sizeof(pkt_desc), "%s%s",
 				pkt_desc[0] == '\0' ? "" : ",",
-				(pkt_id) == 0x0000?", PA Message":(
-				(pkt_id) == 0x0001?", CA Message":(
-				(pkt_id) == 0x8000?", MH-EIT":(
-				(pkt_id) == 0x8001?", MH-AIT":(
-				(pkt_id) == 0x8002?", MH-BIT":(
-				(pkt_id) == 0x8003?", H-SDTT":(
-				(pkt_id) == 0x8004?", MH-SDT":(
-				(pkt_id) == 0x8005?", MH-TOT":(
-				(pkt_id) == 0x8006?", MH-CDT":(
-				(pkt_id) == 0x8007?", Data Message":(
-				(pkt_id) == 0x8008?", MH-DIT":(
-				(pkt_id) == 0x8009?", MH-SIT":""))))))))))));
+				(pkt_id) == 0x0000?" - PA Message":(
+				(pkt_id) == 0x0001?" - CA Message":(
+				(pkt_id) == 0x8000?" - MH-EIT":(
+				(pkt_id) == 0x8001?" - MH-AIT":(
+				(pkt_id) == 0x8002?" - MH-BIT":(
+				(pkt_id) == 0x8003?" - H-SDTT":(
+				(pkt_id) == 0x8004?" - MH-SDT":(
+				(pkt_id) == 0x8005?" - MH-TOT":(
+				(pkt_id) == 0x8006?" - MH-CDT":(
+				(pkt_id) == 0x8007?" - Data Message":(
+				(pkt_id) == 0x8008?" - MH-DIT":(
+				(pkt_id) == 0x8009?" - MH-SIT":""))))))))))));
 		}
 
 		printf("    CID: 0x%04x, packet_id: 0x%04X, count: %26s%s\n", (iter.first >> 16) & 0xFFFF, iter.first & 0xFFFF,GetReadableNum(iter.second).c_str(), pkt_desc);
