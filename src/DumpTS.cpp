@@ -31,6 +31,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	DiffTSATC();
 extern int	RefactorTS();
 extern int	DumpOneStream();
 extern int	DumpPartialTS();
@@ -153,6 +154,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"start",
 		"end",
 		"verbose",
+		"diffATC",
 	};
 
 	for (; iarg < argc; iarg++)
@@ -799,8 +801,8 @@ int main(int argc, char* argv[])
 	{
 		nDumpRet = DumpMMT();
 	}
-	else if (g_params.find("srcfmt") != g_params.end() && (g_params["srcfmt"].compare("vob") == 0 || 
-														   g_params["srcfmt"].compare("mpg") == 0))
+	else if (iter_srcfmt != g_params.end() && (iter_srcfmt->second.compare("vob") == 0 ||
+											   iter_srcfmt->second.compare("mpg") == 0))
 	{
 		if (g_params.find("stream_id") != g_params.end())
 		{
@@ -883,6 +885,11 @@ int main(int argc, char* argv[])
 			{
 				g_params["pid"] = "0";
 				DumpOneStream();
+				goto done;
+			}
+			else if (g_params.find("diffATC") != g_params.end())
+			{
+				DiffTSATC();
 				goto done;
 			}
 			else
