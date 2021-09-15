@@ -15,6 +15,8 @@ int DiffTSATC()
 	FILE *fp = NULL;
 	long long start_pkt_idx = -1LL;
 	long long end_pkt_idx = -1LL;
+	long long pkt_idx = 0;
+	uint32_t previous_arrive_time = UINT32_MAX;
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -39,8 +41,6 @@ int DiffTSATC()
 			end_pkt_idx = ConvertToLongLong(iterEnd->second);
 	}
 
-	long long pkt_idx = 0;
-	uint32_t previous_arrive_time = UINT32_MAX;
 	while (true)
 	{
 		size_t nRead = fread(buf, 1, ts_pack_size, fp);
@@ -63,17 +63,17 @@ int DiffTSATC()
 			else
 				diff = 0x40000000 + arrive_time - previous_arrive_time;
 
-			if ((diff_threshold == -1LL || diff_threshold > 0 && (long long)diff > diff_threshold) &&
-				(start_pkt_idx == -1LL || start_pkt_idx >= 0 && pkt_idx >= start_pkt_idx) &&
-				(end_pkt_idx == -1LL || end_pkt_idx >= 0 && pkt_idx < end_pkt_idx))
+			if ((diff_threshold == -1LL || (diff_threshold > 0 && (long long)diff > diff_threshold)) &&
+				(start_pkt_idx == -1LL || (start_pkt_idx >= 0 && pkt_idx >= start_pkt_idx)) &&
+				(end_pkt_idx == -1LL || (end_pkt_idx >= 0 && pkt_idx < end_pkt_idx)))
 			{
-				printf("pkt_idx: %20" PRId64 " [header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId32 "(%fs)\n",
+				printf("pkt_idx: %20lld [header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId32 "(%fs)\n",
 					pkt_idx, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time, diff, diff*1000.0f / 27000000.f);
 			}
 		}
 		else
 		{
-			printf("pkt_idx: %20" PRId64 " [header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: \n", 
+			printf("pkt_idx: %20lld [header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: \n", 
 				pkt_idx, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time);
 		}
 
