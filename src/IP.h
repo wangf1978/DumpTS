@@ -22,6 +22,8 @@
 #endif
 
 #define IP_FIX_HEADER_FMT_STR				"%s%21s"
+#define NTPSHORTTIME_FMT_STR				"%12.6f"	//  5(16bit seconds) + 1(.) + 6(16bit fraction)
+#define NTPTIME_FMT_STR						"%17.6f"	// 10(32bit seconds) + 1(.) + 6(32bit fraction)
 
 namespace IP
 {
@@ -108,6 +110,10 @@ namespace IP
 				Fraction = bs.GetWord();
 				return RET_CODE_SUCCESS;
 			}
+
+			double GetValue() const {
+				return Seconds + (double)Fraction / 0x10000L;
+			}
 		}PACKED;
 
 		/*
@@ -130,6 +136,13 @@ namespace IP
 				Fraction = bs.GetDWord();
 				return RET_CODE_SUCCESS;
 			}
+
+			double GetValue() const {
+				return Seconds + (double)Fraction / 0x100000000LL;
+			}
+
+			friend bool operator==(NTPTimestampFormat const &, NTPTimestampFormat const &);
+			friend bool operator!=(NTPTimestampFormat const &, NTPTimestampFormat const &);
 		}PACKED;
 
 		/*
@@ -286,8 +299,8 @@ namespace IP
 																							stratum==16?"without synchronization":"reserved"))));
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "poll", poll);
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "precision", precision);
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %u.%us\n", szIndent, "root_delay", root_delay.Seconds, root_delay.Fraction);
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %u.%us\n", szIndent, "root_dispersion", root_dispersion.Seconds, root_dispersion.Fraction);
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPSHORTTIME_FMT_STR "s\n", szIndent, "root_delay", root_delay.GetValue());
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPSHORTTIME_FMT_STR "s\n", szIndent, "root_dispersion", root_dispersion.GetValue());
 
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": %c%c%c%c (0X%08X)\n", szIndent, "reference_identification", 
 				isprint((reference_identification >> 24) & 0xFF) ? (reference_identification >> 24) & 0xFF:'.',
@@ -295,13 +308,13 @@ namespace IP
 				isprint((reference_identification >>  8) & 0xFF) ? (reference_identification >>  8) & 0xFF : '.', 
 				isprint((reference_identification)       & 0xFF) ? (reference_identification      ) & 0xFF : '.', reference_identification);
 
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "reference_timestamp", reference_timestamp.Seconds, reference_timestamp.Fraction,
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "reference_timestamp", reference_timestamp.GetValue(),
 				DateTimeStr(reference_timestamp.Seconds, 1900, reference_timestamp.Fraction).c_str());
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "origin_timestamp", origin_timestamp.Seconds, origin_timestamp.Fraction,
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "origin_timestamp", origin_timestamp.GetValue(),
 				DateTimeStr(origin_timestamp.Seconds, 1900, origin_timestamp.Fraction).c_str());
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "receive_timestamp", receive_timestamp.Seconds, receive_timestamp.Fraction,
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "receive_timestamp", receive_timestamp.GetValue(),
 				DateTimeStr(receive_timestamp.Seconds, 1900, receive_timestamp.Fraction).c_str());
-			fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 ".%" PRIu32 "s, %s\n", szIndent, "transmit_timestamp", transmit_timestamp.Seconds, transmit_timestamp.Fraction,
+			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "transmit_timestamp", transmit_timestamp.GetValue(),
 				DateTimeStr(transmit_timestamp.Seconds, 1900, transmit_timestamp.Fraction).c_str());
 		}
 

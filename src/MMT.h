@@ -616,8 +616,8 @@ namespace MMT
 				uint32_t seq_no = std::get<0>(MPU_sequence_present_timestamps[i]);
 				IP::NTPv4Data::NTPTimestampFormat& present_timestamp = std::get<1>(MPU_sequence_present_timestamps[i]);
 				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "(0X%" PRIX32 ")\n", szIndent, "mpu_sequence_number", seq_no, seq_no);
-				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 ".%-10" PRIu32 "s, %s\n", szIndent, "mpu_presentation_time", 
-					present_timestamp.Seconds, present_timestamp.Fraction, DateTimeStr(present_timestamp.Seconds, 1900, present_timestamp.Fraction).c_str());
+				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "mpu_presentation_time",
+					present_timestamp.GetValue(), DateTimeStr(present_timestamp.Seconds, 1900, present_timestamp.Fraction).c_str());
 			}
 		}
 
@@ -1359,6 +1359,11 @@ namespace MMT
 			}
 
 			return false;
+		}
+
+		uint16_t GetPacketID()
+		{
+			return location_type == 0 ? packet_id : (location_type == 1 ? MMTP_IPv4.packet_id : (location_type == 2 ? MMTP_IPv6.packet_id : 0));
 		}
 
 		std::string GetLocDesc()
@@ -3428,7 +3433,7 @@ namespace MMT
 				Payload_type == 3?"This involves repair symbol of AL-FEC":"Undefined"))));
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%0" PRIX32 "(%" PRIu32 ")\n", szIndent, "Packet_id", Packet_id, Packet_id);
 
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u.%us\n", szIndent, "Delivery_timestamp", Delivery_timestamp.Seconds, Delivery_timestamp.Fraction);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": " NTPSHORTTIME_FMT_STR "s\n", szIndent, "Delivery_timestamp", Delivery_timestamp.GetValue());
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Pkt_sequence_number", Packet_sequence_number);
 
 			if (Packet_counter_flag)

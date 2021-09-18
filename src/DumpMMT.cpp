@@ -14,6 +14,17 @@ int g_TLV_packets_per_display = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 
 std::vector<uint16_t> g_empty_uint16_vector;
 
+using MPUTMTree = std::list<
+	std::tuple<uint32_t/*mpu_sequence_number*/, 
+			   IP::NTPv4Data::NTPTimestampFormat/*mpu_presentation_time*/,
+			   uint32_t/*timescale*/,
+			   uint16_t/*mpu_decoding_time_offset*/,
+			   std::vector<
+					std::tuple<uint16_t/*pts offset*/, 
+							   uint16_t/*dts_pts_offset*/>>>>;
+
+using MPUTMTrees = std::unordered_map<uint32_t/*CID<<16 | packet_id*/, MPUTMTree>;
+
 enum SHOW_TLV_PACK_OPTION
 {
 	SHOW_TLV_ALL = 0,
@@ -36,6 +47,96 @@ bool NeedShowMMTTLVPacket()
 			g_params.find("showIPv6pack") != g_params.end() ||
 			g_params.find("showHCIPpack") != g_params.end() ||
 			g_params.find("showTCSpack") != g_params.end());
+}
+
+void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
+{
+	int ccWritten = 0;
+	char szIdx[64] = { 0 };
+	int idx = 0;
+
+	auto iterStart = g_params.find("start");
+	auto iterEnd = g_params.find("end");
+
+	int64_t nStart = -1LL, nEnd = INT64_MAX, iVal= -1LL;
+	if (iterStart != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterStart->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nStart = (uint32_t)iVal;
+	}
+
+	if (iterEnd != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterEnd->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nEnd = (uint32_t)iVal;
+	}
+
+	// find the maximum MPU_sequence_number and timescale
+	uint32_t max_MPU_seq_no = 0, max_timescale = 0;
+	for (const auto& t : MPU_tm_trees)
+	{
+		for (const auto& item : t.second)
+		{
+			if (max_MPU_seq_no < std::get<0>(item))
+				max_MPU_seq_no = std::get<0>(item);
+
+			if (max_timescale < std::get<2>(item))
+				max_timescale = std::get<2>(item);
+		}
+	}
+
+	ccWritten = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%zu", MPU_tm_trees.size());
+	char szFmt1[256] = { 0 }, szFmt2[256] = { 0 }, szFmt3[256] = { 0 };
+	MBCSPRINTF_S(szFmt1, sizeof(szFmt1) / sizeof(szFmt1[0]), "%%%dd, CID: 0x%%04X(%%5d), packet_id: 0x%%04X(%%5d):\n", ccWritten);
+
+	for (const auto& t : MPU_tm_trees)
+	{
+		printf((const char*)szFmt1, idx, (t.first >> 16) & 0xFFFF, (t.first >> 16) & 0xFFFF, t.first & 0xFFFF, t.first & 0xFFFF);
+
+		long long idx2 = 0;
+		ccWritten = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%zu", t.second.size());
+		int ccWritten2 = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%X", max_MPU_seq_no);
+		int ccWritten3 = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%" PRIu32, max_MPU_seq_no);
+		MBCSPRINTF_S(szFmt2, sizeof(szFmt2) / sizeof(szFmt2[0]),
+			"    %%%dd, MPU(SeqNo: 0x%%0%dX(%%%d" PRIu32 "), presentation_time: %" NTPTIME_FMT_STR "s, timescale: %%%zusHZ, decoding_time_offset: %%5u)\n",
+			ccWritten, ccWritten2, ccWritten3, GetReadableNum(max_timescale).size());
+
+		for (const auto& item : t.second)
+		{
+			if (!((int64_t)std::get<0>(item) >= nStart && (int64_t)std::get<0>(item) < nEnd))
+				continue;
+
+			printf((const char*)szFmt2, idx2,
+				std::get<0>(item), std::get<0>(item),
+				std::get<1>(item).GetValue(),
+				GetReadableNum(std::get<2>(item)).c_str(),
+				std::get<3>(item));
+			auto& offsets = std::get<4>(item);
+
+			if (bFull)
+			{
+				int idx_sub = 0;
+				ccWritten = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%zu", offsets.size());
+				MBCSPRINTF_S(szFmt3, sizeof(szFmt3) / sizeof(szFmt3[0]),
+					"        %%%dd, dts_pts_offset: 0x%%04X(%%5d), pts_offset: 0x%%04X(%%5d)\n", ccWritten);
+
+				for (const auto& o : offsets)
+				{
+					uint16_t pts_offset = std::get<0>(o);
+					uint16_t dts_pts_offset = std::get<1>(o);
+					printf((const char*)szFmt3, idx_sub, dts_pts_offset, dts_pts_offset, pts_offset, pts_offset);
+
+					idx_sub++;
+				}
+			}
+
+			idx2++;
+		}
+
+		idx++;
+	}
 }
 
 int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
@@ -222,7 +323,150 @@ uint32_t FindAssetType(const TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint16_t pa
 	return 0;
 }
 
-int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id, uint8_t* pMsgBuf, int cbMsgBuf, bool* pbChange=nullptr, int dumpOptions = 0, const std::vector<uint16_t>& filter_packets_ids = g_empty_uint16_vector)
+int UpdateMPUTMTrees(uint16_t CID, MMT::MMTPackageTable* pMPT, MPUTMTrees* ptr_MPU_tm_trees)
+{
+	if (pMPT == nullptr || ptr_MPU_tm_trees == nullptr)
+		return -1;
+
+	size_t left_descs_bytes = pMPT->MPT_descriptors_bytes.size();
+	if (left_descs_bytes > 0)
+	{
+		// Don't parse the descriptor in the first loop
+	}
+
+	for (size_t k = 0; k < pMPT->assets.size(); k++)
+	{
+		auto& a = pMPT->assets[k];
+		int32_t pkt_id = -1;
+		for (auto& info : a->MMT_general_location_infos)
+		{
+			pkt_id = info.GetPacketID();
+			if (pkt_id > 0)
+				break;
+		}
+
+		if (pkt_id <= 0)
+			continue;
+
+		uint32_t CID_pkt_id = (CID << 16) | pkt_id;
+		auto iter = ptr_MPU_tm_trees->find(CID_pkt_id);
+		if (iter == ptr_MPU_tm_trees->end())
+			continue;
+
+		size_t left_descs_bytes = a->asset_descriptors_bytes.size();
+		CBitstream descs_bs(&a->asset_descriptors_bytes[0], a->asset_descriptors_bytes.size() << 3);
+		MMT::UnimplMMTSIDescriptor UnimplDescr;
+		MMT::MMTSIDescriptor* pDescr = nullptr;
+		while (left_descs_bytes > 0)
+		{
+			uint16_t peek_desc_tag = (uint16_t)descs_bs.PeekBits(16);
+
+			MMT::MPUTimestampDescriptor* pMPUTmDesc = nullptr;
+			MMT::MPUExtendedTimestampDescriptor* pMPUTmExtDesc = nullptr;
+			
+			switch (peek_desc_tag)
+			{
+			case 0x0001:	// MPUTimestampDescriptor
+				pMPUTmDesc = new MMT::MPUTimestampDescriptor();
+				pDescr = pMPUTmDesc;
+				break;
+			case 0x8026:	// MPUExtendedTimestampDescriptor
+				pMPUTmExtDesc = new MMT::MPUExtendedTimestampDescriptor();
+				pDescr = pMPUTmExtDesc;
+				break;
+			default:
+				pDescr = &UnimplDescr;
+			}
+
+			if (pDescr->Unpack(descs_bs) >= 0)
+			{
+				if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+				{
+					AMP_SAFEDEL(pMPUTmDesc);
+					AMP_SAFEDEL(pMPUTmExtDesc);
+					break;
+				}
+
+				left_descs_bytes -= pDescr->descriptor_length + 3UL;
+
+				if (pMPUTmDesc != nullptr)
+				{
+					for (auto& e : pMPUTmDesc->MPU_sequence_present_timestamps)
+					{
+						bool bFound = false;
+						for(auto riter = iter->second.rbegin();riter != iter->second.rend();riter++)
+						{
+							auto MPU_sequence_number = std::get<0>(*riter);
+							auto MPU_presentation_time = std::get<1>(*riter);
+							if (MPU_sequence_number == std::get<0>(e))
+							{
+								bFound = true;
+								if (MPU_presentation_time != std::get<1>(e))
+								{
+									printf("Unexpected case!!! 2 MPU time descriptor entry with the same MPU sequence number(%" PRIu32 ") has different presentation time.\n", 
+										MPU_sequence_number);
+								}
+								break;
+							}
+						}
+
+						if (bFound == false)
+						{
+							iter->second.push_back(std::make_tuple(std::get<0>(e), std::get<1>(e), 0, 0, std::vector<std::tuple<uint16_t, uint16_t>>()));
+						}
+					}
+				}
+				else if (pMPUTmExtDesc != nullptr)
+				{
+					for (auto& e : pMPUTmExtDesc->ts_offsets)
+					{
+						for (auto riter = iter->second.rbegin(); riter != iter->second.rend(); riter++)
+						{
+							auto MPU_sequence_number = std::get<0>(*riter);
+							if (MPU_sequence_number == e.mpu_sequence_number)
+							{
+								// Update the entry
+								if (pMPUTmExtDesc->timescale_flag)
+									std::get<2>(*riter) = pMPUTmExtDesc->timescale;
+								else
+									std::get<2>(*riter) = 90000;
+
+								std::get<3>(*riter) = e.mpu_decoding_time_offset;
+
+								std::get<4>(*riter).clear();
+								for (auto& o : e.offsets)
+								{
+									std::get<4>(*riter).push_back({std::get<0>(o), 
+										pMPUTmExtDesc->pts_offset_type == 2?std::get<1>(o):(
+										pMPUTmExtDesc->pts_offset_type == 1?pMPUTmExtDesc->default_pts_offset:0)});
+								}
+
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			AMP_SAFEDEL(pMPUTmDesc);
+			AMP_SAFEDEL(pMPUTmExtDesc);
+		}
+	}
+
+
+	return 0;
+}
+
+int ProcessPAMessage(
+	TreeCIDPAMsgs& CIDPAMsgs, 
+	uint16_t CID, 
+	uint64_t packet_id, 
+	uint8_t* pMsgBuf, 
+	int cbMsgBuf, 
+	bool* pbChange=nullptr, 
+	int dumpOptions = 0, 
+	const std::vector<uint16_t>& filter_packets_ids = g_empty_uint16_vector,
+	MPUTMTrees* ptr_MPU_tm_trees = NULL)
 {
 	if (cbMsgBuf <= 0)
 		return RET_CODE_INVALID_PARAMETER;
@@ -295,6 +539,10 @@ int ProcessPAMessage(TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint64_t packet_id,
 			// Check whether the current MPT lies at the last PLT or not
 			if (iter->second.size() > 0)
 			{
+				// Check whether there are MPU time-stamp descriptor and/or MPU extended time-stamp descriptor
+				// And try to update it.
+				UpdateMPUTMTrees(CID, pMPT, ptr_MPU_tm_trees);
+
 				auto& tuple_tree = iter->second.back();
 				auto& vMPTs = std::get<1>(tuple_tree);
 				for (auto& m : vMPTs)
@@ -976,6 +1224,8 @@ int DumpMMTOneStream()
 	CESRepacker* pESRepacker[2] = { nullptr };
 	int filter_asset_idx = -1;
 	std::set<uint64_t> CID_MPT_packet_id_set;
+	MPUTMTrees MPU_tm_trees;
+	int dumpOptions = 0;
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -1084,6 +1334,25 @@ int DumpMMTOneStream()
 	bool bShowDU = g_params.find("showDU") != g_params.end();
 
 	bool bOutputByMFU = g_params.find("MFU") != g_params.end();
+
+	if (filter_CID >= 0)
+	{
+		for (int i = 0; i <= PIDN; i++)
+		{
+			if (src_packet_id[i] > 0 && src_packet_id[i] <= UINT16_MAX)
+				MPU_tm_trees.emplace((filter_CID << 16) | src_packet_id[0], MPUTMTree());
+		}
+	}
+
+	int nShowFullListMPUtime = 0;	// 1: listMPUtime command is issued, 2: need show full list
+	auto iterListMPUtime = g_params.find("listMPUtime");
+	if (iterListMPUtime != g_params.end())
+	{
+		if (MBCSICMP(iterListMPUtime->second.c_str(), "full") == 0)
+			nShowFullListMPUtime = 2;
+		else
+			nShowFullListMPUtime = 1;
+	}
 
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
 
@@ -1376,7 +1645,9 @@ int DumpMMTOneStream()
 							}
 
 							bool bChanged = false;
-							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), &bChanged) == 0 && bChanged)
+							if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, 
+												 &fullPAMessage[0], (int)fullPAMessage.size(), &bChanged, 
+												 dumpOptions, g_empty_uint16_vector, &MPU_tm_trees) == 0 && bChanged)
 							{
 								for (int i = 0; i <= PIDN; i++)
 								{
@@ -1400,7 +1671,9 @@ int DumpMMTOneStream()
 							{
 								bool bChanged = false;
 								auto& v = std::get<1>(m);
-								if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), &bChanged) == 0 && bChanged)
+								if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, 
+									&v[0], (int)v.size(), &bChanged,
+									dumpOptions, g_empty_uint16_vector, &MPU_tm_trees) == 0 && bChanged)
 								{
 									for (int i = 0; i <= PIDN; i++)
 									{
@@ -1515,6 +1788,9 @@ int DumpMMTOneStream()
 		printf("Total MMT/TLV packets with the packet_id(0X%X): %d\n", src_packet_id[0], nFilterTLVPackets);
 		printf("Total MFUs in MMT/TLV packets with the packet_id(0X%X): %d\n", src_packet_id[0], nFilterMFUs);
 	}
+
+	if (nShowFullListMPUtime > 0)
+		PrintMPUTMTrees(MPU_tm_trees, nShowFullListMPUtime == 2 ? true : false);
 
 	return nRet;
 }

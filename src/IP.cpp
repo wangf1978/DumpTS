@@ -277,4 +277,15 @@ namespace IP
 			{255	, "Reserved",	"", false, ""},
 		};
 	}
+
+	bool operator==(NTPv4Data::NTPTimestampFormat const &t1, NTPv4Data::NTPTimestampFormat const &t2)
+	{
+		return t1.Seconds == t2.Seconds && t1.Fraction == t2.Fraction;
+	}
+
+	bool operator!=(NTPv4Data::NTPTimestampFormat const &t1, NTPv4Data::NTPTimestampFormat const &t2)
+	{
+		return t1.Seconds != t2.Seconds || t1.Fraction != t2.Fraction;
+	}
 }
+

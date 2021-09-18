@@ -77,6 +77,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--diffATC**|diff threshold<br>xxxx(27MHZ)|list the each TS packet arrive time and the diff with the previous TS pack|
 |**--listMMTPpacket**|*N/A*|List the specified MMTP packets|
 |**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
+|**--listMPUtime**|*simple(default)<br>full*|List MPU presentation time and its pts/dts offset|
 |**--listcrc**|*N/A*|List all CRC types supported in this program|
 |**--listmp4box**|*N/A*|List box types and descriptions defined in ISO-14496 spec|
 |**--listMMTPpacketid**|*N/A*|Show Assignment of Packet ID of MMTP transmitting message and data|
@@ -229,38 +230,47 @@ Here are some examples of command lines:
 - Show ATC diff in TTS or M2TS
     ```
     DumpTS 00001.tts --diffATC --start=110 --end=140
-    pkt_idx:                    0 [header 4bytes: 01 92 62 65] ATC: 0x01926265(  26370661), diff:
-    pkt_idx:                  110 [header 4bytes: 01 94 6C 09] ATC: 0x01946C09(  26504201), diff: 1214(0.044963s)
-    pkt_idx:                  111 [header 4bytes: 01 94 70 C7] ATC: 0x019470C7(  26505415), diff: 1214(0.044963s)
-    pkt_idx:                  112 [header 4bytes: 01 94 75 85] ATC: 0x01947585(  26506629), diff: 1214(0.044963s)
-    pkt_idx:                  113 [header 4bytes: 01 94 7A 43] ATC: 0x01947A43(  26507843), diff: 1214(0.044963s)
-    pkt_idx:                  114 [header 4bytes: 01 94 7F 01] ATC: 0x01947F01(  26509057), diff: 1214(0.044963s)
-    pkt_idx:                  115 [header 4bytes: 01 94 83 BF] ATC: 0x019483BF(  26510271), diff: 1214(0.044963s)
-    pkt_idx:                  116 [header 4bytes: 01 94 88 7D] ATC: 0x0194887D(  26511485), diff: 1214(0.044963s)
-    pkt_idx:                  117 [header 4bytes: 01 94 8D 3B] ATC: 0x01948D3B(  26512699), diff: 1214(0.044963s)
-    pkt_idx:                  118 [header 4bytes: 01 94 91 F9] ATC: 0x019491F9(  26513913), diff: 1214(0.044963s)
-    pkt_idx:                  119 [header 4bytes: 01 94 96 B7] ATC: 0x019496B7(  26515127), diff: 1214(0.044963s)
-    pkt_idx:                  120 [header 4bytes: 01 94 9B 75] ATC: 0x01949B75(  26516341), diff: 1214(0.044963s)
-    pkt_idx:                  121 [header 4bytes: 01 94 A0 33] ATC: 0x0194A033(  26517555), diff: 1214(0.044963s)
-    pkt_idx:                  122 [header 4bytes: 01 94 A4 F1] ATC: 0x0194A4F1(  26518769), diff: 1214(0.044963s)
-    pkt_idx:                  123 [header 4bytes: 01 94 A9 AF] ATC: 0x0194A9AF(  26519983), diff: 1214(0.044963s)
-    pkt_idx:                  124 [header 4bytes: 01 94 AE 6D] ATC: 0x0194AE6D(  26521197), diff: 1214(0.044963s)
-    pkt_idx:                  125 [header 4bytes: 01 94 B3 2B] ATC: 0x0194B32B(  26522411), diff: 1214(0.044963s)
-    pkt_idx:                  126 [header 4bytes: 01 94 B7 E9] ATC: 0x0194B7E9(  26523625), diff: 1214(0.044963s)
-    pkt_idx:                  127 [header 4bytes: 01 94 BC A7] ATC: 0x0194BCA7(  26524839), diff: 1214(0.044963s)
-    pkt_idx:                  128 [header 4bytes: 01 94 C1 65] ATC: 0x0194C165(  26526053), diff: 1214(0.044963s)
-    pkt_idx:                  129 [header 4bytes: 01 94 C6 23] ATC: 0x0194C623(  26527267), diff: 1214(0.044963s)
-    pkt_idx:                  130 [header 4bytes: 01 94 CA E1] ATC: 0x0194CAE1(  26528481), diff: 1214(0.044963s)
-    pkt_idx:                  131 [header 4bytes: 01 94 CF 9F] ATC: 0x0194CF9F(  26529695), diff: 1214(0.044963s)
-    pkt_idx:                  132 [header 4bytes: 01 AD 27 48] ATC: 0x01AD2748(  28125000), diff: 1595305(59.085369s)
-    pkt_idx:                  133 [header 4bytes: 01 AD 48 7F] ATC: 0x01AD487F(  28133503), diff: 8503(0.314926s)
-    pkt_idx:                  134 [header 4bytes: 01 AD 4D 3D] ATC: 0x01AD4D3D(  28134717), diff: 1214(0.044963s)
-    pkt_idx:                  135 [header 4bytes: 01 AD 51 FB] ATC: 0x01AD51FB(  28135931), diff: 1214(0.044963s)
-    pkt_idx:                  136 [header 4bytes: 01 AD 56 B9] ATC: 0x01AD56B9(  28137145), diff: 1214(0.044963s)
-    pkt_idx:                  137 [header 4bytes: 01 AD 5B 77] ATC: 0x01AD5B77(  28138359), diff: 1214(0.044963s)
-    pkt_idx:                  138 [header 4bytes: 01 AD 60 35] ATC: 0x01AD6035(  28139573), diff: 1214(0.044963s)
-    pkt_idx:                  139 [header 4bytes: 01 AD 64 F3] ATC: 0x01AD64F3(  28140787), diff: 1214(0.044963s)
+    pkt_idx:  0 [header 4bytes: 01 92 62 65] ATC: 0x01926265(  26370661), diff:
+    pkt_idx:110 [header 4bytes: 01 94 6C 09] ATC: 0x01946C09(  26504201), diff: 1214(0.044963s)
+    pkt_idx:111 [header 4bytes: 01 94 70 C7] ATC: 0x019470C7(  26505415), diff: 1214(0.044963s)
+    pkt_idx:112 [header 4bytes: 01 94 75 85] ATC: 0x01947585(  26506629), diff: 1214(0.044963s)
+    pkt_idx:113 [header 4bytes: 01 94 7A 43] ATC: 0x01947A43(  26507843), diff: 1214(0.044963s)
+    pkt_idx:114 [header 4bytes: 01 94 7F 01] ATC: 0x01947F01(  26509057), diff: 1214(0.044963s)
+    pkt_idx:115 [header 4bytes: 01 94 83 BF] ATC: 0x019483BF(  26510271), diff: 1214(0.044963s)
+    pkt_idx:116 [header 4bytes: 01 94 88 7D] ATC: 0x0194887D(  26511485), diff: 1214(0.044963s)
+    pkt_idx:117 [header 4bytes: 01 94 8D 3B] ATC: 0x01948D3B(  26512699), diff: 1214(0.044963s)
+    pkt_idx:118 [header 4bytes: 01 94 91 F9] ATC: 0x019491F9(  26513913), diff: 1214(0.044963s)
+    pkt_idx:119 [header 4bytes: 01 94 96 B7] ATC: 0x019496B7(  26515127), diff: 1214(0.044963s)
+    pkt_idx:120 [header 4bytes: 01 94 9B 75] ATC: 0x01949B75(  26516341), diff: 1214(0.044963s)
+    pkt_idx:121 [header 4bytes: 01 94 A0 33] ATC: 0x0194A033(  26517555), diff: 1214(0.044963s)
+    pkt_idx:122 [header 4bytes: 01 94 A4 F1] ATC: 0x0194A4F1(  26518769), diff: 1214(0.044963s)
+    pkt_idx:123 [header 4bytes: 01 94 A9 AF] ATC: 0x0194A9AF(  26519983), diff: 1214(0.044963s)
+    pkt_idx:124 [header 4bytes: 01 94 AE 6D] ATC: 0x0194AE6D(  26521197), diff: 1214(0.044963s)
+    pkt_idx:125 [header 4bytes: 01 94 B3 2B] ATC: 0x0194B32B(  26522411), diff: 1214(0.044963s)
+    pkt_idx:126 [header 4bytes: 01 94 B7 E9] ATC: 0x0194B7E9(  26523625), diff: 1214(0.044963s)
+    pkt_idx:127 [header 4bytes: 01 94 BC A7] ATC: 0x0194BCA7(  26524839), diff: 1214(0.044963s)
+    pkt_idx:128 [header 4bytes: 01 94 C1 65] ATC: 0x0194C165(  26526053), diff: 1214(0.044963s)
+    pkt_idx:129 [header 4bytes: 01 94 C6 23] ATC: 0x0194C623(  26527267), diff: 1214(0.044963s)
+    pkt_idx:130 [header 4bytes: 01 94 CA E1] ATC: 0x0194CAE1(  26528481), diff: 1214(0.044963s)
+    pkt_idx:131 [header 4bytes: 01 94 CF 9F] ATC: 0x0194CF9F(  26529695), diff: 1214(0.044963s)
+    pkt_idx:132 [header 4bytes: 01 AD 27 48] ATC: 0x01AD2748(  28125000), diff: 1595305(59.085369s)
+    pkt_idx:133 [header 4bytes: 01 AD 48 7F] ATC: 0x01AD487F(  28133503), diff: 8503(0.314926s)
+    pkt_idx:134 [header 4bytes: 01 AD 4D 3D] ATC: 0x01AD4D3D(  28134717), diff: 1214(0.044963s)
+    pkt_idx:135 [header 4bytes: 01 AD 51 FB] ATC: 0x01AD51FB(  28135931), diff: 1214(0.044963s)
+    pkt_idx:136 [header 4bytes: 01 AD 56 B9] ATC: 0x01AD56B9(  28137145), diff: 1214(0.044963s)
+    pkt_idx:137 [header 4bytes: 01 AD 5B 77] ATC: 0x01AD5B77(  28138359), diff: 1214(0.044963s)
+    pkt_idx:138 [header 4bytes: 01 AD 60 35] ATC: 0x01AD6035(  28139573), diff: 1214(0.044963s)
+    pkt_idx:139 [header 4bytes: 01 AD 64 F3] ATC: 0x01AD64F3(  28140787), diff: 1214(0.044963s)
     ```
+- list MMT stream MPU time
+   ```
+   DumpTS 00002.mmts --CID=1 --pid=0xF200 --listMPUtime --start=0x3ea --end=0x3ed
+   0, CID: 0x0001(1), packet_id: 0xF200(61952):
+     0, MPU_SeqNo: 0x000003ea(1002), presentation_time: 3690620935.983657s, scale: 180,000HZ, decoding_time_offset:9010
+     1, MPU_SeqNo: 0x000003eb(1003), presentation_time: 3690620936.517528s, scale: 180,000HZ, decoding_time_offset:9010
+     2, MPU_SeqNo: 0x000003ec(1004), presentation_time: 3690620937.051399s, scale: 180,000HZ, decoding_time_offset:9010
+   ```
+   List the MPU presentation time for the stream with CID=1 and packet_id=0xF200 which MPU_sequence_number is betwwen [0x3ea, 0x3ed)
 - Other utilities
     ```
     DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook

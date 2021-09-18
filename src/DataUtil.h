@@ -232,8 +232,11 @@ inline std::string DateTimeStr(uint64_t elapse_seconds_since_baseyear, int32_t b
 	}
 	else
 	{
+		char szFraction[16] = { 0 };
+		int ccWritten = sprintf_s(szFraction, 16, "%.6f", (double)((uint32_t)fraction_second) / 0x100000000LL);
+
 		strDateTime.reserve(64);
-		sprintf_s(&strDateTime[0], 64, "%04d-%02d-%02d %02dh:%02dm:%02d.%-10" PRIu64 "s", year, month, day, hour, minute, second, fraction_second);
+		sprintf_s(&strDateTime[0], 64, "%04d-%02d-%02d %02dh:%02dm:%02d%ss", year, month, day, hour, minute, second, strchr(szFraction, '.'));
 	}
 	return strDateTime;
 }
@@ -319,3 +322,4 @@ inline std::string GetReadableNum(uint64_t n)
 
 	return strRet;
 }
+

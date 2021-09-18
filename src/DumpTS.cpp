@@ -141,6 +141,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showDU",		// show the DU in the MMTP payload
 		"listMMTPpacket",
 		"listMMTPpayload",
+		"listMPUtime",
 		"stream_id",
 		"sub_stream_id",
 		"stream_id_extension", 
@@ -190,30 +191,33 @@ void ParseCommandLine(int argc, char* argv[])
 			printf("Unsupported options \"%s\"\n", strArg.c_str());
 	}
 
-	unordered_map<std::string, std::string>::const_iterator iter = g_params.cbegin();
-	for (; iter != g_params.cend(); iter++)
+	if (g_verbose_level > 0)
 	{
-		if (iter->second.length() == 0)
+		unordered_map<std::string, std::string>::const_iterator iter = g_params.cbegin();
+		for (; iter != g_params.cend(); iter++)
 		{
-			if (iter->first.compare("showpack") == 0 ||
-				iter->first.compare("showIPv4pack") == 0 ||
-				iter->first.compare("showIPv6pack") == 0 ||
-				iter->first.compare("showHCIPpack") == 0 ||
-				iter->first.compare("showTCSpack") == 0 ||
-				iter->first.compare("showpts") == 0 || 
-				iter->first.compare("showinfo") == 0 ||
-				iter->first.compare("verbose") == 0 ||
-				iter->first.compare("showSIT") == 0 ||
-				iter->first.compare("showPMT") == 0 ||
-				iter->first.compare("showMPT") == 0 ||
-				iter->first.compare("showPAT") == 0 ||
-				iter->first.compare("showPLT") == 0)
-				printf("%s : yes\n", iter->first.c_str());
+			if (iter->second.length() == 0)
+			{
+				if (iter->first.compare("showpack") == 0 ||
+					iter->first.compare("showIPv4pack") == 0 ||
+					iter->first.compare("showIPv6pack") == 0 ||
+					iter->first.compare("showHCIPpack") == 0 ||
+					iter->first.compare("showTCSpack") == 0 ||
+					iter->first.compare("showpts") == 0 ||
+					iter->first.compare("showinfo") == 0 ||
+					iter->first.compare("verbose") == 0 ||
+					iter->first.compare("showSIT") == 0 ||
+					iter->first.compare("showPMT") == 0 ||
+					iter->first.compare("showMPT") == 0 ||
+					iter->first.compare("showPAT") == 0 ||
+					iter->first.compare("showPLT") == 0)
+					printf("%s : yes\n", iter->first.c_str());
+				else
+					printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
+			}
 			else
 				printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
 		}
-		else
-			printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
 	}
 
 	// Set the default values
@@ -303,6 +307,36 @@ bool VerifyCommandLine()
 	//
 	// for source format
 	//
+
+	//
+	// for listMPUtime
+	//
+	{
+		auto iterListMPUtime = g_params.find("listMPUtime");
+		if (iterListMPUtime != g_params.end())
+		{
+			if (MBCSICMP(iterListMPUtime->second.c_str(), "full") &&
+				MBCSICMP(iterListMPUtime->second.c_str(), "simple") &&
+				!iterListMPUtime->second.empty())
+			{
+				printf("The specified MPU time list type should be 'full', 'simple' or ''\n");
+				return false;
+			}
+
+			// Should specify the CID and packet_id at the same time
+			if (g_params.find("CID") == g_params.end())
+			{
+				printf("Please specify the CID.\n");
+				return false;
+			}
+
+			if (g_params.find("pid") == g_params.end())
+			{
+				printf("Please specify the packet id.\n");
+				return false;
+			}
+		}
+	}
 
 
 	// TODO...
@@ -740,7 +774,8 @@ int main(int argc, char* argv[])
 	// Verify the command line
 	if (VerifyCommandLine() == false)
 	{
-		PrintHelp();
+		//PrintHelp();
+		printf("run 'DumpTS --help' or visit 'https://github.com/wangf1978/DumpTS' to get more information.\n");
 		return -1;
 	}
 
