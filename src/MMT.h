@@ -2877,23 +2877,8 @@ namespace MMT
 
 				if (ccWrittenOnce > 0)
 				{
-					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr: %d", Aggregate_flag);
-
-					if (ccWrittenOnce > 0)
-						ccWritten += ccWrittenOnce;
-				}
-
-				if (ccWrittenOnce > 0)
-				{
-					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", Fc: %03d", fragment_counter);
-
-					if (ccWrittenOnce > 0)
-						ccWritten += ccWrittenOnce;
-				}
-
-				if (ccWrittenOnce > 0)
-				{
-					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", MPUSeqNo: 0x%08X", MPU_sequence_number);
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr: %d, Fc: %03d, MPUSeqNo: 0x%08X", 
+						Aggregate_flag, fragment_counter, MPU_sequence_number);
 
 					if (ccWrittenOnce > 0)
 						ccWritten += ccWrittenOnce;
@@ -2927,31 +2912,8 @@ namespace MMT
 						{
 							if (ccWrittenOnce > 0)
 							{
-								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", MFSeqNo: 0x%08X", du.movie_fragment_sequence_number);
-
-								if (ccWrittenOnce > 0)
-									ccWritten += ccWrittenOnce;
-							}
-
-							if (ccWrittenOnce > 0)
-							{
-								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", SampleNo: 0x%08X", du.sample_number);
-
-								if (ccWrittenOnce > 0)
-									ccWritten += ccWrittenOnce;
-							}
-
-							if (ccWrittenOnce > 0)
-							{
-								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", Offset: 0x%08X", du.offset);
-
-								if (ccWrittenOnce > 0)
-									ccWritten += ccWrittenOnce;
-							}
-
-							if (ccWrittenOnce > 0)
-							{
-								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", DepC: %d", du.dependency_counter);
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", MFSeqNo: 0x%08X, SampleNo: 0x%08X, Offset: 0x%08X, DepC: %d", 
+									du.movie_fragment_sequence_number, du.sample_number, du.offset, du.dependency_counter);
 
 								if (ccWrittenOnce > 0)
 									ccWritten += ccWrittenOnce;
@@ -3192,15 +3154,7 @@ namespace MMT
 
 				if (ccWrittenOnce > 0)
 				{
-					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr: %d", Aggregate_flag);
-
-					if (ccWrittenOnce > 0)
-						ccWritten += ccWrittenOnce;
-				}
-
-				if (ccWrittenOnce > 0)
-				{
-					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", Fc: %03d", fragment_counter);
+					ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", aggr: %d, Fc: %03d", Aggregate_flag, fragment_counter);
 
 					if (ccWrittenOnce > 0)
 						ccWritten += ccWrittenOnce;
@@ -3223,9 +3177,9 @@ namespace MMT
 					if (ccWrittenOnce > 0)
 					{
 						if (length_extension_flag)
-							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: %10u(%10zu)", std::get<0>(msg), std::get<1>(msg).size());
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: %10u(Actual:%10zu)", std::get<0>(msg), std::get<1>(msg).size());
 						else
-							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: %5u(%5u)", (uint16_t)std::get<0>(msg), (unsigned short)std::get<1>(msg).size());
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "Len: %5u(Actual:%5u)", (uint16_t)std::get<0>(msg), (unsigned short)std::get<1>(msg).size());
 
 						if (ccWrittenOnce > 0)
 							ccWritten += ccWrittenOnce;
