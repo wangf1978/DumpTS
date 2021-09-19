@@ -259,10 +259,9 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 				(option == SHOW_TLV_HCIP && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet) ||
 				(option == SHOW_TLV_TCS  && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Transmission_control_signal_packet))
 			{
-				if (bFilterMMTPpacket == false ||
-					bFilterMMTPpacket == true && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet &&
+				if (bFilterMMTPpacket == false || (bFilterMMTPpacket == true && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet &&
 					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number >= nStart &&
-					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number < nEnd)
+					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number < nEnd))
 				{
 					pTLVPacket->Print();
 					bFiltered = true;
