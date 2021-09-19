@@ -141,6 +141,12 @@ namespace IP
 				return Seconds + (double)Fraction / 0x100000000LL;
 			}
 
+			int64_t ToPTS()
+			{
+				int64_t second290KHZ = (int64_t)Seconds * 90000LL;
+				return (second290KHZ + Fraction * 90000LL / 0x100000000LL) % 0x200000000LL;
+			}
+
 			friend bool operator==(NTPTimestampFormat const &, NTPTimestampFormat const &);
 			friend bool operator!=(NTPTimestampFormat const &, NTPTimestampFormat const &);
 		}PACKED;

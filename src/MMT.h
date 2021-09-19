@@ -1786,7 +1786,7 @@ namespace MMT
 
 		};
 
-		uint8_t					num_of_packages;
+		uint8_t					num_of_packages = 0;
 
 		/*
 		for (i=0; i<N; i++) {
@@ -2843,7 +2843,7 @@ namespace MMT
 
 				int ccWritten = 0;
 				//int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%9d", PktIndex++);
-				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PKTSeqNo:0x%08X", ptr_MMTP_packet->Packet_sequence_number);
+				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "%sPKTSeqNo:0x%08X", ptr_MMTP_packet->RAP_flag?"*": " ", ptr_MMTP_packet->Packet_sequence_number);
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
 
@@ -2909,7 +2909,7 @@ namespace MMT
 							if (du_idx == 0)
 								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ");
 							else
-								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%83s", szIndent, " ");
+								ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%84s", szIndent, " ");
 
 							if (ccWrittenOnce > 0)
 								ccWritten += ccWrittenOnce;
@@ -3168,7 +3168,7 @@ namespace MMT
 
 				int ccWritten = 0;
 				//int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%9d", PktIndex++);
-				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PKTSeqNo:0x%08X", ptr_MMTP_packet->Packet_sequence_number);
+				int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "%sPKTSeqNo:0x%08X", ptr_MMTP_packet->RAP_flag?"*":" ", ptr_MMTP_packet->Packet_sequence_number);
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
 
@@ -3214,7 +3214,7 @@ namespace MMT
 						if (msg_idx == 0)
 							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ");
 						else
-							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%62s", szIndent, " ");
+							ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "\n%s%63s", szIndent, " ");
 
 						if (ccWrittenOnce > 0)
 							ccWritten += ccWrittenOnce;
@@ -3254,7 +3254,7 @@ namespace MMT
 		};
 
 		uint64_t			start_bitpos;
-		uint32_t			Version : 2;
+		uint32_t			version : 2;
 		uint32_t			Packet_counter_flag : 1;
 		uint32_t			FEC_type : 2;
 		uint32_t			Reserved_0 : 1;
@@ -3326,7 +3326,7 @@ namespace MMT
 			if (left_bits < (12ULL << 3))
 				return RET_CODE_BOX_TOO_SMALL;
 
-			Version = (uint8_t)bs.GetBits(2);
+			version = (uint8_t)bs.GetBits(2);
 			Packet_counter_flag = (uint8_t)bs.GetBits(1);
 			FEC_type = (uint8_t)bs.GetBits(2);
 			Reserved_0 = (uint8_t)bs.GetBits(1);
@@ -3418,7 +3418,7 @@ namespace MMT
 
 			fprintf(out, "%s%s\n", szIndent, "++++++++++++++ MMTP Packet +++++++++++++");
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "\n", szIndent, "file offset", start_bitpos >> 3);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%" PRIX32 "\n", szIndent, "Version", Version);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%" PRIX32 "\n", szIndent, "version", version);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Packet_counter_flag", Packet_counter_flag);
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s\n", szIndent, "FEC_type", FEC_type == 0?"Non-protected MMTP packet by AL-FEC":(
 																				FEC_type == 1?"Source packet among MMTP packets protected by AL-FEC":(
@@ -3433,7 +3433,9 @@ namespace MMT
 				Payload_type == 3?"This involves repair symbol of AL-FEC":"Undefined"))));
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%0" PRIX32 "(%" PRIu32 ")\n", szIndent, "Packet_id", Packet_id, Packet_id);
 
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": " NTPSHORTTIME_FMT_STR "s\n", szIndent, "Delivery_timestamp", Delivery_timestamp.GetValue());
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s(" NTPSHORTTIME_FMT_STR "s)\n", szIndent, "Delivery_timestamp", 
+				DateTimeStr(Delivery_timestamp.Seconds, 1900, Delivery_timestamp.Fraction).c_str(),
+				Delivery_timestamp.GetValue());
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Pkt_sequence_number", Packet_sequence_number);
 
 			if (Packet_counter_flag)
@@ -3486,10 +3488,22 @@ namespace MMT
 			}
 
 			int ccWritten = 0;
-			//int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
-			int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PKTSeqNo:0x%08X", Packet_sequence_number);
+			int ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "[%12s] ",
+				Payload_type == 0 ? "Fragment MPU" : (
+				Payload_type == 2 ? "Message" : "Unsupported"));
+
 			if (ccWrittenOnce > 0)
 				ccWritten += ccWrittenOnce;
+
+			if (ccWrittenOnce > 0)
+			{
+				//int ccWrittenOnce = MBCSPRINTF_S(szLog, ccLog, "PktIndex:%10d", PktIndex++);
+				int ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, "CID: 0x%04X, pkt_id:0x%04X, PKTSeqNo:0x%08X, pkt_len: %5d, ver: %d", 
+					CID, Packet_id, Packet_sequence_number, packet_data_len, version);
+
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
 
 			if (ccWrittenOnce > 0)
 			{
@@ -3498,32 +3512,6 @@ namespace MMT
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
 			}
-
-			if (ccWrittenOnce > 0)
-			{
-				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", %14s",
-					Payload_type == 0 ? "Fragment MPU" : (
-					Payload_type == 2 ? "Message" : "Unsupported"));
-
-				if (ccWrittenOnce > 0)
-					ccWritten += ccWrittenOnce;
-			}
-
-			if (ccWrittenOnce > 0)
-			{
-				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_id:0x%04X", Packet_id);
-
-				if (ccWrittenOnce > 0)
-					ccWritten += ccWrittenOnce;
-			}
-
-			//if (ccWrittenOnce > 0)
-			//{
-			//	ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", pkt_seq_no:0x%04X", Packet_sequence_number);
-
-			//	if (ccWrittenOnce > 0)
-			//		ccWritten += ccWrittenOnce;
-			//}
 
 			if (ccWrittenOnce > 0)
 			{
@@ -3543,7 +3531,7 @@ namespace MMT
 
 			if (ccWrittenOnce > 0)
 			{
-				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ext_f:%d", Extension_header_type);
+				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", ext_f:%d", extension_flag);
 
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;

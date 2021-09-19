@@ -14,14 +14,15 @@ int g_TLV_packets_per_display = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 
 std::vector<uint16_t> g_empty_uint16_vector;
 
-using MPUTMTree = std::list<
-	std::tuple<uint32_t/*mpu_sequence_number*/, 
-			   IP::NTPv4Data::NTPTimestampFormat/*mpu_presentation_time*/,
-			   uint32_t/*timescale*/,
-			   uint16_t/*mpu_decoding_time_offset*/,
-			   std::vector<
-					std::tuple<uint16_t/*pts offset*/, 
-							   uint16_t/*dts_pts_offset*/>>>>;
+using MPUSeqTM = std::tuple<uint32_t/*mpu_sequence_number*/,
+							IP::NTPv4Data::NTPTimestampFormat/*mpu_presentation_time*/,
+							uint32_t/*timescale*/,
+							uint16_t/*mpu_decoding_time_offset*/,
+							std::vector<
+							std::tuple<uint16_t/*pts offset*/,
+							uint16_t/*dts_pts_offset*/>>>;
+
+using MPUTMTree = std::list<MPUSeqTM>;
 
 using MPUTMTrees = std::unordered_map<uint32_t/*CID<<16 | packet_id*/, MPUTMTree>;
 
@@ -145,15 +146,29 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 	if (g_params.find("input") == g_params.end())
 		return -1;
 
-	std::string szOutputFile;
-	std::string szOutputFmt;
 	std::string& szInputFile = g_params["input"];
 
-	if (g_params.find("outputfmt") != g_params.end())
-		szOutputFmt = g_params["outputfmt"];
+	auto iterStart = g_params.find("start");
+	auto iterEnd = g_params.find("end");
 
-	if (g_params.find("output") != g_params.end())
-		szOutputFile = g_params["output"];
+	int64_t nStart = -1LL, nEnd = INT64_MAX, iVal = -1LL;
+	if (iterStart != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterStart->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nStart = (uint32_t)iVal;
+	}
+
+	if (iterEnd != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterEnd->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nEnd = (uint32_t)iVal;
+	}
+
+	bool bFilterMMTPpacket = false;
+	if (nStart >= 0 || nEnd < INT64_MAX)
+		bFilterMMTPpacket = true;
 
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
 
@@ -244,8 +259,14 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 				(option == SHOW_TLV_HCIP && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet) ||
 				(option == SHOW_TLV_TCS  && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Transmission_control_signal_packet))
 			{
-				pTLVPacket->Print();
-				bFiltered = true;
+				if (bFilterMMTPpacket == false ||
+					bFilterMMTPpacket == true && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet &&
+					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number >= nStart &&
+					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number < nEnd)
+				{
+					pTLVPacket->Print();
+					bFiltered = true;
+				}
 			}
 
 			if (left_bits < (((uint64_t)pTLVPacket->Data_length + 4ULL) << 3))
@@ -788,7 +809,8 @@ int ProcessPAMessage(
 	return RET_CODE_SUCCESS;
 }
 
-int ProcessMFU(uint16_t CID, uint64_t packet_id, uint8_t payload_type, uint32_t asset_type, uint8_t fragmentation_indicator, uint8_t* pMFUData, int cbMFUData, CESRepacker* pESRepacker=nullptr)
+int ProcessMFU(uint16_t CID, uint64_t packet_id, uint8_t payload_type, uint32_t asset_type, uint8_t fragmentation_indicator, 
+	uint8_t* pMFUData, int cbMFUData, CESRepacker* pESRepacker=nullptr, MPUSeqTM* ptr_MPU_tm=NULL)
 {
 	if (payload_type == 0)
 	{
@@ -1235,7 +1257,7 @@ int DumpMMTOneStream()
 	const char* sp;
 	const char* ep;
 	int64_t i64Val = -1LL;
-	int PIDN = 0;
+	int PIDN = -1;
 	uint32_t src_packet_id[2] = { UINT32_MAX, UINT32_MAX };
 	std::string Outputfiles[2];
 	auto pidIter = g_params.find("pid");
@@ -1354,6 +1376,31 @@ int DumpMMTOneStream()
 			nShowFullListMPUtime = 1;
 	}
 
+	bool bShowPTS = false;
+	auto iterShowPTS = g_params.find("showpts");
+	if (iterShowPTS != g_params.end())
+	{
+		if (iterCID == g_params.end())
+		{
+			printf("Please specify the CID.\n");
+			return -1;
+		}
+
+		if (pidIter == g_params.end())
+		{
+			printf("Please specify the packet_id.\n");
+			return -1;
+		}
+
+		if (PIDN >= 1)
+		{
+			printf("Only support show the pts for the only one stream.\n");
+			return -1;
+		}
+
+		bShowPTS = true;
+	}
+
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
 
 	if (nRet < 0)
@@ -1432,12 +1479,14 @@ int DumpMMTOneStream()
 
 				// Check whether it is a control message MMT packet
 				if (pHeaderCompressedIPPacket->MMTP_Packet == nullptr || (
-					pHeaderCompressedIPPacket->MMTP_Packet->Payload_type != 2 &&
+					(PIDN >= 0) &&
+					(pHeaderCompressedIPPacket->MMTP_Packet->Payload_type != 2) &&
 					(pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id[0]&&
 					 pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != src_packet_id[1])))
 					goto Skip;
 
-				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ||
+				if (PIDN == -1 ||
+					pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ||
 					pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[1])
 				{
 					bFiltered = true;
@@ -1529,9 +1578,10 @@ int DumpMMTOneStream()
 					}
 				}
 
-				filter_asset_idx = pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ? 0 : 1;
+				if (PIDN >= 0)
+					filter_asset_idx = pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == src_packet_id[0] ? 0 : 1;
 
-				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
+				if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0 && PIDN >= 0)
 				{
 					// Create a new ES re-packer to repack the NAL unit to an Annex-B bitstream
 					for (int i = 0; i <= PIDN; i++) {
@@ -1848,7 +1898,9 @@ int DumpMMT()
 
 		return ShowMMTTLVPacks(option);
 	}
-	else if (g_params.find("pid") == g_params.end() || (NeedShowMMTTable() && g_params.find("output") == g_params.end()))
+	else if (g_params.find("listMMTPpacket") == g_params.end() && 
+			 g_params.find("listMMTPpayload") == g_params.end() &&
+			(g_params.find("pid") == g_params.end() || (NeedShowMMTTable() && g_params.find("output") == g_params.end())))
 	{
 		if (g_params.find("output") == g_params.end())
 		{
@@ -1868,7 +1920,7 @@ int DumpMMT()
 			}
 		}
 	}
-	else if (g_params.find("pid") != g_params.end())
+	else if (g_params.find("pid") != g_params.end() || g_params.find("listMMTPpayload") != g_params.end() || g_params.find("listMMTPpacket") != g_params.end())
 	{
 		if (g_params.find("outputfmt") == g_params.end())
 			g_params["outputfmt"] = "es";
