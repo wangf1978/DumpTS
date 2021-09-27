@@ -287,6 +287,7 @@
     <ClInclude Include="..\..\src\crc.h" />
     <ClInclude Include="..\..\src\DataUtil.h" />
     <ClInclude Include="..\..\src\DumpTS.h" />
+    <ClInclude Include="..\..\src\dump_data_type.h" />
     <ClInclude Include="..\..\src\ESRepacker.h" />
     <ClInclude Include="..\..\src\IP.h" />
     <ClInclude Include="..\..\src\ISO14496_1.h" />
@@ -349,6 +350,7 @@
     </ClInclude>
     <ClInclude Include="..\..\src\Matroska.h" />
     <ClInclude Include="..\..\src\MMT.h" />
+    <ClInclude Include="..\..\src\NAL.h" />
     <ClInclude Include="..\..\src\PayloadBuf.h" />
     <ClInclude Include="..\..\src\QTFF.h" />
     <ClInclude Include="..\..\src\StdAfx.h" />

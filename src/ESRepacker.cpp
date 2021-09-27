@@ -4,27 +4,15 @@
 
 CESRepacker::CESRepacker(ES_BYTE_STREAM_FORMAT srcESFmt, ES_BYTE_STREAM_FORMAT dstESFmt)
 	: m_srcESFmt(srcESFmt), m_dstESFmt(dstESFmt), m_fpSrc(nullptr), m_fpDst(nullptr)
+	, m_callback_au_startpoint(nullptr), m_context_au_startpoint(nullptr)
 {
 	memset(&m_config, 0, sizeof(m_config));
 	memset(m_szSrcFilepath, 0, sizeof(m_szSrcFilepath));
-	m_external_repacker = NULL;
-	m_lrb_NAL = nullptr;
 }
 
 
 CESRepacker::~CESRepacker()
 {
-	if (m_external_repacker != nullptr)
-	{
-		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC ||
-			m_config.codec_id == CODEC_ID_V_MPEGH_HEVC)
-		{
-			delete m_NALAURepacker;
-		}
-	}
-
-	if (m_lrb_NAL != nullptr)
-		AM_LRB_Destroy(m_lrb_NAL);
 }
 
 int CESRepacker::Config(ES_REPACK_CONFIG es_repack_config)
@@ -85,19 +73,6 @@ int CESRepacker::Open(const char* szSrcFile)
 		if (errn != 0 || m_fpDst == NULL)
 		{
 			printf("Failed to open the file: %s {errno: %d} to write the ES data.\n", m_config.es_output_file_path, errn);
-		}
-	}
-
-	// For AVC/HEVC codec, if the source and target byte stream format are different, routine into the related stream repacker
-	if (m_srcESFmt != m_dstESFmt)
-	{
-		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC)
-		{
-			m_NALAURepacker = new ISOBMFF::AVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pAVCConfigRecord);
-		}
-		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC)
-		{
-			m_NALAURepacker = new ISOBMFF::HEVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pHEVCConfigRecord);
 		}
 	}
 
@@ -335,14 +310,31 @@ int CESRepacker::GetSeekPointInfo(SEEK_POINT_INFO& seek_point_info)
 	return RET_CODE_SUCCESS;
 }
 
+int CESRepacker::SetNextMPUPtsDts(int number_of_au, const TM_90KHZ* PTSes, const TM_90KHZ* DTSes)
+{
+	if (number_of_au < 0)
+		return RET_CODE_INVALID_PARAMETER;
+
+	m_curr_ptses = m_next_ptses;
+	m_curr_dtses = m_next_dtses;
+
+	m_next_ptses.clear();
+	m_next_dtses.clear();
+
+	if (number_of_au == 0)
+		return RET_CODE_SUCCESS;
+
+	m_next_ptses.reserve(number_of_au);
+	m_next_dtses.reserve(number_of_au);
+
+	m_next_ptses.insert(m_next_ptses.begin(), PTSes, PTSes + number_of_au);
+	m_next_dtses.insert(m_next_dtses.begin(), DTSes, DTSes + number_of_au);
+
+	return RET_CODE_SUCCESS;
+}
+
 int	CESRepacker::Repack(uint32_t sample_size, FLAG_VALUE keyframe)
 {
-	if ((m_config.codec_id == CODEC_ID_V_MPEG4_AVC || m_config.codec_id == CODEC_ID_V_MPEGH_HEVC) && m_NALAURepacker != nullptr)
-	{
-		if (m_srcESFmt == ES_BYTE_STREAM_ISO_NALAU_SAMPLE && (m_dstESFmt == ES_BYTE_STREAM_AVC_ANNEXB || m_dstESFmt == ES_BYTE_STREAM_HEVC_ANNEXB))
-			return m_NALAURepacker->RepackSamplePayloadToAnnexBByteStream(sample_size, keyframe);
-	}
-
 	// fall back to direct byte-2-byte copy
 	uint8_t buf[2048];
 	uint32_t cbLeftSize = sample_size;
@@ -367,7 +359,117 @@ int	CESRepacker::Repack(uint32_t sample_size, FLAG_VALUE keyframe)
 	return RET_CODE_SUCCESS;
 }
 
-int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_fragmentation_indicator)
+int CESRepacker::SetAUStartPointCallback(CB_AU_STARTPOINT cb_au_startpoint, void* pCtx)
+{
+	m_callback_au_startpoint = cb_au_startpoint;
+	m_context_au_startpoint = pCtx;
+	return RET_CODE_SUCCESS;
+}
+
+int CESRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info)
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
+int CESRepacker::Flush()
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
+int CESRepacker::Close()
+{
+	if (m_fpSrc != nullptr)
+	{
+		fclose(m_fpSrc);
+		m_fpSrc = nullptr;
+	}
+
+	if (m_fpDst != nullptr)
+	{
+		fclose(m_fpDst);
+		m_fpDst = nullptr;
+	}
+
+	return RET_CODE_SUCCESS;
+}
+
+CNALRepacker::CNALRepacker(ES_BYTE_STREAM_FORMAT srcESFmt, ES_BYTE_STREAM_FORMAT dstESFmt)
+	: CESRepacker(srcESFmt, dstESFmt)
+	, m_NALAURepacker(nullptr)
+	, m_lrb_NAL(nullptr)
+	, m_current_au_idx(0)
+{
+}
+
+CNALRepacker::~CNALRepacker() {
+	if (m_NALAURepacker != nullptr)
+	{
+		delete m_NALAURepacker;
+		m_NALAURepacker = nullptr;
+	}
+
+	if (m_lrb_NAL != nullptr)
+	{
+		AM_LRB_Destroy(m_lrb_NAL);
+		m_lrb_NAL = nullptr;
+	}
+}
+
+int CNALRepacker::Open(const char* szSrcFile)
+{
+	int iRet = CESRepacker::Open(szSrcFile);
+	if (iRet < 0)
+		return iRet;
+
+	// For AVC/HEVC codec, if the source and target byte stream format are different, routine into the related stream repacker
+	if (m_srcESFmt != m_dstESFmt)
+	{
+		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC)
+		{
+			m_NALAURepacker = new ISOBMFF::AVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pAVCConfigRecord);
+		}
+		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC)
+		{
+			m_NALAURepacker = new ISOBMFF::HEVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pHEVCConfigRecord);
+		}
+	}
+
+	if (m_NALAURepacker != nullptr)
+	{
+		m_NALAURepacker->SetAUStartPointCallback(m_callback_au_startpoint, m_context_au_startpoint);
+	}
+
+	return iRet;
+}
+
+int	CNALRepacker::Repack(uint32_t sample_size, FLAG_VALUE keyframe)
+{
+	if (m_NALAURepacker != nullptr)
+	{
+		if (m_srcESFmt == ES_BYTE_STREAM_ISO_NALAU_SAMPLE && (m_dstESFmt == ES_BYTE_STREAM_AVC_ANNEXB || m_dstESFmt == ES_BYTE_STREAM_HEVC_ANNEXB))
+			return m_NALAURepacker->RepackSamplePayloadToAnnexBByteStream(sample_size, keyframe);
+	}
+
+	return CESRepacker::Repack(sample_size, keyframe);
+}
+
+int CNALRepacker::SetNextMPUPtsDts(int number_of_au, const TM_90KHZ* PTSes, const TM_90KHZ* DTSes)
+{
+	int iRet = CESRepacker::SetNextMPUPtsDts(number_of_au, PTSes, DTSes);
+	if (iRet < 0)
+		return iRet;
+
+	if (m_NALAURepacker != nullptr && number_of_au > 0)
+	{
+		iRet = m_NALAURepacker->SetNextAUPTSDTS(PTSes[0], DTSes[0]);
+	}
+
+	m_current_au_idx = 0;
+
+	return iRet;
+}
+
+int CNALRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info)
 {
 	int iRet = RET_CODE_SUCCESS;
 
@@ -386,7 +488,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 
 		int nNalBufLen = 0;
 		uint8_t* pNalBuf = AM_LRB_GetReadPtr(m_lrb_NAL, &nNalBufLen);
-		if (nal_fragmentation_indicator == FRAG_INDICATOR_COMPLETE || nal_fragmentation_indicator == FRAG_INDICATOR_FIRST)
+		if (data_info->indicator == FRAG_INDICATOR_COMPLETE || data_info->indicator == FRAG_INDICATOR_FIRST)
 		{
 			// Flush the previous buffer
 			if (pNalBuf != nullptr && nNalBufLen > 0)
@@ -401,7 +503,20 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 
 						// it is a normal unit buffer or not.
 						if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
-							m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen);
+						{
+							bool bAUCommitted = false;
+							m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen, data_info, &bAUCommitted);
+							if (bAUCommitted && m_next_ptses.size() > 0)
+							{
+								m_current_au_idx++;
+								if (m_current_au_idx <= (int)m_next_ptses.size())
+									m_NALAURepacker->SetNextAUPTSDTS(m_next_ptses[m_current_au_idx], m_next_dtses[m_current_au_idx]);
+								else if (m_current_au_idx == (int)m_next_ptses.size())	// no PTS/DTS available any more
+									m_NALAURepacker->SetNextAUPTSDTS(-1LL, -1LL);
+								else
+									printf("Unexpected case!!!! The committed AU seems to exceed the specified number of AUs.\n");
+							}
+						}
 						else
 						{
 							if (g_verbose_level > 0)
@@ -423,12 +538,12 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 							printf("[ESRepacker] Failed to write %d bytes into the output file.\n", nNalBufLen);
 					}
 				}
-				
+
 				AM_LRB_Reset(m_lrb_NAL);
 			}
 		}
 
-		if ((nal_fragmentation_indicator == FRAG_INDICATOR_MIDDLE || nal_fragmentation_indicator == FRAG_INDICATOR_LAST) && (pNalBuf == nullptr || nNalBufLen <= 0))
+		if ((data_info->indicator == FRAG_INDICATOR_MIDDLE || data_info->indicator == FRAG_INDICATOR_LAST) && (pNalBuf == nullptr || nNalBufLen <= 0))
 		{
 			// the NAL unit data is sent in the middle, ignore it.
 			return RET_CODE_BUFFER_NOT_COMPATIBLE;
@@ -436,7 +551,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 
 		int nNalWriteBufLen = 0;
 		uint8_t* pNalWriteBuf = AM_LRB_GetWritePtr(m_lrb_NAL, &nNalWriteBufLen);
-		if (nNalWriteBufLen <= 0 || pNalWriteBuf == nullptr || nNalWriteBufLen < cbSize )
+		if (nNalWriteBufLen <= 0 || pNalWriteBuf == nullptr || nNalWriteBufLen < cbSize)
 		{
 			// Try to reform and enlarge the buffer.
 			AM_LRB_Reform(m_lrb_NAL);
@@ -469,7 +584,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 		memcpy(pNalWriteBuf, pBuf, cbSize);
 		AM_LRB_SkipWritePtr(m_lrb_NAL, cbSize);
 
-		if (nal_fragmentation_indicator == FRAG_INDICATOR_LAST || nal_fragmentation_indicator == FRAG_INDICATOR_COMPLETE)
+		if (data_info->indicator == FRAG_INDICATOR_LAST || data_info->indicator == FRAG_INDICATOR_COMPLETE)
 		{
 			pNalBuf = AM_LRB_GetReadPtr(m_lrb_NAL, &nNalBufLen);
 			if (pNalBuf != nullptr && nNalBufLen > 0)
@@ -484,7 +599,20 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 
 						// it is a normal unit buffer or not.
 						if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
-							m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen);
+						{
+							bool bAUCommitted = false;
+							m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen, data_info, &bAUCommitted);
+							if (bAUCommitted && m_next_ptses.size() > 0)
+							{
+								m_current_au_idx++;
+								if (m_current_au_idx < (int)m_next_ptses.size())
+									m_NALAURepacker->SetNextAUPTSDTS(m_next_ptses[m_current_au_idx], m_next_dtses[m_current_au_idx]);
+								else if (m_current_au_idx == (int)m_next_ptses.size())	// no PTS/DTS available any more
+									m_NALAURepacker->SetNextAUPTSDTS(-1LL, -1LL);
+								else
+									printf("Unexpected case!!!! The committed AU seems to exceed the specified number of AUs.\n");
+							}
+						}
 						else
 						{
 							if (g_verbose_level > 0)
@@ -517,7 +645,7 @@ int CESRepacker::Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR nal_
 	return RET_CODE_ERROR_NOTIMPL;
 }
 
-int CESRepacker::Flush()
+int CNALRepacker::Flush()
 {
 	if (m_srcESFmt == ES_BYTE_STREAM_NALUNIT_WITH_LEN)
 	{
@@ -561,28 +689,17 @@ int CESRepacker::Flush()
 		}
 	}
 
-	return m_NALAURepacker?m_NALAURepacker->Flush(): RET_CODE_SUCCESS;
+	return m_NALAURepacker ? m_NALAURepacker->Flush() : RET_CODE_SUCCESS;
 }
 
-int CESRepacker::Close()
+int CNALRepacker::Close()
 {
-	if ((m_config.codec_id == CODEC_ID_V_MPEG4_AVC || m_config.codec_id == CODEC_ID_V_MPEGH_HEVC) && m_NALAURepacker != nullptr)
+	if (m_NALAURepacker != nullptr)
 	{
 		delete m_NALAURepacker;
 		m_NALAURepacker = nullptr;
 	}
 
-	if (m_fpSrc != nullptr)
-	{
-		fclose(m_fpSrc);
-		m_fpSrc = nullptr;
-	}
-
-	if (m_fpDst != nullptr)
-	{
-		fclose(m_fpDst);
-		m_fpDst = nullptr;
-	}
-
-	return RET_CODE_SUCCESS;
+	return CESRepacker::Close();
 }
+

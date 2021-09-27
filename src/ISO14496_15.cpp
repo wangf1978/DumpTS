@@ -1,5 +1,7 @@
 #include "StdAfx.h"
 #include "ISO14496_15.h"
+#include "NAL.h"
+#include "ESRepacker.h"
 
 namespace ISOBMFF
 {
@@ -19,19 +21,33 @@ namespace ISOBMFF
 		return -1;
 	}
 
+	int NALAUSampleRepackerBase::SetNextAUPTSDTS(TM_90KHZ pts, TM_90KHZ dts)
+	{
+		m_next_AU_PTS = pts;
+		m_next_AU_DTS = dts;
+		return RET_CODE_SUCCESS;
+	}
+
+	int NALAUSampleRepackerBase::SetAUStartPointCallback(CB_AU_STARTPOINT cbAUStartPoint, void* ptr_context)
+	{
+		m_callback_au_startpoint = cbAUStartPoint;
+		m_context_au_startpoint = ptr_context;
+		return RET_CODE_SUCCESS;
+	}
+
 	int	AVCSampleRepacker::RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe)
 	{
 		uint8_t buf[2048];
 		int64_t cbLeft = sample_size;
 		int iRet = RET_CODE_SUCCESS;
-		int8_t next_nal_unit_type = (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT;
+		int8_t next_nal_unit_type = (int8_t)AVC_SPS_NUT;
 		bool bFirstNALUnit = true;
 
 		uint8_t four_bytes_start_prefixes[4] = { 0, 0, 0, 1 };
 		uint8_t three_bytes_start_prefixes[3] = { 0, 0, 1 };
 
 		auto write_nu_array = [&](int8_t nal_unit_type) {
-			if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT)
+			if (nal_unit_type == (int8_t)AVC_SPS_NUT)
 			{
 				for (size_t i = 0; i < m_AVCConfigRecord->sequenceParameterSetNALUnits.size(); i++)
 				{
@@ -44,7 +60,7 @@ namespace ISOBMFF
 				}
 				return true;
 			}
-			else if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT)
+			else if (nal_unit_type == (int8_t)AVC_PPS_NUT)
 			{
 				for (size_t i = 0; i < m_AVCConfigRecord->pictureParameterSetNALUnits.size(); i++)
 				{
@@ -57,7 +73,7 @@ namespace ISOBMFF
 				}
 				return true;
 			}
-			else if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT)
+			else if (nal_unit_type == (int8_t)AVC_SPS_EXT_NUT)
 			{
 				for (size_t i = 0; i < m_AVCConfigRecord->sequenceParameterSetExtNALUnits.size(); i++)
 				{
@@ -96,25 +112,25 @@ namespace ISOBMFF
 
 				//int8_t nal_ref_idc = (buf[0] >> 5) & 0x03;
 				int8_t nal_unit_type = buf[0] & 0x1F;
-				if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT || nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT)
+				if (nal_unit_type == (int8_t)AVC_SPS_NUT || nal_unit_type == (int8_t)AVC_PPS_NUT)
 				{
 					for (int8_t i = next_nal_unit_type; i < nal_unit_type; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT ? (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT : (nal_unit_type + 1);
+					next_nal_unit_type = nal_unit_type == (int8_t)AVC_PPS_NUT ? (int8_t)AVC_SPS_EXT_NUT : (nal_unit_type + 1);
 				}
 				else if (nal_unit_type >= 1 && nal_unit_type <= 5)
 				{
-					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT; i++)
+					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_SPS_EXT_NUT; i++)
 						write_nu_array(i);
 					next_nal_unit_type = -1;
 				}
-				else if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SEI_NUT)
+				else if (nal_unit_type == (int8_t)AVC_SEI_NUT)
 				{
-					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT; i++)
+					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_PPS_NUT; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT;
+					next_nal_unit_type = (int8_t)AVC_SPS_EXT_NUT;
 				}
 			}
 
@@ -150,7 +166,7 @@ namespace ISOBMFF
 		return iRet;
 	}
 
-	int AVCSampleRepacker::RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit)
+	int AVCSampleRepacker::RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit, const PROCESS_DATA_INFO* NAL_Unit_DataInfo, bool* bAUCommitted)
 	{
 		return -1;
 	}
@@ -185,7 +201,7 @@ namespace ISOBMFF
 
 		uint8_t buf[2048];
 		int64_t cbLeft = sample_size;
-		int8_t next_nal_unit_type = (int8_t)HEVC_NAL_UNIT_TYPE::VPS_NUT;
+		int8_t next_nal_unit_type = (int8_t)HEVC_VPS_NUT;
 		bool bFirstNALUnit = true;
 
 		auto write_nu_array = [&](int8_t nal_unit_type) {
@@ -197,7 +213,7 @@ namespace ISOBMFF
 			{
 				if (m_fpDst != NULL)
 				{
-					if (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::VPS_NUT || nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SPS_NUT || nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PPS_NUT)
+					if (nal_unit_type == (int8_t)HEVC_VPS_NUT || nal_unit_type == (int8_t)HEVC_SPS_NUT || nal_unit_type == (int8_t)HEVC_PPS_NUT)
 						fwrite(four_bytes_start_prefixes, 1, 4, m_fpDst);
 					else
 						fwrite(three_bytes_start_prefixes, 1, 3, m_fpDst);
@@ -233,31 +249,31 @@ namespace ISOBMFF
 				int8_t nal_unit_type = (buf[0] >> 1) & 0x3F;
 				//int8_t nuh_layer_id = ((buf[0] & 0x01) << 5) | ((buf[1] >> 3) & 0x1F);
 				//int8_t nuh_temporal_id_plus1 = buf[1] & 0x07;
-				if (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::VPS_NUT ||
-					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SPS_NUT ||
-					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PPS_NUT ||
-					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT)
+				if (nal_unit_type == (int8_t)HEVC_VPS_NUT ||
+					nal_unit_type == (int8_t)HEVC_SPS_NUT ||
+					nal_unit_type == (int8_t)HEVC_PPS_NUT ||
+					nal_unit_type == (int8_t)HEVC_PREFIX_SEI_NUT)
 				{
 					for (int8_t i = next_nal_unit_type; i < nal_unit_type; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PPS_NUT) ? (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT : (
-						nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT ? (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT : (nal_unit_type + 1));
+					next_nal_unit_type = (nal_unit_type == (int8_t)HEVC_PPS_NUT) ? (int8_t)HEVC_PREFIX_SEI_NUT : (
+						nal_unit_type == (int8_t)HEVC_PREFIX_SEI_NUT ? (int8_t)HEVC_SUFFIX_SEI_NUT : (nal_unit_type + 1));
 				}
-				else if (nal_unit_type >= (int8_t)HEVC_NAL_UNIT_TYPE::TRAIL_N && nal_unit_type <= (int8_t)HEVC_NAL_UNIT_TYPE::RSV_VCL31)
+				else if (nal_unit_type >= (int8_t)HEVC_TRAIL_N && nal_unit_type <= (int8_t)HEVC_RSV_VCL31)
 				{
-					for (int8_t i = next_nal_unit_type; i <= (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT; i++)
+					for (int8_t i = next_nal_unit_type; i <= (int8_t)HEVC_PREFIX_SEI_NUT; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT;
+					next_nal_unit_type = (int8_t)HEVC_SUFFIX_SEI_NUT;
 				}
 				else
 				{
-					if (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT)
+					if (nal_unit_type == (int8_t)HEVC_SUFFIX_SEI_NUT)
 						next_nal_unit_type = -1;
 
-					if (next_nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT && bLastNALUnit)
-						write_nu_array((int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT);
+					if (next_nal_unit_type == (int8_t)HEVC_SUFFIX_SEI_NUT && bLastNALUnit)
+						write_nu_array((int8_t)HEVC_SUFFIX_SEI_NUT);
 				}
 			}
 
@@ -293,7 +309,7 @@ namespace ISOBMFF
 		return iRet;
 	}
 
-	int HEVCSampleRepacker::RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit)
+	int HEVCSampleRepacker::RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit, const PROCESS_DATA_INFO* NAL_Unit_DataInfo, bool* bAUCommitted)
 	{
 		uint8_t four_bytes_start_prefixes[4] = { 0, 0, 0, 1 };
 		uint8_t three_bytes_start_prefixes[3] = { 0, 0, 1 };
@@ -301,6 +317,7 @@ namespace ISOBMFF
 		if (NumBytesInNalUnit < 2)
 			return RET_CODE_BOX_TOO_SMALL;
 
+		uint8_t picture_type = PIC_TYPE_UNKNOWN;
 		//uint8_t forbidden_zero_bit = (pNalUnitBuf[0] >> 7) & 0x01;
 		uint8_t nal_unit_type = (pNalUnitBuf[0] >> 1) & 0x3F;
 		uint8_t nuh_layer_id = (uint8_t)(((pNalUnitBuf[0] & 0x1) << 5)&((pNalUnitBuf[1] >> 3) & 0x1F));
@@ -311,7 +328,11 @@ namespace ISOBMFF
 		{
 			uint8_t* pNuBuf = new uint8_t[NumBytesInNalUnit];
 			memcpy(pNuBuf, pNalUnitBuf, NumBytesInNalUnit);
-			m_vNonVCLNUs.push_back(std::make_tuple(pNuBuf, NumBytesInNalUnit));
+			PROCESS_DATA_INFO data_info;
+			memset(&data_info, 0, sizeof(data_info));
+			if (NAL_Unit_DataInfo != nullptr)
+				data_info = *NAL_Unit_DataInfo;
+			m_vNonVCLNUs.push_back(std::make_tuple(pNuBuf, NumBytesInNalUnit, data_info));
 			return RET_CODE_SUCCESS;
 		}
 
@@ -324,6 +345,18 @@ namespace ISOBMFF
 		{
 			if (NumBytesInNalUnit < 3)
 				return RET_CODE_BOX_TOO_SMALL;
+
+			// Judge the current picture type
+			if (IS_IDR(nal_unit_type))
+				picture_type = PIC_TYPE_IDR;
+			else if (IS_CRA(nal_unit_type))
+				picture_type = PIC_TYPE_CRA;
+			else if (IS_IRAP(nal_unit_type))
+				picture_type = PIC_TYPE_IRAP;
+			else if (IS_LEADING(nal_unit_type))
+				picture_type = PIC_TYPE_LEADING;
+			else if (IS_TRAILING(nal_unit_type))
+				picture_type = PIC_TYPE_TRAILING;
 
 			first_slice_segment_in_pic_flag = (pNalUnitBuf[2] >> 7) & 0x1;
 		}
@@ -361,6 +394,15 @@ namespace ISOBMFF
 						printf("[HEVCSampleRepacker] Failed to write 4 bytes of start code prefix to the output file.\n");
 						return RET_CODE_ERROR;
 					}
+				}
+
+				if (m_callback_au_startpoint != nullptr)
+				{
+					ACCESS_UNIT_INFO au_info;
+					memset(&au_info, 0, sizeof(au_info));
+
+					au_info.picture_type = picture_type;
+					m_callback_au_startpoint(m_next_AU_PTS, m_next_AU_DTS, &std::get<2>(v), &au_info, m_context_au_startpoint);
 				}
 			}
 			else
@@ -408,7 +450,24 @@ namespace ISOBMFF
 				printf("[HEVCSampleRepacker] Failed to write %d bytes of NAL unit to the output file.\n", NumBytesInNalUnit);
 				return RET_CODE_ERROR;
 			}
+
+			if (is_zero_byte_present)
+			{
+				bStartNewAccessUnitFound = true;
+
+				if (m_callback_au_startpoint != nullptr)
+				{
+					ACCESS_UNIT_INFO au_info;
+					memset(&au_info, 0, sizeof(au_info));
+
+					au_info.picture_type = picture_type;
+					m_callback_au_startpoint(m_next_AU_PTS, m_next_AU_DTS, NAL_Unit_DataInfo, &au_info, m_context_au_startpoint);
+				}
+			}
 		}
+
+		if (bAUCommitted)
+			*bAUCommitted = bStartNewAccessUnitFound;
 
 		return RET_CODE_SUCCESS;
 	}

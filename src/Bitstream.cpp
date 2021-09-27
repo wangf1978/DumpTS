@@ -679,3 +679,4 @@ void CFileBitstream::_FillCurrentBits(bool bPeek)
 
 	return;
 }
+

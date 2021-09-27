@@ -19,12 +19,20 @@ using MPUSeqTM = std::tuple<uint32_t/*mpu_sequence_number*/,
 							uint32_t/*timescale*/,
 							uint16_t/*mpu_decoding_time_offset*/,
 							std::vector<
-							std::tuple<uint16_t/*pts offset*/,
-							uint16_t/*dts_pts_offset*/>>>;
+							std::tuple<uint16_t/*dts_pts offset*/,
+									   uint16_t/*pts_offset*/>>>;
 
 using MPUTMTree = std::list<MPUSeqTM>;
 
 using MPUTMTrees = std::unordered_map<uint32_t/*CID<<16 | packet_id*/, MPUTMTree>;
+
+using MPUContext = std::unordered_map<uint32_t/*CID<<16 | packet_id*/, 
+	std::tuple<
+		uint64_t	/* prev MPU sequence number*/,
+		MPUSeqTM	/* current MPU sequence time information*/,
+		int16_t		/* Access-Unit index of the current MPU */>>;
+
+MPUContext g_MPUContext;
 
 enum SHOW_TLV_PACK_OPTION
 {
@@ -125,8 +133,8 @@ void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
 
 				for (const auto& o : offsets)
 				{
-					uint16_t pts_offset = std::get<0>(o);
-					uint16_t dts_pts_offset = std::get<1>(o);
+					uint16_t dts_pts_offset = std::get<0>(o);
+					uint16_t pts_offset = std::get<1>(o);
 					printf((const char*)szFmt3, idx_sub, dts_pts_offset, dts_pts_offset, pts_offset, pts_offset);
 
 					idx_sub++;
@@ -808,16 +816,137 @@ int ProcessPAMessage(
 	return RET_CODE_SUCCESS;
 }
 
-int ProcessMFU(uint16_t CID, uint64_t packet_id, uint8_t payload_type, uint32_t asset_type, uint8_t fragmentation_indicator, 
-	uint8_t* pMFUData, int cbMFUData, CESRepacker* pESRepacker=nullptr, MPUSeqTM* ptr_MPU_tm=NULL)
+int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_t asset_type,
+	uint8_t* pMFUData, int cbMFUData, CESRepacker* pESRepacker = nullptr, MPUTMTrees* ptr_MPU_tm_trees=nullptr)
 {
-	if (payload_type == 0)
+	if (pHeaderCompressedIPPacket->MMTP_Packet == NULL ||
+		pHeaderCompressedIPPacket->MMTP_Packet->Payload_type != 0 ||
+		pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU == nullptr)
+		return RET_CODE_INVALID_PARAMETER;
+
+	if (pESRepacker == nullptr)
+		return RET_CODE_NOT_INITIALIZED;
+
+	PROCESS_DATA_INFO data_info;
+
+	if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->fragmentation_indicator == 0)
+		data_info.indicator = FRAG_INDICATOR_COMPLETE;
+	else if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->fragmentation_indicator == 1)
+		data_info.indicator = FRAG_INDICATOR_FIRST;
+	else if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->fragmentation_indicator == 2)
+		data_info.indicator = FRAG_INDICATOR_MIDDLE;
+	else if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->fragmentation_indicator == 3)
+		data_info.indicator = FRAG_INDICATOR_LAST;
+	else
+		return RET_CODE_ERROR_NOTIMPL;
+
+	data_info.CID = pHeaderCompressedIPPacket->Context_id;
+	data_info.packet_id = pHeaderCompressedIPPacket->MMTP_Packet->Packet_id;
+	data_info.packet_sequence_number = pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number;
+	data_info.MPU_sequence_number = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number;
+
+	// Check MPU sequence number is changed or not
+	if (asset_type == 'hev1' || asset_type == 'hvc1')
 	{
-		if (pESRepacker != nullptr)
-			return pESRepacker->Process(pMFUData, cbMFUData, (FRAGMENTATION_INDICATOR)fragmentation_indicator);
+		bool bMPUStartPoint = false;
+		uint32_t CID_pkt_id = (pHeaderCompressedIPPacket->Context_id << 16) | pHeaderCompressedIPPacket->MMTP_Packet->Packet_id;
+		auto iterCIDPktMPUSeqNo = g_MPUContext.find(CID_pkt_id);
+		if (iterCIDPktMPUSeqNo != g_MPUContext.end())
+		{
+			if (std::get<0>(iterCIDPktMPUSeqNo->second) != pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number)
+			{
+				if (!pHeaderCompressedIPPacket->MMTP_Packet->RAP_flag)
+					printf("Unexpected case! the video signal MPU sequence is changed, but RAP_flag is NOT 1.\n");
+				bMPUStartPoint = true;
+			}
+		}
+		else if (pHeaderCompressedIPPacket->MMTP_Packet->RAP_flag)
+			bMPUStartPoint = true;
+
+		if (bMPUStartPoint)
+		{
+			const auto& MPU_time_tree = ptr_MPU_tm_trees->find(CID_pkt_id);
+			if (MPU_time_tree == ptr_MPU_tm_trees->end())
+			{
+				printf("Failed to find MPU time descriptor for the asset with CID:0x%04X and pkt_id: 0x%04X.\n",
+					pHeaderCompressedIPPacket->Context_id, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id);
+				iterCIDPktMPUSeqNo = g_MPUContext.end();
+			}
+			else
+			{
+				bool bFoundMPUSeqTmEntry = false;
+				// Update the MPU time information to generate the PTS/DTS
+				for (const auto& MPU_time_entry : MPU_time_tree->second)
+				{
+					if (std::get<0>(MPU_time_entry) == pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number)
+					{
+						bFoundMPUSeqTmEntry = true;
+						if (iterCIDPktMPUSeqNo != g_MPUContext.end())
+						{
+							std::get<0>(iterCIDPktMPUSeqNo->second) = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number;
+							std::get<1>(iterCIDPktMPUSeqNo->second) = MPU_time_entry;
+							std::get<2>(iterCIDPktMPUSeqNo->second) = 0;
+						}
+						else
+						{
+							auto insert_ret = g_MPUContext.emplace(CID_pkt_id, std::make_tuple(
+								pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number,
+								MPU_time_entry, 0));
+							if (insert_ret.second)
+								iterCIDPktMPUSeqNo = insert_ret.first;
+						}
+
+						break;
+					}
+				}
+
+				if (bFoundMPUSeqTmEntry == false)
+				{
+					printf("Failed to find MPU time descriptor, can't generate PTS/DTS for the MPU with MPU_sequence_number: 0x%08X.\n",
+						pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number);
+					iterCIDPktMPUSeqNo = g_MPUContext.end();
+				}
+				else
+				{
+					// Update all pts and dts of the new MPU into re-packer
+					std::vector<TM_90KHZ> dtses, ptses;
+					const auto& mpu_seq_tm = std::get<1>(iterCIDPktMPUSeqNo->second);
+					IP::NTPv4Data::NTPTimestampFormat mpu_presentation_time = std::get<1>(mpu_seq_tm);
+					uint32_t time_scale = std::get<2>(mpu_seq_tm);
+					uint16_t mpu_decoding_time_offset = std::get<3>(mpu_seq_tm);
+					const auto& pts_offset = std::get<4>(mpu_seq_tm);
+
+					dtses.reserve(pts_offset.size());
+					ptses.reserve(pts_offset.size());
+
+					int64_t total_pts_offst = -1LL * mpu_decoding_time_offset;
+					IP::NTPv4Data::NTPTimestampFormat dts = mpu_presentation_time;
+					dts.DecreaseBy(mpu_decoding_time_offset, time_scale);
+					IP::NTPv4Data::NTPTimestampFormat pts = dts;
+					//printf("MPU Sequence No: 0x%X\n", pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number);
+					for (size_t i = 0; i < pts_offset.size(); i++)	
+					{
+						dtses.push_back(dts.ToPTS());
+						pts = dts;
+						pts.IncreaseBy(std::get<0>(pts_offset[i]), time_scale);
+						ptses.push_back(pts.ToPTS());
+
+						//printf("    pts: %" PRId64 ", dts: %" PRId64 ", pts_dts_diff: %" PRId64 "\n", pts.ToPTS(), dts.ToPTS(), pts.PTSDiff(dts));
+
+						dts.IncreaseBy(std::get<1>(pts_offset[i]), time_scale);
+					}
+
+					pESRepacker->SetNextMPUPtsDts((int)ptses.size(), ptses.data(), dtses.data());
+				}
+			}
+		}
+	}
+	else if (asset_type == 'mp4a')
+	{
+
 	}
 
-	return RET_CODE_ERROR_NOTIMPL;
+	return pESRepacker->Process(pMFUData, cbMFUData, &data_info);
 }
 
 int ShowMMTPackageInfo()
@@ -1235,6 +1364,50 @@ int ShowMMTPackageInfo()
 	return nRet;
 }
 
+void NotifyAUStartPoint(TM_90KHZ pts, TM_90KHZ dts, const PROCESS_DATA_INFO* data_info, const ACCESS_UNIT_INFO* au_info, void* pCtx)
+{
+	static int64_t idx_AU_Notified = 0;
+
+	char szAUItem[256] = { 0 };
+	size_t ccLog = sizeof(szAUItem) / sizeof(szAUItem[0]);
+
+	int ccWritten = 0;
+	int ccWrittenOnce = MBCSPRINTF_S(szAUItem, ccLog, "#%-10" PRId64 ", MPU/packet sequence number: 0x%08X/0x%08X, %-8s",
+		idx_AU_Notified,
+		data_info->MPU_sequence_number, data_info->packet_sequence_number,
+		HEVC_PICTURE_TYPE_NAMEA(au_info->picture_type)
+	);
+
+	if (ccWrittenOnce > 0)
+		ccWritten += ccWrittenOnce;
+
+	if (ccWrittenOnce > 0)
+	{
+		if (pts >= 0 && pts <= 0x1FFFFFFFFLL)
+			ccWrittenOnce = MBCSPRINTF_S(szAUItem + ccWritten, ccLog - ccWritten, ", pts: 0x%09" PRIX64 "(%10" PRId64 ")", pts, pts);
+		else
+			ccWrittenOnce = MBCSPRINTF_S(szAUItem + ccWritten, ccLog - ccWritten, ", pts: %-23s", "N/A");
+
+		if (ccWrittenOnce > 0)
+			ccWritten += ccWrittenOnce;
+	}
+
+	if (ccWrittenOnce > 0)
+	{
+		if (dts >= 0 && dts <= 0x1FFFFFFFFLL)
+			ccWrittenOnce = MBCSPRINTF_S(szAUItem + ccWritten, ccLog - ccWritten, ", dts: 0x%09" PRIX64 "(%10" PRId64 ")", dts, dts);
+		else
+			ccWrittenOnce = MBCSPRINTF_S(szAUItem + ccWritten, ccLog - ccWritten, ", dts: %-23s", "N/A");
+
+		if (ccWrittenOnce > 0)
+			ccWritten += ccWrittenOnce;
+	}
+
+	printf("%s.\n", szAUItem);
+
+	idx_AU_Notified++;
+}
+
 int DumpMMTOneStream()
 {
 	int nRet = RET_CODE_SUCCESS;
@@ -1624,7 +1797,14 @@ int DumpMMTOneStream()
 							//memset(config.es_output_file_path, 0, sizeof(config.es_output_file_path));
 							strcpy_s(config.es_output_file_path, _countof(config.es_output_file_path), Outputfiles[i].c_str());
 
-							pESRepacker[i] = new CESRepacker(ES_BYTE_STREAM_NALUNIT_WITH_LEN, dstESFmt);
+							if (config.codec_id == CODEC_ID_V_MPEGH_HEVC || config.codec_id == CODEC_ID_V_MPEG4_AVC)
+								pESRepacker[i] = new CNALRepacker(ES_BYTE_STREAM_NALUNIT_WITH_LEN, dstESFmt);
+							else
+								pESRepacker[i] = new CESRepacker(ES_BYTE_STREAM_RAW, dstESFmt);
+
+							if (bShowPTS)
+								pESRepacker[i]->SetAUStartPointCallback(NotifyAUStartPoint, nullptr);
+
 							pESRepacker[i]->Config(config);
 							pESRepacker[i]->Open(nullptr);
 						}
@@ -1637,12 +1817,8 @@ int DumpMMTOneStream()
 						
 						if (bFiltered)
 						{
-							ProcessMFU(CID,
-								pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
-								pHeaderCompressedIPPacket->MMTP_Packet->Payload_type,
-								asset_type[filter_asset_idx],
-								actual_fragmenttion_indicator,
-								&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[filter_asset_idx]);
+							ProcessMFU(pHeaderCompressedIPPacket, asset_type[filter_asset_idx],
+								&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[filter_asset_idx], &MPU_tm_trees);
 
 							if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
 							{

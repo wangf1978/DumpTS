@@ -223,6 +223,12 @@
     <ClInclude Include="..\..\src\LibPlatform\wtypes.h">
       <Filter>src\Header Files\LibPlatform</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\NAL.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\dump_data_type.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt">

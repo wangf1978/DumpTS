@@ -6,6 +6,7 @@
 #include <functional>
 #include "ISO14496_12.h"
 #include "ISO14496_15.h"
+#include "NAL.h"
 
 using namespace std;
 using namespace ISOBMFF;
@@ -1419,7 +1420,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 
 		uint8_t buf[2048];
 		int64_t cbLeft = sample_size;
-		int8_t next_nal_unit_type = (int8_t)HEVC_NAL_UNIT_TYPE::VPS_NUT;
+		int8_t next_nal_unit_type = (int8_t)HEVC_VPS_NUT;
 		bool bFirstNALUnit = true;
 
 		auto write_nu_array = [&](int8_t nal_unit_type) {
@@ -1431,7 +1432,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 			{
 				if (fw != NULL)
 				{
-					if (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::VPS_NUT || nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SPS_NUT || nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PPS_NUT)
+					if (nal_unit_type == (int8_t)HEVC_VPS_NUT || nal_unit_type == (int8_t)HEVC_SPS_NUT || nal_unit_type == (int8_t)HEVC_PPS_NUT)
 						fwrite(four_bytes_start_prefixes, 1, 4, fw);
 					else
 						fwrite(three_bytes_start_prefixes, 1, 3, fw);
@@ -1471,31 +1472,31 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 				int8_t nal_unit_type = (buf[0] >> 1) & 0x3F;
 				int8_t nuh_layer_id = ((buf[0] & 0x01) << 5) | ((buf[1] >> 3) & 0x1F);
 				int8_t nuh_temporal_id_plus1 = buf[1] & 0x07;
-				if (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::VPS_NUT || 
-					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SPS_NUT || 
-					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PPS_NUT || 
-					nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT)
+				if (nal_unit_type == (int8_t)HEVC_VPS_NUT || 
+					nal_unit_type == (int8_t)HEVC_SPS_NUT || 
+					nal_unit_type == (int8_t)HEVC_PPS_NUT || 
+					nal_unit_type == (int8_t)HEVC_PREFIX_SEI_NUT)
 				{
 					for (int8_t i = next_nal_unit_type; i < nal_unit_type; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PPS_NUT) ? (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT : (
-										  nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT? (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT:(nal_unit_type + 1));
+					next_nal_unit_type = (nal_unit_type == (int8_t)HEVC_PPS_NUT) ? (int8_t)HEVC_PREFIX_SEI_NUT : (
+										  nal_unit_type == (int8_t)HEVC_PREFIX_SEI_NUT? (int8_t)HEVC_SUFFIX_SEI_NUT:(nal_unit_type + 1));
 				}
-				else if (nal_unit_type >= (int8_t)HEVC_NAL_UNIT_TYPE::TRAIL_N && nal_unit_type <= (int8_t)HEVC_NAL_UNIT_TYPE::RSV_VCL31)
+				else if (nal_unit_type >= (int8_t)HEVC_TRAIL_N && nal_unit_type <= (int8_t)HEVC_RSV_VCL31)
 				{
-					for (int8_t i = next_nal_unit_type; i <= (int8_t)HEVC_NAL_UNIT_TYPE::PREFIX_SEI_NUT; i++)
+					for (int8_t i = next_nal_unit_type; i <= (int8_t)HEVC_PREFIX_SEI_NUT; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT;
+					next_nal_unit_type = (int8_t)HEVC_SUFFIX_SEI_NUT;
 				}
 				else
 				{
-					if (nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT)
+					if (nal_unit_type == (int8_t)HEVC_SUFFIX_SEI_NUT)
 						next_nal_unit_type = -1;
 
-					if (next_nal_unit_type == (int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT && bLastNALUnit)
-						write_nu_array((int8_t)HEVC_NAL_UNIT_TYPE::SUFFIX_SEI_NUT);
+					if (next_nal_unit_type == (int8_t)HEVC_SUFFIX_SEI_NUT && bLastNALUnit)
+						write_nu_array((int8_t)HEVC_SUFFIX_SEI_NUT);
 				}
 			}
 
@@ -1533,11 +1534,11 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 	{
 		uint8_t buf[2048];
 		int64_t cbLeft = sample_size;
-		int8_t next_nal_unit_type = (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT;
+		int8_t next_nal_unit_type = (int8_t)AVC_SPS_NUT;
 		bool bFirstNALUnit = true;
 
 		auto write_nu_array = [&](int8_t nal_unit_type) {
-			if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT)
+			if (nal_unit_type == (int8_t)AVC_SPS_NUT)
 			{
 				for (size_t i = 0; i < pAVCConfigurationBox->AVCConfig->sequenceParameterSetNALUnits.size(); i++)
 				{
@@ -1550,7 +1551,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 				}
 				return true;
 			}
-			else if(nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT)
+			else if(nal_unit_type == (int8_t)AVC_PPS_NUT)
 			{
 				for (size_t i = 0; i < pAVCConfigurationBox->AVCConfig->pictureParameterSetNALUnits.size(); i++)
 				{
@@ -1563,7 +1564,7 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 				}
 				return true;
 			}
-			else if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT)
+			else if (nal_unit_type == (int8_t)AVC_SPS_EXT_NUT)
 			{
 				for (size_t i = 0; i < pAVCConfigurationBox->AVCConfig->sequenceParameterSetExtNALUnits.size(); i++)
 				{
@@ -1607,25 +1608,25 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 
 				int8_t nal_ref_idc = (buf[0] >> 5) & 0x03; DBG_UNREFERENCED_LOCAL_VARIABLE(nal_ref_idc);
 				int8_t nal_unit_type = buf[0] & 0x1F;
-				if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SPS_NUT || nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT)
+				if (nal_unit_type == (int8_t)AVC_SPS_NUT || nal_unit_type == (int8_t)AVC_PPS_NUT)
 				{
 					for (int8_t i = next_nal_unit_type; i < nal_unit_type; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT ? (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT : (nal_unit_type + 1);
+					next_nal_unit_type = nal_unit_type == (int8_t)AVC_PPS_NUT ? (int8_t)AVC_SPS_EXT_NUT : (nal_unit_type + 1);
 				}
 				else if (nal_unit_type >= 1 && nal_unit_type <= 5)
 				{
-					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT; i++)
+					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_SPS_EXT_NUT; i++)
 						write_nu_array(i);
 					next_nal_unit_type = -1;
 				}
-				else if (nal_unit_type == (int8_t)AVC_NAL_UNIT_TYPE::SEI_NUT)
+				else if (nal_unit_type == (int8_t)AVC_SEI_NUT)
 				{
-					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_NAL_UNIT_TYPE::PPS_NUT; i++)
+					for (int8_t i = next_nal_unit_type; i <= (int8_t)AVC_PPS_NUT; i++)
 						write_nu_array(i);
 
-					next_nal_unit_type = (int8_t)AVC_NAL_UNIT_TYPE::SPS_EXT_NUT;
+					next_nal_unit_type = (int8_t)AVC_SPS_EXT_NUT;
 				}
 			}
 

@@ -6,6 +6,7 @@
 #include "DataUtil.h"
 #include <algorithm>
 #include <list>
+#include "dump_data_type.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -141,10 +142,50 @@ namespace IP
 				return Seconds + (double)Fraction / 0x100000000LL;
 			}
 
-			int64_t ToPTS()
+			TM_90KHZ ToPTS()
 			{
-				int64_t second290KHZ = (int64_t)Seconds * 90000LL;
-				return (second290KHZ + Fraction * 90000LL / 0x100000000LL) % 0x200000000LL;
+				TM_90KHZ second290KHZ = (TM_90KHZ)Seconds * 90000LL;
+				return (TM_90KHZ)((second290KHZ + Fraction * 90000LL / 0x100000000LL) % 0x200000000LL);
+			}
+
+			TM_90KHZ PTSDiff(const NTPTimestampFormat& tm2)
+			{
+				int64_t diff_second = (int64_t)Seconds - (int64_t)tm2.Seconds;
+				int64_t diff_fraction = (int64_t)Fraction - (int64_t)tm2.Fraction;
+
+				return (TM_90KHZ)((diff_second * 90000LL + diff_fraction * 90000LL / 0x100000000LL) % 0x200000000LL);
+			}
+
+			NTPTimestampFormat& IncreaseBy(uint32_t offset, uint32_t time_scale) {
+				if (offset == 0)
+					return *this;
+
+				uint64_t sum_fractions = Fraction + ((offset * 0x100000000ULL / time_scale) & 0xFFFFFFFFULL);
+					
+				Fraction = (uint32_t)(sum_fractions & 0xFFFFFFFF);
+
+				if (sum_fractions >= 0x100000000ULL)
+					Seconds++;
+
+				Seconds += (uint32_t)(((offset * 0x100000000ULL / time_scale) >> 32) & 0xFFFFFFFFULL);
+				return *this;
+			}
+
+			NTPTimestampFormat& DecreaseBy(uint32_t offset, uint32_t time_scale)
+			{
+				if (offset == 0)
+					return *this;
+
+				Seconds -= 1;
+				uint64_t sum_fractions = 0x100000000ULL + Fraction - ((offset * 0x100000000ULL / time_scale) & 0xFFFFFFFFULL);
+
+				Fraction = (uint32_t)(sum_fractions & 0xFFFFFFFF);
+
+				if (sum_fractions >= 0x100000000ULL)
+					Seconds++;
+
+				Seconds += (uint32_t)(((offset * 0x100000000ULL / time_scale) >> 32) & 0xFFFFFFFFULL);
+				return *this;
 			}
 
 			friend bool operator==(NTPTimestampFormat const &, NTPTimestampFormat const &);

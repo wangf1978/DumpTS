@@ -45,6 +45,8 @@ SOFTWARE.
 #include "ISO14496_15.h"
 #include "CodecID.h"
 #include "AMRingBuffer.h"
+#include "NAL.h"
+#include "dump_data_type.h"
 
 #define USE_NAL(codec_id)				(codec_id == CODEC_ID_V_MPEG4_AVC || codec_id == CODEC_ID_V_MPEGH_HEVC)
 
@@ -64,14 +66,6 @@ enum ES_SEEK_POINT_TYPE
 	ES_SEEK_MATROSKA_SIMPLE_BLOCK,
 	ES_SEEK_MATROSKA_BLOCK_GROUP,
 	ES_SEEK_SKIP,
-};
-
-enum FRAGMENTATION_INDICATOR
-{
-	FRAG_INDICATOR_COMPLETE = 0,
-	FRAG_INDICATOR_FIRST,
-	FRAG_INDICATOR_MIDDLE,
-	FRAG_INDICATOR_LAST
 };
 
 struct SEEK_POINT_INFO
@@ -128,12 +122,19 @@ public:
 
 	/*!	@brief Get the ES chunk or block information at the current seek point. */
 	virtual int GetSeekPointInfo(SEEK_POINT_INFO& seek_point_info);
+
+	/*!	@brief Set pts/dts for the all AU of the next MPU */
+	virtual int SetNextMPUPtsDts(int number_of_au, const TM_90KHZ* PTSes, const TM_90KHZ* DTSes);
 	
 	/*!	@brief Begin the repack process in the specified seek position */
 	virtual	int	Repack(uint32_t sample_size, FLAG_VALUE keyframe);
 
 	/*!	@brief Process the buffer with the specified buffer size */
-	virtual int Process(uint8_t* pBuf, int cbSize, FRAGMENTATION_INDICATOR indicator);
+	virtual int Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info = NULL);
+
+	/*!	@brief Set the access-unit start point callback to notify the upper layer 
+		@remarks It is required to call before Open method */
+	virtual int SetAUStartPointCallback(CB_AU_STARTPOINT cb_au_startpoint, void* pCtx);
 
 	/*!	@brief Flush the cache buffer in the ES packer. */
 	virtual int Flush();
@@ -150,7 +151,7 @@ protected:
 	int PreProcessMatroskaBlock();
 	int PostProcessMatroSkaBlock();
 
-private:
+protected:
 	ES_BYTE_STREAM_FORMAT	m_srcESFmt;
 	ES_BYTE_STREAM_FORMAT	m_dstESFmt;
 	ES_REPACK_CONFIG		m_config;
@@ -160,12 +161,38 @@ private:
 	FILE*					m_fpDst;
 
 	SEEK_POINT_INFO			m_cur_seek_point_info;
+
+	std::vector<TM_90KHZ>	m_curr_ptses;
+	std::vector<TM_90KHZ>	m_curr_dtses;
+	std::vector<TM_90KHZ>	m_next_ptses;
+	std::vector<TM_90KHZ>	m_next_dtses;
+
+	CB_AU_STARTPOINT		m_callback_au_startpoint;
+	void*					m_context_au_startpoint;
+};
+
+class CNALRepacker : public CESRepacker
+{
+public:
+	CNALRepacker(ES_BYTE_STREAM_FORMAT srcESFmt, ES_BYTE_STREAM_FORMAT dstESFmt);
+	~CNALRepacker();
+
+	virtual int Open(const char* szSrcFile);
+	virtual	int	Repack(uint32_t sample_size, FLAG_VALUE keyframe);
+	virtual int Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info = NULL);
+	virtual int SetNextMPUPtsDts(int number_of_au, const TM_90KHZ* PTSes, const TM_90KHZ* DTSes);
+	virtual int Flush();
+	virtual int Close();
+
+	// Method
+protected:
+
+	// Data
+protected:
+	ISOBMFF::INALAUSampleRepacker* 
+							m_NALAURepacker;
 	AMLinearRingBuffer		m_lrb_NAL;
 
-	union
-	{
-		void* m_external_repacker;
-		ISOBMFF::INALAUSampleRepacker* m_NALAURepacker;
-	};
+	int						m_current_au_idx;
 };
 
