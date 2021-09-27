@@ -575,7 +575,7 @@ int ProcessPAMessage(
 				auto& vMPTs = std::get<1>(tuple_tree);
 				for (auto& m : vMPTs)
 				{
-					if (m->MMT_package_id == pMPT->MMT_package_id)
+					if (m->MMT_package_id == pMPT->MMT_package_id && m->version == pMPT->version)
 					{
 						bFoundExistedMPT = true;
 						break;
@@ -1689,7 +1689,7 @@ int DumpMMTOneStream()
 						if (CID_MPT_packet_id_set.find(CID_MPT_packet_id) != CID_MPT_packet_id_set.end())
 							isMPT = true;
 						
-						if (bFiltered || ((pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0 || isMPT) && bDumpMPU))
+						if (bFiltered/* || ((pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0 || isMPT) && bDumpMPU)*/)
 							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem(nullptr, 0, isMPT);
 					}
 				}

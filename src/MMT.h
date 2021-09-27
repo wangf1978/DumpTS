@@ -968,7 +968,8 @@ namespace MMT
 		uint8_t					resolution : 4;
 		uint8_t					compression_type : 4;
 		uint32_t				start_mpu_sequence_number;
-		uint64_t				reference_start_time;
+		IP::NTPv4Data::NTPTimestampFormat				
+								reference_start_time;
 		uint8_t					reference_start_time_leap_indicator : 2;
 		uint8_t					reserved_1 : 6;
 	}PACKED;
@@ -1018,7 +1019,8 @@ namespace MMT
 
 				if (arib_subtitle_info->TMD == 0x2)
 				{
-					arib_subtitle_info->reference_start_time = bs.GetQWord();
+					arib_subtitle_info->reference_start_time.Seconds = bs.GetDWord();
+					arib_subtitle_info->reference_start_time.Fraction = bs.GetDWord();
 					arib_subtitle_info->reference_start_time_leap_indicator = (uint8_t)bs.GetBits(2);
 					arib_subtitle_info->reserved_1 = (uint8_t)bs.GetBits(6);
 				}
@@ -1065,36 +1067,41 @@ namespace MMT
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "type", 
 					arib_subtitle_info->type, 
 					arib_subtitle_info->type, 
-					arib_subtitle_info->type == 0?" - Closed-caption":(arib_subtitle_info->type == 1?" - Superimposition":""));
+					arib_subtitle_info->type == 0?"\t- Closed-caption":(
+					arib_subtitle_info->type == 1?"\t- Superimposition":""));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "subtitle_format", 
 					arib_subtitle_info->subtitle_format, arib_subtitle_info->subtitle_format,
-					arib_subtitle_info->subtitle_format == 0?" - ARIB-TTML":"");
+					arib_subtitle_info->subtitle_format == 0?"\t- ARIB-TTML":"");
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "OPM", 
 					arib_subtitle_info->OPM, arib_subtitle_info->OPM,
-					arib_subtitle_info->OPM == 0?" - Live mode":(arib_subtitle_info->OPM == 1?" - Segment mode":(arib_subtitle_info->OPM == 2?" - Program mode":"")));
+					arib_subtitle_info->OPM == 0?"\t- Live mode":(
+					arib_subtitle_info->OPM == 1?"\t- Segment mode":(
+					arib_subtitle_info->OPM == 2?"\t- Program mode":"")));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "TMD", 
 					arib_subtitle_info->TMD, arib_subtitle_info->TMD,
-					arib_subtitle_info->TMD ==  0 ? "- UTC" : (
-					arib_subtitle_info->TMD ==  1 ? "- MH-EIT starttime for the starting point" : (
-					arib_subtitle_info->TMD ==  2 ? "- reference starttime for the starting point" : (
-					arib_subtitle_info->TMD ==  3 ? "- MPU timestamp for the starting point":(
-					arib_subtitle_info->TMD ==  4 ? "- NPT" : (
-					arib_subtitle_info->TMD ==  8 ? "- MPU Timestamp" : (
-					arib_subtitle_info->TMD == 15 ? "- without time control" : "")))))));
+					arib_subtitle_info->TMD ==  0 ? "\t- UTC" : (
+					arib_subtitle_info->TMD ==  1 ? "\t- MH-EIT starttime for the starting point" : (
+					arib_subtitle_info->TMD ==  2 ? "\t- reference starttime for the starting point" : (
+					arib_subtitle_info->TMD ==  3 ? "\t- MPU timestamp for the starting point":(
+					arib_subtitle_info->TMD ==  4 ? "\t- NPT" : (
+					arib_subtitle_info->TMD ==  8 ? "\t- MPU Timestamp" : (
+					arib_subtitle_info->TMD == 15 ? "\t- without time control" : "")))))));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "DMF", 
 					arib_subtitle_info->DMF, arib_subtitle_info->DMF, 
-					(arib_subtitle_info->DMF & 0xC) == 0x0 ? " - Automatic display when received" : (
-					(arib_subtitle_info->DMF & 0xC) == 0x4 ? " - Automatic non-display when received" : (
-					(arib_subtitle_info->DMF & 0xC) == 0x8 ? " - Selective display when received" : (
-					(arib_subtitle_info->DMF & 0xC) == 0xC ? " - Reserved for use in the future" : (
-					(arib_subtitle_info->DMF & 0x3) == 0x0 ? " - Automatic display when playback" : (
-					(arib_subtitle_info->DMF & 0x3) == 0x1 ? " - Automatic non-display when playback" : (
-					(arib_subtitle_info->DMF & 0x3) == 0x2 ? " - Selective display when playback" : (
-					(arib_subtitle_info->DMF & 0x3) == 0x3 ? " - Reserved for use in the future" : ""))))))));
+					(arib_subtitle_info->DMF & 0xC) == 0x0 ? "\t- Automatic display when received" : (
+					(arib_subtitle_info->DMF & 0xC) == 0x4 ? "\t- Automatic non-display when received" : (
+					(arib_subtitle_info->DMF & 0xC) == 0x8 ? "\t- Selective display when received" : (
+					(arib_subtitle_info->DMF & 0xC) == 0xC ? "\t- Reserved for use in the future" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x0 ? "\t- Automatic display when playback" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x1 ? "\t- Automatic non-display when playback" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x2 ? "\t- Selective display when playback" : (
+					(arib_subtitle_info->DMF & 0x3) == 0x3 ? "\t- Reserved for use in the future" : ""))))))));
 
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)%s\n", szIndent, "resolution", 
 					arib_subtitle_info->resolution, arib_subtitle_info->resolution,
-					arib_subtitle_info->resolution == 0?" - 1920 x 1080":(arib_subtitle_info->resolution == 1?" - 3840 x 2160":(arib_subtitle_info->resolution == 2?" - 7680 x 4320":"")));
+					arib_subtitle_info->resolution == 0?"\t- 1920 x 1080":(
+					arib_subtitle_info->resolution == 1?"\t- 3840 x 2160":(
+					arib_subtitle_info->resolution == 2?"\t- 7680 x 4320":"")));
 				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "compression_type", arib_subtitle_info->compression_type, arib_subtitle_info->compression_type);
 
 
@@ -1104,7 +1111,9 @@ namespace MMT
 
 				if (arib_subtitle_info->TMD == 0x2)
 				{
-					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 ")\n", szIndent, "reference_start_time", arib_subtitle_info->reference_start_time, arib_subtitle_info->reference_start_time);
+					fprintf(out, MMT_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "reference_start_time",
+						arib_subtitle_info->reference_start_time.GetValue(),
+						DateTimeStr(arib_subtitle_info->reference_start_time.Seconds, 1900, arib_subtitle_info->reference_start_time.Fraction).c_str());
 					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "reference_start_time_leap_indicator", arib_subtitle_info->reference_start_time_leap_indicator, arib_subtitle_info->reference_start_time_leap_indicator);
 				}
 			}
