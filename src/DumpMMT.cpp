@@ -19,8 +19,10 @@ using MPUSeqTM = std::tuple<uint32_t/*mpu_sequence_number*/,
 							uint32_t/*timescale*/,
 							uint16_t/*mpu_decoding_time_offset*/,
 							std::vector<
-							std::tuple<uint16_t/*dts_pts offset*/,
-									   uint16_t/*pts_offset*/>>>;
+								std::tuple<uint16_t/*dts_pts offset*/,
+										   uint16_t/*pts_offset*/>>,
+							uint32_t/* the packet sequence number of the first MMTP packet*/
+							>;
 
 using MPUTMTree = std::list<MPUSeqTM>;
 
@@ -63,9 +65,11 @@ void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
 	int ccWritten = 0;
 	char szIdx[64] = { 0 };
 	int idx = 0;
+	int64_t filter_MPUSeqNumber = -1LL;
 
 	auto iterStart = g_params.find("start");
 	auto iterEnd = g_params.find("end");
+	auto iterMPUSeqNo = g_params.find("MPUseqno");
 
 	int64_t nStart = -1LL, nEnd = INT64_MAX, iVal= -1LL;
 	if (iterStart != g_params.end())
@@ -80,6 +84,13 @@ void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
 		iVal = ConvertToLongLong(iterEnd->second);
 		if (iVal >= 0 && iVal <= UINT32_MAX)
 			nEnd = (uint32_t)iVal;
+	}
+
+	if (iterMPUSeqNo != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterMPUSeqNo->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			filter_MPUSeqNumber = (uint32_t)iVal;
 	}
 
 	// find the maximum MPU_sequence_number and timescale
@@ -109,7 +120,7 @@ void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
 		int ccWritten2 = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%X", max_MPU_seq_no);
 		int ccWritten3 = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%" PRIu32, max_MPU_seq_no);
 		MBCSPRINTF_S(szFmt2, sizeof(szFmt2) / sizeof(szFmt2[0]),
-			"    %%%dd, MPU(SeqNo: 0x%%0%dX(%%%d" PRIu32 "), presentation_time: %" NTPTIME_FMT_STR "s, timescale: %%%zusHZ, decoding_time_offset: %%5u)\n",
+			"    %%%dd, MPU(SeqNo: 0x%%0%dX(%%%d" PRIu32 "), presentation_time: %" NTPTIME_FMT_STR "s, timescale: %%%zusHZ, decoding_time_offset: %%5u), start_pkt_seqno: 0x%%08X\n",
 			ccWritten, ccWritten2, ccWritten3, GetReadableNum(max_timescale).size());
 
 		for (const auto& item : t.second)
@@ -117,11 +128,15 @@ void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
 			if (!((int64_t)std::get<0>(item) >= nStart && (int64_t)std::get<0>(item) < nEnd))
 				continue;
 
+			if (filter_MPUSeqNumber >= 0 && std::get<0>(item) != filter_MPUSeqNumber)
+				continue;
+
 			printf((const char*)szFmt2, idx2,
 				std::get<0>(item), std::get<0>(item),
 				std::get<1>(item).GetValue(),
 				GetReadableNum(std::get<2>(item)).c_str(),
-				std::get<3>(item));
+				std::get<3>(item),
+				std::get<5>(item));
 			auto& offsets = std::get<4>(item);
 
 			if (bFull)
@@ -129,14 +144,22 @@ void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
 				int idx_sub = 0;
 				ccWritten = MBCSPRINTF_S(szIdx, sizeof(szIdx) / sizeof(szIdx[0]), "%zu", offsets.size());
 				MBCSPRINTF_S(szFmt3, sizeof(szFmt3) / sizeof(szFmt3[0]),
-					"        %%%dd, dts_pts_offset: 0x%%04X(%%5d), pts_offset: 0x%%04X(%%5d)\n", ccWritten);
+					"        %%%dd, dts_pts_offset: 0x%%04X(%%5d), pts_offset: 0x%%04X(%%5d), pts/dts(90KHZ): (%%" PRId64 "/%%" PRId64 ")\n", ccWritten);
 
+				IP::NTPv4Data::NTPTimestampFormat dts = std::get<1>(item);
+				dts.DecreaseBy(std::get<3>(item), std::get<2>(item));
+				IP::NTPv4Data::NTPTimestampFormat pts = dts;
 				for (const auto& o : offsets)
 				{
 					uint16_t dts_pts_offset = std::get<0>(o);
 					uint16_t pts_offset = std::get<1>(o);
-					printf((const char*)szFmt3, idx_sub, dts_pts_offset, dts_pts_offset, pts_offset, pts_offset);
+					
+					pts = dts;
+					pts.IncreaseBy(dts_pts_offset, std::get<2>(item));
 
+					printf((const char*)szFmt3, idx_sub, dts_pts_offset, dts_pts_offset, pts_offset, pts_offset, pts.ToPTS(), dts.ToPTS());
+
+					dts.IncreaseBy(pts_offset, std::get<2>(item));
 					idx_sub++;
 				}
 			}
@@ -440,7 +463,7 @@ int UpdateMPUTMTrees(uint16_t CID, MMT::MMTPackageTable* pMPT, MPUTMTrees* ptr_M
 
 						if (bFound == false)
 						{
-							iter->second.push_back(std::make_tuple(std::get<0>(e), std::get<1>(e), 0, 0, std::vector<std::tuple<uint16_t, uint16_t>>()));
+							iter->second.push_back(std::make_tuple(std::get<0>(e), std::get<1>(e), 0, 0, std::vector<std::tuple<uint16_t, uint16_t>>(), 0));
 						}
 					}
 				}
@@ -865,7 +888,7 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 
 		if (bMPUStartPoint)
 		{
-			const auto& MPU_time_tree = ptr_MPU_tm_trees->find(CID_pkt_id);
+			auto& MPU_time_tree = ptr_MPU_tm_trees->find(CID_pkt_id);
 			if (MPU_time_tree == ptr_MPU_tm_trees->end())
 			{
 				printf("Failed to find MPU time descriptor for the asset with CID:0x%04X and pkt_id: 0x%04X.\n",
@@ -876,11 +899,14 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 			{
 				bool bFoundMPUSeqTmEntry = false;
 				// Update the MPU time information to generate the PTS/DTS
-				for (const auto& MPU_time_entry : MPU_time_tree->second)
+				for (auto& MPU_time_entry : MPU_time_tree->second)
 				{
 					if (std::get<0>(MPU_time_entry) == pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number)
 					{
 						bFoundMPUSeqTmEntry = true;
+
+						std::get<5>(MPU_time_entry) = pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number;
+
 						if (iterCIDPktMPUSeqNo != g_MPUContext.end())
 						{
 							std::get<0>(iterCIDPktMPUSeqNo->second) = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number;
@@ -910,10 +936,11 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 				{
 					// Update all pts and dts of the new MPU into re-packer
 					std::vector<TM_90KHZ> dtses, ptses;
-					const auto& mpu_seq_tm = std::get<1>(iterCIDPktMPUSeqNo->second);
+					auto& mpu_seq_tm = std::get<1>(iterCIDPktMPUSeqNo->second);
 					IP::NTPv4Data::NTPTimestampFormat mpu_presentation_time = std::get<1>(mpu_seq_tm);
 					uint32_t time_scale = std::get<2>(mpu_seq_tm);
 					uint16_t mpu_decoding_time_offset = std::get<3>(mpu_seq_tm);
+					std::get<5>(mpu_seq_tm) = pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number;
 					const auto& pts_offset = std::get<4>(mpu_seq_tm);
 
 					dtses.reserve(pts_offset.size());
@@ -1573,6 +1600,24 @@ int DumpMMTOneStream()
 		bShowPTS = true;
 	}
 
+	auto iterStart = g_params.find("start");
+	auto iterEnd = g_params.find("end");
+
+	int64_t nStart = -1LL, nEnd = INT64_MAX, iVal = -1LL;
+	if (iterStart != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterStart->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nStart = (uint32_t)iVal;
+	}
+
+	if (iterEnd != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterEnd->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nEnd = (uint32_t)iVal;
+	}
+
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
 
 	if (nRet < 0)
@@ -1667,7 +1712,9 @@ int DumpMMTOneStream()
 
 				if (bListMMTPpacket && bFiltered)
 				{
-					pHeaderCompressedIPPacket->MMTP_Packet->PrintListItem();
+					if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number >= nStart &&
+						pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number <  nEnd)
+						pHeaderCompressedIPPacket->MMTP_Packet->PrintListItem();
 				}
 
 				if (filter_MPUSeqNumber != -1LL && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
@@ -1680,7 +1727,11 @@ int DumpMMTOneStream()
 				if (bListMMTPpayload)
 				{
 					if (bFiltered && pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
-						pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->PrintListItem();
+					{
+						if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number >= nStart &&
+							pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number < nEnd)
+							pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->PrintListItem();
+					}
 
 					if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 2)
 					{
@@ -1690,7 +1741,11 @@ int DumpMMTOneStream()
 							isMPT = true;
 						
 						if (bFiltered/* || ((pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0 || isMPT) && bDumpMPU)*/)
-							pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem(nullptr, 0, isMPT);
+						{
+							if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number >= nStart &&
+								pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number < nEnd)
+								pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->PrintListItem(nullptr, 0, isMPT);
+						}
 					}
 				}
 
@@ -1702,7 +1757,9 @@ int DumpMMTOneStream()
 				{
 					if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0)
 					{
-						if (filter_MPUSeqNumber == -1LL || filter_MPUSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number)
+						if ((filter_MPUSeqNumber == -1LL || filter_MPUSeqNumber == pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number) &&
+							(pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number >= nStart && 
+							 pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number <  nEnd))
 						{
 							if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->Fragment_type == 2)
 							{
@@ -1727,7 +1784,9 @@ int DumpMMTOneStream()
 							}
 						}
 					}
-					else if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0x2)
+					else if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0x2 &&
+							(pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number >= nStart && 
+							 pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number <  nEnd))
 					{
 						printf("packet_sequence_number: 0x%08X, packet_id: 0x%04X, fragmentation_indicator: %6s, aggr: %d\n",
 							pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number,
@@ -1817,23 +1876,27 @@ int DumpMMTOneStream()
 						
 						if (bFiltered)
 						{
-							ProcessMFU(pHeaderCompressedIPPacket, asset_type[filter_asset_idx],
-								&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[filter_asset_idx], &MPU_tm_trees);
-
-							if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
+							if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number >= nStart &&
+								pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number < nEnd)
 							{
-								fprintf(stdout, MMT_FIX_HEADER_FMT_STR ": %s \n", "", "NAL Unit",
-									actual_fragmenttion_indicator == 0 ? "Complete" : (
-									actual_fragmenttion_indicator == 1 ? "First" : (
-									actual_fragmenttion_indicator == 2 ? "Middle" : (
-									actual_fragmenttion_indicator == 3 ? "Last" : "Unknown"))));
-								for (size_t i = 0; i < m.MFU_data_bytes.size(); i++)
+								ProcessMFU(pHeaderCompressedIPPacket, asset_type[filter_asset_idx],
+									&m.MFU_data_bytes[0], (int)m.MFU_data_bytes.size(), pESRepacker[filter_asset_idx], &MPU_tm_trees);
+
+								if (m.MFU_data_bytes.size() > 0 && g_verbose_level == 99)
 								{
-									if (i % 32 == 0)
-										fprintf(stdout, "\n" MMT_FIX_HEADER_FMT_STR "  ", "", "");
-									fprintf(stdout, "%02X ", m.MFU_data_bytes[i]);
+									fprintf(stdout, MMT_FIX_HEADER_FMT_STR ": %s \n", "", "NAL Unit",
+										actual_fragmenttion_indicator == 0 ? "Complete" : (
+										actual_fragmenttion_indicator == 1 ? "First" : (
+										actual_fragmenttion_indicator == 2 ? "Middle" : (
+										actual_fragmenttion_indicator == 3 ? "Last" : "Unknown"))));
+									for (size_t i = 0; i < m.MFU_data_bytes.size(); i++)
+									{
+										if (i % 32 == 0)
+											fprintf(stdout, "\n" MMT_FIX_HEADER_FMT_STR "  ", "", "");
+										fprintf(stdout, "%02X ", m.MFU_data_bytes[i]);
+									}
+									fprintf(stdout, "\n");
 								}
-								fprintf(stdout, "\n");
 							}
 						}
 

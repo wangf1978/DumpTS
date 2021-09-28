@@ -51,6 +51,7 @@
     <None Include="..\linux\Makefile">
       <Filter>build\linux</Filter>
     </None>
+    <None Include="..\..\MMT_Readme.md" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">
