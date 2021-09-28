@@ -888,7 +888,7 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 
 		if (bMPUStartPoint)
 		{
-			auto& MPU_time_tree = ptr_MPU_tm_trees->find(CID_pkt_id);
+			auto MPU_time_tree = ptr_MPU_tm_trees->find(CID_pkt_id);
 			if (MPU_time_tree == ptr_MPU_tm_trees->end())
 			{
 				printf("Failed to find MPU time descriptor for the asset with CID:0x%04X and pkt_id: 0x%04X.\n",
