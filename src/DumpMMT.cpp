@@ -869,7 +869,7 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 	data_info.MPU_sequence_number = pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number;
 
 	// Check MPU sequence number is changed or not
-	if (asset_type == 'hev1' || asset_type == 'hvc1')
+	if (asset_type == 'hev1' || asset_type == 'hvc1' || asset_type == 'mp4a')
 	{
 		bool bMPUStartPoint = false;
 		uint32_t CID_pkt_id = (pHeaderCompressedIPPacket->Context_id << 16) | pHeaderCompressedIPPacket->MMTP_Packet->Packet_id;
@@ -878,7 +878,7 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 		{
 			if (std::get<0>(iterCIDPktMPUSeqNo->second) != pHeaderCompressedIPPacket->MMTP_Packet->ptr_MPU->MPU_sequence_number)
 			{
-				if (!pHeaderCompressedIPPacket->MMTP_Packet->RAP_flag)
+				if (!pHeaderCompressedIPPacket->MMTP_Packet->RAP_flag && (asset_type == 'hev1' || asset_type == 'hvc1'))
 					printf("Unexpected case! the video signal MPU sequence is changed, but RAP_flag is NOT 1.\n");
 				bMPUStartPoint = true;
 			}
