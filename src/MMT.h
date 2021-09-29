@@ -1370,7 +1370,7 @@ namespace MMT
 			return false;
 		}
 
-		uint16_t GetPacketID()
+		uint16_t GetPacketID() const
 		{
 			return location_type == 0 ? packet_id : (location_type == 1 ? MMTP_IPv4.packet_id : (location_type == 2 ? MMTP_IPv6.packet_id : 0));
 		}
@@ -1558,7 +1558,205 @@ namespace MMT
 			}
 
 		}
-	}PACKED;
+	};
+
+	struct AccessControlDescriptor : public MMTSIDescriptor
+	{
+		uint16_t			CA_system_ID;
+		MMTGeneralLocationInfo
+							MMT_general_location_info;
+		std::vector<uint8_t>
+							private_data;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			uint64_t desc_start_bit_pos = bs.Tell(&left_bits);
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			CA_system_ID = bs.GetWord();
+			iRet = MMT_general_location_info.Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t desc_end_bit_pos = bs.Tell(&left_bits);
+			uint32_t cbPrivateData = 0;
+			assert((desc_end_bit_pos - desc_start_bit_pos) % 8 == 0);
+			if (descriptor_length > (desc_end_bit_pos - desc_start_bit_pos)>>3)
+				cbPrivateData = (uint32_t)(descriptor_length - ((desc_end_bit_pos - desc_start_bit_pos)>>3));
+
+			if (cbPrivateData > 0 && left_bits >= (cbPrivateData<<3))
+			{
+				private_data.resize(cbPrivateData);
+				bs.Read(&private_data[0], cbPrivateData);
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "CA_system_ID", CA_system_ID, CA_system_ID);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": \n", szIndent, "loc_info");
+			MMT_general_location_info.Print(fp, indent + 4);
+			if (private_data.size() > 0)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR "(size: %zu): \n", szIndent, "private_data", private_data.size());
+				print_mem(&private_data[0], (int)private_data.size(), indent + 4);
+			}
+		}
+	};
+
+	struct ScrambleDescriptor : public MMTSIDescriptor
+	{
+		uint8_t				layer_type : 2;
+		uint8_t				reserved : 6;
+		uint8_t				scramble_system_id;
+		std::vector<uint8_t>
+							private_data;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			uint64_t desc_start_bit_pos = bs.Tell(&left_bits);
+			if (left_bits < 16ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			layer_type = (uint8_t)bs.GetBits(2);
+			reserved = (uint8_t)bs.GetBits(6);
+			scramble_system_id = bs.GetByte();
+
+			uint64_t desc_end_bit_pos = bs.Tell(&left_bits);
+			uint32_t cbPrivateData = 0;
+			assert((desc_end_bit_pos - desc_start_bit_pos) % 8 == 0);
+			if (descriptor_length > (desc_end_bit_pos - desc_start_bit_pos) >> 3)
+				cbPrivateData = (uint32_t)(descriptor_length - ((desc_end_bit_pos - desc_start_bit_pos) >> 3));
+
+			if (cbPrivateData > 0 && left_bits >= (cbPrivateData << 3))
+			{
+				private_data.resize(cbPrivateData);
+				bs.Read(&private_data[0], cbPrivateData);
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u - %s\n", szIndent, "layer_type", layer_type, 
+				layer_type==1?"MMTP packet is the object":(layer_type == 2?"IP packet is the object":""));
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u - %s\n", szIndent, "scramble_system_id", scramble_system_id, 
+				scramble_system_id==1?"AES with a key length of 128 bits":(scramble_system_id == 2?"Camellia with a key length of 128 bits":"Unknown"));
+			if (private_data.size() > 0)
+			{
+				fprintf(out, MMT_FIX_HEADER_FMT_STR "(size: %zu): \n", szIndent, "private_data", private_data.size());
+				print_mem(&private_data[0], (int)private_data.size(), indent + 4);
+			}
+		}
+
+	};
+
+	struct MessageAuthenticationMethodDescriptor : public MMTSIDescriptor
+	{
+
+	} PACKED;
+
+	struct MHCAStartupDescriptor : public MMTSIDescriptor
+	{
+
+	} PACKED;
+
+	struct MHCAServiceDescriptor : public MMTSIDescriptor
+	{
+		uint16_t				CA_system_ID;
+		uint8_t					ca_broadcaster_group_id;
+		uint8_t					message_control;
+		std::vector<uint16_t>	service_ids;
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = MMTSIDescriptor::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			uint64_t desc_start_bit_pos = bs.Tell(&left_bits);
+			if (left_bits < 32ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			CA_system_ID = bs.GetWord();
+			ca_broadcaster_group_id = bs.GetByte();
+			message_control = bs.GetByte();
+
+			uint64_t desc_end_bit_pos = bs.Tell(&left_bits);
+			uint32_t countServiceIDs = 0;
+			if (descriptor_length > (desc_end_bit_pos - desc_start_bit_pos) >> 3)
+				countServiceIDs = (uint32_t)(descriptor_length - ((desc_end_bit_pos - desc_start_bit_pos + 7) >> 3)) >> 1;
+
+			if (countServiceIDs > 0 && left_bits >= (countServiceIDs << 4))
+			{
+				service_ids.reserve(countServiceIDs);
+				for (uint32_t i = 0; i < countServiceIDs; i++)
+					service_ids.push_back(bs.GetWord());
+			}
+
+			SkipLeftBits(bs);
+			return RET_CODE_SUCCESS;
+		}
+
+		void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			MMTSIDescriptor::Print(fp, indent);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0x%X)\n", szIndent, "CA_system_ID", CA_system_ID, CA_system_ID);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0x%X)\n", szIndent, "ca_broadcaster_group_id", ca_broadcaster_group_id, ca_broadcaster_group_id);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0x%X)\n", szIndent, "message_control", message_control, message_control);
+
+			char service_id_name[32] = { 0 };
+			for (size_t i=0;i<service_ids.size();i++)
+			{
+				MBCSPRINTF_S(service_id_name, sizeof(service_id_name), "service_id[%zu]", i);
+				fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0x%X)\n", szIndent, service_id_name, service_ids[i], service_ids[i]);
+			}
+		}
+	};
 
 	struct Table
 	{
@@ -1963,6 +2161,7 @@ namespace MMT
 			uint32_t				asset_type;
 			uint8_t					reserved : 7;
 			uint8_t					asset_clock_relation_flag : 1;
+
 			uint8_t					location_count;
 			std::vector<MMTGeneralLocationInfo>
 									MMT_general_location_infos;
@@ -2290,6 +2489,60 @@ namespace MMT
 
 	};
 
+	struct CATable : public Table
+	{
+		std::vector< MMTSIDescriptor*>
+								descriptors;
+
+		virtual ~CATable()
+		{
+			for (auto& v : descriptors)
+				if (v != nullptr)
+					delete v;
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = Table::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+
+			while (left_bits >= 24)
+			{
+				uint16_t descriptor_tag = (uint16_t)bs.PeekBits(16);
+				MMTSIDescriptor* pDesc = nullptr;
+				switch (descriptor_tag)
+				{
+				case 0x8004:	// Access control Descriptor
+					pDesc = new AccessControlDescriptor();
+					break;
+				case 0x8005:	// Scramble system Descriptor
+					pDesc = new ScrambleDescriptor();
+					break;
+				case 0x8042:	// MH-CA service Descriptor
+					pDesc = new MHCAServiceDescriptor();
+					break;
+				default:
+					pDesc = new UnimplMMTSIDescriptor();
+				}
+
+				iRet = pDesc->Unpack(bs);
+				if (iRet < 0)
+					break;
+
+				descriptors.push_back(pDesc);
+
+				bs.Tell(&left_bits);
+			}
+
+			SkipLeftBits(bs);
+			return iRet;
+		}
+	};
+
 	struct Message
 	{
 		uint64_t				start_bitpos;
@@ -2536,6 +2789,69 @@ namespace MMT
 
 				v->Print(fp, indent + 4);
 			}
+		}
+	};
+
+	struct CAMessage : public Message
+	{
+		Table*		table;
+
+		CAMessage(uint32_t cbPayload = 0) : Message(cbPayload), table(nullptr){
+		}
+
+		virtual ~CAMessage() {
+			if (table)
+				delete table;
+		}
+
+		// Always assume the table information bitstream is complete
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = Message::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+
+			if (left_bits >= 32ULL)
+			{
+				uint32_t peek_dword = (uint32_t)bs.PeekBits(32);
+				uint8_t peek_table_id = (peek_dword >> 24) & 0xFF;
+				uint16_t peek_table_length = (uint16_t)(peek_dword & 0xFFFF);
+
+				if (left_bits < ((uint64_t)peek_table_length + 4ULL) << 3)
+					goto done;
+
+				if (peek_table_id == 0x86)	// CAT (MH) Table
+					table = new CATable();
+				else
+					table = new UnsupportedTable();
+
+				if ((iRet = table->Unpack(bs)) < 0)
+					goto done;
+			}
+
+		done:
+			SkipLeftBits(bs);
+			return iRet;
+		}
+
+		virtual void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			Message::Print(fp, indent);
+			if (table)
+				table->Print(fp, indent + 4);
+			return;
 		}
 	};
 
