@@ -20,6 +20,7 @@ using namespace std;
 #define DUMP_DTV_SIT						(1<<7)
 #define DUMP_PMT							(1<<8)
 #define DUMP_PAT							(1<<9)
+#define DUMP_CAT							(1<<10)
 
 // For Program Stream
 #define DUMP_VOB							(1<<7)

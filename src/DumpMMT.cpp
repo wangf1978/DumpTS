@@ -48,8 +48,9 @@ enum SHOW_TLV_PACK_OPTION
 bool NeedShowMMTTable()
 {
 	return (g_params.find("showinfo") != g_params.end() ||
-			g_params.find("showPLT") != g_params.end() ||
-			g_params.find("showMPT") != g_params.end());
+			g_params.find("showPLT")  != g_params.end() ||
+			g_params.find("showMPT")  != g_params.end() ||
+			g_params.find("showCAT")  != g_params.end());
 }
 
 bool NeedShowMMTTLVPacket()
@@ -57,7 +58,7 @@ bool NeedShowMMTTLVPacket()
 	return (g_params.find("showIPv4pack") != g_params.end() ||
 			g_params.find("showIPv6pack") != g_params.end() ||
 			g_params.find("showHCIPpack") != g_params.end() ||
-			g_params.find("showTCSpack") != g_params.end());
+			g_params.find("showTCSpack")  != g_params.end());
 }
 
 void PrintMPUTMTrees(MPUTMTrees& MPU_tm_trees, bool bFull = false)
@@ -543,14 +544,14 @@ int ProcessCAMessage(
 	if (CAMsg.table == nullptr)
 		return iRet;
 
+	bool bCATChanged = false;
 	if (CAMsg.table->table_id == 0x86)
 	{
 		if (iter->second.size() == 0)
 		{
 			iter->second.push_back((MMT::CATable*)CAMsg.table);
 			CAMsg.table = nullptr;
-			if (pbChange)
-				*pbChange = true;
+			bCATChanged = true;
 		}
 		else
 		{
@@ -559,8 +560,23 @@ int ProcessCAMessage(
 			{
 				iter->second.push_back((MMT::CATable*)CAMsg.table);
 				CAMsg.table = nullptr;
-				if (pbChange)
-					*pbChange = true;
+				bCATChanged = true;
+			}
+		}
+
+		if (pbChange)
+			*pbChange = bCATChanged;
+
+		if (bCATChanged)
+		{
+			if (dumpOptions&(DUMP_CAT | DUMP_MEDIA_INFO_VIEW))
+			{
+				printf("Found a new CAT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+
+				if (dumpOptions&DUMP_CAT)
+				{
+					iter->second.back()->Print(stdout, 4);
+				}
 			}
 		}
 	}
@@ -1067,6 +1083,11 @@ int ShowMMTPackageInfo()
 	if (g_params.find("showPLT") != g_params.end())
 	{
 		dumpopt |= DUMP_PLT;
+	}
+
+	if (g_params.find("showCAT") != g_params.end())
+	{
+		dumpopt |= DUMP_CAT;
 	}
 
 	const char* sp;
@@ -2427,8 +2448,9 @@ int DumpMMT()
 			// No output file is specified
 			// Check whether pid and showinfo is there
 			if (g_params.find("showinfo") != g_params.end() ||
-				g_params.find("showPLT") != g_params.end() ||
-				g_params.find("showMPT") != g_params.end())
+				g_params.find("showPLT")  != g_params.end() ||
+				g_params.find("showMPT")  != g_params.end() ||
+				g_params.find("showCAT")  != g_params.end())
 			{
 				ShowMMTPackageInfo();
 				goto done;

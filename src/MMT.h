@@ -2541,6 +2541,25 @@ namespace MMT
 			SkipLeftBits(bs);
 			return iRet;
 		}
+
+		virtual void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			Table::Print(fp, indent);
+
+			for (auto& d : descriptors)
+			{
+				d->Print(fp, indent + 4);
+			}
+		}
 	};
 
 	struct Message

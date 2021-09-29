@@ -138,6 +138,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPLT",
 		"showPMT",
 		"showMPT",
+		"showCAT",
 		"showDU",		// show the DU in the MMTP payload
 		"listMMTPpacket",
 		"listMMTPpayload",
@@ -210,7 +211,8 @@ void ParseCommandLine(int argc, char* argv[])
 					iter->first.compare("showPMT") == 0 ||
 					iter->first.compare("showMPT") == 0 ||
 					iter->first.compare("showPAT") == 0 ||
-					iter->first.compare("showPLT") == 0)
+					iter->first.compare("showPLT") == 0 ||
+					iter->first.compare("showCAT") == 0)
 					printf("%s : yes\n", iter->first.c_str());
 				else
 					printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
@@ -584,6 +586,7 @@ void PrintHelp()
 	printf("\t--showPAT\t\tPrint the PAT information in TS stream\n");
 	printf("\t--showMPT\t\tPrint the MPT information in MMT/TLV stream\n");
 	printf("\t--showPLT\t\tPrint the PLT information in MMT/TLV stream\n");
+	printf("\t--showCAT\t\tPrint the CAT information in MMT/TLV stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
