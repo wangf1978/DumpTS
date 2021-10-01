@@ -62,6 +62,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--sub_stream_id**|*0xhh*|the sub_stream_id in the private data of pack of dumped stream|
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--MPUseqno**|*xxxx*|the MPU sequence number of MMT stream|
+|**--PKTseqno**|*xxxx*|the packet sequence number of MMT stream|
 |**--MFU**|N/A|Dumping the each MFU as a saparate file, filename will be {MPUseqno}_xxxx.{assert_type}|
 |**--removebox**|*xxxx*|remove the box elements in MP4 file|
 |**--boxtype**|*xxxx*|**For ISOBMFF/mp4 source:**<BR>the box type FOURCC, i.e. --boxtype=stsd<BR>**For Matroska/mkv source:**<BR>the EBML ID, i.e. --boxtype=0x1A45DFA3|

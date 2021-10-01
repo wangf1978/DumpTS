@@ -1453,6 +1453,7 @@ int ShowMMTPackageInfo()
 
 					const char* sztab = plt != nullptr ? "\t\t\t" : "\t\t";
 
+					printf("%s--------------------------------------------------------------------------------\n", sztab);
 					printf("%s#%05" PRIu32 " MPT (MMT Package Table), Package_id: 0X%" PRIX64 "(%" PRIu64 "), %s:\n", 
 						sztab, (uint32_t)j, mpt->MMT_package_id, mpt->MMT_package_id, szLocInfo.c_str());
 					for (size_t k = 0; k < mpt->assets.size(); k++)

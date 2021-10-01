@@ -940,6 +940,110 @@ DumpTS 29999.mmts --CID=1 --pid=0xF100 --showpts
 #42        , MPU/packet sequence number: 0x003BDFBB/0xE8010814, Trailing, pts: 0x1BDFD466B(7482459755), dts: 0x1BDFD408D(7482458253).
 #43        , MPU/packet sequence number: 0x003BDFBB/0xE801081E, Trailing, pts: 0x1BDFD5802(7482464258), dts: 0x1BDFD466A(7482459754).
 ```
+## Show the MFU data
+The option 'showDU' can be used to print the MFU data units
+```
+DumpTS 00001.mmts --CID=1 --pid=0xF300 --showDU
+packet_sequence_number: 0x056E5D32, packet_id: 0xF300, MPU sequence number: 0x000E1D69:
+    DataUnit#0(MFseqno: 0X00000000, sample_number: 0x00000000, offset: 0x00000000, priority: 0x00, DC: 0x00):
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  00  00  00  03  46  01  10                                       | ....F..
+
+    DataUnit#1(MFseqno: 0X00000000, sample_number: 0x00000000, offset: 0x00000000, priority: 0x00, DC: 0x00):
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  00  00  00  1B  40  01  0C  06    FF  FF  02  20  00  00  03  00 | ....@...... ....
+     000010  B0  00  00  03  00  00  03  00    99  00  00  18  82  40  90     | .............@.
+
+    DataUnit#2(MFseqno: 0X00000000, sample_number: 0x00000000, offset: 0x00000000, priority: 0x00, DC: 0x00):
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  00  00  00  63  42  01  06  02    20  00  00  03  00  B0  00  00 | ...cB... .......
+     000010  03  00  00  03  00  99  00  00    A0  01  E0  20  02  1C  4D  8D | ........... ..M.
+     000020  18  82  64  90  A5  94  E0  28    42  43  82  6D  94  00  00  0F | ..d....(BC.m....
+     000030  A4  00  03  A9  82  00  FA  70    02  F7  BF  00  00  13  12  D0 | .......p........
+     000040  00  00  13  17  B2  F0  00  01    31  2D  00  00  03  01  31  7B | ........1-....1{
+     000050  2F  00  00  13  12  D0  00  00    13  17  B2  F0  00  01  31  2D | /.............1-
+     000060  00  00  03  01  31  7B  29                                       | ....1{)
+
+    DataUnit#3(MFseqno: 0X00000000, sample_number: 0x00000000, offset: 0x00000000, priority: 0x00, DC: 0x00):
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  00  00  01  06  44  01  C0  76    F0  2C  20  14  87  30  41  C2 | ....D..v., ..0A.
+     000010  18  52  14  84  34  98  CE  38    60  D0  55  02  71  42  01  88 | .R..4..8`.U.qB..
+     000020  63  08  71  98  C8  42  10  C9    8A  E2  B0  E4  1D  14  21  FF | c.q..B........!.
+     000030  FF  E9  AD  A4  EA  EB  A7  AA    B9  12  6C  84  94  52  63  23 | ..........l..Rc#
+     000040  21  0F  FA  69  A4  D5  A3  15    26  C8  62  C9  2C  8A  43  1C | !..i....&.b.,.C.
+     000050  B1  04  11  12  51  C2  8C  71    61  61  D1  E0  90  50  B0  5D | ....Q..qaa...P.]
+     000060  06  C5  08  7F  FF  FA  FD  7F    FE  BE  BC  9C  D8  88  A8  43 | ...............C
+     000070  FE  BD  7C  9F  88  FE  BF  37    C5  78  43  86  B0  45  05  10 | ..|....7.xC..E..
+     000080  87  FD  35  A2  93  90  48  8F    10  11  08  7C  22  12  F9  BE | ..5...H....|"...
+     000090  2B  C2  1C  35  82  28  28  84    3F  FF  FE  9A  DA  4E  AE  BA | +..5.((.?....N..
+     0000A0  7A  AB  91  26  C8  49  45  26    32  32  10  FF  D3  4D  26  AD | z..&.IE&22...M&.
+     0000B0  18  A9  36  43  16  49  64  52    18  E5  88  20  88  92  8E  14 | ..6C.IdR... ....
+     0000C0  63  8B  0B  0E  8F  04  82  85    82  E8  36  28  43  FF  FF  EB | c.........6(C...
+     0000D0  F5  FF  FA  FA  F2  73  62  22    A1  0F  FD  7A  F9  3F  11  FD | .....sb"...z.?..
+     0000E0  7E  6F  8A  F0  87  0D  60  8A    0A  0A  10  FF  FF  FA  6B  69 | ~o....`.......ki
+     0000F0  3A  BA  E9  EA  AE  44  9B  21    25  14  98  C8  C8  43  FF  FF | :....D.!%....C..
+     000100  EB  F5  FF  FA  FA  F2  73  62    22  92                         | ......sb".
+......
+```
+
+You can see the HEVC video stream NAL unit with length header is print.
+
+If you want to only show the data unit of one packet, you may specify option PKTseqno, for example:
+
+```
+DumpTS 00001.mmts --CID=1 --pid=0xF310 --PKTseqno=0x1BD50E63 --showDU
+packet_sequence_number: 0x1BD50E63, packet_id: 0xF310, MPU sequence number: 0x00575F67:
+    DataUnit#0(MFseqno: 0X00000000, sample_number: 0x00000000, offset: 0x00000000, priority: 0x00, DC: 0x00):
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  20  00  11  90  0D  48  0F  FF    FC  F9  08  D4  A5  6F  E8  A1 |  ....H.......o..
+     000010  28  51  CF  93  BE  07  07  F1    AB  35  E7  51  E6  46  73  89 | (Q.......5.Q.Fs.
+     000020  C7  0E  A8  E4  3D  49  C5  A7    3A  9B  E7  E7  78  D2  A0  F2 | ....=I..:...x...
+     000030  EE  D6  ED  AE  FE  22  B9  E4    B5  C4  9D  49  EB  A9  EB  11 | .....".....I....
+     000040  13  93  26  59  C9  F7  2E  CB    D3  F5  66  4F  5F  7B  46  6D | ..&Y......fO_{Fm
+     000050  D0  91  A5  21  31  3A  63  08    CA  9A  26  DB  13  28  22  D3 | ...!1:c...&..(".
+     000060  13  65  06  71  E0  49  D3  2D    C8  F8  3B  F8  A5  92  DA  1E | .e.q.I.-..;.....
+     000070  41  90  17  A6  97  1D  67  37    93  08  A6  50  28  5F  D0  62 | A.....g7...P(_.b
+     000080  53  A2  18  90  3C  A3  6A  ED    7F  DE  C3  B3  9B  3D  11  FA | S...<.j......=..
+     000090  CE  E6  48  DA  83  ED  FA  98    96  68  1B  0A  D2  2B  B2  75 | ..H......h...+.u
+     0000A0  1D  CB  1A  B2  45  73  CE  C5    A9  83  94  DA  8E  F2  A9  10 | ....Es..........
+     0000B0  0B  37  3B  36  DD  39  36  0C    0A  28  79  AF  B0  F2  3F  18 | .7;6.96..(y...?.
+     0000C0  4A  02  A4  B1  2C  35  F0  95    DD  66  1F  2F  6A  FC  D8  6C | J...,5...f./j..l
+     0000D0  F0  3C  1B  A8  EB  E5  2B  B0    5A  0C  67  F9  94  39  37  77 | .<....+.Z.g..97w
+     0000E0  B5  65  51  6B  CD  13  37  5C    19  6B  6D  89  FE  5A  98  7E | .eQk..7\.km..Z.~
+     0000F0  57  01  FB  A2  1D  8D  D7  FA    1F  06  0C  8B  FA  1F  6B  E7 | W.............k.
+     000100  CE  61  C8  22  EA  4F  62  E9    05  AB  30  7A  8B  9C  71  7E | .a.".Ob...0z..q~
+     000110  BB  7F  EB  79  05  73  8A  79    BE  9C  FC  EF  AD  4D  6E  35 | ...y.s.y.....Mn5
+     000120  F5  8D  00  BC  71  4B  B0  C8    D3  DC  AC  05  47  55  39  8B | ....qK......GU9.
+     000130  6E  4B  14  62  C8  A6  D7  FA    CF  CA  30  60  92  18  3F  F2 | nK.b......0`..?.
+     000140  F6  2B  28  88  C3  16  9C  BF    E4  BA  DC  A4  8A  2C  33  4A | .+(..........,3J
+     000150  38  0E  66  6F  25  9B  E1  29    21  53  4D  44  D8  38  50  D4 | 8.fo%..)!SMD.8P.
+     000160  A5  EA  B6  E1  61  55  4E  75    DC  A3  AC  F3  04  71  9A  E9 | ....aUNu.....q..
+     000170  D8  43  B6  E1  9C  78  ED  3C    DF  89  E2  5F  80  71  34  70 | .C...x.<..._.q4p
+     000180  C7  26  E5  74  2C  BE  2D  B1    64  A2  F4  D6  25  8B  68  CA | .&.t,.-.d...%.h.
+     000190  63  DC  9F  83  B5  D3  76  53    FD  1B  B3  31  E1  3A  82  94 | c.....vS...1.:..
+     0001A0  70  7A  4D  F3  54  38  96  2A    00  4C  75  90  89  08  5C  9D | pzM.T8.*.Lu...\.
+     0001B0  12  AD  81  D6  FC  EB  19  61    56  51  EE  43  69  1F  FC  6A | .......aVQ.Ci..j
+     0001C0  E5  8F  FD  A3  FC  EC  F1  36    61  DE  8B  E2  9F  3D  98  FB | .......6a....=..
+     0001D0  58  6B  B4  25  5A  F5  44  C0    F9  CD  84  A7  FB  4B  EE  9A | Xk.%Z.D......K..
+     0001E0  4A  B1  07  76  5F  02  F5  4E    56  06  93  0C  C9  6A  EF  DD | J..v_..NV....j..
+     0001F0  8F  9F  38  C7  3F  2E  71  00    B8  0F  AC  62  B0  00  80  07 | ..8.?.q....b....
+     000200  BC  C0  1C  AA  01  87  00  DF    1E  21  4B  4B  4B  4B  4B  4B | .........!KKKKKK
+     000210  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000220  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000230  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000240  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000250  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000260  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000270  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000280  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     000290  4B  4B  4B  4B  4B  4B  4B  4B    4B  4B  4B  4B  4B  4B  4B  4B | KKKKKKKKKKKKKKKK
+     0002A0  4B  4B  4B  4B  4B  4B  F8                                       | KKKKKK.
+```
 
 
 
