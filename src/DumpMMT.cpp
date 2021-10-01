@@ -1045,10 +1045,6 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 			}
 		}
 	}
-	else if (asset_type == 'mp4a')
-	{
-
-	}
 
 	return pESRepacker->Process(pMFUData, cbMFUData, &data_info);
 }
@@ -2027,7 +2023,10 @@ int DumpMMTOneStream()
 								dstESFmt = ES_BYTE_STREAM_HEVC_ANNEXB;
 							}
 							else if (asset_type[i] == 'mp4a')
+							{
 								config.codec_id = CODEC_ID_A_MPEG4_AAC;
+								dstESFmt = ES_BYTE_LOAS_AudioSyncStream;
+							}
 							else if (asset_type[i] == 'stpp')
 								config.codec_id = CODEC_ID_MMT_ASSET_STPP;
 							else if (asset_type[i] == 'aapp')
@@ -2057,6 +2056,8 @@ int DumpMMTOneStream()
 
 							if (config.codec_id == CODEC_ID_V_MPEGH_HEVC || config.codec_id == CODEC_ID_V_MPEG4_AVC)
 								pESRepacker[i] = new CNALRepacker(ES_BYTE_STREAM_NALUNIT_WITH_LEN, dstESFmt);
+							else if(config.codec_id == CODEC_ID_A_MPEG4_AAC)
+								pESRepacker[i] = new CMPEG4AACLOASRepacker(ES_BYTE_LATM_AudioMuxElement, dstESFmt);
 							else
 								pESRepacker[i] = new CESRepacker(ES_BYTE_STREAM_RAW, dstESFmt);
 

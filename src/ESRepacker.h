@@ -57,6 +57,22 @@ enum ES_BYTE_STREAM_FORMAT
 	ES_BYTE_STREAM_HEVC_ANNEXB,			// (Leading_zero_8bits) + (zero_byte) + start_code_prefix_one_3bytes + nal_unit + (trailing_zero_8bits)
 	ES_BYTE_STREAM_ISO_NALAU_SAMPLE,	// NALUnitLength + nal_unit + NALUnitLength + .....
 	ES_BYTE_STREAM_NALUNIT_WITH_LEN,	// NALUnitLength + nal_unit
+
+	ES_BYTE_LOAS_AudioSyncStream = 0x100,
+										// consists of a syncword, the multiplexed element with byte alignment, and its length information.
+										// The maximum byte-distance between two syncwords is 8192 bytes. This self-synchronized stream shall be used
+										// for the case that the underlying transmission layer comes without any frame synchronization
+	ES_BYTE_LOAS_EPAudioSyncStream,		// For error prone channels, an alternative version to AudioSyncStream() is provided. This format has the same basic
+										// functionality as the previously described AudioSyncStream(). However, it additionally provides a longer syncword
+										// and a frame counter to detect lost frames. The length information and the frame counter are additionally protected
+										// by a FEC code
+
+	ES_BYTE_LOAS_AudioPointerStream,	// shall be used for applications using an underlying transmission layer with fixed frame
+										// synchronization, where transmission framing cannot be synchronized with the variable length multiplexed element.
+										// Figure 1.4 shows synchronization in AudioPointerStream(). This format utilizes a pointer indicating the start of the
+										// next multiplex element in order to synchronize the variable length payload with the constant transmission frame
+	ES_BYTE_LATM_AudioMuxElement,
+	ES_BYTE_LATM_EPMuxElement,
 };
 
 enum ES_SEEK_POINT_TYPE
@@ -194,5 +210,22 @@ protected:
 	AMLinearRingBuffer		m_lrb_NAL;
 
 	int						m_current_au_idx;
+};
+
+class CMPEG4AACLOASRepacker : public CESRepacker
+{
+public:
+	CMPEG4AACLOASRepacker(ES_BYTE_STREAM_FORMAT srcESFmt, ES_BYTE_STREAM_FORMAT dstESFmt);
+	~CMPEG4AACLOASRepacker();
+
+	virtual int Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info = NULL);
+
+	// Method
+protected:
+	int WriteLATMToLOASDstFile(uint8_t* pBuf, int cbSize);
+
+	// Data
+protected:
+	AMLinearRingBuffer		m_lrb_input;
 };
 

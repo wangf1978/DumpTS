@@ -368,6 +368,23 @@ int CESRepacker::SetAUStartPointCallback(CB_AU_STARTPOINT cb_au_startpoint, void
 
 int CESRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info)
 {
+	if (m_dstESFmt == ES_BYTE_STREAM_RAW)
+	{
+		if (m_fpDst != nullptr)
+		{
+			if (cbSize <= 0)
+				return RET_CODE_INVALID_PARAMETER;
+
+			if (fwrite(pBuf, 1, (size_t)cbSize, m_fpDst) != (size_t)cbSize)
+			{
+				printf("[ESRepacker] Failed to write %d bytes into the output file.\n", cbSize);
+				return RET_CODE_ERROR;
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+	}
+
 	return RET_CODE_ERROR_NOTIMPL;
 }
 
@@ -642,7 +659,7 @@ int CNALRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* da
 		return RET_CODE_SUCCESS;
 	}
 
-	return RET_CODE_ERROR_NOTIMPL;
+	return CESRepacker::Process(pBuf, cbSize, data_info);
 }
 
 int CNALRepacker::Flush()
@@ -701,5 +718,149 @@ int CNALRepacker::Close()
 	}
 
 	return CESRepacker::Close();
+}
+
+CMPEG4AACLOASRepacker::CMPEG4AACLOASRepacker(ES_BYTE_STREAM_FORMAT srcESFmt, ES_BYTE_STREAM_FORMAT dstESFmt)
+	: CESRepacker(srcESFmt, dstESFmt)
+	, m_lrb_input(nullptr)
+{
+}
+
+CMPEG4AACLOASRepacker::~CMPEG4AACLOASRepacker()
+{
+	if (m_lrb_input != nullptr)
+	{
+		AM_LRB_Destroy(m_lrb_input);
+		m_lrb_input = nullptr;
+	}
+}
+
+int CMPEG4AACLOASRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info)
+{
+	int iRet = RET_CODE_SUCCESS;
+
+	if (m_lrb_input == nullptr)
+		m_lrb_input = AM_LRB_Create(1024 * 1024);
+
+	if (m_srcESFmt == ES_BYTE_LATM_AudioMuxElement &&
+		m_dstESFmt == ES_BYTE_LOAS_AudioSyncStream)
+	{
+		// As for transmission of audio signal of LATM/LOAS stream format, AudioMuxElement () that 
+		// synchronization byte and length information are removed from AudioSyncStream() is
+		// transmitted as MFU. In the receiver, it is output to audio decoder as AudioSyncStream() that 
+		// synchronization byte and length information are added to AudioMuxElement() which is 
+		// involved in the received MFU.
+		int nLATMBufLen = 0;
+		uint8_t* pLATMBuf = AM_LRB_GetReadPtr(m_lrb_input, &nLATMBufLen);
+		if (data_info->indicator == FRAG_INDICATOR_COMPLETE || data_info->indicator == FRAG_INDICATOR_FIRST)
+		{
+			// Flush the previous buffer
+			if (pLATMBuf != nullptr && nLATMBufLen > 0)
+			{
+				if ((iRet = WriteLATMToLOASDstFile(pLATMBuf, nLATMBufLen)) < 0)
+				{
+					AM_LRB_Reset(m_lrb_input);
+					return iRet;
+				}
+
+				AM_LRB_Reset(m_lrb_input);
+			}
+		}
+
+		if ((data_info->indicator == FRAG_INDICATOR_MIDDLE || data_info->indicator == FRAG_INDICATOR_LAST) && (pLATMBuf == nullptr || nLATMBufLen <= 0))
+		{
+			// the NAL unit data is sent in the middle, ignore it.
+			return RET_CODE_BUFFER_NOT_COMPATIBLE;
+		}
+
+		if (data_info->indicator == FRAG_INDICATOR_COMPLETE)
+		{
+			return WriteLATMToLOASDstFile(pBuf, cbSize);
+		}
+
+		pLATMBuf = AM_LRB_GetReadPtr(m_lrb_input, &nLATMBufLen);
+		if (nLATMBufLen <= 0 || pLATMBuf == nullptr || nLATMBufLen < cbSize)
+		{
+			// Try to reform and enlarge the buffer.
+			AM_LRB_Reform(m_lrb_input);
+			pLATMBuf = AM_LRB_GetWritePtr(m_lrb_input, &nLATMBufLen);
+			if (nLATMBufLen == 0 || pLATMBuf == nullptr || nLATMBufLen < cbSize)
+			{
+				// Enlarge the ring buffer size
+				int nCurSize = AM_LRB_GetSize(m_lrb_input);
+				if (nCurSize == INT32_MAX || nCurSize + cbSize > INT32_MAX)
+				{
+					printf("The input audio buffer is too huge, can't be supported now.\n");
+					return RET_CODE_OUTOFMEMORY;
+				}
+
+				if (nCurSize + cbSize >= INT32_MAX / 2)
+					nCurSize = INT32_MAX;
+				else
+					nCurSize += cbSize;
+
+				printf("Try to resize the linear ring buffer size to %d bytes.\n", nCurSize);
+				if ((iRet = AM_LRB_Resize(m_lrb_input, nCurSize)) < 0)
+					return iRet;
+
+				pLATMBuf = AM_LRB_GetWritePtr(m_lrb_input, &nLATMBufLen);
+				if (nLATMBufLen == 0 || pLATMBuf == nullptr)
+					return RET_CODE_OUTOFMEMORY;
+			}
+		}
+
+		memcpy(pLATMBuf, pBuf, cbSize);
+		AM_LRB_SkipWritePtr(m_lrb_input, cbSize);
+
+		if (data_info->indicator == FRAG_INDICATOR_LAST)
+		{
+			pLATMBuf = AM_LRB_GetReadPtr(m_lrb_input, &nLATMBufLen);
+			if (pLATMBuf != nullptr && nLATMBufLen > 0)
+			{
+				if ((iRet = WriteLATMToLOASDstFile(pLATMBuf, nLATMBufLen)) < 0)
+				{
+					AM_LRB_Reset(m_lrb_input);
+					return iRet;
+				}
+
+				AM_LRB_Reset(m_lrb_input);
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	return CESRepacker::Process(pBuf, cbSize, data_info);
+}
+
+int CMPEG4AACLOASRepacker::WriteLATMToLOASDstFile(uint8_t* pBuf, int cbSize)
+{
+	uint8_t sync_header[4] = { 0 };
+
+	if (pBuf == nullptr || cbSize <= 0)
+		return RET_CODE_IGNORE_REQUEST;
+
+	sync_header[0] = 0x56;
+	sync_header[1] = ((cbSize >> 8) & 0x1F) | 0xE0;
+	sync_header[2] = cbSize & 0xFF;
+
+	if (m_fpDst != NULL)
+	{
+		if (fwrite(sync_header, 1, 3, m_fpDst) != 3)
+		{
+			printf("Failed to write data into the destination file.\n");
+			return RET_CODE_ERROR;
+		}
+
+		if (fwrite(pBuf, 1, (size_t)cbSize, m_fpDst) != (size_t)cbSize)
+		{
+			printf("Failed to write data into the destination file.\n");
+			return RET_CODE_ERROR;
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	return RET_CODE_IGNORE_REQUEST;
 }
 
