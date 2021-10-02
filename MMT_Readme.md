@@ -148,7 +148,15 @@ Dump the HEVC stream with CID and packet_id are equal to 0x0001 and 0xF1000 sepa
 ```
 ffmpeg -i 29999.hevc -pix_fmt yuv420p -f null /dev/null
 ```
-
+MP4A in MMT use ISO-14496-3 LATM payload, in order to be played or imported by third-party module, when dumping to raw data, it is expected to be re-packed as LOAS stream
+```
+DumpTS 00001.mmts --CID=1 --pid=0xF310 --output=00001_loas.mp4a
+```
+After dumping it, you can use ffmpeg to verify the output
+```
+ffmpeg -i 00001_loas.mp4a -acodec pcm_s16le -ac 2 audio.wav
+```
+The output .wav file can be played well expectedly.
 ## List the MPUs and the presentation time
 
 List all MPU entries for the stream with the specified CID and packet_id
@@ -156,27 +164,27 @@ List all MPU entries for the stream with the specified CID and packet_id
 ```
 DumpTS 29999.mmts --CID=1 --pid=0xF100 --listMPUtime
 0, CID: 0x0001(    1), packet_id: 0xF100(61696):
-      0, MPU(SeqNo: 0x3BDFBA(3923898), presentation_time: 3763428926.080452s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0x00000000
-      1, MPU(SeqNo: 0x3BDFBB(3923899), presentation_time: 3763428926.614311s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE80103EC
-      2, MPU(SeqNo: 0x3BDFBC(3923900), presentation_time: 3763428927.148182s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE80108D5
-      3, MPU(SeqNo: 0x3BDFBD(3923901), presentation_time: 3763428927.682049s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8010E5B
-      4, MPU(SeqNo: 0x3BDFBE(3923902), presentation_time: 3763428928.215909s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8011358
-      5, MPU(SeqNo: 0x3BDFBF(3923903), presentation_time: 3763428928.749780s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE801170C
-      6, MPU(SeqNo: 0x3BDFC0(3923904), presentation_time: 3763428929.283646s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8011B3C
-      7, MPU(SeqNo: 0x3BDFC1(3923905), presentation_time: 3763428929.817517s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8011FC1
-      8, MPU(SeqNo: 0x3BDFC2(3923906), presentation_time: 3763428930.351377s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8012471
-      9, MPU(SeqNo: 0x3BDFC3(3923907), presentation_time: 3763428930.885247s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8012950
-     10, MPU(SeqNo: 0x3BDFC4(3923908), presentation_time: 3763428931.419118s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8012E47
-     11, MPU(SeqNo: 0x3BDFC5(3923909), presentation_time: 3763428931.952980s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8013445
-     12, MPU(SeqNo: 0x3BDFC6(3923910), presentation_time: 3763428932.486844s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE80138F9
-     13, MPU(SeqNo: 0x3BDFC7(3923911), presentation_time: 3763428933.020715s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8013D07
-     14, MPU(SeqNo: 0x3BDFC8(3923912), presentation_time: 3763428933.554585s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8014180
-     15, MPU(SeqNo: 0x3BDFC9(3923913), presentation_time: 3763428934.088443s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE80146A2
-     16, MPU(SeqNo: 0x3BDFCA(3923914), presentation_time: 3763428934.622312s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8014B92
-     17, MPU(SeqNo: 0x3BDFCB(3923915), presentation_time: 3763428935.156176s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE801509A
-     18, MPU(SeqNo: 0x3BDFCC(3923916), presentation_time: 3763428935.690042s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8015652
-     19, MPU(SeqNo: 0x3BDFCD(3923917), presentation_time: 3763428936.223909s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8015B27
-     20, MPU(SeqNo: 0x3BDFCE(3923918), presentation_time: 3763428936.757780s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE8015E5B
+      0, MPU(SeqNo: 0x3BDFBA(3923898), presentation_time: 3763428926.080452s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0x00000000
+      1, MPU(SeqNo: 0x3BDFBB(3923899), presentation_time: 3763428926.614311s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE80103EC
+      2, MPU(SeqNo: 0x3BDFBC(3923900), presentation_time: 3763428927.148182s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE80108D5
+      3, MPU(SeqNo: 0x3BDFBD(3923901), presentation_time: 3763428927.682049s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8010E5B
+      4, MPU(SeqNo: 0x3BDFBE(3923902), presentation_time: 3763428928.215909s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8011358
+      5, MPU(SeqNo: 0x3BDFBF(3923903), presentation_time: 3763428928.749780s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE801170C
+      6, MPU(SeqNo: 0x3BDFC0(3923904), presentation_time: 3763428929.283646s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8011B3C
+      7, MPU(SeqNo: 0x3BDFC1(3923905), presentation_time: 3763428929.817517s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8011FC1
+      8, MPU(SeqNo: 0x3BDFC2(3923906), presentation_time: 3763428930.351377s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8012471
+      9, MPU(SeqNo: 0x3BDFC3(3923907), presentation_time: 3763428930.885247s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8012950
+     10, MPU(SeqNo: 0x3BDFC4(3923908), presentation_time: 3763428931.419118s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8012E47
+     11, MPU(SeqNo: 0x3BDFC5(3923909), presentation_time: 3763428931.952980s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8013445
+     12, MPU(SeqNo: 0x3BDFC6(3923910), presentation_time: 3763428932.486844s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE80138F9
+     13, MPU(SeqNo: 0x3BDFC7(3923911), presentation_time: 3763428933.020715s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8013D07
+     14, MPU(SeqNo: 0x3BDFC8(3923912), presentation_time: 3763428933.554585s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8014180
+     15, MPU(SeqNo: 0x3BDFC9(3923913), presentation_time: 3763428934.088443s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE80146A2
+     16, MPU(SeqNo: 0x3BDFCA(3923914), presentation_time: 3763428934.622312s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8014B92
+     17, MPU(SeqNo: 0x3BDFCB(3923915), presentation_time: 3763428935.156176s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE801509A
+     18, MPU(SeqNo: 0x3BDFCC(3923916), presentation_time: 3763428935.690042s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8015652
+     19, MPU(SeqNo: 0x3BDFCD(3923917), presentation_time: 3763428936.223909s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8015B27
+     20, MPU(SeqNo: 0x3BDFCE(3923918), presentation_time: 3763428936.757780s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE8015E5B
 ```
 
 If you want to show the au time information and pts/dts, give the option 'listMPUtime' to 'full':
@@ -410,9 +418,9 @@ From the command options 'listMPUtime', get the every MPU start packet sequence 
 ```
 DumpTS 29999.mmts --CID=1 --pid=0xF100 --listMPUtime --start=0x3BE023 --end=0x3BE026
 0, CID: 0x0001(    1), packet_id: 0xF100(61696):
-      0, MPU(SeqNo: 0x3BE023(3924003), presentation_time: 3763428982.136444s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE802FFA6
-      1, MPU(SeqNo: 0x3BE024(3924004), presentation_time: 3763428982.670314s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE80304BC
-      2, MPU(SeqNo: 0x3BE025(3924005), presentation_time: 3763428983.204182s, timescale: 180,000HZ, decoding_time_offset:  9010), start_pkt_seqno: 0xE80309D6
+      0, MPU(SeqNo: 0x3BE023(3924003), presentation_time: 3763428982.136444s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE802FFA6
+      1, MPU(SeqNo: 0x3BE024(3924004), presentation_time: 3763428982.670314s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE80304BC
+      2, MPU(SeqNo: 0x3BE025(3924005), presentation_time: 3763428983.204182s, timescale: 180,000HZ, decoding_time_offset: 9010), start_pkt_seqno: 0xE80309D6
 ```
 
 If want to dump the elementary stream of MPU#3924003 and 3924004, get the start packet_sequence_number(0xE802FFA6) and its end packet_sequence_number(0xE80309D6)
@@ -468,25 +476,25 @@ List all MMTP packets in one MPU which sequence number is 3924003.
 ```
 DumpTS 29999.mmts --listMMTPpayload
 ......
- PKTSeqNo:0xE80103E2,   MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103E3,   MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103E4,   MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103E5,   MFU, tf: 1,   Tail, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:   929, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103E6,   MFU, tf: 1,  1+ DU, aggr: 1, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:    21, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
-                                                                                    Len:   280, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
-                                                                                    Len:    26, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103E7,   MFU, tf: 1, Header, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103E8,   MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103E9,   MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103EA,   MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103EB,   MFU, tf: 1,   Tail, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1045, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
-*PKTSeqNo:0xE80103EC,   MFU, tf: 1,  1+ DU, aggr: 1, Fc: 000, MPUSeqNo: 0x003BDFBB, Len:    21, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
-                                                                                    Len:    45, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
-                                                                                    Len:   113, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
-                                                                                    Len:   280, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
-                                                                                    Len:    37, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103ED,   MFU, tf: 1, Header, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBB, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
- PKTSeqNo:0xE80103EE,   MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBB, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E2, MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E3, MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E4, MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E5, MFU, tf: 1,   Tail, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:   929, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E6, MFU, tf: 1,  1+ DU, aggr: 1, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:    21, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+                                                                                  Len:   280, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+                                                                                  Len:    26, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E7, MFU, tf: 1, Header, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E8, MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103E9, MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103EA, MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103EB, MFU, tf: 1,   Tail, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBA, Len:  1045, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+*PKTSeqNo:0xE80103EC, MFU, tf: 1,  1+ DU, aggr: 1, Fc: 000, MPUSeqNo: 0x003BDFBB, Len:    21, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+                                                                                  Len:    45, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+                                                                                  Len:   113, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+                                                                                  Len:   280, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+                                                                                  Len:    37, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103ED, MFU, tf: 1, Header, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBB, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
+ PKTSeqNo:0xE80103EE, MFU, tf: 1, Middle, aggr: 0, Fc: 000, MPUSeqNo: 0x003BDFBB, Len:  1414, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
  ......
 ```
 
@@ -895,50 +903,50 @@ section_syntax_indicator: 1
 
 ```
 DumpTS 29999.mmts --CID=1 --pid=0xF100 --showpts
-#0         , MPU/packet sequence number: 0x003BDFBA/0xE80101AC, Trailing, pts: N/A                    , dts: N/A                    .
-#1         , MPU/packet sequence number: 0x003BDFBA/0xE80101BB, Trailing, pts: N/A                    , dts: N/A                    .
-#2         , MPU/packet sequence number: 0x003BDFBA/0xE80101C4, Trailing, pts: N/A                    , dts: N/A                    .
-#3         , MPU/packet sequence number: 0x003BDFBA/0xE80101CC, Trailing, pts: N/A                    , dts: N/A                    .
-#4         , MPU/packet sequence number: 0x003BDFBA/0xE80101D2, Trailing, pts: N/A                    , dts: N/A                    .
-#5         , MPU/packet sequence number: 0x003BDFBA/0xE80101D7, Trailing, pts: N/A                    , dts: N/A                    .
-#6         , MPU/packet sequence number: 0x003BDFBA/0xE80101DC, Trailing, pts: N/A                    , dts: N/A                    .
-#7         , MPU/packet sequence number: 0x003BDFBA/0xE8010284, Trailing, pts: N/A                    , dts: N/A                    .
-#8         , MPU/packet sequence number: 0x003BDFBA/0xE80102F9, Trailing, pts: N/A                    , dts: N/A                    .
-#9         , MPU/packet sequence number: 0x003BDFBA/0xE8010307, Trailing, pts: N/A                    , dts: N/A                    .
-#10        , MPU/packet sequence number: 0x003BDFBA/0xE801030C, Trailing, pts: N/A                    , dts: N/A                    .
-#11        , MPU/packet sequence number: 0x003BDFBA/0xE801031C, Trailing, pts: N/A                    , dts: N/A                    .
-#12        , MPU/packet sequence number: 0x003BDFBA/0xE801032B, Trailing, pts: N/A                    , dts: N/A                    .
-#13        , MPU/packet sequence number: 0x003BDFBA/0xE8010336, Trailing, pts: N/A                    , dts: N/A                    .
-#14        , MPU/packet sequence number: 0x003BDFBA/0xE8010346, Trailing, pts: N/A                    , dts: N/A                    .
-#15        , MPU/packet sequence number: 0x003BDFBA/0xE8010388, Trailing, pts: N/A                    , dts: N/A                    .
-#16        , MPU/packet sequence number: 0x003BDFBA/0xE80103AF, Trailing, pts: N/A                    , dts: N/A                    .
-#17        , MPU/packet sequence number: 0x003BDFBA/0xE80103BB, Trailing, pts: N/A                    , dts: N/A                    .
-#18        , MPU/packet sequence number: 0x003BDFBA/0xE80103C6, Trailing, pts: N/A                    , dts: N/A                    .
-#19        , MPU/packet sequence number: 0x003BDFBA/0xE80103D0, Trailing, pts: N/A                    , dts: N/A                    .
-#20        , MPU/packet sequence number: 0x003BDFBA/0xE80103D8, Trailing, pts: N/A                    , dts: N/A                    .
-#21        , MPU/packet sequence number: 0x003BDFBA/0xE80103E6, Trailing, pts: N/A                    , dts: N/A                    .
-#22        , MPU/packet sequence number: 0x003BDFBB/0xE80103EC, CRA     , pts: 0x1BDFD05E6(7482443238), dts: 0x1BDFCCB3F(7482428223).
-#23        , MPU/packet sequence number: 0x003BDFBB/0xE80105C8, Leading , pts: 0x1BDFCEE6F(7482437231), dts: 0x1BDFCD11C(7482429724).
-#24        , MPU/packet sequence number: 0x003BDFBB/0xE80105D8, Leading , pts: 0x1BDFCE2B5(7482434229), dts: 0x1BDFCD6FA(7482431226).
-#25        , MPU/packet sequence number: 0x003BDFBB/0xE80105E3, Leading , pts: 0x1BDFCDCD7(7482432727), dts: 0x1BDFCDCD7(7482432727).
-#26        , MPU/packet sequence number: 0x003BDFBB/0xE80105EA, Leading , pts: 0x1BDFCE893(7482435731), dts: 0x1BDFCE2B5(7482434229).
-#27        , MPU/packet sequence number: 0x003BDFBB/0xE80105F1, Leading , pts: 0x1BDFCFA2A(7482440234), dts: 0x1BDFCE892(7482435730).
-#28        , MPU/packet sequence number: 0x003BDFBB/0xE80105F7, Leading , pts: 0x1BDFCF44E(7482438734), dts: 0x1BDFCEE70(7482437232).
-#29        , MPU/packet sequence number: 0x003BDFBB/0xE80105FC, Leading , pts: 0x1BDFD0008(7482441736), dts: 0x1BDFCF44D(7482438733).
-#30        , MPU/packet sequence number: 0x003BDFBB/0xE8010602, Trailing, pts: 0x1BDFD34D2(7482455250), dts: 0x1BDFCFA2B(7482440235).
-#31        , MPU/packet sequence number: 0x003BDFBB/0xE8010695, Trailing, pts: 0x1BDFD1D5B(7482449243), dts: 0x1BDFD0008(7482441736).
-#32        , MPU/packet sequence number: 0x003BDFBB/0xE80106AE, Trailing, pts: 0x1BDFD11A1(7482446241), dts: 0x1BDFD05E6(7482443238).
-#33        , MPU/packet sequence number: 0x003BDFBB/0xE80106B5, Trailing, pts: 0x1BDFD0BC3(7482444739), dts: 0x1BDFD0BC3(7482444739).
-#34        , MPU/packet sequence number: 0x003BDFBB/0xE80106BC, Trailing, pts: 0x1BDFD177F(7482447743), dts: 0x1BDFD11A1(7482446241).
-#35        , MPU/packet sequence number: 0x003BDFBB/0xE80106C1, Trailing, pts: 0x1BDFD2916(7482452246), dts: 0x1BDFD177E(7482447742).
-#36        , MPU/packet sequence number: 0x003BDFBB/0xE80106CD, Trailing, pts: 0x1BDFD233A(7482450746), dts: 0x1BDFD1D5C(7482449244).
-#37        , MPU/packet sequence number: 0x003BDFBB/0xE80106D3, Trailing, pts: 0x1BDFD2EF4(7482453748), dts: 0x1BDFD2339(7482450745).
-#38        , MPU/packet sequence number: 0x003BDFBB/0xE80106DB, Trailing, pts: 0x1BDFD63BE(7482467262), dts: 0x1BDFD2917(7482452247).
-#39        , MPU/packet sequence number: 0x003BDFBB/0xE8010789, Trailing, pts: 0x1BDFD4C47(7482461255), dts: 0x1BDFD2EF4(7482453748).
-#40        , MPU/packet sequence number: 0x003BDFBB/0xE80107F3, Trailing, pts: 0x1BDFD408D(7482458253), dts: 0x1BDFD34D2(7482455250).
-#41        , MPU/packet sequence number: 0x003BDFBB/0xE8010804, Trailing, pts: 0x1BDFD3AAF(7482456751), dts: 0x1BDFD3AAF(7482456751).
-#42        , MPU/packet sequence number: 0x003BDFBB/0xE8010814, Trailing, pts: 0x1BDFD466B(7482459755), dts: 0x1BDFD408D(7482458253).
-#43        , MPU/packet sequence number: 0x003BDFBB/0xE801081E, Trailing, pts: 0x1BDFD5802(7482464258), dts: 0x1BDFD466A(7482459754).
+#0 , MPU/packet sequence number: 0x003BDFBA/0xE80101AC, Trailing, pts: N/A                    , dts: N/A                    .
+#1 , MPU/packet sequence number: 0x003BDFBA/0xE80101BB, Trailing, pts: N/A                    , dts: N/A                    .
+#2 , MPU/packet sequence number: 0x003BDFBA/0xE80101C4, Trailing, pts: N/A                    , dts: N/A                    .
+#3 , MPU/packet sequence number: 0x003BDFBA/0xE80101CC, Trailing, pts: N/A                    , dts: N/A                    .
+#4 , MPU/packet sequence number: 0x003BDFBA/0xE80101D2, Trailing, pts: N/A                    , dts: N/A                    .
+#5 , MPU/packet sequence number: 0x003BDFBA/0xE80101D7, Trailing, pts: N/A                    , dts: N/A                    .
+#6 , MPU/packet sequence number: 0x003BDFBA/0xE80101DC, Trailing, pts: N/A                    , dts: N/A                    .
+#7 , MPU/packet sequence number: 0x003BDFBA/0xE8010284, Trailing, pts: N/A                    , dts: N/A                    .
+#8 , MPU/packet sequence number: 0x003BDFBA/0xE80102F9, Trailing, pts: N/A                    , dts: N/A                    .
+#9 , MPU/packet sequence number: 0x003BDFBA/0xE8010307, Trailing, pts: N/A                    , dts: N/A                    .
+#10, MPU/packet sequence number: 0x003BDFBA/0xE801030C, Trailing, pts: N/A                    , dts: N/A                    .
+#11, MPU/packet sequence number: 0x003BDFBA/0xE801031C, Trailing, pts: N/A                    , dts: N/A                    .
+#12, MPU/packet sequence number: 0x003BDFBA/0xE801032B, Trailing, pts: N/A                    , dts: N/A                    .
+#13, MPU/packet sequence number: 0x003BDFBA/0xE8010336, Trailing, pts: N/A                    , dts: N/A                    .
+#14, MPU/packet sequence number: 0x003BDFBA/0xE8010346, Trailing, pts: N/A                    , dts: N/A                    .
+#15, MPU/packet sequence number: 0x003BDFBA/0xE8010388, Trailing, pts: N/A                    , dts: N/A                    .
+#16, MPU/packet sequence number: 0x003BDFBA/0xE80103AF, Trailing, pts: N/A                    , dts: N/A                    .
+#17, MPU/packet sequence number: 0x003BDFBA/0xE80103BB, Trailing, pts: N/A                    , dts: N/A                    .
+#18, MPU/packet sequence number: 0x003BDFBA/0xE80103C6, Trailing, pts: N/A                    , dts: N/A                    .
+#19, MPU/packet sequence number: 0x003BDFBA/0xE80103D0, Trailing, pts: N/A                    , dts: N/A                    .
+#20, MPU/packet sequence number: 0x003BDFBA/0xE80103D8, Trailing, pts: N/A                    , dts: N/A                    .
+#21, MPU/packet sequence number: 0x003BDFBA/0xE80103E6, Trailing, pts: N/A                    , dts: N/A                    .
+#22, MPU/packet sequence number: 0x003BDFBB/0xE80103EC, CRA     , pts: 0x1BDFD05E6(7482443238), dts: 0x1BDFCCB3F(7482428223).
+#23, MPU/packet sequence number: 0x003BDFBB/0xE80105C8, Leading , pts: 0x1BDFCEE6F(7482437231), dts: 0x1BDFCD11C(7482429724).
+#24, MPU/packet sequence number: 0x003BDFBB/0xE80105D8, Leading , pts: 0x1BDFCE2B5(7482434229), dts: 0x1BDFCD6FA(7482431226).
+#25, MPU/packet sequence number: 0x003BDFBB/0xE80105E3, Leading , pts: 0x1BDFCDCD7(7482432727), dts: 0x1BDFCDCD7(7482432727).
+#26, MPU/packet sequence number: 0x003BDFBB/0xE80105EA, Leading , pts: 0x1BDFCE893(7482435731), dts: 0x1BDFCE2B5(7482434229).
+#27, MPU/packet sequence number: 0x003BDFBB/0xE80105F1, Leading , pts: 0x1BDFCFA2A(7482440234), dts: 0x1BDFCE892(7482435730).
+#28, MPU/packet sequence number: 0x003BDFBB/0xE80105F7, Leading , pts: 0x1BDFCF44E(7482438734), dts: 0x1BDFCEE70(7482437232).
+#29, MPU/packet sequence number: 0x003BDFBB/0xE80105FC, Leading , pts: 0x1BDFD0008(7482441736), dts: 0x1BDFCF44D(7482438733).
+#30, MPU/packet sequence number: 0x003BDFBB/0xE8010602, Trailing, pts: 0x1BDFD34D2(7482455250), dts: 0x1BDFCFA2B(7482440235).
+#31, MPU/packet sequence number: 0x003BDFBB/0xE8010695, Trailing, pts: 0x1BDFD1D5B(7482449243), dts: 0x1BDFD0008(7482441736).
+#32, MPU/packet sequence number: 0x003BDFBB/0xE80106AE, Trailing, pts: 0x1BDFD11A1(7482446241), dts: 0x1BDFD05E6(7482443238).
+#33, MPU/packet sequence number: 0x003BDFBB/0xE80106B5, Trailing, pts: 0x1BDFD0BC3(7482444739), dts: 0x1BDFD0BC3(7482444739).
+#34, MPU/packet sequence number: 0x003BDFBB/0xE80106BC, Trailing, pts: 0x1BDFD177F(7482447743), dts: 0x1BDFD11A1(7482446241).
+#35, MPU/packet sequence number: 0x003BDFBB/0xE80106C1, Trailing, pts: 0x1BDFD2916(7482452246), dts: 0x1BDFD177E(7482447742).
+#36, MPU/packet sequence number: 0x003BDFBB/0xE80106CD, Trailing, pts: 0x1BDFD233A(7482450746), dts: 0x1BDFD1D5C(7482449244).
+#37, MPU/packet sequence number: 0x003BDFBB/0xE80106D3, Trailing, pts: 0x1BDFD2EF4(7482453748), dts: 0x1BDFD2339(7482450745).
+#38, MPU/packet sequence number: 0x003BDFBB/0xE80106DB, Trailing, pts: 0x1BDFD63BE(7482467262), dts: 0x1BDFD2917(7482452247).
+#39, MPU/packet sequence number: 0x003BDFBB/0xE8010789, Trailing, pts: 0x1BDFD4C47(7482461255), dts: 0x1BDFD2EF4(7482453748).
+#40, MPU/packet sequence number: 0x003BDFBB/0xE80107F3, Trailing, pts: 0x1BDFD408D(7482458253), dts: 0x1BDFD34D2(7482455250).
+#41, MPU/packet sequence number: 0x003BDFBB/0xE8010804, Trailing, pts: 0x1BDFD3AAF(7482456751), dts: 0x1BDFD3AAF(7482456751).
+#42, MPU/packet sequence number: 0x003BDFBB/0xE8010814, Trailing, pts: 0x1BDFD466B(7482459755), dts: 0x1BDFD408D(7482458253).
+#43, MPU/packet sequence number: 0x003BDFBB/0xE801081E, Trailing, pts: 0x1BDFD5802(7482464258), dts: 0x1BDFD466A(7482459754).
 ```
 ## Show the MFU data
 The option 'showDU' can be used to print the MFU data units
