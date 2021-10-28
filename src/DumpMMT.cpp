@@ -12,8 +12,6 @@ extern int g_verbose_level;
 #define DEFAULT_TLV_PACKETS_PER_DISPLAY 20
 int g_TLV_packets_per_display = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 
-std::vector<uint16_t> g_empty_uint16_vector;
-
 using MPUSeqTM = std::tuple<uint32_t/*mpu_sequence_number*/,
 							IP::NTPv4Data::NTPTimestampFormat/*mpu_presentation_time*/,
 							uint32_t/*timescale*/,
@@ -182,8 +180,9 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 
 	auto iterStart = g_params.find("start");
 	auto iterEnd = g_params.find("end");
+	auto iterPKTSeqNo = g_params.find("PKTseqno");
 
-	int64_t nStart = -1LL, nEnd = INT64_MAX, iVal = -1LL;
+	int64_t nStart = -1LL, nEnd = INT64_MAX, filter_PKTSeqNumber = -1LL, iVal = -1LL;
 	if (iterStart != g_params.end())
 	{
 		iVal = ConvertToLongLong(iterStart->second);
@@ -198,8 +197,14 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 			nEnd = (uint32_t)iVal;
 	}
 
+	if (iterPKTSeqNo != g_params.end())
+	{
+		if (ConvertToInt(iterPKTSeqNo->second, iVal) && iVal >= 0 && iVal <= UINT32_MAX)
+			filter_PKTSeqNumber = iVal;
+	}
+
 	bool bFilterMMTPpacket = false;
-	if (nStart >= 0 || nEnd < INT64_MAX)
+	if (nStart >= 0 || nEnd < INT64_MAX || filter_PKTSeqNumber >= 0)
 		bFilterMMTPpacket = true;
 
 	CFileBitstream bs(szInputFile.c_str(), 4096, &nRet);
@@ -293,7 +298,8 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 			{
 				if (bFilterMMTPpacket == false || (bFilterMMTPpacket == true && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet &&
 					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number >= nStart &&
-					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number < nEnd))
+					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number < nEnd &&
+					(filter_PKTSeqNumber < 0 || filter_PKTSeqNumber == ((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number)))
 				{
 					pTLVPacket->Print();
 					bFiltered = true;
@@ -593,7 +599,7 @@ int ProcessPAMessage(
 	int cbMsgBuf, 
 	bool* pbChange=nullptr, 
 	int dumpOptions = 0, 
-	const std::vector<uint16_t>& filter_packets_ids = g_empty_uint16_vector,
+	const std::vector<uint16_t>* filter_packets_ids = nullptr,
 	MPUTMTrees* ptr_MPU_tm_trees = NULL)
 {
 	if (cbMsgBuf <= 0)
@@ -816,14 +822,14 @@ int ProcessPAMessage(
 				{
 					// Check whether the current packet_id should be selected or not
 					bool bPacketIDFiltered = false;
-					if (filter_packets_ids.size() == 0)
+					if (filter_packets_ids == nullptr || filter_packets_ids->size() == 0)
 						bPacketIDFiltered = true;
 
 					auto& a = pMPT->assets[k];
 					for (auto& info : a->MMT_general_location_infos)
 					{
 						if (bPacketIDFiltered == false &&
-							std::find(filter_packets_ids.cbegin(), filter_packets_ids.cend(), info.packet_id) != filter_packets_ids.cend())
+							std::find(filter_packets_ids->cbegin(), filter_packets_ids->cend(), info.packet_id) != filter_packets_ids->cend())
 							bPacketIDFiltered = true;
 					}
 
@@ -1372,7 +1378,7 @@ int ShowMMTPackageInfo()
 								}
 							}
 
-							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), nullptr, dumpopt, fitler_packet_ids);
+							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), nullptr, dumpopt, &fitler_packet_ids);
 
 							fullPAMessage.clear();
 						}
@@ -1381,7 +1387,7 @@ int ShowMMTPackageInfo()
 							for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
 							{
 								auto& v = std::get<1>(m);
-								ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), nullptr, dumpopt, fitler_packet_ids);
+								ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), nullptr, dumpopt, &fitler_packet_ids);
 							}
 						}
 					}
@@ -2239,7 +2245,7 @@ int DumpMMTOneStream()
 								bool bChanged = false;
 								if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
 									&fullPAMessage[0], (int)fullPAMessage.size(), &bChanged,
-									dumpOptions, g_empty_uint16_vector, &MPU_tm_trees) == 0 && bChanged)
+									dumpOptions, nullptr, &MPU_tm_trees) == 0 && bChanged)
 								{
 									for (int i = 0; i <= PIDN; i++)
 									{
@@ -2265,7 +2271,7 @@ int DumpMMTOneStream()
 									auto& v = std::get<1>(m);
 									if (ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
 										&v[0], (int)v.size(), &bChanged,
-										dumpOptions, g_empty_uint16_vector, &MPU_tm_trees) == 0 && bChanged)
+										dumpOptions, nullptr, &MPU_tm_trees) == 0 && bChanged)
 									{
 										for (int i = 0; i <= PIDN; i++)
 										{
