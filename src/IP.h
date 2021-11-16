@@ -2,7 +2,6 @@
 
 #include <stdint.h>
 #include "Bitstream.h"
-#include "combase.h"
 #include "DataUtil.h"
 #include <algorithm>
 #include <list>
@@ -115,6 +114,10 @@ namespace IP
 			double GetValue() const {
 				return Seconds + (double)Fraction / 0x10000L;
 			}
+
+			bool IsUnknown() {
+				return Seconds == 0 && Fraction == 0;
+			}
 		}PACKED;
 
 		/*
@@ -136,6 +139,10 @@ namespace IP
 				Seconds = bs.GetDWord();
 				Fraction = bs.GetDWord();
 				return RET_CODE_SUCCESS;
+			}
+
+			bool IsUnknown() {
+				return Seconds == 0 && Fraction == 0;
 			}
 
 			double GetValue() const {
@@ -356,13 +363,13 @@ namespace IP
 				isprint((reference_identification)       & 0xFF) ? (reference_identification      ) & 0xFF : '.', reference_identification);
 
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "reference_timestamp", reference_timestamp.GetValue(),
-				DateTimeStr(reference_timestamp.Seconds, 1900, reference_timestamp.Fraction).c_str());
+				reference_timestamp.IsUnknown()?"":DateTimeStr(reference_timestamp.Seconds, 1900, reference_timestamp.Fraction).c_str());
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "origin_timestamp", origin_timestamp.GetValue(),
-				DateTimeStr(origin_timestamp.Seconds, 1900, origin_timestamp.Fraction).c_str());
+				origin_timestamp.IsUnknown() ? "" : DateTimeStr(origin_timestamp.Seconds, 1900, origin_timestamp.Fraction).c_str());
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "receive_timestamp", receive_timestamp.GetValue(),
-				DateTimeStr(receive_timestamp.Seconds, 1900, receive_timestamp.Fraction).c_str());
+				receive_timestamp.IsUnknown() ? "" : DateTimeStr(receive_timestamp.Seconds, 1900, receive_timestamp.Fraction).c_str());
 			fprintf(out, IP_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "transmit_timestamp", transmit_timestamp.GetValue(),
-				DateTimeStr(transmit_timestamp.Seconds, 1900, transmit_timestamp.Fraction).c_str());
+				transmit_timestamp.IsUnknown() ? "" : DateTimeStr(transmit_timestamp.Seconds, 1900, transmit_timestamp.Fraction).c_str());
 		}
 
 	}PACKED;
@@ -1408,7 +1415,7 @@ namespace IP
 			Destination Options Header
 			The Destination Options header is used to specify packet delivery 
 			parameters for either intermediate destinations or the final destination. 
-			This header is identified by the value of 60 in the previous header’s Next Header field. 
+			This header is identified by the value of 60 in the previous header's Next Header field. 
 			The Destination Options header has the same structure as the Hop-by-Hop Options header
 			*/
 			using Destination_Options_Header = Hop_by_Hop_Options_Header;
@@ -1489,7 +1496,7 @@ namespace IP
 			(assurance that captured packets cannot be retransmitted and accepted as valid data) for the IPv6 packet,
 			including the fields in the IPv6 header that do not change in transit across an IPv6 internetwork.
 			The Authentication header, described in RFC 4302, is part of the security architecture for IP, as defined in RFC 4301.
-			The Authentication header is identified by the value of 51 in the previous header’s Next Header field
+			The Authentication header is identified by the value of 51 in the previous header's Next Header field
 			*/
 			struct Authentication_Header
 			{
@@ -1598,7 +1605,7 @@ namespace IP
 				bs.Read(Source_address.address_bytes, 16);
 				bs.Read(Destination_address.address_bytes, 16);
 
-				left_bits -= (40ULL << 3);
+				left_bits -= ((compressed?38ULL:40ULL) << 3);
 				//uint64_t left_payload_bits = ((uint64_t)Payload_length) << 3;
 
 				bool bExtHeaderFinished = false;
@@ -1700,8 +1707,18 @@ namespace IP
 					std::get<1>(IPv6_protocol_descs[Next_header]), std::get<2>(IPv6_protocol_descs[Next_header]));
 				fprintf(out, IP_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Hop limit", Hop_limit);
 				
-				fprintf(out, IP_FIX_HEADER_FMT_STR ": %s\n", szIndent, "Source address", Source_address.GetIP().c_str());
-				fprintf(out, IP_FIX_HEADER_FMT_STR ": %s\n", szIndent, "Dest address", Destination_address.GetIP().c_str());
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": [%02X %02X %02X %02X %02X %02X %02X %02X - %02X %02X %02X %02X %02X %02X %02X %02X] %s\n", szIndent, "Source address", 
+					Source_address.address_bytes[0], Source_address.address_bytes[1], Source_address.address_bytes[2], Source_address.address_bytes[3],
+					Source_address.address_bytes[4], Source_address.address_bytes[5], Source_address.address_bytes[6], Source_address.address_bytes[7],
+					Source_address.address_bytes[8], Source_address.address_bytes[9], Source_address.address_bytes[10], Source_address.address_bytes[11],
+					Source_address.address_bytes[12], Source_address.address_bytes[13], Source_address.address_bytes[14], Source_address.address_bytes[15],
+					Source_address.GetIP().c_str());
+				fprintf(out, IP_FIX_HEADER_FMT_STR ": [%02X %02X %02X %02X %02X %02X %02X %02X - %02X %02X %02X %02X %02X %02X %02X %02X] %s\n", szIndent, "Dest address", 
+					Destination_address.address_bytes[0], Destination_address.address_bytes[1], Destination_address.address_bytes[2], Destination_address.address_bytes[3],
+					Destination_address.address_bytes[4], Destination_address.address_bytes[5], Destination_address.address_bytes[6], Destination_address.address_bytes[7],
+					Destination_address.address_bytes[8], Destination_address.address_bytes[9], Destination_address.address_bytes[10], Destination_address.address_bytes[11],
+					Destination_address.address_bytes[12], Destination_address.address_bytes[13], Destination_address.address_bytes[14], Destination_address.address_bytes[15],
+					Destination_address.GetIP().c_str());
 			}
 
 		}PACKED;

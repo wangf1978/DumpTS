@@ -617,7 +617,7 @@ namespace MMT
 				IP::NTPv4Data::NTPTimestampFormat& present_timestamp = std::get<1>(MPU_sequence_present_timestamps[i]);
 				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "(0X%" PRIX32 ")\n", szIndent, "mpu_sequence_number", seq_no, seq_no);
 				fprintf(out, "    " MMT_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "mpu_presentation_time",
-					present_timestamp.GetValue(), DateTimeStr(present_timestamp.Seconds, 1900, present_timestamp.Fraction).c_str());
+					present_timestamp.GetValue(), present_timestamp.IsUnknown()?"":DateTimeStr(present_timestamp.Seconds, 1900, present_timestamp.Fraction).c_str());
 			}
 		}
 
@@ -1113,7 +1113,7 @@ namespace MMT
 				{
 					fprintf(out, MMT_FIX_HEADER_FMT_STR ": " NTPTIME_FMT_STR "s, %s\n", szIndent, "reference_start_time",
 						arib_subtitle_info->reference_start_time.GetValue(),
-						DateTimeStr(arib_subtitle_info->reference_start_time.Seconds, 1900, arib_subtitle_info->reference_start_time.Fraction).c_str());
+						arib_subtitle_info->reference_start_time.IsUnknown()?"":DateTimeStr(arib_subtitle_info->reference_start_time.Seconds, 1900, arib_subtitle_info->reference_start_time.Fraction).c_str());
 					fprintf(out, MMT_FIX_HEADER_FMT_STR ": %u(0X%X)\n", szIndent, "reference_start_time_leap_indicator", arib_subtitle_info->reference_start_time_leap_indicator, arib_subtitle_info->reference_start_time_leap_indicator);
 				}
 			}
@@ -3732,7 +3732,7 @@ namespace MMT
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": 0X%0" PRIX32 "(%" PRIu32 ")\n", szIndent, "Packet_id", Packet_id, Packet_id);
 
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %s(" NTPSHORTTIME_FMT_STR "s)\n", szIndent, "Delivery_timestamp", 
-				DateTimeStr(Delivery_timestamp.Seconds, 1900, Delivery_timestamp.Fraction).c_str(),
+				Delivery_timestamp.IsUnknown()?"":DateTimeStr(Delivery_timestamp.Seconds, 1900, Delivery_timestamp.Fraction).c_str(),
 				Delivery_timestamp.GetValue());
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu32 "\n", szIndent, "Pkt_sequence_number", Packet_sequence_number);
 
@@ -3838,7 +3838,7 @@ namespace MMT
 			if (ccWrittenOnce > 0)
 			{
 				ccWrittenOnce = MBCSPRINTF_S(szLog + ccWritten, ccLog - ccWritten, ", timestamp:%s", 
-					DateTimeStr(Delivery_timestamp.Seconds, 1900, Delivery_timestamp.Fraction).c_str());
+					Delivery_timestamp.IsUnknown()?"":DateTimeStr(Delivery_timestamp.Seconds, 1900, Delivery_timestamp.Fraction).c_str());
 
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
