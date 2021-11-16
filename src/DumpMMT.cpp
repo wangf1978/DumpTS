@@ -181,8 +181,9 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 	auto iterStart = g_params.find("start");
 	auto iterEnd = g_params.find("end");
 	auto iterPKTSeqNo = g_params.find("PKTseqno");
+	auto iterPKTId = g_params.find("pid");
 
-	int64_t nStart = -1LL, nEnd = INT64_MAX, filter_PKTSeqNumber = -1LL, iVal = -1LL;
+	int64_t nStart = -1LL, nEnd = INT64_MAX, filter_PKTSeqNumber = -1LL, iVal = -1LL, filter_packet_id = -1LL;
 	if (iterStart != g_params.end())
 	{
 		iVal = ConvertToLongLong(iterStart->second);
@@ -201,6 +202,12 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 	{
 		if (ConvertToInt(iterPKTSeqNo->second, iVal) && iVal >= 0 && iVal <= UINT32_MAX)
 			filter_PKTSeqNumber = iVal;
+	}
+
+	if (iterPKTId != g_params.end())
+	{
+		if (ConvertToInt(iterPKTId->second, iVal) && iVal >= 0 && iVal <= UINT16_MAX)
+			filter_packet_id = iVal;
 	}
 
 	bool bFilterMMTPpacket = false;
@@ -297,12 +304,19 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 				(option == SHOW_TLV_TCS  && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Transmission_control_signal_packet))
 			{
 				if (bFilterMMTPpacket == false || (bFilterMMTPpacket == true && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet &&
+					((filter_PKTSeqNumber < 0 &&
 					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number >= nStart &&
-					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number < nEnd &&
-					(filter_PKTSeqNumber < 0 || filter_PKTSeqNumber == ((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number)))
+					((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number < nEnd) ||
+					filter_PKTSeqNumber == ((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_sequence_number)))
 				{
-					pTLVPacket->Print();
-					bFiltered = true;
+					if (filter_packet_id < 0 || (
+						((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet &&
+						((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet != NULL &&
+						((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_id == filter_packet_id))
+					{
+						pTLVPacket->Print();
+						bFiltered = true;
+					}
 				}
 			}
 
