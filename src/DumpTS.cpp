@@ -31,6 +31,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	ShowPCR(int option);
 extern int	DiffTSATC();
 extern int	RefactorTS();
 extern int	DumpOneStream();
@@ -140,6 +141,8 @@ void ParseCommandLine(int argc, char* argv[])
 		"showMPT",
 		"showCAT",
 		"showDU",		// show the DU in the MMTP payload
+		"showPCR",
+		"showNTP",
 		"listMMTPpacket",
 		"listMMTPpayload",
 		"listMPUtime",
@@ -587,6 +590,9 @@ void PrintHelp()
 	printf("\t--showMPT\t\tPrint the MPT information in MMT/TLV stream\n");
 	printf("\t--showPLT\t\tPrint the PLT information in MMT/TLV stream\n");
 	printf("\t--showCAT\t\tPrint the CAT information in MMT/TLV stream\n");
+	printf("\t--showPCR\t\tPrint the PCR clock information in TS stream\n");
+	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
+	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -909,7 +915,7 @@ int main(int argc, char* argv[])
 
 			g_params["outputfmt"] = "copy";
 			g_params["pid"] = "-1";
-			DumpOneStream();
+			nDumpRet = DumpOneStream();
 			goto done;
 		}
 		else if (g_params.find("output") == g_params.end())
@@ -922,12 +928,38 @@ int main(int argc, char* argv[])
 				g_params.find("showPMT") != g_params.end())
 			{
 				g_params["pid"] = "0";
-				DumpOneStream();
+				nDumpRet = DumpOneStream();
 				goto done;
 			}
 			else if (g_params.find("diffATC") != g_params.end())
 			{
-				DiffTSATC();
+				nDumpRet = DiffTSATC();
+				goto done;
+			}
+			else if (g_params.find("showPCR") != g_params.end())
+			{
+				// showPCR provides 4 options: 1: only PCR; 2: PCR + Video; 3: PCR + Audio; 4: PCR + All elementary streams
+				int optionShowPCR = 1;
+				auto& strShowPCROption = g_params["showPCR"];
+				long long llV = ConvertToLongLong(strShowPCROption);
+				if (llV >= 1 && llV <= 4)
+					optionShowPCR = (int)llV;
+				else
+				{
+					if (MBCSICMP(strShowPCROption.c_str(), "full") == 0)
+						optionShowPCR = 4;
+					else if (MBCSICMP(strShowPCROption.c_str(), "audio") == 0)
+						optionShowPCR = 3;
+					else if (MBCSICMP(strShowPCROption.c_str(), "video") == 0)
+						optionShowPCR = 2;
+				}
+
+				nDumpRet = ShowPCR(optionShowPCR);
+				goto done;
+			}
+			else if (g_params.find("showNTP") != g_params.end())
+			{
+				nDumpRet = DumpMMT();
 				goto done;
 			}
 			else

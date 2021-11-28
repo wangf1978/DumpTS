@@ -22,6 +22,17 @@
 
 using TM_90KHZ = int64_t;
 using TM_45KHZ = int64_t;
+using RET_CODE = int32_t;
+using TM_HNS = int64_t;
+
+union RET_READ
+{
+	RET_CODE	err_ret_code;	// If read failed, err_ret_code return the error code which is less than 0
+	uint32_t	read_count;		// If read successfully, ret_count return the read count
+
+	RET_READ(RET_CODE code):err_ret_code(code) {}
+	RET_READ(uint32_t nRead) : read_count(nRead) {}
+};
 
 enum FRAGMENTATION_INDICATOR
 {

@@ -118,6 +118,10 @@ namespace IP
 			bool IsUnknown() {
 				return Seconds == 0 && Fraction == 0;
 			}
+
+			void Reset() {
+				Seconds = Fraction = 0;
+			}
 		}PACKED;
 
 		/*
@@ -145,8 +149,18 @@ namespace IP
 				return Seconds == 0 && Fraction == 0;
 			}
 
+			void Reset() {
+				Seconds = Fraction = 0;
+			}
+
 			double GetValue() const {
 				return Seconds + (double)Fraction / 0x100000000LL;
+			}
+
+			TM_HNS ToHns()
+			{
+				TM_HNS secondHNS = (TM_HNS)Seconds * 10000000LL;
+				return (TM_HNS)((secondHNS + Fraction * 10000000LL / 0x100000000LL));
 			}
 
 			TM_90KHZ ToPTS()

@@ -12,6 +12,9 @@ extern int g_verbose_level;
 #define DEFAULT_TLV_PACKETS_PER_DISPLAY 20
 int g_TLV_packets_per_display = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 
+static const uint8_t NTP_dest_IPv6_Address[16] = {
+0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01 };
+
 using MPUSeqTM = std::tuple<uint32_t/*mpu_sequence_number*/,
 							IP::NTPv4Data::NTPTimestampFormat/*mpu_presentation_time*/,
 							uint32_t/*timescale*/,
@@ -41,6 +44,7 @@ enum SHOW_TLV_PACK_OPTION
 	SHOW_TLV_IPv6,
 	SHOW_TLV_HCIP,
 	SHOW_TLV_TCS,
+	SHOW_TLV_NTP,
 };
 
 bool NeedShowMMTTable()
@@ -228,6 +232,7 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 
 	int nLocateSyncTry = 0;
 	bool bFindSync = false;
+	uint64_t file_pos = 0ULL;
 	try
 	{
 		uint32_t tlv_hdr = 0;
@@ -299,7 +304,7 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 			bool bFiltered = false;
 			if ((option) == SHOW_TLV_ALL ||
 				(option == SHOW_TLV_IPv4 && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_IPv4_packet) ||
-				(option == SHOW_TLV_IPv6 && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_IPv6_packet) ||
+				((option == SHOW_TLV_IPv6 || option == SHOW_TLV_NTP) && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_IPv6_packet) ||
 				(option == SHOW_TLV_HCIP && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Header_compressed_IP_packet) ||
 				(option == SHOW_TLV_TCS  && ((tlv_hdr >> 16) & 0xFF) == MMT::TLV_Transmission_control_signal_packet))
 			{
@@ -314,8 +319,49 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 						((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet != NULL &&
 						((MMT::HeaderCompressedIPPacket*)pTLVPacket)->MMTP_Packet->Packet_id == filter_packet_id))
 					{
-						pTLVPacket->Print();
-						bFiltered = true;
+						bool bNTP = false;
+						if (option == SHOW_TLV_NTP)
+						{
+							MMT::IPv6Packet* pIPv6packet = (MMT::IPv6Packet*)pTLVPacket;
+							if (pIPv6packet != NULL && (pIPv6packet->IPv6_Header.Hop_limit == 0x11 || pIPv6packet->IPv6_Header.Hop_limit == 0x20))
+							{
+								if (memcmp(pIPv6packet->IPv6_Header.Destination_address.address_bytes, NTP_dest_IPv6_Address, 16) == 0)
+								{
+									if (pIPv6packet->UDP_packet->header.Source_port == 456 && pIPv6packet->UDP_packet->header.Destination_port == 123)
+									{
+										bNTP = true;
+										auto pNTPData = pIPv6packet->UDP_packet->NTPv4_data;
+										TM_HNS hns = pNTPData->transmit_timestamp.ToHns();
+
+										uint64_t curr_file_pos = bs.Tell();
+
+
+										printf("NTP packet [leap indicator: %d, working mode: %9s, stratum: %d, poll: %d, precision: %d] transmit_timestamp: %" PRId64 ".%03" PRId64 " (ms), size: %" PRIu64 "(bytes)\n",
+											pNTPData->leap_indicator,
+											pNTPData->mode == 5?"broadcast":(
+											pNTPData->mode == 3?"client":(
+											pNTPData->mode == 4?"server":(
+											pNTPData->mode == 1?"active": (
+											pNTPData->mode == 2?"passive":(
+											pNTPData->mode == 6?"message":""))))),
+											pNTPData->stratum,
+											pNTPData->poll,
+											pNTPData->precision,
+											hns/10000L, hns/10%1000,
+											(curr_file_pos - file_pos)>>3
+										);
+
+										file_pos = curr_file_pos;
+									}
+								}
+							}
+						}
+						
+						if (!bNTP)
+						{
+							pTLVPacket->Print();
+							bFiltered = true;
+						}
 					}
 				}
 			}
@@ -2429,7 +2475,8 @@ int DumpMMT()
 		(iter_showpack = g_params.find("showIPv4pack")) != g_params.end() ||
 		(iter_showpack = g_params.find("showIPv6pack")) != g_params.end() ||
 		(iter_showpack = g_params.find("showHCIPpack")) != g_params.end() ||
-		(iter_showpack = g_params.find("showTCSpack")) != g_params.end())
+		(iter_showpack = g_params.find("showTCSpack")) != g_params.end() ||
+		(iter_showpack = g_params.find("showNTP")) != g_params.end())
 	{
 		int64_t display_pages = DEFAULT_TLV_PACKETS_PER_DISPLAY;
 		const char* szPages = iter_showpack->second.c_str();
@@ -2457,6 +2504,10 @@ int DumpMMT()
 		else if (STRICMP(iter_showpack->first.c_str(), "showTCSpack") == 0)
 		{
 			option = SHOW_TLV_TCS;
+		}
+		else if (STRICMP(iter_showpack->first.c_str(), "showNTP") == 0)
+		{
+			option = SHOW_TLV_NTP;
 		}
 
 		return ShowMMTTLVPacks(option);
@@ -2513,3 +2564,4 @@ int DumpMMT()
 done:
 	return nDumpRet;
 }
+

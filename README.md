@@ -76,6 +76,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showMPT**|*N/A*|print the MPT information in MMT/TLV stream|
 |**--showCAT**|*N/A*|print the CAT information in MMT/TLV stream|
 |**--showPLT**|*N/A*|print the PLT information in MMT/TLV stream|
+|**--showPRC**|*[video][audio][full]*|print the PCR clock information in TS stream|
+|**--showNTP**|*N/A*|print the NTP information in MMT/TLV stream|
 |**--diffATC**|diff threshold<br>xxxx(27MHZ)|list the each TS packet arrive time and the diff with the previous TS pack|
 |**--listMMTPpacket**|*N/A*|List the specified MMTP packets|
 |**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
