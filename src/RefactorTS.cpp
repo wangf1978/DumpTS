@@ -372,7 +372,7 @@ int DiffTSATC()
 				(start_pkt_idx == -1LL || (start_pkt_idx >= 0 && pkt_idx >= start_pkt_idx)) &&
 				(end_pkt_idx == -1LL || (end_pkt_idx >= 0 && pkt_idx < end_pkt_idx)))
 			{
-				printf("pkt_idx: %20lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId32 "(%fs)\n",
+				printf("pkt_idx: %20lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId32 "(%fms)\n",
 					pkt_idx,PID, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time, diff, diff*1000.0f / 27000000.f);
 			}
 		}
