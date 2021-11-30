@@ -208,7 +208,10 @@
 #define RET_CODE_OUTOFMEMORY			   -8
 
 #define RET_CODE_NOT_INITIALIZED		   -500
+#define RET_CODE_TIME_OUT				   -512
 #define RET_CODE_IGNORE_REQUEST			   -521
+
+#define RET_CODE_ERROR_STATE_TRANSITION	   -541
 
 #define RET_CODE_NEEDMOREINPUT			   -1000
 #define RET_CODE_NEEDBYTEALIGN			   -1001
@@ -222,6 +225,11 @@
 #define RET_CODE_BOX_TOO_SMALL			   -2100			// ISO 14496-12 box size is too small, and can't unpack the information according to spec
 #define RET_CODE_BOX_INCOMPATIBLE		   -2101			// the current stream is incompatible with ISO 14496-12
 
+/* For ODD return value(-3xxx) */
+
+/* For Multimedia return value (-4xxx) */
+#define RET_CODE_CLOCK_DISCONTINUITY	   -4000
+
 #define RET_CODE_CONTINUE					256
 #define RET_CODE_UOP_COMPLETED				257
 #define RET_CODE_ALREADY_EXIST				500
@@ -232,6 +240,27 @@
 #define RET_CODE_CONTINUE_NAVICMD			505
 
 #define INVALID_TM_90KHZ_VALUE				-1LL
+
+///////////////////////////////////////////////////////////////
+// Utility PTS compare
+///////////////////////////////////////////////////////////////
+#define PTS_90K_EQ(pts1, pts2)				(((pts1)>>9) == ((pts2)>>9))
+#define PTS_90K_GT(pts1, pts2)				(((pts1)>>9) >  ((pts2)>>9))
+#define PTS_90K_LT(pts1, pts2)				(((pts1)>>9) <  ((pts2)>>9))
+#define PTS_90K_GE(pts1, pts2)				(((pts1)>>9) >= ((pts2)>>9))
+#define PTS_90K_LE(pts1, pts2)				(((pts1)>>9) <= ((pts2)>>9))
+
+#define PTS_45K_EQ(pts1, pts2)				(((pts1)>>8) == ((pts2)>>8))
+#define PTS_45K_GT(pts1, pts2)				(((pts1)>>8) >  ((pts2)>>8))
+#define PTS_45K_LT(pts1, pts2)				(((pts1)>>8) <  ((pts2)>>8))
+#define PTS_45K_GE(pts1, pts2)				(((pts1)>>8) >= ((pts2)>>8))
+#define PTS_45K_LE(pts1, pts2)				(((pts1)>>8) <= ((pts2)>>8))
+
+#define PTS_100NS_EQ(pts1, pts2)			(((pts1*9/1000)>>9) == ((pts2*9/1000)>>9))
+#define PTS_100NS_GT(pts1, pts2)			(((pts1*9/1000)>>9) >  ((pts2*9/1000)>>9))
+#define PTS_100NS_LT(pts1, pts2)			(((pts1*9/1000)>>9) <  ((pts2*9/1000)>>9))
+#define PTS_100NS_GE(pts1, pts2)			(((pts1*9/1000)>>9) >= ((pts2*9/1000)>>9))
+#define PTS_100NS_LE(pts1, pts2)			(((pts1*9/1000)>>9) <= ((pts2*9/1000)>>9))
 
 enum FLAG_VALUE
 {

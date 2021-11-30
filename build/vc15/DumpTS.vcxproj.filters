@@ -36,6 +36,9 @@
     <Filter Include="build\linux\common">
       <UniqueIdentifier>{78b32510-e004-4c59-84ea-ab391c091a85}</UniqueIdentifier>
     </Filter>
+    <Filter Include="build\macos">
+      <UniqueIdentifier>{9f145cf5-4a75-4bc7-8e9a-508b6c2825f3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\README.md" />
@@ -52,6 +55,9 @@
       <Filter>build\linux</Filter>
     </None>
     <None Include="..\..\MMT_Readme.md" />
+    <None Include="..\macos\Makefile">
+      <Filter>build\macos</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">
@@ -130,6 +136,12 @@
       <Filter>src\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\system_13818_1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Syncer.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\TSTD.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -228,6 +240,9 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\dump_data_type.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\Syncer.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

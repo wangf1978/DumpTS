@@ -20,6 +20,7 @@
 #define PACKED __attribute__ ((__packed__))
 #endif
 
+using TM_27MHZ = int64_t;
 using TM_90KHZ = int64_t;
 using TM_45KHZ = int64_t;
 using RET_CODE = int32_t;
