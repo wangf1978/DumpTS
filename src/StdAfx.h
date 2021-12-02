@@ -30,6 +30,24 @@
 #include <climits>
 #include "LibPlatform/platdef.h"
 
+#if defined(_WIN32) && defined(_USRDLL)
+#ifdef	AMP_FOUNDATION_DLL
+#define AMP_FOUNDATION_PROC __declspec(dllexport)
+#else
+#define AMP_FOUNDATION_PROC __declspec(dllimport)
+#endif
+#define AMP_CLASS			class __declspec(dllimport)
+#else
+#define AMP_FOUNDATION_PROC
+#define AMP_CLASS
+#endif
+
+#ifdef _MSC_VER
+#define INLINE __forceinline /* use __forceinline (VC++ specific) */
+#else
+#define INLINE inline        /* use standard inline */
+#endif
+
 #ifdef _WIN32
 #define AMP_CUR_THREAD_ID()			(::GetCurrentThreadId())
 #define STRICMP							_tcsicmp
@@ -208,10 +226,13 @@
 #define RET_CODE_OUTOFMEMORY			   -8
 
 #define RET_CODE_NOT_INITIALIZED		   -500
+#define RET_CODE_MISMATCH				   -504
 #define RET_CODE_TIME_OUT				   -512
 #define RET_CODE_IGNORE_REQUEST			   -521
 
 #define RET_CODE_ERROR_STATE_TRANSITION	   -541
+#define RET_CODE_NO_MORE_DATA			   -546
+#define RET_CODE_NOT_ALIGNED			   -547
 
 #define RET_CODE_NEEDMOREINPUT			   -1000
 #define RET_CODE_NEEDBYTEALIGN			   -1001
@@ -261,6 +282,39 @@
 #define PTS_100NS_LT(pts1, pts2)			(((pts1*9/1000)>>9) <  ((pts2*9/1000)>>9))
 #define PTS_100NS_GE(pts1, pts2)			(((pts1*9/1000)>>9) >= ((pts2*9/1000)>>9))
 #define PTS_100NS_LE(pts1, pts2)			(((pts1*9/1000)>>9) <= ((pts2*9/1000)>>9))
+
+#ifdef _BIG_ENDIAN_
+#define ENDIANUSHORT(src)           (uint16_t)src
+#define ENDIANULONG(src)			(uint32_t)src
+#define ENDIANUINT64(src)			(uint64_t)src
+
+#define USHORT_FIELD_ENDIAN(field)
+#define ULONG_FIELD_ENDIAN(field)
+#define UINT64_FIELD_ENDIAN(field)
+#else
+#define ENDIANUSHORT(src)			((uint16_t)((((src)>>8)&0xff) |\
+												(((src)<<8)&0xff00)))
+
+#define ENDIANULONG(src)			((uint32_t)((((src)>>24)&0xFF) |\
+												(((src)>> 8)&0xFF00) |\
+												(((src)<< 8)&0xFF0000) |\
+												(((src)<<24)&0xFF000000)))
+
+#define ENDIANUINT64(src)			((uint64_t)((((src)>>56)&0xFF) |\
+												(((src)>>40)&0xFF00) |\
+												(((src)>>24)&0xFF0000) |\
+												(((src)>> 8)&0xFF000000) |\
+												(((src)<< 8)&0xFF00000000LL) |\
+												(((src)<<24)&0xFF0000000000LL) |\
+												(((src)<<40)&0xFF000000000000LL) |\
+												(((src)<<56)&0xFF00000000000000LL)))
+
+#define USHORT_FIELD_ENDIAN(field)	field = ENDIANUSHORT(((uint16_t)field));
+#define ULONG_FIELD_ENDIAN(field)	field = ENDIANULONG(((uint32_t)field));
+#define UINT64_FIELD_ENDIAN(field)	field = ENDIANUINT64(((uint64_t)field));
+#endif //_BIG_ENDIAN_
+
+#define IS_INVALID_HANDLE(handle)	((handle) == NULL)
 
 enum FLAG_VALUE
 {

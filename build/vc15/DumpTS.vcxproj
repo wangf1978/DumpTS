@@ -257,6 +257,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp" />
+    <ClCompile Include="..\..\src\AMBitStream.cpp" />
     <ClCompile Include="..\..\src\AMRingBuffer.cpp" />
     <ClCompile Include="..\..\src\AudChMap.cpp" />
     <ClCompile Include="..\..\src\Bitstream.cpp" />
@@ -287,6 +288,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h" />
+    <ClInclude Include="..\..\src\AMBitStream.h" />
     <ClInclude Include="..\..\src\AMRingBuffer.h" />
     <ClInclude Include="..\..\src\AudChMap.h" />
     <ClInclude Include="..\..\src\av1.h" />

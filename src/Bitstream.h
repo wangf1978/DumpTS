@@ -3,37 +3,6 @@
 #include <stdint.h>
 #include <exception>
 
-#ifdef _BIG_ENDIAN_
-#define ENDIANUSHORT(src)           (uint16_t)src
-#define ENDIANULONG(src)			(uint32_t)src
-#define ENDIANUINT64(src)			(uint64_t)src
-
-#define USHORT_FIELD_ENDIAN(field)
-#define ULONG_FIELD_ENDIAN(field)
-#define UINT64_FIELD_ENDIAN(field)
-#else
-#define ENDIANUSHORT(src)			((uint16_t)((((src)>>8)&0xff) |\
-												(((src)<<8)&0xff00)))
-
-#define ENDIANULONG(src)			((uint32_t)((((src)>>24)&0xFF) |\
-												(((src)>> 8)&0xFF00) |\
-												(((src)<< 8)&0xFF0000) |\
-												(((src)<<24)&0xFF000000)))
-
-#define ENDIANUINT64(src)			((uint64_t)((((src)>>56)&0xFF) |\
-												(((src)>>40)&0xFF00) |\
-												(((src)>>24)&0xFF0000) |\
-												(((src)>> 8)&0xFF000000) |\
-												(((src)<< 8)&0xFF00000000LL) |\
-												(((src)<<24)&0xFF0000000000LL) |\
-												(((src)<<40)&0xFF000000000000LL) |\
-												(((src)<<56)&0xFF00000000000000LL)))
-
-#define USHORT_FIELD_ENDIAN(field)	field = ENDIANUSHORT(((uint16_t)field));
-#define ULONG_FIELD_ENDIAN(field)	field = ENDIANULONG(((uint32_t)field));
-#define UINT64_FIELD_ENDIAN(field)	field = ENDIANUINT64(((uint64_t)field));
-#endif //_BIG_ENDIAN_
-
 //#define _USE_64BIT_CACHE
 
 #ifdef _USE_64BIT_CACHE

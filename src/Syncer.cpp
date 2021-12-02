@@ -137,7 +137,7 @@ int STDClockSyncer::Sync(uint64_t clock_value)
 		// The data transfer rate is a little slower, need speed up, don't block it
 		m_last_clock_value = clock_value;
 		if (g_debug_sync)
-			printf("m_last_clock_value is changed to %llu {%s(), %d}.\n", m_last_clock_value, __FUNCTION__, __LINE__);
+			printf("m_last_clock_value is changed to %" PRIu64 " {%s(), %d}.\n", m_last_clock_value, __FUNCTION__, __LINE__);
 		m_last_ref_clock += std::chrono::nanoseconds(delta_clock_value_ns);
 		return RET_CODE_SUCCESS;
 	}
@@ -147,13 +147,13 @@ int STDClockSyncer::Sync(uint64_t clock_value)
 	{
 		// The delay is less than threshold value, ignore this minor delay at this time
 		if (g_debug_sync)
-			printf("m_last_clock_value: %llu {delay_clock_ns: %llu, %s(), %d}.\n", m_last_clock_value, delay_clock_ns, __FUNCTION__, __LINE__);
+			printf("m_last_clock_value: %" PRIu64 " {delay_clock_ns: %" PRIu64 ", %s(), %d}.\n", m_last_clock_value, delay_clock_ns, __FUNCTION__, __LINE__);
 		m_last_clock_value = AdvanceHns(m_last_clock_value, std::chrono::duration_cast<std::chrono::nanoseconds>(ref_now - m_last_ref_clock).count()/100);
 
 		m_last_ref_clock = ref_now;
 
 		if (g_debug_sync)
-			printf("m_last_clock_value is changed to %llu {delay_clock_ns: %llu, %s(), %d}.\n", m_last_clock_value, delay_clock_ns, __FUNCTION__, __LINE__);
+			printf("m_last_clock_value is changed to %" PRIu64 " {delay_clock_ns: %" PRIu64 ", %s(), %d}.\n", m_last_clock_value, delay_clock_ns, __FUNCTION__, __LINE__);
 
 		return RET_CODE_SUCCESS;
 	}

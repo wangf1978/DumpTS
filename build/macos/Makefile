@@ -27,6 +27,7 @@ SOURCES := \
 	$(SOURCEDIR)/AMRingBuffer.cpp \
 	$(SOURCEDIR)/AudChMap.cpp \
 	$(SOURCEDIR)/Bitstream.cpp \
+	$(SOURCEDIR)/AMBitStream.cpp \
 	$(SOURCEDIR)/DumpMKV.cpp \
 	$(SOURCEDIR)/DumpMMT.cpp \
 	$(SOURCEDIR)/DumpMP4.cpp \

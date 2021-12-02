@@ -29,6 +29,100 @@ SOFTWARE.
 
 #include <assert.h>
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Single ring buffer utility, which is not a safe-thread implementation
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template <typename T, const int ring_unit_size>
+struct CAMRingUnits
+{
+	T					units[ring_unit_size];
+	// fill 3 bytes in the ring buffer
+	int					read_pos;					// read from which bytes
+	int					write_pos;					// write from which bytes;
+	int					len;						// current ring bytes length;
+
+	CAMRingUnits() : read_pos(0), write_pos(0), len(0) {
+	}
+
+	CAMRingUnits(CAMRingUnits& ring_units) {
+		for (int i = 0; i < ring_unit_size; i++)
+			units[i] = ring_units.units[i];
+
+		read_pos = ring_units.read_pos;
+		write_pos = ring_units.write_pos;
+		len = ring_units.len;
+	}
+
+	INLINE void reset() {
+		read_pos = write_pos = len = 0;
+	}
+
+	INLINE void write(uint8_t b) {
+		units[write_pos] = b;
+		write_pos = (write_pos + 1) % _countof(units);
+		len++;
+	}
+
+	INLINE T read() {
+		T ret = units[read_pos];
+		read_pos = (read_pos + 1) % _countof(units);
+		len--;
+		return ret;
+	}
+
+	INLINE int skip(int n) {
+		int skip_unit = AMP_MIN(n, len);
+		if (skip_unit != 0)
+		{
+			read_pos = (read_pos + skip_unit) % _countof(units);
+			len -= skip_unit;
+		}
+		return skip_unit;
+	}
+
+	INLINE bool full() {
+		return len == _countof(units);
+	}
+
+	INLINE bool empty() {
+		return len == 0;
+	}
+
+	INLINE int size() {
+		return ring_unit_size;
+	}
+
+	INLINE int length() {
+		return len;
+	}
+
+	INLINE uint32_t peeku32()
+	{
+#ifdef _DEBUG
+		assert(len >= sizeof(uint32_t));
+#endif
+		return (units[read_pos] << 24 |
+			units[(read_pos + 1) % _countof(units)] << 16 |
+			units[(read_pos + 2) % _countof(units)] << 8 |
+			units[(read_pos + 3) % _countof(units)]);
+	}
+
+	INLINE uint64_t peeku64()
+	{
+#ifdef _DEBUG
+		assert(len >= sizeof(uint64_t));
+#endif
+		return ((uint64_t)units[read_pos] << 56 |
+			(uint64_t)units[(read_pos + 1) % _countof(units)] << 48 |
+			(uint64_t)units[(read_pos + 2) % _countof(units)] << 40 |
+			(uint64_t)units[(read_pos + 3) % _countof(units)] << 32 |
+			(uint64_t)units[(read_pos + 4) % _countof(units)] << 24 |
+			(uint64_t)units[(read_pos + 5) % _countof(units)] << 16 |
+			(uint64_t)units[(read_pos + 6) % _countof(units)] << 8 |
+			(uint64_t)units[(read_pos + 7) % _countof(units)]);
+	}
+};
+
 typedef void* AMLinearRingBuffer;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

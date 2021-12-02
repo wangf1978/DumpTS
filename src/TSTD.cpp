@@ -404,9 +404,9 @@ int BenchRead(int option)
 {
 	int iRet = -1;
 	uint8_t header_offset = 0;
-	unsigned long ts_pack_idx = 0;
-	unsigned char ts_pack_size = TS_PACKET_SIZE;
-	unsigned char buf[TS_PACKET_SIZE];
+	uint32_t ts_pack_idx = 0;
+	uint8_t ts_pack_size = TS_PACKET_SIZE;
+	uint8_t buf[TS_PACKET_SIZE];
 	FILE *fp = NULL;
 	size_t nRead = 0;
 	uint8_t packet_start_code_prefix[3] = { 0 };

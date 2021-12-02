@@ -144,6 +144,9 @@
     <ClCompile Include="..\..\src\TSTD.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\AMBitStream.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
@@ -243,6 +246,9 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\Syncer.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMBitStream.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
