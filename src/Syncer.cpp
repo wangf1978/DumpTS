@@ -6,10 +6,11 @@
 #define CLOCK_SYNCER_STATE_PAUSE	2
 #define CLOCK_SYNCER_STATE_STOP		3
 
-#define CLOCK_SYNC_MIN_THRESHOLD	100000			// 10 ms
-#define CLOCK_SYNC_MAX_THRESHOLD	20000000		// 2 seconds
+#define NANOSECONDS_PER_MILLISECOND	1000000ULL
+#define CLOCK_SYNC_MIN_THRESHOLD	10			// 10 ms
+#define CLOCK_SYNC_MAX_THRESHOLD	2000		// 2 seconds
 #define CLOCK_DISCONTINUITY_THRESHOLD_DEFAULT	\
-									50000000		// 5 seconds
+									5000		// 5 seconds
 
 STDClockSyncer::STDClockSyncer(int clock_precision)
 	: m_clock_precision(clock_precision)
@@ -101,6 +102,7 @@ int STDClockSyncer::Stop()
 	return RET_CODE_SUCCESS;
 }
 
+extern int g_debug_sync;
 int STDClockSyncer::Sync(uint64_t clock_value)
 {
 	// Can't process sync operation under stop or init state
@@ -117,35 +119,64 @@ int STDClockSyncer::Sync(uint64_t clock_value)
 		return RET_CODE_ERROR;
 	}
 
-	uint64_t delta_clock_value = GetDiffHns(clock_value, m_last_clock_value);
+	uint64_t delta_clock_value_hns = GetDiffHns(clock_value, m_last_clock_value);
+	if (delta_clock_value_hns == UINT64_MAX)
+	{
+		printf("Hit an unexpected error when diff the data clock.\n");
+		return RET_CODE_ERROR;
+	}
 
-	if ((uint64_t)delta_ref_clock >= delta_clock_value*100)
+	uint64_t delta_clock_value_ns = delta_clock_value_hns * 100;
+
+	//printf("delta_ref_clock: %lld(%lld ms), delta_clock_value_ns: %llu (%llu ms)\n",
+	//	delta_ref_clock, delta_ref_clock / 1000000, delta_clock_value_ns, delta_clock_value_ns / 1000000);
+
+	if ((uint64_t)delta_ref_clock >= delta_clock_value_ns)
 	{
 		// It means that the clock value from data is slower than reference clock, and in another word
 		// The data transfer rate is a little slower, need speed up, don't block it
 		m_last_clock_value = clock_value;
-		m_last_ref_clock += std::chrono::nanoseconds(delta_clock_value * 100);
+		if (g_debug_sync)
+			printf("m_last_clock_value is changed to %llu {%s(), %d}.\n", m_last_clock_value, __FUNCTION__, __LINE__);
+		m_last_ref_clock += std::chrono::nanoseconds(delta_clock_value_ns);
 		return RET_CODE_SUCCESS;
 	}
 
-	uint64_t delay_clock_ns = delta_clock_value * 100 - delta_ref_clock;
-	if (delay_clock_ns <= CLOCK_SYNC_MIN_THRESHOLD)
+	uint64_t delay_clock_ns = delta_clock_value_ns - delta_ref_clock;
+	if (delay_clock_ns <= CLOCK_SYNC_MIN_THRESHOLD * NANOSECONDS_PER_MILLISECOND)
 	{
 		// The delay is less than threshold value, ignore this minor delay at this time
+		if (g_debug_sync)
+			printf("m_last_clock_value: %llu {delay_clock_ns: %llu, %s(), %d}.\n", m_last_clock_value, delay_clock_ns, __FUNCTION__, __LINE__);
+		m_last_clock_value = AdvanceHns(m_last_clock_value, std::chrono::duration_cast<std::chrono::nanoseconds>(ref_now - m_last_ref_clock).count()/100);
+
 		m_last_ref_clock = ref_now;
-		m_last_clock_value = AdvanceHns(m_last_clock_value, delay_clock_ns / 100);
+
+		if (g_debug_sync)
+			printf("m_last_clock_value is changed to %llu {delay_clock_ns: %llu, %s(), %d}.\n", m_last_clock_value, delay_clock_ns, __FUNCTION__, __LINE__);
+
 		return RET_CODE_SUCCESS;
 	}
 
-	if (delay_clock_ns >= m_clock_discontinuity_threshold_ms)
+	if (delay_clock_ns >= m_clock_discontinuity_threshold_ms * NANOSECONDS_PER_MILLISECOND)
 		return RET_CODE_CLOCK_DISCONTINUITY;
 
-	if (delay_clock_ns > CLOCK_SYNC_MAX_THRESHOLD)
-		delay_clock_ns = CLOCK_SYNC_MAX_THRESHOLD;
+	if (delay_clock_ns > CLOCK_SYNC_MAX_THRESHOLD * NANOSECONDS_PER_MILLISECOND)
+		delay_clock_ns = CLOCK_SYNC_MAX_THRESHOLD * NANOSECONDS_PER_MILLISECOND;
 
 #ifdef _WIN32
 	EnterCriticalSection(&m_csState);
-	BOOL bRet = SleepConditionVariableCS(&m_condVarState, &m_csState, (DWORD)(delay_clock_ns/10000));
+	
+	std::chrono::high_resolution_clock::time_point tp0 = std::chrono::high_resolution_clock::now();
+	BOOL bRet = SleepConditionVariableCS(&m_condVarState, &m_csState, (DWORD)(delay_clock_ns/NANOSECONDS_PER_MILLISECOND));
+	std::chrono::high_resolution_clock::time_point tp1 = std::chrono::high_resolution_clock::now();
+#if 0
+	printf("Try to wait for %lu (ms), actual wait: %lu (ms).\n", 
+		(DWORD)(delay_clock_ns / NANOSECONDS_PER_MILLISECOND), 
+		(DWORD)(std::chrono::duration_cast<std::chrono::milliseconds>(tp1 - tp0).count()));
+#else
+	printf(".");
+#endif
 
 	if (m_clock_state != CLOCK_SYNCER_STATE_PAUSE &&
 		m_clock_state != CLOCK_SYNCER_STATE_START)
@@ -155,7 +186,7 @@ int STDClockSyncer::Sync(uint64_t clock_value)
 	}
 
 	ref_now = std::chrono::high_resolution_clock::now();
-	delta_ref_clock = std::chrono::duration_cast<std::chrono::milliseconds>(ref_now - m_last_ref_clock).count();
+	delta_ref_clock = std::chrono::duration_cast<std::chrono::nanoseconds>(ref_now - m_last_ref_clock).count();
 	if (delta_ref_clock < 0)
 	{
 		LeaveCriticalSection(&m_csState);
@@ -164,24 +195,28 @@ int STDClockSyncer::Sync(uint64_t clock_value)
 	}
 
 	// Still can't catch up with the clock from stream, need continue wait in the next round
-	if (delta_clock_value > (uint64_t)delta_ref_clock + CLOCK_SYNC_MIN_THRESHOLD)
+	if (delta_clock_value_ns > (uint64_t)delta_ref_clock + CLOCK_SYNC_MIN_THRESHOLD * NANOSECONDS_PER_MILLISECOND)
 	{
 		LeaveCriticalSection(&m_csState);
 		return RET_CODE_TIME_OUT;
 	}
 
 	// sync perfectly, update the pair of data clock and reference time clock
-	if (delta_clock_value * 100 >= delta_clock_value)
+	if (delta_clock_value_ns >= (uint64_t)delta_ref_clock)
 	{
 		m_last_ref_clock = ref_now;
-		uint64_t delay_clock_ns = delta_clock_value * 100 - delta_ref_clock;
-		m_last_clock_value = AdvanceHns(m_last_clock_value, delay_clock_ns / 100);
+		m_last_clock_value = AdvanceHns(m_last_clock_value, delta_clock_value_hns);
+		if (g_debug_sync)
+			printf("m_last_clock_value is changed to %llu {%s(), %d}.\n", m_last_clock_value, __FUNCTION__, __LINE__);
+
 	}
 	else
 	{
-		uint64_t delay_clock_ns = delta_ref_clock - delta_clock_value * 100;
 		m_last_clock_value = clock_value;
-		m_last_ref_clock -= std::chrono::nanoseconds(delay_clock_ns);
+		if (g_debug_sync)
+			printf("m_last_clock_value is changed to %llu {%s(), %d}.\n", m_last_clock_value, __FUNCTION__, __LINE__);
+
+		m_last_ref_clock += std::chrono::nanoseconds(delta_clock_value_ns);
 	}
 
 	LeaveCriticalSection(&m_csState);
@@ -210,11 +245,11 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 		{
 			// process the wrap-around case
 			if (m_clock_precision&CLOCK_VALUE_33BIT)
-				return (0x200000000ULL + clock_val2 - clock_val1) * 1000 / 9;
+				return (0x200000000ULL + clock_val1 - clock_val2) * 1000 / 9;
 			else if (m_clock_precision&CLOCK_VALUE_32BIT)
-				return (0x100000000ULL + clock_val2 - clock_val1) * 1000 / 9;
+				return (0x100000000ULL + clock_val1 - clock_val2) * 1000 / 9;
 			else if (m_clock_precision&CLOCK_VALUE_30BIT)
-				return (0x40000000ULL + clock_val2 - clock_val1) * 1000 / 9;
+				return (0x40000000ULL + clock_val1 - clock_val2) * 1000 / 9;
 			else
 				assert(0);
 		}
@@ -229,11 +264,11 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 		{
 			// process the wrap-around case
 			if (m_clock_precision&CLOCK_VALUE_33BIT)
-				return (0x200000000ULL + clock_val2 - clock_val1) * 10000 / 45;
+				return (0x200000000ULL + clock_val1 - clock_val2) * 10000 / 45;
 			else if (m_clock_precision&CLOCK_VALUE_32BIT)
-				return (0x100000000ULL + clock_val2 - clock_val1) * 10000 / 45;
+				return (0x100000000ULL + clock_val1 - clock_val2) * 10000 / 45;
 			else if (m_clock_precision&CLOCK_VALUE_30BIT)
-				return (0x40000000ULL + clock_val2 - clock_val1) * 10000 / 45;
+				return (0x40000000ULL + clock_val1 - clock_val2) * 10000 / 45;
 			else
 				assert(0);
 		}
@@ -248,11 +283,11 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 		{
 			// process the wrap-around case
 			if (m_clock_precision&CLOCK_VALUE_33BIT)
-				return (0x200000000LL + clock_val2 - clock_val1) * 10000000;
+				return (0x200000000LL + clock_val1 - clock_val2) * 10000000;
 			else if (m_clock_precision&CLOCK_VALUE_32BIT)
-				return (0x100000000LL + clock_val2 - clock_val1) * 10000000;
+				return (0x100000000LL + clock_val1 - clock_val2) * 10000000;
 			else if (m_clock_precision&CLOCK_VALUE_30BIT)
-				return (0x40000000LL + clock_val2 - clock_val1) * 10000000;
+				return (0x40000000LL + clock_val1 - clock_val2) * 10000000;
 			else
 				assert(0);
 		}
@@ -267,11 +302,11 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 		{
 			// process the wrap-around case
 			if (m_clock_precision&CLOCK_VALUE_33BIT)
-				return (0x200000000LL + clock_val2 - clock_val1) * 10000;
+				return (0x200000000LL + clock_val1 - clock_val2) * 10000;
 			else if (m_clock_precision&CLOCK_VALUE_32BIT)
-				return (0x100000000LL + clock_val2 - clock_val1) * 10000;
+				return (0x100000000LL + clock_val1 - clock_val2) * 10000;
 			else if (m_clock_precision&CLOCK_VALUE_30BIT)
-				return (0x40000000LL + clock_val2 - clock_val1) * 10000;
+				return (0x40000000LL + clock_val1 - clock_val2) * 10000;
 			else
 				assert(0);
 		}
@@ -286,11 +321,11 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 		{
 			// process the wrap-around case
 			if (m_clock_precision&CLOCK_VALUE_33BIT)
-				return (0x200000000ULL + clock_val2 - clock_val1);
+				return (0x200000000ULL + clock_val1 - clock_val2);
 			else if (m_clock_precision&CLOCK_VALUE_32BIT)
-				return (0x100000000ULL + clock_val2 - clock_val1);
+				return (0x100000000ULL + clock_val1 - clock_val2);
 			else if (m_clock_precision&CLOCK_VALUE_30BIT)
-				return (0x40000000ULL + clock_val2 - clock_val1);
+				return (0x40000000ULL + clock_val1 - clock_val2);
 			else
 				assert(0);
 		}
@@ -318,14 +353,14 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 				else if (clock_val1_base > clock_val2_base)
 					base_diff = clock_val1_base - clock_val2_base;
 				else
-					base_diff = 0x200000000 + clock_val2_base - clock_val1;
+					base_diff = 0x200000000 + clock_val1_base - clock_val2_base;
 
 				uint64_t diff = base_diff * 300;
 
 				if (clock_val1_ext >= clock_val2_ext)
 					diff += clock_val1_ext - clock_val2_ext;
 				else
-					diff += 300 + clock_val2_ext - clock_val1_ext;
+					diff += 300 + clock_val1_ext - clock_val2_ext;
 
 				return diff * 10 / 27;
 			}
@@ -335,16 +370,16 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 			if (clock_val1 == clock_val2)
 				return 0;
 			else if (clock_val1 > clock_val2)
-				return (clock_val1 - clock_val2) / 27000;
+				return (clock_val1 - clock_val2) *10 / 27;
 			else
 			{
 				// process the wrap-around case
 				if (m_clock_precision&CLOCK_VALUE_33BIT)
-					return (0x200000000ULL + clock_val2 - clock_val1) * 10 / 27;
+					return (0x200000000ULL + clock_val1 - clock_val2) * 10 / 27;
 				else if (m_clock_precision&CLOCK_VALUE_32BIT)
-					return (0x100000000ULL + clock_val2 - clock_val1) * 10 / 27;
+					return (0x100000000ULL + clock_val1 - clock_val2) * 10 / 27;
 				else if (m_clock_precision&CLOCK_VALUE_30BIT)
-					return (0x40000000ULL + clock_val2 - clock_val1) * 10 / 27;
+					return (0x40000000ULL + clock_val1 - clock_val2) * 10 / 27;
 				else
 					assert(0);
 			}
@@ -363,7 +398,7 @@ uint64_t STDClockSyncer::AdvanceHns(uint64_t clock_val, int64_t hns)
 		else if (m_clock_precision&CLOCK_VALUE_32BIT)
 			return ((uint64_t)(clock_val + hns * 9 / 1000)) & 0xFFFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_30BIT)
-			return ((uint64_t)(clock_val + hns * 9 / 1000)) & 0x4FFFFFFFULL;
+			return ((uint64_t)(clock_val + hns * 9 / 1000)) & 0x3FFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_64BIT)
 			return ((uint64_t)(clock_val + hns * 9 / 1000));
 		else
@@ -376,7 +411,7 @@ uint64_t STDClockSyncer::AdvanceHns(uint64_t clock_val, int64_t hns)
 		else if (m_clock_precision&CLOCK_VALUE_32BIT)
 			return ((uint64_t)(clock_val + hns * 45 / 10000)) & 0xFFFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_30BIT)
-			return ((uint64_t)(clock_val + hns * 45 / 10000)) & 0x4FFFFFFFULL;
+			return ((uint64_t)(clock_val + hns * 45 / 10000)) & 0x3FFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_64BIT)
 			return ((uint64_t)(clock_val + hns * 45 / 10000));
 		else
@@ -389,7 +424,7 @@ uint64_t STDClockSyncer::AdvanceHns(uint64_t clock_val, int64_t hns)
 		else if (m_clock_precision&CLOCK_VALUE_32BIT)
 			return ((uint64_t)(clock_val + hns / 10000000)) & 0xFFFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_30BIT)
-			return ((uint64_t)(clock_val + hns / 10000000)) & 0x4FFFFFFFULL;
+			return ((uint64_t)(clock_val + hns / 10000000)) & 0x3FFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_64BIT)
 			return ((uint64_t)(clock_val + hns / 10000000));
 		else
@@ -402,7 +437,7 @@ uint64_t STDClockSyncer::AdvanceHns(uint64_t clock_val, int64_t hns)
 		else if (m_clock_precision&CLOCK_VALUE_32BIT)
 			return ((uint64_t)(clock_val + hns / 10000)) & 0xFFFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_30BIT)
-			return ((uint64_t)(clock_val + hns / 10000)) & 0x4FFFFFFFULL;
+			return ((uint64_t)(clock_val + hns / 10000)) & 0x3FFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_64BIT)
 			return ((uint64_t)(clock_val + hns / 10000));
 		else
@@ -415,7 +450,7 @@ uint64_t STDClockSyncer::AdvanceHns(uint64_t clock_val, int64_t hns)
 		else if (m_clock_precision&CLOCK_VALUE_32BIT)
 			return ((uint64_t)(clock_val + hns)) & 0xFFFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_30BIT)
-			return ((uint64_t)(clock_val + hns)) & 0x4FFFFFFFULL;
+			return ((uint64_t)(clock_val + hns)) & 0x3FFFFFFFULL;
 		else if (m_clock_precision&CLOCK_VALUE_64BIT)
 			return ((uint64_t)(clock_val + hns));
 		else
@@ -449,7 +484,7 @@ uint64_t STDClockSyncer::AdvanceHns(uint64_t clock_val, int64_t hns)
 			else if (m_clock_precision&CLOCK_VALUE_32BIT)
 				return ((uint64_t)(clock_val + hns * 27 / 10)) & 0xFFFFFFFFULL;
 			else if (m_clock_precision&CLOCK_VALUE_30BIT)
-				return ((uint64_t)(clock_val + hns * 27 / 10)) & 0x4FFFFFFFULL;
+				return ((uint64_t)(clock_val + hns * 27 / 10)) & 0x3FFFFFFFULL;
 			else if (m_clock_precision&CLOCK_VALUE_64BIT)
 				return ((uint64_t)(clock_val + hns * 27 / 10));
 			else
