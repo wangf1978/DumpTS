@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include <io.h>
 #include <conio.h>
+#include <Windows.h>
 
 /* Values for the second argument to access.
    These may be OR'd together.  */

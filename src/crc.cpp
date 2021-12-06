@@ -29,7 +29,7 @@
  * THE SOFTWARE.
  */
  
-#include "StdAfx.h"
+#include "platcomm.h"
 #include "crc.h"
 #include <stdio.h>
 #include <string.h>

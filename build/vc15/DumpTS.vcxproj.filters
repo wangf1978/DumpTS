@@ -129,9 +129,6 @@
     <ClCompile Include="..\..\src\RefactorTS.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\StdAfx.cpp">
-      <Filter>src\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\DumpPS.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
@@ -145,6 +142,27 @@
       <Filter>src\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\AMBitStream.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\h264_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sei.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\nal_com.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMBitArray.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\tinyxml2.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMSHA1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\platcomm.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -206,9 +224,6 @@
     <ClInclude Include="..\..\src\QTFF.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\StdAfx.h">
-      <Filter>src\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\LibPlatform\basetsd.h">
       <Filter>src\Header Files\LibPlatform</Filter>
     </ClInclude>
@@ -249,6 +264,30 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\AMBitStream.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\h264_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\sei.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\nal_com.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\DumpUtil.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMArray.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\tinyxml2.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMSHA1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\platcomm.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

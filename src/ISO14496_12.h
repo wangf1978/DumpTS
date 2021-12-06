@@ -1,3 +1,28 @@
+/*
+
+MIT License
+
+Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
 #pragma once
 
 #include <stdint.h>
@@ -25,11 +50,11 @@
 #define MIN_FULLBOX_SIZE		12
 #define MAX_DISPLAY_COUNT		4096
 
-#ifdef _MSC_VER
-#define INLINE __forceinline /* use __forceinline (VC++ specific) */
-#else
-#define INLINE inline        /* use standard inline */
-#endif
+//#ifdef _MSC_VER
+//#define INLINE __forceinline /* use __forceinline (VC++ specific) */
+//#else
+//#define INLINE inline        /* use standard inline */
+//#endif
 
 #define PRINT_AC(c)	(isprint(c)?(c):'.')
 #define PRINT_WC(c)	(iswprint(c)?(c):L'.')

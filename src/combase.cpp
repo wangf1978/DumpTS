@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "platcomm.h"
 #include "combase.h"
 
 CComUnknown::CComUnknown() : m_cRef(0)

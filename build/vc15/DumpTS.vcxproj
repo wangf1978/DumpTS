@@ -102,12 +102,12 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -138,7 +138,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
@@ -174,7 +174,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Release/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
@@ -210,7 +210,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Release/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
@@ -257,8 +257,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp" />
+    <ClCompile Include="..\..\src\AMBitArray.cpp" />
     <ClCompile Include="..\..\src\AMBitStream.cpp" />
     <ClCompile Include="..\..\src\AMRingBuffer.cpp" />
+    <ClCompile Include="..\..\src\AMSHA1.cpp" />
     <ClCompile Include="..\..\src\AudChMap.cpp" />
     <ClCompile Include="..\..\src\Bitstream.cpp" />
     <ClCompile Include="..\..\src\combase.cpp" />
@@ -270,6 +272,7 @@
     <ClCompile Include="..\..\src\DumpStream.cpp" />
     <ClCompile Include="..\..\src\DumpTS.cpp" />
     <ClCompile Include="..\..\src\ESRepacker.cpp" />
+    <ClCompile Include="..\..\src\h264_video.cpp" />
     <ClCompile Include="..\..\src\HuffmanTree.cpp" />
     <ClCompile Include="..\..\src\IP.cpp" />
     <ClCompile Include="..\..\src\ISO14496_1.cpp" />
@@ -277,19 +280,24 @@
     <ClCompile Include="..\..\src\ISO14496_15.cpp" />
     <ClCompile Include="..\..\src\Matroska.cpp" />
     <ClCompile Include="..\..\src\MMT.cpp" />
+    <ClCompile Include="..\..\src\nal_com.cpp" />
     <ClCompile Include="..\..\src\PartitialTS.cpp" />
     <ClCompile Include="..\..\src\PayloadBuf.cpp" />
     <ClCompile Include="..\..\src\QTFF.cpp" />
     <ClCompile Include="..\..\src\RefactorTS.cpp" />
-    <ClCompile Include="..\..\src\StdAfx.cpp" />
+    <ClCompile Include="..\..\src\sei.cpp" />
+    <ClCompile Include="..\..\src\platcomm.cpp" />
     <ClCompile Include="..\..\src\Syncer.cpp" />
     <ClCompile Include="..\..\src\system_13818_1.cpp" />
+    <ClCompile Include="..\..\src\tinyxml2.cpp" />
     <ClCompile Include="..\..\src\TSTD.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h" />
+    <ClInclude Include="..\..\src\AMArray.h" />
     <ClInclude Include="..\..\src\AMBitStream.h" />
     <ClInclude Include="..\..\src\AMRingBuffer.h" />
+    <ClInclude Include="..\..\src\AMSHA1.h" />
     <ClInclude Include="..\..\src\AudChMap.h" />
     <ClInclude Include="..\..\src\av1.h" />
     <ClInclude Include="..\..\src\Bitstream.h" />
@@ -298,8 +306,10 @@
     <ClInclude Include="..\..\src\crc.h" />
     <ClInclude Include="..\..\src\DataUtil.h" />
     <ClInclude Include="..\..\src\DumpTS.h" />
+    <ClInclude Include="..\..\src\DumpUtil.h" />
     <ClInclude Include="..\..\src\dump_data_type.h" />
     <ClInclude Include="..\..\src\ESRepacker.h" />
+    <ClInclude Include="..\..\src\h264_video.h" />
     <ClInclude Include="..\..\src\IP.h" />
     <ClInclude Include="..\..\src\ISO14496_1.h" />
     <ClInclude Include="..\..\src\ISO14496_12.h" />
@@ -362,10 +372,13 @@
     <ClInclude Include="..\..\src\Matroska.h" />
     <ClInclude Include="..\..\src\MMT.h" />
     <ClInclude Include="..\..\src\NAL.h" />
+    <ClInclude Include="..\..\src\nal_com.h" />
     <ClInclude Include="..\..\src\PayloadBuf.h" />
     <ClInclude Include="..\..\src\QTFF.h" />
-    <ClInclude Include="..\..\src\StdAfx.h" />
+    <ClInclude Include="..\..\src\sei.h" />
+    <ClInclude Include="..\..\src\platcomm.h" />
     <ClInclude Include="..\..\src\Syncer.h" />
+    <ClInclude Include="..\..\src\tinyxml2.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt" />

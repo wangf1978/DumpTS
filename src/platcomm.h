@@ -1,12 +1,30 @@
-// StdAfx.h : include file for standard system include files,
-//  or project specific include files that are used frequently, but
-//      are changed infrequently
-//
+/*
 
-// Don't want to depend on windows build environment, and it is expected to be compiled successfully under Linux
+MIT License
 
-#if !defined(AFX_STDAFX_H__E6271142_93A8_4CD1_B0C9_9747CCBA1E3E__INCLUDED_)
-#define AFX_STDAFX_H__E6271142_93A8_4CD1_B0C9_9747CCBA1E3E__INCLUDED_
+Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+#if !defined(PLAT_COMM_H__E6271142_93A8_4CD1_B0C9_9747CCBA1E3E__INCLUDED_)
+#define PLAT_COMM_H__E6271142_93A8_4CD1_B0C9_9747CCBA1E3E__INCLUDED_
 
 #if _MSC_VER > 1000
 #pragma once
@@ -29,6 +47,12 @@
 #include <inttypes.h>
 #include <climits>
 #include "LibPlatform/platdef.h"
+
+#ifdef _WIN32
+#define AMP_NOP1(p)					p
+#else
+#define AMP_NOP1(p)					(void)0
+#endif
 
 #if defined(_WIN32) && defined(_USRDLL)
 #ifdef	AMP_FOUNDATION_DLL
@@ -157,21 +181,21 @@
 
 #ifdef _DEBUG
 #define AMP_Assert( expr ) if( !(expr) ) { \
-	_tprintf(_T("[AMPSDK] ** Assertion failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
+	_tprintf(_T("[BST] ** Assertion failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
 	int* x = 0; *x = 0; \
 	}
 
 #define AMP_Verify( expr ) if( !(expr) ) { \
-	_tprintf( _T("[AMPSDK] ** Verification failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
+	_tprintf( _T("[BST] ** Verification failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
 	int* x = 0; *x = 0; \
 	}
 #else
 #define AMP_Assert( expr ) if( !(expr) ) { \
-	_tprintf(_T("[AMPSDK] ** Assertion failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
+	_tprintf(_T("[BST] ** Assertion failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
 	}
 
 #define AMP_Verify( expr ) if( !(expr) ) { \
-	_tprintf( _T("[AMPSDK] ** Verification failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
+	_tprintf( _T("[BST] ** Verification failed: \"%s\" at %s:%d %s()\n"), _T(#expr), _T(__FILE__), __LINE__, _T(__FUNCTION__) );\
 	}
 #endif
 
@@ -192,6 +216,24 @@
 
 #define AMP_SAFEDEL(p)						if(p){delete p;p = NULL;}CODE_NOP1(p)
 #define AMP_SAFEDELA(p)						if(p){delete [] p;p = NULL;}CODE_NOP1(p)
+
+#define AMP_FAILED(retcode)					(((int)(retcode)) < 0)
+#define AMP_SUCCEEDED(retcode)				(((int)(retcode)) >= 0)
+
+#ifdef _DEBUG
+#define _AMP_NEW(mtype, size)				(size)<=0?NULL:(new mtype[size])
+#define _AMP_NEWT(mtype, ...)				new mtype(__VA_ARGS__)
+#else
+#define _AMP_NEW(mtype, size)				(size)<=0?NULL:(new (std::nothrow) mtype[size])
+#define _AMP_NEWT(mtype, ...)				new (std::nothrow) mtype(__VA_ARGS__)
+#endif
+
+#define AMP_NEW0(p, mtype, size)			{(p) = _AMP_NEW(mtype, size); if(p){/*AMP_RegisterMem(GetCurrentModule(), (void*)(p), sizeof(mtype)*(size)); */memset((p), 0, sizeof(mtype)*(size));}}AMP_NOP1(p)
+#define AMP_NEW(p, mtype, size)				{(p) = _AMP_NEW(mtype, size); if(p){/*AMP_RegisterMem(GetCurrentModule(), (void*)(p), sizeof(mtype)*(size));*/}}AMP_NOP1(p)
+#define AMP_NEW1(p, mtype, size)			mtype* p = _AMP_NEW(mtype, size); if(p){/*AMP_RegisterMem(GetCurrentModule(), (void*)(p), sizeof(mtype)*(size));*/}AMP_NOP1(p)
+
+#define AMP_NEWT(p, mtype, ...)				{(p) = _AMP_NEWT(mtype, __VA_ARGS__); if(p){/*AMP_RegisterMem(GetCurrentModule(), (void*)(p), sizeof(mtype));*/}}AMP_NOP1(p)
+#define AMP_NEWT1(p, mtype, ...)			mtype* p = _AMP_NEWT(mtype, __VA_ARGS__); if(p){/*AMP_RegisterMem(GetCurrentModule(), (void*)(p), sizeof(mtype));*/}AMP_NOP1(p)
 
 #ifndef UNREFERENCED_PARAMETER
 #ifdef _WIN32
@@ -228,8 +270,11 @@
 #define RET_CODE_NOT_INITIALIZED		   -500
 #define RET_CODE_MISMATCH				   -504
 #define RET_CODE_TIME_OUT				   -512
+#define RET_CODE_OUT_OF_RANGE			   -515
+#define RET_CODE_CONTAINER_NOT_EXIST	   -518
 #define RET_CODE_IGNORE_REQUEST			   -521
-
+#define RET_CODE_IO_READ_ERROR			   -534
+#define RET_CODE_NOT_FINALIZED			   -540
 #define RET_CODE_ERROR_STATE_TRANSITION	   -541
 #define RET_CODE_NO_MORE_DATA			   -546
 #define RET_CODE_NOT_ALIGNED			   -547
@@ -291,6 +336,7 @@
 #define USHORT_FIELD_ENDIAN(field)
 #define ULONG_FIELD_ENDIAN(field)
 #define UINT64_FIELD_ENDIAN(field)
+#define UTYPE_FIELD_ENDIAN(field)
 #else
 #define ENDIANUSHORT(src)			((uint16_t)((((src)>>8)&0xff) |\
 												(((src)<<8)&0xff00)))
@@ -312,6 +358,7 @@
 #define USHORT_FIELD_ENDIAN(field)	field = ENDIANUSHORT(((uint16_t)field));
 #define ULONG_FIELD_ENDIAN(field)	field = ENDIANULONG(((uint32_t)field));
 #define UINT64_FIELD_ENDIAN(field)	field = ENDIANUINT64(((uint64_t)field));
+#define UTYPE_FIELD_ENDIAN(field)	field.Endian();
 #endif //_BIG_ENDIAN_
 
 #define IS_INVALID_HANDLE(handle)	((handle) == NULL)
@@ -325,7 +372,53 @@ enum FLAG_VALUE
 
 void print_mem(uint8_t* pBuf, int cbSize, int indent);
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+inline uint8_t quick_log2(uint32_t v)
+{
+	for (int i = 31; i >= 0; i--)
+		if ((v&(1 << i)))
+			return i;
+	return 0;
+}
 
-#endif // !defined(AFX_STDAFX_H__E6271142_93A8_4CD1_B0C9_9747CCBA1E3E__INCLUDED_)
+template<typename T,
+	typename std::enable_if<std::numeric_limits<T>::is_integer>::type* = nullptr>
+	inline uint8_t ceiling_quick_log2(T v)
+{
+	int8_t i = sizeof(T) << 3;
+	for (; i >= 0; i--)
+		if ((v&(1 << i)))
+			break;
+
+	if (i > 0)
+	{
+		int8_t j = i - 1;
+		for (; j >= 0; j--)
+			if ((v&(1 << j)))
+			{
+				i++;
+				break;
+			}
+	}
+
+	return i;
+}
+
+template <typename T>
+inline int8_t floor_quick_log2(T x)
+{
+	int8_t s = 0;
+	while (x != 0)
+	{
+		x = x >> 1;
+		s++;
+	}
+	return s - 1;
+}
+
+inline uint8_t quick_ceil_log2(uint32_t v)
+{
+	uint8_t qlog2_value = quick_log2(v);
+	return (1UL << qlog2_value) != v ? (qlog2_value + 1) : (qlog2_value);
+}
+
+#endif

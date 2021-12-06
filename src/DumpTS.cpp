@@ -1,7 +1,36 @@
- // DumpTS.cpp : Defines the entry point for the console application.
-//
+/*
 
-#include "StdAfx.h"
+MIT License
+
+Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+// DumpTS.cpp : Defines the entry point for the console application.
+//
+#if defined(_WIN32) && defined(_DEBUG)
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+#include "platcomm.h"
 #include "crc.h"
 #include "PayloadBuf.h"
 #include "DumpTS.h"
@@ -31,6 +60,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	ShowH264SPS(const char* szH264StreamFile);
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
 extern int	DiffTSATC();
@@ -144,6 +174,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showDU",		// show the DU in the MMTP payload
 		"showPCR",
 		"showNTP",
+		"showSPS",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
 		"listMMTPpacket",
 		"listMMTPpayload",
@@ -416,6 +447,12 @@ int PrepareParams()
 					g_params["srcfmt"] = "aiff";
 				else if (_stricmp(file_name_ext.c_str(), ".mmts") == 0)
 					g_params["srcfmt"] = "mmt";
+				else if (_stricmp(file_name_ext.c_str(), ".h264") == 0 || _stricmp(file_name_ext.c_str(), ".avc") == 0)
+					g_params["srcfmt"] = "h264";
+				else if (_stricmp(file_name_ext.c_str(), ".h265") == 0 || _stricmp(file_name_ext.c_str(), ".hevc") == 0)
+					g_params["srcfmt"] = "h265";
+				else if (_stricmp(file_name_ext.c_str(), ".h266") == 0 || _stricmp(file_name_ext.c_str(), ".vvc") == 0)
+					g_params["srcfmt"] = "h266";
 			}
 		}
 
@@ -475,7 +512,10 @@ int PrepareParams()
 		else if (iter->second.compare("huffman_codebook") == 0 ||
 			iter->second.compare(0, strlen("spectrum_huffman_codebook_"), "spectrum_huffman_codebook_") == 0 ||
 			iter->second.compare("aiff") == 0 ||
-			iter->second.compare("mmt") == 0)
+			iter->second.compare("mmt") == 0 ||
+			iter->second.compare("h264") == 0 ||
+			iter->second.compare("h265") == 0 || 
+			iter->second.compare("h266") == 0)
 			bIgnorePreparseTS = true;
 	}
 
@@ -595,6 +635,7 @@ void PrintHelp()
 	printf("\t--showPCR\t\tPrint the PCR clock information in TS stream\n");
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
+	printf("\t--showSPS\t\tShow the SPS of AVC/HEVC stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -713,6 +754,9 @@ void CalculateCRC()
 
 int main(int argc, char* argv[])
 {
+#if defined(_WIN32) && defined(_DEBUG)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
 	int nDumpRet = 0;
 
 	memset(&g_dump_status, 0, sizeof(g_dump_status));
@@ -967,6 +1011,13 @@ int main(int argc, char* argv[])
 			else if (g_params.find("benchRead") != g_params.end())
 			{
 				nDumpRet = BenchRead(0);
+				goto done;
+			}
+			else if (g_params.find("showSPS") != g_params.end())
+			{
+				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0)
+					nDumpRet = ShowH264SPS(g_params["input"].c_str());
+
 				goto done;
 			}
 			else

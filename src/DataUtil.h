@@ -1,3 +1,28 @@
+/*
+
+MIT License
+
+Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
 #pragma once
 #include <stdio.h>
 #include <string>
@@ -320,6 +345,19 @@ inline std::string GetReadableNum(uint64_t n)
 		}
 	}
 
+	return strRet;
+}
+
+inline std::string GetFixedWidthStrWithEllipsis(const char* szStr, size_t max_width=80)
+{
+	size_t sz = strlen(szStr);
+	if (sz + 3 <= max_width)
+		return szStr;
+
+	std::string strRet;
+	strRet.reserve(max_width + 1);
+	strRet.append(szStr, max_width - 3);
+	strRet.append("...");
 	return strRet;
 }
 

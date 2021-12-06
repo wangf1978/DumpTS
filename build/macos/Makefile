@@ -25,6 +25,8 @@ EXECUTABLE := DumpTS
 SOURCES := \
 	$(SOURCEDIR)/AIFF.cpp \
 	$(SOURCEDIR)/AMRingBuffer.cpp \
+	$(SOURCEDIR)/AMBitArray.cpp \
+	$(SOURCEDIR)/AMSHA1.cpp \
 	$(SOURCEDIR)/AudChMap.cpp \
 	$(SOURCEDIR)/Bitstream.cpp \
 	$(SOURCEDIR)/AMBitStream.cpp \
@@ -34,6 +36,9 @@ SOURCES := \
 	$(SOURCEDIR)/DumpStream.cpp \
 	$(SOURCEDIR)/DumpTS.cpp \
 	$(SOURCEDIR)/DumpPS.cpp \
+	$(SOURCEDIR)/nal_com.cpp \
+	$(SOURCEDIR)/sei.cpp \
+	$(SOURCEDIR)/h264_video.cpp \
 	$(SOURCEDIR)/ESRepacker.cpp \
 	$(SOURCEDIR)/HuffmanTree.cpp \
 	$(SOURCEDIR)/IP.cpp \
@@ -46,12 +51,13 @@ SOURCES := \
 	$(SOURCEDIR)/PayloadBuf.cpp \
 	$(SOURCEDIR)/QTFF.cpp \
 	$(SOURCEDIR)/RefactorTS.cpp \
-	$(SOURCEDIR)/StdAfx.cpp \
+	$(SOURCEDIR)/platcomm.cpp \
 	$(SOURCEDIR)/combase.cpp \
 	$(SOURCEDIR)/system_13818_1.cpp \
 	$(SOURCEDIR)/Syncer.cpp \
 	$(SOURCEDIR)/TSTD.cpp \
-	$(SOURCEDIR)/crc.cpp
+	$(SOURCEDIR)/crc.cpp \
+	$(SOURCEDIR)/tinyxml2.cpp
 	
 OBJECTS = $(patsubst $(SOURCEDIR)/%.c, $(OBJECTDIR)/%.o, $(patsubst $(SOURCEDIR)/%.cpp, $(OBJECTDIR)/%.o, $(SOURCES)))
 

@@ -23,54 +23,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
-#pragma once
-#include <stdint.h>
 
-enum DUMP_STATE
-{
-	DUMP_STATE_INVALID = 0,
-	DUMP_STATE_INITIALIZE,
-	DUMP_STATE_RUNNING,
-	DUMP_STATE_PAUSE,
-	DUMP_STATE_STOP,
-	DUMP_STATE_MAX
-};
+#ifndef _AM_ALGORITHM_SHA1_H_
+#define _AM_ALGORITHM_SHA1_H_
 
-enum STREAM_CAT
-{
-	STREAM_CAT_VIDEO = 0,
-	STREAM_CAT_AUDIO,
-	STREAM_CAT_SUBTITLE,
-	STREAM_CAT_UNKNOWN = 0xFF
-};
+typedef void*			AMSHA1;
+typedef unsigned char	AMSHA1_RET[20];
 
-struct DUMP_STATUS
-{
-	int32_t			completed;				// Dump process is finished or not, 1: finished, 0: not finished
-	DUMP_STATE		state;					// Dump State
-	uint64_t		num_of_packs;			// Total number of TS/PS packs
-	uint64_t		cur_pack_idx;			// The current processing TS pack index
+/*!	@brief Initialize SHA1 algorithm. */
+AMP_FOUNDATION_PROC	AMSHA1	AM_SHA1_Init	(unsigned char* pBuf=NULL, unsigned long cbBuf=0);
+/*!	@brief Input a buffer for SHA1 hash, it can be called for multiple times. */
+AMP_FOUNDATION_PROC int		AM_SHA1_Input	(AMSHA1 handle, unsigned char* pBuf, unsigned long cbBuf);
+/*!	@brief Calculate the final SHA1 hash value. 
+	@remarks Once it is called, AM_SHA1_Input can't be called any more except AM_SHA1_Reset is called. */
+AMP_FOUNDATION_PROC int		AM_SHA1_Finalize(AMSHA1 handle);
+/*!	@brief Get the calculated hash value. */
+AMP_FOUNDATION_PROC int		AM_SHA1_GetHash	(AMSHA1 handle, AMSHA1_RET& Result);
+/*!	@brief Reset any immediate calculation result, and be ready to calculate a new SHA1 value. */
+AMP_FOUNDATION_PROC	void	AM_SHA1_Reset	(AMSHA1 handle);
+/*!	@brief Release the resource for SHA1 hash process. */
+AMP_FOUNDATION_PROC void	AM_SHA1_Uninit	(AMSHA1& handle);
 
-	uint64_t		num_of_processed_payloads;
-											// number of payloads processed, including the failure dump or success dump
-	uint64_t		num_of_dumped_payloads;	// number of payloads dumped successfully
-};
-
-union PES_FILTER_INFO
-{
-	struct
-	{
-		unsigned short	PID;
-		int				stream_type;
-		int				stream_id;
-		int				stream_id_extension;
-	} TS;
-
-	struct
-	{
-		STREAM_CAT		Stream_CAT;
-		int				StreamIndex;	// If Stream_CAT is video, and StreamIndex is 0, it means video stream#0
-		int				stream_type;
-	} VOB;
-};
-
+#endif
