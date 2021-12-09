@@ -361,3 +361,40 @@ inline std::string GetFixedWidthStrWithEllipsis(const char* szStr, size_t max_wi
 	return strRet;
 }
 
+inline bool splitstr(const char* szStr, const char* delimiters, std::vector<std::string>& substrs)
+{
+	if (szStr == nullptr || delimiters == nullptr)
+		return false;
+
+	size_t dlen = strlen(delimiters);
+	if (dlen == 0)
+	{
+		substrs.emplace_back(szStr);
+		return true;
+	}
+
+	size_t i = 0;
+	const char* p = szStr;
+	const char* ps = szStr;
+	while (*p != '\0')
+	{
+		for (i = 0; i < dlen; i++)
+		{
+			if (*p == delimiters[i])
+			{
+				substrs.emplace_back(ps, p - ps);
+				ps = p + 1;
+				break;
+			}
+		}
+
+
+		p++;
+	}
+
+	if (p > ps)
+		substrs.emplace_back(ps, p - ps);
+
+	return true;
+}
+
