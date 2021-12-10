@@ -79,7 +79,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showPRC**|*[video][audio][full]*|print the PCR clock information in TS stream|
 |**--showNTP**|*N/A*|print the NTP information in MMT/TLV stream|
 |**--diffATC**|diff threshold<br>xxxx(27MHZ)|list the each TS packet arrive time and the diff with the previous TS pack|
-|**--showSPS**|*N/A*|print the SPS syntax of AVC/HEVC stream|
+|**--showSPS**|*N/A*|print the SPS syntax of AVC/HEVC/VVC stream|
+|**--showNU**|*[AU];[NU];[SEIMSG];[SEIPAYLOAD]*|print the Access-Unit/nal-unit/sei-message/sei-payload tree of AVC/HEVC/VVC stream|
 |**--listMMTPpacket**|*N/A*|List the specified MMTP packets|
 |**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
 |**--listMPUtime**|*simple(default)<br>full*|List MPU presentation time and its pts/dts offset|

@@ -816,9 +816,6 @@ int	ShowH264NUs(const char* szH264StreamFile, int top, int options)
 
 		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
 		{
-			if (m_AUCount == 317)
-				printf("AU hitting here.\n");
-
 			printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
 			return RET_CODE_SUCCESS;
 		}
@@ -887,7 +884,7 @@ int	ShowH264NUs(const char* szH264StreamFile, int top, int options)
 	file_size = _ftelli64(rfp);
 	_fseeki64(rfp, 0, SEEK_SET);
 
-	NALParser.SetEnumerator((INALEnumerator*)(&AVCNALEnumerator), NAL_ENUM_OPTION_ALL);
+	NALParser.SetEnumerator((INALEnumerator*)(&AVCNALEnumerator), options);
 
 	do
 	{

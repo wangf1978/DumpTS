@@ -29,7 +29,7 @@ SOFTWARE.
 
 CNALParser::CNALParser(NAL_CODING coding, NAL_BYTESTREAM_FORMAT fmt, uint8_t NULenDelimiterSize, RET_CODE* pRetCode)
 	: m_nal_coding(coding)
-	, m_nal_bytestream_foramt(fmt)
+	, m_nal_bytestream_format(fmt)
 	, m_nal_length_delimiter_size(NULenDelimiterSize)
 {
 	RET_CODE ret_code = RET_CODE_SUCCESS;
@@ -209,7 +209,8 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 
 			//if (pCurParseStartBuf[0] == 0xCB && pCurParseStartBuf[1] == 0x0B && pCurParseStartBuf[2] == 0x3C && pCurParseStartBuf[3] == 0xBD)
 			//if (pCurParseStartBuf[0] == 0xCE && pCurParseStartBuf[1] == 0xCF && pCurParseStartBuf[2] == 0x1E && pCurParseStartBuf[3] == 0xAB)
-			//	printf("Hitting here again.\n");
+/*			if (pCurParseStartBuf[0] == 0x37 && pCurParseStartBuf[1] == 0x95 && pCurParseStartBuf[2] == 0x12 && pCurParseStartBuf[3] == 0x83)
+				printf("Hitting here again.\n")*/;
 
 			pSubmitEnd = pBuf;
 		}
@@ -332,7 +333,9 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 
 	if (bDrain)
 	{
-		CommitSliceInfo(true);
+		if (m_nal_enum_options&NAL_ENUM_OPTION_AU)
+			CommitSliceInfo(true);
+
 		AM_LRB_Reset(m_rbRawBuf);
 		AM_LRB_Reset(m_rbNALUnitEBSP);
 	}
@@ -343,7 +346,7 @@ done:
 
 RET_CODE CNALParser::ProcessOutput(bool bDrain)
 {
-	if (m_nal_bytestream_foramt == NAL_BYTESTREAM_ANNEX_B)
+	if (m_nal_bytestream_format == NAL_BYTESTREAM_ANNEX_B)
 		return ProcessAnnexBOutput(bDrain);
 
 	return RET_CODE_ERROR_NOTIMPL;
@@ -616,17 +619,46 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 	int8_t nal_unit_type = -1;
 	uint8_t* pEBSPBuf = AM_LRB_GetReadPtr(m_rbNALUnitEBSP, &read_buf_len);
 
+	if (pEBSPBuf == NULL || read_buf_len <= 0)
+		return RET_CODE_NEEDMOREINPUT;
+
+	// Don't need analyze the Access-Unit
+	if (!(m_nal_enum_options&NAL_ENUM_OPTION_AU))
+	{
+		uint8_t* pNUBuf = pEBSPBuf;
+		size_t cbNUBuf = (size_t)read_buf_len;
+		if (m_nal_bytestream_format == NAL_BYTESTREAM_ISO)
+		{
+			pNUBuf += m_nal_length_delimiter_size;
+			cbNUBuf -= m_nal_length_delimiter_size;
+		}
+		else if (m_nal_bytestream_format == NAL_BYTESTREAM_ANNEX_B)
+		{
+			pNUBuf += number_of_leading_bytes;
+			cbNUBuf -= number_of_leading_bytes;
+		}
+
+		if (ParseNALUnit(pNUBuf, (int)cbNUBuf) == RET_CODE_ABORT)
+			return RET_CODE_ABORT;
+
+		AM_LRB_Reset(m_rbNALUnitEBSP);
+		return RET_CODE_SUCCESS;
+	}
+
 	// Collect the NAL_UNIT information, and store it to m_nu_entries
 	// Find the last nu_entries, and get the new NAL unit
 	uint32_t offset = 0;
 	if (m_nu_entries.size() > 0)
 		offset = m_nu_entries.back().NU_offset + m_nu_entries.back().NU_length;
 
-	if (read_buf_len < 0 || (uint32_t)read_buf_len <= offset)
+	if (read_buf_len < 0 || (uint32_t)read_buf_len < offset)
 	{
 		printf("The NAL-Unit ring buffers is inconsistent with NU entries.\n");
 		return RET_CODE_ERROR;
 	}
+
+	if ((uint32_t)read_buf_len == offset)
+		return RET_CODE_NEEDMOREINPUT;
 
 	uint8_t count_of_leading_bytes = 0;
 	uint32_t NAL_Unit_Len = (uint32_t)(read_buf_len - offset);
@@ -642,17 +674,17 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 
 	uint8_t* p = pEBSPBuf + offset;
 	
-	if (m_nal_bytestream_foramt == NAL_BYTESTREAM_ISO)
+	if (m_nal_bytestream_format == NAL_BYTESTREAM_ISO)
 	{
 		count_of_leading_bytes = m_nal_length_delimiter_size;
 		p += m_nal_length_delimiter_size;
 	}
-	else if (m_nal_bytestream_foramt == NAL_BYTESTREAM_ANNEX_B)
+	else if (m_nal_bytestream_format == NAL_BYTESTREAM_ANNEX_B)
 	{
 		count_of_leading_bytes = number_of_leading_bytes;
 		p += number_of_leading_bytes;
 	}
-	else
+	else if(m_nal_bytestream_format != NAL_BYTESTREAM_RAW)
 		return RET_CODE_ERROR_NOTIMPL;
 
 	m_count_nal_unit_scanned++;
@@ -678,7 +710,6 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 			// Parsing a part of slice header
 			if (AMP_SUCCEEDED(PickupLastSliceHeaderInfo(p, NAL_Unit_Len - count_of_leading_bytes)))
 			{
-				printf("Try to commit the picture.\n");
 				// Commit the slice information, during committing, picture information may be generated
 				iRet = CommitSliceInfo(false);
 			}
@@ -1349,7 +1380,7 @@ int CNALParser::CommitAVCPicture(
 		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
 		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
 
-		if (AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf)))
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -1357,35 +1388,17 @@ int CNALParser::CommitAVCPicture(
 
 		for (auto iter = pic_start; iter != pic_end; iter++)
 		{
-			uint8_t* pNALBuf = pEBSPBuf + iter->NU_offset;
-			pNALBuf += iter->leading_bytes;
+			uint8_t* pNALUnitBuf = pEBSPBuf + iter->NU_offset;
+			pNALUnitBuf += iter->leading_bytes;
 
-			if (AMP_FAILED(m_nal_enum->EnumNALUnitBegin(m_pCtx, pNALBuf, iter->NU_length - iter->leading_bytes)))
+			if (ParseNALUnit(pNALUnitBuf, iter->NU_length - iter->leading_bytes) == RET_CODE_ABORT)
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
 			}
-
-			// If the current NAL unit is a SEI, try to drill its sei_message and sei_payload
-			if (iter->nal_unit_type_avc == AVC_SEI_NUT)
-			{
-				if (ParseSEINU(pNALBuf, (int)(iter->NU_length - iter->leading_bytes)) == RET_CODE_ABORT)
-				{
-					printf("Abort parsing SEI NAL Unit.\n");
-					iRet = RET_CODE_ABORT;
-					goto done;
-				}
-			}
-
-			if (AMP_FAILED(m_nal_enum->EnumNALUnitEnd(m_pCtx, pNALBuf, iter->NU_length - iter->leading_bytes)))
-			{
-				iRet = RET_CODE_ABORT;
-				goto done;
-			}
-
 		}
 
-		if (AMP_FAILED(m_nal_enum->EnumNALAUEnd(m_pCtx, pAUBuf, cbAUBuf)))
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUEnd(m_pCtx, pAUBuf, cbAUBuf)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -1395,6 +1408,45 @@ int CNALParser::CommitAVCPicture(
 done:
 
 	return iRet;
+}
+
+int CNALParser::ParseNALUnit(uint8_t* pNUBuf, int cbNUBuf)
+{
+	int nal_unit_type = -1;
+	if (m_nal_coding == NAL_CODING_AVC)
+		nal_unit_type = pNUBuf[0] & 0x1F;
+	else if (m_nal_coding == NAL_CODING_HEVC)
+		nal_unit_type = (pNUBuf[0] >> 1) & 0x3F;
+
+	if (m_nal_enum)
+	{
+		if (m_nal_enum_options&NAL_ENUM_OPTION_NU)
+		{
+			if (AMP_FAILED(m_nal_enum->EnumNALUnitBegin(m_pCtx, pNUBuf, cbNUBuf)))
+				return RET_CODE_ABORT;
+		}
+
+		// If the current NAL unit is a SEI, try to drill its sei_message and sei_payload
+		if (m_nal_enum_options&(NAL_ENUM_OPTION_SEI_MSG | NAL_ENUM_OPTION_SEI_PAYLOAD))
+		{
+			if ((m_nal_coding == NAL_CODING_AVC && nal_unit_type == AVC_SEI_NUT))
+			{
+				if (ParseSEINU(pNUBuf, (int)cbNUBuf) == RET_CODE_ABORT)
+				{
+					printf("Abort parsing SEI NAL Unit.\n");
+					return RET_CODE_ABORT;
+				}
+			}
+		}
+
+		if (m_nal_enum_options&NAL_ENUM_OPTION_NU)
+		{
+			if (AMP_FAILED(m_nal_enum->EnumNALUnitEnd(m_pCtx, pNUBuf, cbNUBuf)))
+				return RET_CODE_ABORT;
+		}
+	}
+
+	return RET_CODE_SUCCESS;
 }
 
 /*
@@ -1485,25 +1537,25 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 
 		if (m_nal_enum != nullptr)
 		{
-			if (AMP_FAILED(m_nal_enum->EnumNALSEIMessageBegin(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
+			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_MSG) && AMP_FAILED(m_nal_enum->EnumNALSEIMessageBegin(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
 			}
 
-			if (AMP_FAILED(m_nal_enum->EnumNALSEIPayloadBegin(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
+			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_PAYLOAD) && AMP_FAILED(m_nal_enum->EnumNALSEIPayloadBegin(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
 			}
 
-			if (AMP_FAILED(m_nal_enum->EnumNALSEIPayloadEnd(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
+			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_PAYLOAD) && AMP_FAILED(m_nal_enum->EnumNALSEIPayloadEnd(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
 			}
 
-			if (AMP_FAILED(m_nal_enum->EnumNALSEIMessageEnd(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
+			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_MSG) && AMP_FAILED(m_nal_enum->EnumNALSEIMessageEnd(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;

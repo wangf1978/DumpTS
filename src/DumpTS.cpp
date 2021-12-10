@@ -640,7 +640,7 @@ void PrintHelp()
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
 	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
-	printf("\t--showNU\t\tShow the nal_units of AVC/HEVC/VVC stream\n");
+	printf("\t--showNU\t\tShow the access-unit, nal-unit, sei-message and sei_payload tree of AVC/HEVC/VVC stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -1047,13 +1047,13 @@ int main(int argc, char* argv[])
 								options |= NAL_ENUM_OPTION_AU;
 
 							if (MBCSICMP(sopt.c_str(), "nu") == 0)
-								options |= NAL_ENUM_OPTION_AU;
+								options |= NAL_ENUM_OPTION_NU;
 
 							if (MBCSICMP(sopt.c_str(), "seimsg") == 0 || MBCSICMP(sopt.c_str(), "seimessage") == 0)
-								options |= NAL_ENUM_OPTION_AU;
+								options |= NAL_ENUM_OPTION_SEI_MSG;
 
 							if (MBCSICMP(sopt.c_str(), "seipayload") == 0)
-								options |= NAL_ENUM_OPTION_AU;
+								options |= NAL_ENUM_OPTION_SEI_PAYLOAD;
 						}
 					}
 

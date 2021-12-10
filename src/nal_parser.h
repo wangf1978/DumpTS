@@ -169,13 +169,14 @@ protected:
 											 std::vector<NAL_UNIT_ENTRY>::const_iterator pic_end);
 
 
+	int						ParseNALUnit(uint8_t* pNUBuf, int cbNUBuf);
 	int						ParseSEINU(uint8_t* pNUBuf, int cbNUBuf);
 
 	RET_CODE				ProcessAnnexBOutput(bool bDrain);
 
 protected:
 	NAL_CODING				m_nal_coding;
-	NAL_BYTESTREAM_FORMAT	m_nal_bytestream_foramt;
+	NAL_BYTESTREAM_FORMAT	m_nal_bytestream_format;
 	uint8_t					m_nal_length_delimiter_size;
 	INALContext*			m_pCtx;
 	INALAVCContext*			m_pNALAVCCtx;
