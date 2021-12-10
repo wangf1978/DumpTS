@@ -190,8 +190,8 @@ enum AVC_PICTURE_SLICE_TYPE
 	(nal_unit_type) == AVC_PPS_NUT)
 
 #define IS_HEVC_VCL_NAL(nal_unit_type)	(\
-	(nal_unit_type) >= HEVC_TRAIL_N  && (nal_unit_type) <= HEVC_RASL_R ||\
-	(nal_unit_type) >= HEVC_BLA_W_LP && (nal_unit_type) <= HEVC_CRA_NUT)
+	((nal_unit_type) >= HEVC_TRAIL_N  && (nal_unit_type) <= HEVC_RASL_R) ||\
+	((nal_unit_type) >= HEVC_BLA_W_LP && (nal_unit_type) <= HEVC_CRA_NUT))
 
 #define IS_AVC_VCL_NAL(nal_unit_type)	(\
 	(nal_unit_type) >= AVC_CS_NON_IDR_PIC && (nal_unit_type) <= AVC_CS_IDR_PIC)
@@ -228,7 +228,8 @@ enum AVC_PICTURE_SLICE_TYPE
 struct NAL_UNIT_ENTRY
 {
 	uint64_t	file_offset;
-
+	uint32_t	NU_offset;							// The offset in current NAL ring buffer, for example, an AU buffer
+	uint32_t	NU_length;							// The current NNAL unit length, if the NAL byte-stream is streamed instead of file
 	uint8_t		leading_bytes;						// Specify how many bytes are leading at the header of NAL_Unit, normally it consists of
 													// zero byte(optional) + start_code_prefix(00 00 01)
 	uint8_t		reserved_for_use[3];
@@ -283,11 +284,19 @@ struct NAL_UNIT_ENTRY
 	}
 
 	NAL_UNIT_ENTRY(uint64_t pos, uint8_t nLeadingBytes, uint16_t zero_bit, uint16_t nuType, uint16_t nuhLayerID, uint16_t nuhTemporalIDPlus1) :
-		file_offset(pos), leading_bytes(nLeadingBytes), forbidden_zero_bit(zero_bit), nal_unit_type(nuType), nuh_layer_id(nuhLayerID), nuh_temporal_id_plus1(nuhTemporalIDPlus1),
+		file_offset(pos), NU_offset(0), NU_length(UINT32_MAX), leading_bytes(nLeadingBytes), forbidden_zero_bit(zero_bit), nal_unit_type(nuType), nuh_layer_id(nuhLayerID), nuh_temporal_id_plus1(nuhTemporalIDPlus1),
+		no_output_of_prior_pics_flag(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
+
+	NAL_UNIT_ENTRY(uint64_t pos, uint32_t offset, uint32_t len, uint8_t nLeadingBytes, uint16_t zero_bit, uint16_t nuType, uint16_t nuhLayerID, uint16_t nuhTemporalIDPlus1) :
+		file_offset(pos), NU_offset(offset), NU_length(len), leading_bytes(nLeadingBytes), forbidden_zero_bit(zero_bit), nal_unit_type(nuType), nuh_layer_id(nuhLayerID), nuh_temporal_id_plus1(nuhTemporalIDPlus1),
 		no_output_of_prior_pics_flag(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
 
 	NAL_UNIT_ENTRY(uint64_t pos, uint8_t nLeadingBytes, uint8_t zero_bit, uint8_t nalRefIdc, uint8_t nuType) :
-		file_offset(pos), leading_bytes(nLeadingBytes), forbidden_zero_bit_avc(zero_bit), nal_unit_type_avc(nuType), nal_ref_idc(nalRefIdc),
+		file_offset(pos), NU_offset(0), NU_length(UINT32_MAX), leading_bytes(nLeadingBytes), forbidden_zero_bit_avc(zero_bit), nal_unit_type_avc(nuType), nal_ref_idc(nalRefIdc),
+		frame_num(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
+
+	NAL_UNIT_ENTRY(uint64_t pos, uint32_t offset, uint32_t len, uint8_t nLeadingBytes, uint8_t zero_bit, uint8_t nalRefIdc, uint8_t nuType) :
+		file_offset(pos), NU_offset(offset), NU_length(len), leading_bytes(nLeadingBytes), forbidden_zero_bit_avc(zero_bit), nal_unit_type_avc(nuType), nal_ref_idc(nalRefIdc),
 		frame_num(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
 
 	bool Is_The_First_AVC_VCL_NU(NAL_UNIT_ENTRY& last_nu) {

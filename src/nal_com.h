@@ -68,7 +68,9 @@ class INALContext: public IUnknown
 {
 public:
 	virtual NAL_CODING		GetNALCoding() = 0;
-	virtual RET_CODE		SetFilters(std::initializer_list<uint8_t> NU_type_filters) = 0;
+	virtual RET_CODE		SetNUFilters(std::initializer_list<uint8_t> NU_type_filters) = 0;
+	virtual RET_CODE		GetNUFilters(std::vector<uint8_t>& NU_type_filters) = 0;
+	virtual bool			IsNUFiltered(uint8_t nal_unit_type) = 0;
 	virtual void			Reset() = 0;
 
 public:
@@ -82,6 +84,7 @@ public:
 	virtual H264_NU			GetAVCSPS(uint8_t sps_id) = 0;
 	virtual H264_NU			GetAVCPPS(uint8_t pps_id) = 0;
 	virtual RET_CODE		UpdateAVCSPS(H264_NU sps_nu) = 0;
+	virtual RET_CODE		UpdateAVCPPS(H264_NU pps_nu) = 0;
 	virtual H264_NU			CreateAVCNU() = 0;
 };
 

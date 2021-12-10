@@ -32,6 +32,7 @@ SOFTWARE.
 #include "tinyxml2.h"
 #include "AMSHA1.h"
 #include "DataUtil.h"
+#include "nal_parser.h"
 
 const char* h264_nal_unit_type_names[32] = {
 	"non-VCL::Unspecified",
@@ -307,12 +308,25 @@ namespace BST
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE VideoBitstreamCtx::SetFilters(std::initializer_list<uint8_t> NU_type_filters)
+		RET_CODE VideoBitstreamCtx::SetNUFilters(std::initializer_list<uint8_t> NU_type_filters)
 		{
 			nal_unit_type_filters = NU_type_filters;
 			return RET_CODE_SUCCESS;
 		}
 
+		RET_CODE VideoBitstreamCtx::GetNUFilters(std::vector<uint8_t>& NU_type_filters)
+		{
+			NU_type_filters = nal_unit_type_filters;
+
+			return RET_CODE_SUCCESS;
+		}
+
+		bool VideoBitstreamCtx::IsNUFiltered(uint8_t nal_unit_type)
+		{
+			return nal_unit_type_filters.empty() ||
+				std::find(nal_unit_type_filters.cbegin(), nal_unit_type_filters.cend(), nal_unit_type) != nal_unit_type_filters.cend();
+		}
+		
 		H264_NU VideoBitstreamCtx::GetAVCSPS(uint8_t sps_id)
 		{
 			auto iter = sp_h264_spses.find(sps_id);
@@ -333,7 +347,19 @@ namespace BST
 
 		RET_CODE VideoBitstreamCtx::UpdateAVCSPS(H264_NU sps_nu)
 		{
+			if (!sps_nu || sps_nu->nal_unit_header.nal_unit_type != SPS_NUT || sps_nu->ptr_seq_parameter_set_rbsp == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
+
 			sp_h264_spses[sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id] = sps_nu;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateAVCPPS(H264_NU pps_nu)
+		{
+			if (!pps_nu || pps_nu->nal_unit_header.nal_unit_type != PPS_NUT || pps_nu->ptr_pic_parameter_set_rbsp == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
+
+			sp_h264_ppses[pps_nu->ptr_pic_parameter_set_rbsp->pic_parameter_set_id] = pps_nu;
 			return RET_CODE_SUCCESS;
 		}
 
@@ -762,4 +788,139 @@ done:
 	return iRet;
 }
 
+int	ShowH264NUs(const char* szH264StreamFile, int top, int options)
+{
+	INALContext* pAVCContext = nullptr;
+	CNALParser NALParser(NAL_CODING_AVC);
+	uint8_t pBuf[2048] = { 0 };
+
+	const int read_unit_size = 2048;
+
+	FILE* rfp = NULL;
+	int iRet = RET_CODE_SUCCESS;
+	int64_t file_size = 0;
+
+	if (AMP_FAILED(NALParser.GetNALContext(&pAVCContext)))
+	{
+		printf("Failed to get the AVC NAL context.\n");
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	class CAVCNALEnumerator : public INALEnumerator
+	{
+	public:
+		CAVCNALEnumerator(INALContext* pAVCNALCtx) : m_pNALContext(pAVCNALCtx) {
+		}
+
+		~CAVCNALEnumerator() {}
+
+		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		{
+			if (m_AUCount == 317)
+				printf("AU hitting here.\n");
+
+			printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			uint8_t nal_unit_type = pEBSPNUBuf[0] & 0x1F;
+			printf("\tNAL Unit %s -- %s, len: %zu\n", h264_nal_unit_type_names[nal_unit_type], h264_nal_unit_type_descs[nal_unit_type], cbEBSPNUBuf);
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
+		{
+			printf("\t\tSEI message\n");
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		{
+			printf("\t\t\tSEI payload %s, length: %zu\n", sei_payload_type_names[payload_type], cbRBSPPayloadBuf);
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		{
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
+		{
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			m_NUCount++;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		{
+			m_AUCount++;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		{
+			printf("Hitting error {error_code: %d}.\n", error_code);
+			return RET_CODE_SUCCESS;
+		}
+
+		INALContext* m_pNALContext = nullptr;
+		uint64_t m_AUCount = 0;
+		uint64_t m_NUCount = 0;
+	}AVCNALEnumerator(pAVCContext);
+
+	errno_t errn = fopen_s(&rfp, szH264StreamFile, "rb");
+	if (errn != 0 || rfp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", szH264StreamFile, errn);
+		goto done;
+	}
+
+	// Get file size
+	_fseeki64(rfp, 0, SEEK_END);
+	file_size = _ftelli64(rfp);
+	_fseeki64(rfp, 0, SEEK_SET);
+
+	NALParser.SetEnumerator((INALEnumerator*)(&AVCNALEnumerator), NAL_ENUM_OPTION_ALL);
+
+	do
+	{
+		int read_size = read_unit_size;
+		if ((read_size = (int)fread(pBuf, 1, read_unit_size, rfp)) <= 0)
+		{
+			iRet = RET_CODE_IO_READ_ERROR;
+			break;
+		}
+
+		iRet = NALParser.ProcessInput(pBuf, read_size);
+		if (AMP_FAILED(iRet))
+			break;
+
+		iRet = NALParser.ProcessOutput();
+		if (iRet == RET_CODE_ABORT)
+			break;
+
+	} while (!feof(rfp));
+
+	if (feof(rfp))
+		iRet = NALParser.ProcessOutput(true);
+
+done:
+	if (rfp != nullptr)
+		fclose(rfp);
+
+	if (pAVCContext)
+	{
+		pAVCContext->Release();
+		pAVCContext = nullptr;
+	}
+
+	return iRet;
+}
 

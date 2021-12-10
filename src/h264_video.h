@@ -164,11 +164,14 @@ namespace BST {
 			}
 
 			NAL_CODING		GetNALCoding() { return NAL_CODING_AVC; }
-			RET_CODE		SetFilters(std::initializer_list<uint8_t> NU_type_filters);
+			RET_CODE		SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
+			RET_CODE		GetNUFilters(std::vector<uint8_t>& NU_type_filters);
+			bool			IsNUFiltered(uint8_t nal_unit_type);
 			void			Reset() { nal_unit_type_filters.clear(); prev_seq_parameter_set_id = -1; sp_h264_spses.clear(); sp_h264_ppses.clear(); sp_prev_nal_unit = nullptr; }
 			H264_NU			GetAVCSPS(uint8_t sps_id);
 			H264_NU			GetAVCPPS(uint8_t pps_id);
 			RET_CODE		UpdateAVCSPS(H264_NU sps_nu);
+			RET_CODE		UpdateAVCPPS(H264_NU pps_nu);
 			H264_NU			CreateAVCNU();
 
 		public:

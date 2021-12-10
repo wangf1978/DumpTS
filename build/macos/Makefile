@@ -37,6 +37,7 @@ SOURCES := \
 	$(SOURCEDIR)/DumpTS.cpp \
 	$(SOURCEDIR)/DumpPS.cpp \
 	$(SOURCEDIR)/nal_com.cpp \
+	$(SOURCEDIR)/nal_parser.cpp \
 	$(SOURCEDIR)/sei.cpp \
 	$(SOURCEDIR)/h264_video.cpp \
 	$(SOURCEDIR)/ESRepacker.cpp \

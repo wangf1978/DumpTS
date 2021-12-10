@@ -281,6 +281,7 @@
     <ClCompile Include="..\..\src\Matroska.cpp" />
     <ClCompile Include="..\..\src\MMT.cpp" />
     <ClCompile Include="..\..\src\nal_com.cpp" />
+    <ClCompile Include="..\..\src\nal_parser.cpp" />
     <ClCompile Include="..\..\src\PartitialTS.cpp" />
     <ClCompile Include="..\..\src\PayloadBuf.cpp" />
     <ClCompile Include="..\..\src\QTFF.cpp" />
@@ -373,6 +374,7 @@
     <ClInclude Include="..\..\src\MMT.h" />
     <ClInclude Include="..\..\src\NAL.h" />
     <ClInclude Include="..\..\src\nal_com.h" />
+    <ClInclude Include="..\..\src\nal_parser.h" />
     <ClInclude Include="..\..\src\PayloadBuf.h" />
     <ClInclude Include="..\..\src\QTFF.h" />
     <ClInclude Include="..\..\src\sei.h" />

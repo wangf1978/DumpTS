@@ -38,6 +38,7 @@ SOFTWARE.
 #include "crc.h"
 #include "Matroska.h"
 #include "MMT.h"
+#include "nal_parser.h"
 
 using namespace std;
 
@@ -60,6 +61,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	ShowH264NUs(const char* szH264StreamFile, int top, int options);
 extern int	ShowH264SPS(const char* szH264StreamFile);
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
@@ -175,6 +177,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPCR",
 		"showNTP",
 		"showSPS",
+		"showNU",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
 		"listMMTPpacket",
 		"listMMTPpayload",
@@ -193,6 +196,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"end",
 		"verbose",
 		"diffATC",
+		"top",			// Show the n top records
 	};
 
 	for (; iarg < argc; iarg++)
@@ -635,7 +639,8 @@ void PrintHelp()
 	printf("\t--showPCR\t\tPrint the PCR clock information in TS stream\n");
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
-	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC stream\n");
+	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
+	printf("\t--showNU\t\tShow the nal_units of AVC/HEVC/VVC stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -646,6 +651,7 @@ void PrintHelp()
 	printf("\t--video\t\t\tThe current dumped stream is a video stream\n");
 	printf("\t--start\t\t\tSpecify where to start dumping the stream, for ts, in the unit of TS pack.\n");
 	printf("\t--end\t\t\tSpecify where to stop dumping the stream, for ts, in the unit of TS pack.\n");
+	printf("\t--top\t\t\tSpecify how many records are displayed.\n");
 	printf("\t--verbose\t\tPrint the intermediate information during media processing\n");
 	printf("\t--help\t\t\tPrint this message");
 
@@ -760,6 +766,9 @@ int main(int argc, char* argv[])
 	int nDumpRet = 0;
 
 	memset(&g_dump_status, 0, sizeof(g_dump_status));
+
+	for (int i = 0; i < argc; i++)
+		printf("%s\n", argv[i]);
 
 	if (argc < 2)
 	{
@@ -1017,6 +1026,49 @@ int main(int argc, char* argv[])
 			{
 				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0)
 					nDumpRet = ShowH264SPS(g_params["input"].c_str());
+
+				goto done;
+			}
+			else if (g_params.find("showNU") != g_params.end())
+			{
+				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0)
+				{
+					int options = 0;
+					std::string& strShowNU = g_params["showNU"];
+					std::vector<std::string> strShowNUOptions;
+					splitstr(strShowNU.c_str(), ",;.:", strShowNUOptions);
+					if (strShowNUOptions.size() == 0)
+						options = NAL_ENUM_OPTION_ALL;
+					else
+					{
+						for (auto& sopt : strShowNUOptions)
+						{
+							if (MBCSICMP(sopt.c_str(), "au") == 0)
+								options |= NAL_ENUM_OPTION_AU;
+
+							if (MBCSICMP(sopt.c_str(), "nu") == 0)
+								options |= NAL_ENUM_OPTION_AU;
+
+							if (MBCSICMP(sopt.c_str(), "seimsg") == 0 || MBCSICMP(sopt.c_str(), "seimessage") == 0)
+								options |= NAL_ENUM_OPTION_AU;
+
+							if (MBCSICMP(sopt.c_str(), "seipayload") == 0)
+								options |= NAL_ENUM_OPTION_AU;
+						}
+					}
+
+					int top = -1;
+					auto iterTop = g_params.find("top");
+					if (iterTop != g_params.end())
+					{
+						long long top_records = ConvertToLongLong(iterTop->second);
+						if (top_records < 0 || top_records > INT32_MAX)
+							top = -1;
+					}
+
+					nDumpRet = ShowH264NUs(g_params["input"].c_str(), top, options);
+					goto done;
+				}
 
 				goto done;
 			}
