@@ -34,10 +34,13 @@ SOURCES := \
 	$(SOURCEDIR)/DumpStream.cpp \
 	$(SOURCEDIR)/DumpTS.cpp \
 	$(SOURCEDIR)/DumpPS.cpp \
+	$(SOURCEDIR)/DumpNAL.cpp \
 	$(SOURCEDIR)/nal_com.cpp \
 	$(SOURCEDIR)/nal_parser.cpp \
 	$(SOURCEDIR)/sei.cpp \
 	$(SOURCEDIR)/h264_video.cpp \
+	$(SOURCEDIR)/h265_video.cpp \
+	$(SOURCEDIR)/h266_video.cpp \
 	$(SOURCEDIR)/ESRepacker.cpp \
 	$(SOURCEDIR)/HuffmanTree.cpp \
 	$(SOURCEDIR)/IP.cpp \

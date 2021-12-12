@@ -44,8 +44,8 @@ SOFTWARE.
 #define PACKED __attribute__ ((__packed__))
 #endif
 
-extern const char* h264_nal_unit_type_names[32];
-extern const char* h264_nal_unit_type_descs[32];
+extern const char* avc_nal_unit_type_names[32];
+extern const char* avc_nal_unit_type_descs[32];
 extern const char* sample_aspect_ratio_descs[256];
 extern const char* vui_video_format_names[7];
 extern const char* vui_colour_primaries_names[256];
@@ -227,7 +227,7 @@ namespace BST {
 				DECLARE_FIELDPROP_BEGIN()
 				BST_FIELD_PROP_NUMBER1(forbidden_zero_bit, 1, "shall be equal to 0.");
 				BST_FIELD_PROP_2NUMBER1(nal_ref_idc, 2, "");
-				BST_FIELD_PROP_2NUMBER1(nal_unit_type, 5, h264_nal_unit_type_descs[nal_unit_type]);
+				BST_FIELD_PROP_2NUMBER1(nal_unit_type, 5, avc_nal_unit_type_descs[nal_unit_type]);
 				DECLARE_FIELDPROP_END()
 
 			}PACKED;
@@ -4550,7 +4550,7 @@ namespace BST {
 			}
 
 			DECLARE_FIELDPROP_BEGIN()
-			NAV_WRITE_TAG_BEGIN2_1("NAL_UNIT", h264_nal_unit_type_descs[nal_unit_header.nal_unit_type]);
+			NAV_WRITE_TAG_BEGIN2_1("NAL_UNIT", avc_nal_unit_type_descs[nal_unit_header.nal_unit_type]);
 			BST_FIELD_PROP_OBJECT(nal_unit_header);
 			if (nal_unit_header.nal_unit_type == PREFIX_NUT ||
 				nal_unit_header.nal_unit_type == SL_EXT ||
@@ -4739,7 +4739,7 @@ namespace BST {
 			DECLARE_FIELDPROP_BEGIN()
 			if (NAL_Length_Delimiter_Size == 0)
 			{
-				NAV_WRITE_TAG_BEGIN2_1("byte_stream_nal_unit", (map_status.status == 0 || map_status.number_of_fields >= (int)(leading_zero_8bits.size() + (has_zero_byte ? 1 : 0) + 4)) ? h264_nal_unit_type_descs[nal_unit->nal_unit_header.nal_unit_type] : "");
+				NAV_WRITE_TAG_BEGIN2_1("byte_stream_nal_unit", (map_status.status == 0 || map_status.number_of_fields >= (int)(leading_zero_8bits.size() + (has_zero_byte ? 1 : 0) + 4)) ? avc_nal_unit_type_descs[nal_unit->nal_unit_header.nal_unit_type] : "");
 				if (leading_zero_8bits.size() > 0)
 				{
 					NAV_FIELD_PROP_FIXSIZE_BINSTR("leading_zero_8bits", 8 * (unsigned long)leading_zero_8bits.size(), &leading_zero_8bits[0], (unsigned long)leading_zero_8bits.size(), "equal to 0x00")

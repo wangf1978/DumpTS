@@ -168,6 +168,15 @@
     <ClCompile Include="..\..\src\nal_parser.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\h265_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpNAL.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\h266_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
@@ -294,6 +303,12 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\nal_parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\h265_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\h266_video.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

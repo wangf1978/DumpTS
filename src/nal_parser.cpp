@@ -26,6 +26,8 @@ SOFTWARE.
 #include "platcomm.h"
 #include "nal_parser.h"
 #include "h264_video.h"
+#include "h265_video.h"
+#include "h266_video.h"
 
 CNALParser::CNALParser(NAL_CODING coding, NAL_BYTESTREAM_FORMAT fmt, uint8_t NULenDelimiterSize, RET_CODE* pRetCode)
 	: m_nal_coding(coding)
@@ -44,7 +46,7 @@ CNALParser::CNALParser(NAL_CODING coding, NAL_BYTESTREAM_FORMAT fmt, uint8_t NUL
 		INALAVCContext* pNALAVCCtx = nullptr;
 		if (AMP_FAILED(CreateAVCNALContext(&pNALAVCCtx)))
 		{
-			printf("Failed to create the NAL context.\n");
+			printf("Failed to create the AVC NAL context.\n");
 			ret_code = RET_CODE_ERROR;
 		}
 		else
@@ -60,8 +62,17 @@ CNALParser::CNALParser(NAL_CODING coding, NAL_BYTESTREAM_FORMAT fmt, uint8_t NUL
 	}
 	else if (coding == NAL_CODING_HEVC)
 	{
-		// Add code here
-		// ......
+		INALHEVCContext* pNALHEVCCtx = nullptr;
+		if (AMP_FAILED(CreateHEVCNALContext(&pNALHEVCCtx)))
+		{
+			printf("Failed to create the HEVC NAL context.\n");
+			ret_code = RET_CODE_ERROR;
+		}
+		else
+		{
+			m_pNALHEVCCtx = pNALHEVCCtx;
+			pNALHEVCCtx->QueryInterface(IID_INALContext, (void**)&m_pCtx);
+		}
 
 		hevc_presentation_time_code = 0;	// in the unit of 100-nano seconds
 		hevc_num_units_in_tick = 0;
@@ -387,9 +398,57 @@ int CNALParser::PushESBP(uint8_t* pStart, uint8_t* pEnd)
 	return RET_CODE_SUCCESS;
 }
 
-int CNALParser::LoadHEVCParameterSet(uint64_t cur_submit_pos)
+int CNALParser::LoadHEVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
 {
-	return RET_CODE_ERROR_NOTIMPL;
+	int iRet = RET_CODE_SUCCESS;
+	int read_buf_len = 0;
+	AMBst bst = NULL;
+
+	//uint8_t* pStart = AM_LRB_GetReadPtr(m_rbNALUnitEBSP, &read_buf_len);
+
+	uint8_t* pStart = pNUBuf;
+	read_buf_len = cbNUBuf;
+
+	if (pStart == NULL || read_buf_len < 4)
+	{
+		//printf("the byte stream of NAL unit carry insufficient data {offset: %llu}.\n", cur_submit_pos);
+		return RET_CODE_ERROR;
+	}
+
+	int8_t nal_unit_type = (*pStart >> 1) & 0x3F;
+	AMP_Assert(IS_HEVC_PARAMETERSET_NAL(nal_unit_type));
+
+	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
+
+	auto nal_unit = m_pNALHEVCCtx->CreateHEVCNU();
+
+	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
+	if (AMP_FAILED(iRet = nal_unit->Map(bst)))
+	{
+		printf("Failed to unpack %s parameter set {offset: %" PRIu64 ", err: %d}\n", hevc_nal_unit_type_descs[nal_unit_type], cur_submit_pos, iRet);
+		goto done;
+	}
+
+	if (nal_unit_type == BST::H265Video::VPS_NUT)
+	{
+		m_pNALHEVCCtx->UpdateHEVCVPS(nal_unit);
+	}
+	else if (nal_unit_type == BST::H265Video::SPS_NUT)
+	{
+		m_pNALHEVCCtx->UpdateHEVCSPS(nal_unit);
+	}
+	else if (nal_unit_type == BST::H265Video::PPS_NUT)
+	{
+		m_pNALHEVCCtx->UpdateHEVCPPS(nal_unit);
+	}
+
+done:
+	if (bst != NULL)
+		AMBst_Destroy(bst);
+
+	nal_unit = nullptr;
+
+	return iRet;
 }
 
 int CNALParser::LoadAVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
@@ -419,7 +478,7 @@ int CNALParser::LoadAVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_s
 	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
 	if (AMP_FAILED(iRet = nal_unit->Map(bst)))
 	{
-		printf("Failed to unpack %s parameter set {offset: %" PRIu64 ", err: %d}\n", h264_nal_unit_type_descs[nal_unit_type], cur_submit_pos, iRet);
+		printf("Failed to unpack %s parameter set {offset: %" PRIu64 ", err: %d}\n", avc_nal_unit_type_descs[nal_unit_type], cur_submit_pos, iRet);
 		goto done;
 	}
 
@@ -469,7 +528,74 @@ int CNALParser::PickupLastSliceHeaderInfo(uint8_t* pNUBuf, int cbNUBuf)
 
 int CNALParser::PickupHEVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUBuf, int cbNUBuf)
 {
-	return RET_CODE_ERROR_NOTIMPL;
+	int iRet = RET_CODE_SUCCESS;
+	int read_buf_len = 0;
+	//uint8_t* pEBSPBuf = AM_LRB_GetReadPtr(m_rbNALUnitEBSP, &read_buf_len);
+
+	uint8_t* pEBSPBuf = pNUBuf;
+	read_buf_len = cbNUBuf;
+
+	if (pEBSPBuf == NULL || read_buf_len < 3)
+		return RET_CODE_NEEDMOREINPUT;
+
+	int8_t forbidden_zero_bit = (pEBSPBuf[0] >> 7) & 0x01;
+	int8_t nal_unit_type = (pEBSPBuf[0] >> 1) & 0x3F;
+	int8_t nuh_layer_id = ((pEBSPBuf[0] & 0x01) << 5) | ((pEBSPBuf[1] >> 3) & 0x1F);
+	int8_t nuh_temporal_id_plus1 = pEBSPBuf[1] & 0x07;
+
+	AMBst bs = AMBst_CreateFromBuffer(pEBSPBuf + 2, read_buf_len - 2);
+	AMBst_SetRBSPType(bs, BST_RBSP_NAL_UNIT);
+
+	int dependent_slice_segment_flag = 0;
+
+	try
+	{
+		nu_entry.first_slice_segment_in_pic_flag = (int8_t)AMBst_GetBits(bs, 1);
+		if (nal_unit_type >= BST::H265Video::BLA_W_LP && nal_unit_type <= BST::H265Video::RSV_IRAP_VCL23)
+			nu_entry.no_output_of_prior_pics_flag = (int8_t)AMBst_GetBits(bs, 1);
+
+		nu_entry.slice_pic_parameter_set_id = (uint8_t)AMBst_Get_ue(bs);
+
+		H265_NU pps, sps;
+		if (nu_entry.slice_pic_parameter_set_id < 0 ||
+			nu_entry.slice_pic_parameter_set_id > UINT8_MAX || !(pps = m_pNALHEVCCtx->GetHEVCPPS((uint8_t)nu_entry.slice_pic_parameter_set_id)) ||
+			pps->ptr_pic_parameter_set_rbsp == nullptr)
+		{
+			nu_entry.slice_type = -2;
+			goto done;
+		}
+
+		if (!nu_entry.first_slice_segment_in_pic_flag)
+		{
+			if (pps->ptr_pic_parameter_set_rbsp->dependent_slice_segments_enabled_flag)
+				dependent_slice_segment_flag = (int8_t)AMBst_GetBits(bs, 1);
+
+			sps = m_pNALHEVCCtx->GetHEVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id);
+			if (!sps || sps->ptr_seq_parameter_set_rbsp == nullptr)
+			{
+				nu_entry.slice_type = -2;
+				goto done;
+			}
+
+			uint32_t slice_segment_address = (uint32_t)AMBst_GetBits(bs, quick_ceil_log2(sps->ptr_seq_parameter_set_rbsp->PicSizeInCtbsY));
+		}
+
+		if (!dependent_slice_segment_flag)
+		{
+			AMBst_SkipBits(bs, pps->ptr_pic_parameter_set_rbsp->num_extra_slice_header_bits);
+			nu_entry.slice_type = (int8_t)AMBst_Get_ue(bs);
+		}
+		else
+			nu_entry.slice_type = -1;
+	}
+	catch (...)
+	{
+		iRet = RET_CODE_ERROR;
+	}
+
+done:
+	AMBst_Destroy(bs);
+	return iRet;
 }
 
 int CNALParser::PickupAVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUBuf, int cbNUBuf)
@@ -540,15 +666,15 @@ int CNALParser::PickupAVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUB
 
 		//printf("slice_pic_parameter_set_id: %d.\n", nu_entry.slice_pic_parameter_set_id);
 
-		H264_NU pps;
+		H264_NU pps, sps;
 		if (nu_entry.slice_pic_parameter_set_id < 0 || 
-			nu_entry.slice_pic_parameter_set_id > 255 || !(pps = m_pNALAVCCtx->GetAVCPPS((uint8_t)nu_entry.slice_pic_parameter_set_id)))
+			nu_entry.slice_pic_parameter_set_id > UINT8_MAX || !(pps = m_pNALAVCCtx->GetAVCPPS((uint8_t)nu_entry.slice_pic_parameter_set_id)))
 		{
 			nu_entry.slice_type = -2;
 			goto done;
 		}
 
-		auto sps = m_pNALAVCCtx->GetAVCSPS(pps->ptr_pic_parameter_set_rbsp->seq_parameter_set_id);
+		sps = m_pNALAVCCtx->GetAVCSPS(pps->ptr_pic_parameter_set_rbsp->seq_parameter_set_id);
 		if (!sps)
 		{
 			nu_entry.slice_type = -2;
@@ -725,6 +851,21 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 
 		// Record the current nal_unit_header information and file offset
 		m_nu_entries.emplace_back(m_cur_submit_pos, offset, NAL_Unit_Len, count_of_leading_bytes, forbidden_zero_bit, nal_unit_type, nuh_layer_id, nuh_temporal_id_plus1);
+
+		if (IS_HEVC_PARAMETERSET_NAL(nal_unit_type))
+		{
+			// Parsing the ebsp parameter set, and store it
+			iRet = LoadHEVCParameterSet(p, NAL_Unit_Len - count_of_leading_bytes, m_cur_submit_pos);
+		}
+		else if (IS_HEVC_VCL_NAL(nal_unit_type))
+		{
+			// Parsing a part of slice header
+			if (AMP_SUCCEEDED(PickupLastSliceHeaderInfo(p, NAL_Unit_Len - count_of_leading_bytes)))
+			{
+				// Commit the slice information, during committing, picture information may be generated
+				iRet = CommitSliceInfo(false);
+			}
+		}
 	}
 	else
 	{
@@ -778,7 +919,6 @@ int CNALParser::CommitSliceInfo(bool bDrain)
 				iter->nal_unit_type == BST::H264Video::SEI_NUT || (
 				iter->nal_unit_type >= BST::H264Video::PREFIX_NUT && iter->nal_unit_type <= 18)))
 				break;
-#if 0
 			// find the access unit boundary according to 7.4.2.4.4 Order of NAL units and coded pictures and their association to access units
 			else if (m_nal_coding == NAL_CODING_HEVC && iter->nuh_layer_id == 0 && (
 				iter->nal_unit_type == BST::H265Video::AUD_NUT ||
@@ -786,16 +926,18 @@ int CNALParser::CommitSliceInfo(bool bDrain)
 				iter->nal_unit_type == BST::H265Video::SPS_NUT ||
 				iter->nal_unit_type == BST::H265Video::PPS_NUT ||
 				iter->nal_unit_type == BST::H265Video::PREFIX_SEI_NUT ||
-				iter->nal_unit_type >= BST::H265Video::RSV_NVCL41 && iter->nal_unit_type <= BST::H265Video::RSV_NVCL41 + 3 ||
-				iter->nal_unit_type >= BST::H265Video::UNSPEC48 && iter->nal_unit_type <= BST::H265Video::UNSPEC48 + 7))
+				(iter->nal_unit_type >= BST::H265Video::RSV_NVCL41 && iter->nal_unit_type <= BST::H265Video::RSV_NVCL41 + 3) ||
+				(iter->nal_unit_type >= BST::H265Video::UNSPEC48 && iter->nal_unit_type <= BST::H265Video::UNSPEC48 + 7)))
 				break;
-#endif
 		}
 
-		if (m_nal_coding == NAL_CODING_AVC && iter_last_VCL_NAL_unit != m_nu_entries.cend())
-			CommitAVCPicture(iter_begin, iter);
-		else if (m_nal_coding == NAL_CODING_HEVC)
-			CommitHEVCPicture(iter_begin, iter);
+		if (iter_last_VCL_NAL_unit != m_nu_entries.cend())
+		{
+			if (m_nal_coding == NAL_CODING_AVC)
+				CommitAVCPicture(iter_begin, iter);
+			else if (m_nal_coding == NAL_CODING_HEVC)
+				CommitHEVCPicture(iter_begin, iter);
+		}
 
 		iter_firstBlPicNalUnit = iter_last_VCL_NAL_unit = m_nu_entries.cend();
 
@@ -830,22 +972,18 @@ int CNALParser::CommitHEVCPicture(
 	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_start,
 	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_end)
 {
-#if 1
-	return RET_CODE_ERROR_NOTIMPL;
-#else
-	static int64_t hevc_presentation_time_code = 0;	// in the unit of 100-nano seconds
-	static uint32_t hevc_num_units_in_tick = 0;
-	static uint32_t hevc_time_scale = 0;
-	static uint8_t hevc_units_field_based_flag = 0;
-
+	int iRet = RET_CODE_SUCCESS;
 	uint8_t picture_type = PIC_TYPE_UNKNOWN;
 
 	if (pic_end <= pic_start)
 		return RET_CODE_NEEDMOREINPUT;
 
-	if (scan_info->pfnCallback != NULL)
-		scan_info->pfnCallback(AMNM_MEDIA_SCAN_NEW_AVFRAME, 0, 0, scan_info->pUserData);
+	int read_buf_len = 0;
+	uint8_t* pEBSPBuf = AM_LRB_GetReadPtr(m_rbNALUnitEBSP, &read_buf_len);
 
+	uint8_t* pAUBufStart = pEBSPBuf + pic_start->NU_offset;
+	uint8_t* pAUBufEnd = pEBSPBuf + (pic_end == m_nu_entries.cend() ? read_buf_len : pic_end->NU_offset);
+	
 	// Get the first VCL NAL Unit in base layer
 	int16_t slice_pic_parameter_set_id = -1;
 	uint8_t nal_unit_type = 0XFF, picture_slice_type = 3;
@@ -865,7 +1003,8 @@ int CNALParser::CommitHEVCPicture(
 		{
 			// Break the spec, record it to error table
 			printf("[HEVCScanner] slice_pic_parameter_set_id of all VCL NAL Units shall be the same in a coded picture.\n");
-			scan_info->result->errors.pic_error_entries.emplace_back(iter->file_offset - iter->leading_bytes, 3);
+			if (m_nal_enum)
+				m_nal_enum->EnumNALError(m_pCtx, iter->file_offset - iter->leading_bytes, 3);
 			break;
 		}
 
@@ -875,7 +1014,8 @@ int CNALParser::CommitHEVCPicture(
 		{
 			// Break the spec, record it to error table
 			printf("[HEVCScanner] nal_unit_type of all VCL NAL Units shall be the same in a coded picture.\n");
-			scan_info->result->errors.pic_error_entries.emplace_back(iter->file_offset - iter->leading_bytes, 4);
+			if (m_nal_enum)
+				m_nal_enum->EnumNALError(m_pCtx, iter->file_offset - iter->leading_bytes, 4);
 		}
 
 		if (iter->slice_type == BST::H265Video::B_SLICE)
@@ -899,42 +1039,7 @@ int CNALParser::CommitHEVCPicture(
 		picture_type = PIC_TYPE_TRAILING;
 
 	// Update EP_MAP
-	auto& EP_coarses = scan_info->result->EP_map.EP_coarses;
-	auto& EP_fines = scan_info->result->EP_map.EP_fines;
 	auto byte_stream_nal_unit_start_pos = pic_start->file_offset - pic_start->leading_bytes;
-
-	if (EP_fines.size() == 0)
-	{
-		hevc_presentation_time_code = 0;
-		hevc_num_units_in_tick = 0;
-		hevc_time_scale = 0;
-		hevc_units_field_based_flag = 0;
-	}
-
-	PICTURE_EPMAP::EPFineEntry ep_fine_entry;
-	ep_fine_entry.byte_pos_EP_fine = byte_stream_nal_unit_start_pos & 0x1FFFFFF;
-	ep_fine_entry.hevc_picture_slice_type = picture_slice_type;
-	ep_fine_entry.reserved_for_future_use = 0;
-	ep_fine_entry.picture_type = picture_type;
-	ep_fine_entry.sequence_change_point = 0;
-	EP_fines.push_back(ep_fine_entry);
-
-	if (EP_coarses.size() <= 0 || (EP_coarses.back().byte_pos_EP_coarse & (~0x1FFFFFFULL)) != (byte_stream_nal_unit_start_pos & (~0x1FFFFFFULL)))
-	{
-		// Add a new EP coarse entry
-		PICTURE_EPMAP::EPCoarseEntry ep_coarse_entry;
-		ep_coarse_entry.ref_to_EP_fine_id = (uint32_t)EP_fines.size() - 1;
-		ep_coarse_entry.byte_pos_EP_coarse = byte_stream_nal_unit_start_pos;
-		EP_coarses.push_back(ep_coarse_entry);
-	}
-
-	if (slice_pic_parameter_set_id < 0 || slice_pic_parameter_set_id >= 64)
-	{
-		// Break the spec, record it to error table
-		AMP_Alert(_T("[HEVCScanner] No available slice_pic_parameter_set_id for the current coded picture.\n"));
-		scan_info->result->errors.pic_error_entries.emplace_back(pic_start->file_offset - pic_start->leading_bytes, 4);
-		goto done;
-	}
 
 	uint16_t pic_width_in_luma_samples = 0;
 	uint16_t pic_height_in_luma_samples = 0;
@@ -946,71 +1051,78 @@ int CNALParser::CommitHEVCPicture(
 
 	// Check PPS reference is changed or not
 	bool bSequenceChange = false;
+
+	if (slice_pic_parameter_set_id < 0 || slice_pic_parameter_set_id >= 64)
+	{
+		// Break the spec, record it to error table
+		printf("[HEVCScanner] No available slice_pic_parameter_set_id for the current coded picture.\n");
+		if (m_nal_enum)
+			m_nal_enum->EnumNALError(m_pCtx, pic_start->file_offset - pic_start->leading_bytes, 4);
+		goto done;
+	}
+
 	if (firstBlPicNalUnit == pic_end)
-		AMP_Warning(_T("[HEVCScanner] There is no base-layer VCL NAL Unit in the current code picture unit.\n"));
-	else if (scan_info->result->hevc_layout->hevc_sequences.size() <= 0 ||
-		scan_info->result->hevc_layout->hevc_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] == false)
+		printf("[HEVCScanner] There is no base-layer VCL NAL Unit in the current code picture unit.\n");
+	else
 	{
 		// Check the sequence is changed or not
-		if (!scan_info->nu_ppses.HasValue(slice_pic_parameter_set_id))
+		H265_NU sp_pps, sp_sps, sp_vps;
+		if (slice_pic_parameter_set_id < 0 ||
+			slice_pic_parameter_set_id > UINT8_MAX || 
+			!(sp_pps = m_pNALHEVCCtx->GetHEVCPPS((uint8_t)slice_pic_parameter_set_id)) || 
+			sp_pps->ptr_pic_parameter_set_rbsp == nullptr)
 		{
-			AMP_Error(_T("[HEVCScanner] The current picture unit is NOT associated with an available PPS.\n"));
+			printf("[HEVCScanner] The current picture unit is NOT associated with an available SPS.\n");
 			goto done;
 		}
 
-		auto pps = scan_info->nu_ppses[slice_pic_parameter_set_id];
-		if (pps == nullptr ||
-			pps->ptr_pic_parameter_set_rbsp == nullptr ||
-			!scan_info->nu_spses.HasValue(pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id))
+		sp_sps = m_pNALHEVCCtx->GetHEVCSPS(sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
+		if (!sp_sps || sp_sps->ptr_seq_parameter_set_rbsp == nullptr)
 		{
-			AMP_Error(_T("[HEVCScanner] The current picture unit is NOT associated with an available SPS.\n"));
+			printf("[HEVCScanner] The current picture unit is NOT associated with an available SPS.\n");
 			goto done;
 		}
+		
+		sp_vps = m_pNALHEVCCtx->GetHEVCVPS(sp_sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id);
 
-		auto sps = scan_info->nu_spses[pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id];
+		pic_width_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->pic_width_in_luma_samples;
+		pic_height_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->pic_height_in_luma_samples;
 
-		AMPSDK::H265Video::BYTE_STREAM_NAL_UNIT::NAL_UNIT* vps = nullptr;
-		if (scan_info->nu_vpses.HasValue(sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id))
-			vps = scan_info->nu_vpses[sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id];
-
-		pic_width_in_luma_samples = sps->ptr_seq_parameter_set_rbsp->pic_width_in_luma_samples;
-		pic_height_in_luma_samples = sps->ptr_seq_parameter_set_rbsp->pic_height_in_luma_samples;
-
-		if (vps != nullptr &&
-			vps->ptr_video_parameter_set_rbsp != nullptr &&
-			vps->ptr_video_parameter_set_rbsp->vps_timing_info_present_flag)
+		if (!sp_vps &&
+			sp_vps->ptr_video_parameter_set_rbsp != nullptr &&
+			sp_vps->ptr_video_parameter_set_rbsp->vps_timing_info_present_flag)
 		{
-			hevc_num_units_in_tick = vps->ptr_video_parameter_set_rbsp->vps_num_units_in_tick;
-			hevc_time_scale = vps->ptr_video_parameter_set_rbsp->vps_time_scale;
+			hevc_num_units_in_tick = sp_vps->ptr_video_parameter_set_rbsp->vps_num_units_in_tick;
+			hevc_time_scale = sp_vps->ptr_video_parameter_set_rbsp->vps_time_scale;
 		}
 
-		if (sps->ptr_seq_parameter_set_rbsp->vui_parameters)
+		if (sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters)
 		{
-			aspect_ratio_info_present_flag = sps->ptr_seq_parameter_set_rbsp->vui_parameters->aspect_ratio_info_present_flag;
+			aspect_ratio_info_present_flag = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->aspect_ratio_info_present_flag;
 			if (aspect_ratio_info_present_flag)
 			{
-				aspect_ratio_idc = sps->ptr_seq_parameter_set_rbsp->vui_parameters->aspect_ratio_idc;
+				aspect_ratio_idc = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->aspect_ratio_idc;
 				if (aspect_ratio_idc == 0xFF)
 				{
-					sar_width = sps->ptr_seq_parameter_set_rbsp->vui_parameters->sar_width;
-					sar_height = sps->ptr_seq_parameter_set_rbsp->vui_parameters->sar_height;
+					sar_width = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->sar_width;
+					sar_height = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->sar_height;
 				}
 			}
 
-			colour_description_present_flag = sps->ptr_seq_parameter_set_rbsp->vui_parameters->colour_description_present_flag;
+			colour_description_present_flag = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->colour_description_present_flag;
 			if (colour_description_present_flag)
 			{
-				colour_primaries = sps->ptr_seq_parameter_set_rbsp->vui_parameters->colour_primaries;
-				transfer_characteristics = sps->ptr_seq_parameter_set_rbsp->vui_parameters->transfer_characteristics;
-				matrix_coeffs = sps->ptr_seq_parameter_set_rbsp->vui_parameters->matrix_coeffs;
+				colour_primaries = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->colour_primaries;
+				transfer_characteristics = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->transfer_characteristics;
+				matrix_coeffs = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->matrix_coeffs;
 			}
 
-			vui_timing_info_present_flag = sps->ptr_seq_parameter_set_rbsp->vui_parameters->vui_timing_info_present_flag;
+			vui_timing_info_present_flag = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->vui_timing_info_present_flag;
 			if (vui_timing_info_present_flag)
 			{
-				vui_num_units_in_tick = sps->ptr_seq_parameter_set_rbsp->vui_parameters->vui_num_units_in_tick;
-				vui_time_scale = sps->ptr_seq_parameter_set_rbsp->vui_parameters->vui_time_scale;
-				units_field_based_flag = sps->ptr_seq_parameter_set_rbsp->vui_parameters->field_seq_flag == 1 ? 1 : 0;
+				vui_num_units_in_tick = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->vui_num_units_in_tick;
+				vui_time_scale = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->vui_time_scale;
+				units_field_based_flag = sp_sps->ptr_seq_parameter_set_rbsp->vui_parameters->field_seq_flag == 1 ? 1 : 0;
 
 				hevc_num_units_in_tick = vui_num_units_in_tick;
 				hevc_time_scale = vui_time_scale;
@@ -1019,11 +1131,11 @@ int CNALParser::CommitHEVCPicture(
 		}
 
 		// check whether the same with the current sequence
-		if (scan_info->result->hevc_layout->hevc_sequences.size() <= 0)
+		if (nal_sequences.size() <= 0)
 			bSequenceChange = true;
 		else
 		{
-			auto& back = scan_info->result->hevc_layout->hevc_sequences.back();
+			auto& back = nal_sequences.back();
 			if (back.pic_width_in_luma_samples != pic_width_in_luma_samples ||
 				back.pic_height_in_luma_samples != pic_height_in_luma_samples)
 				bSequenceChange = true;
@@ -1056,10 +1168,8 @@ int CNALParser::CommitHEVCPicture(
 
 	if (bSequenceChange)
 	{
-		EP_fines.back().sequence_change_point = 1;
-
-		scan_info->result->hevc_layout->hevc_sequences.emplace_back();
-		auto& hevc_seq = scan_info->result->hevc_layout->hevc_sequences.back();
+		nal_sequences.emplace_back();
+		auto& hevc_seq = nal_sequences.back();
 		memset(&hevc_seq, 0, sizeof(hevc_seq));
 		hevc_seq.start_byte_pos = byte_stream_nal_unit_start_pos;
 
@@ -1101,17 +1211,50 @@ int CNALParser::CommitHEVCPicture(
 	}
 
 	// Add all related pps_pic_parameter_set_id
-	scan_info->result->hevc_layout->hevc_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] = true;
+	nal_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] = true;
 
 	if (hevc_time_scale != 0 && hevc_presentation_time_code >= 0)
 		hevc_presentation_time_code += hevc_num_units_in_tick * 10000000LL * (1 + hevc_units_field_based_flag) / hevc_time_scale;
 	else
 		hevc_presentation_time_code = -1LL;
 
+	if (m_nal_enum)
+	{
+		uint8_t* pAUBuf = pAUBufStart;
+		size_t cbAUBuf = (size_t)(pAUBufEnd - pAUBufStart);
+
+		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
+		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
+
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		for (auto iter = pic_start; iter != pic_end; iter++)
+		{
+			uint8_t* pNALUnitBuf = pEBSPBuf + iter->NU_offset;
+			pNALUnitBuf += iter->leading_bytes;
+
+			if (ParseNALUnit(pNALUnitBuf, iter->NU_length - iter->leading_bytes) == RET_CODE_ABORT)
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+		}
+
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUEnd(m_pCtx, pAUBuf, cbAUBuf)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+	}
+
+
 done:
 
 	return RET_CODE_SUCCESS;
-#endif
 }
 
 int CNALParser::CommitAVCPicture(
@@ -1235,7 +1378,7 @@ int CNALParser::CommitAVCPicture(
 		H264_NU pps;
 		// Check the sequence is changed or not
 		if (slice_pic_parameter_set_id < 0 ||
-			slice_pic_parameter_set_id > 255 ||
+			slice_pic_parameter_set_id > UINT8_MAX ||
 			!(pps = m_pNALAVCCtx->GetAVCPPS((uint8_t)slice_pic_parameter_set_id)) || 
 			pps->ptr_pic_parameter_set_rbsp == nullptr)
 		{
@@ -1429,7 +1572,9 @@ int CNALParser::ParseNALUnit(uint8_t* pNUBuf, int cbNUBuf)
 		// If the current NAL unit is a SEI, try to drill its sei_message and sei_payload
 		if (m_nal_enum_options&(NAL_ENUM_OPTION_SEI_MSG | NAL_ENUM_OPTION_SEI_PAYLOAD))
 		{
-			if ((m_nal_coding == NAL_CODING_AVC && nal_unit_type == AVC_SEI_NUT))
+			if ((m_nal_coding == NAL_CODING_AVC && nal_unit_type == BST::H264Video::SEI_NUT) ||
+				(m_nal_coding == NAL_CODING_HEVC && (nal_unit_type == BST::H265Video::PREFIX_SEI_NUT || nal_unit_type == BST::H265Video::SUFFIX_SEI_NUT)) ||
+				(m_nal_coding == NAL_CODING_VVC && (nal_unit_type == BST::H266Video::PREFIX_SEI_NUT || nal_unit_type == BST::H266Video::SUFFIX_SEI_NUT)))
 			{
 				if (ParseSEINU(pNUBuf, (int)cbNUBuf) == RET_CODE_ABORT)
 				{
@@ -1457,39 +1602,48 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 	int iRet = RET_CODE_SUCCESS;
 	uint8_t nalUnitHeaderBytes = 1;
 
-	int8_t forbidden_zero_bit = (pNUBuf[0] >> 7) & 0x01;
-	int8_t nal_ref_idc = (pNUBuf[0] >> 5) & 0x3;
-	int8_t nal_unit_type = pNUBuf[0] & 0x1F;
-
-	int8_t svc_extension_flag = 0;
-	int8_t avc_3d_extension_flag = 0;
-
-	if (nal_unit_type == 14 || nal_unit_type == 20 || nal_unit_type == 21)
+	if (m_nal_coding == NAL_CODING_AVC)
 	{
-		if (nal_unit_type != 21)
-			svc_extension_flag = (pNUBuf[1] >> 7) & 0x01;
-		else
-			avc_3d_extension_flag = (pNUBuf[1] >> 7) & 0x01;
+		int8_t forbidden_zero_bit = (pNUBuf[0] >> 7) & 0x01;
+		int8_t nal_ref_idc = (pNUBuf[0] >> 5) & 0x3;
+		int8_t nal_unit_type = pNUBuf[0] & 0x1F;
 
-		if (svc_extension_flag)
+		int8_t svc_extension_flag = 0;
+		int8_t avc_3d_extension_flag = 0;
+
+		if (nal_unit_type == 14 || nal_unit_type == 20 || nal_unit_type == 21)
 		{
-			nalUnitHeaderBytes += 3;
-			if (cbNUBuf < 5)
-				return RET_CODE_NEEDMOREINPUT;
-		}
-		else if (avc_3d_extension_flag)
-		{
-			nalUnitHeaderBytes += 2;
-			if (cbNUBuf < 4)
-				return RET_CODE_NEEDMOREINPUT;
-		}
-		else
-		{
-			nalUnitHeaderBytes += 3;
-			if (cbNUBuf < 5)
-				return RET_CODE_NEEDMOREINPUT;
+			if (nal_unit_type != 21)
+				svc_extension_flag = (pNUBuf[1] >> 7) & 0x01;
+			else
+				avc_3d_extension_flag = (pNUBuf[1] >> 7) & 0x01;
+
+			if (svc_extension_flag)
+			{
+				nalUnitHeaderBytes += 3;
+				if (cbNUBuf < 5)
+					return RET_CODE_NEEDMOREINPUT;
+			}
+			else if (avc_3d_extension_flag)
+			{
+				nalUnitHeaderBytes += 2;
+				if (cbNUBuf < 4)
+					return RET_CODE_NEEDMOREINPUT;
+			}
+			else
+			{
+				nalUnitHeaderBytes += 3;
+				if (cbNUBuf < 5)
+					return RET_CODE_NEEDMOREINPUT;
+			}
 		}
 	}
+	else if (m_nal_coding == NAL_CODING_HEVC || m_nal_coding == NAL_CODING_VVC)
+	{
+		nalUnitHeaderBytes = 2;
+	}
+	else
+		return RET_CODE_ERROR_NOTIMPL;
 
 	AMBst in_bst = AMBst_CreateFromBuffer(pNUBuf + nalUnitHeaderBytes, cbNUBuf - nalUnitHeaderBytes);
 	AMBst_SetRBSPType(in_bst, BST_RBSP_NAL_UNIT);

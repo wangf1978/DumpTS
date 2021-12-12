@@ -53,16 +53,23 @@ enum NAL_CODING
 	NAL_CODING_UNKNOWN = -1,
 	NAL_CODING_AVC = 1,	// H.264, Advanced video coding
 	NAL_CODING_HEVC,	// H.265, High efficiency video coding
-	NAL_CODING_VCC,		// H.266, Versatile video coding
+	NAL_CODING_VVC,		// H.266, Versatile video coding
 };
+
+#define NAL_CODING_NAME(c)	((c) == NAL_CODING_AVC?"AVC":((c) == NAL_CODING_HEVC?"HEVC":((c) == NAL_CODING_VVC?"VVC":"Unknown")))
 
 namespace BST {
 	namespace H264Video {
 		struct NAL_UNIT;
 	}
+
+	namespace H265Video {
+		struct NAL_UNIT;
+	}
 }
 
 using H264_NU = std::shared_ptr<BST::H264Video::NAL_UNIT>;
+using H265_NU = std::shared_ptr<BST::H265Video::NAL_UNIT>;
 
 class INALContext: public IUnknown
 {
@@ -88,7 +95,20 @@ public:
 	virtual H264_NU			CreateAVCNU() = 0;
 };
 
+class INALHEVCContext : public INALContext
+{
+public:
+	virtual H265_NU			GetHEVCVPS(uint8_t vps_id) = 0;
+	virtual H265_NU			GetHEVCSPS(uint8_t sps_id) = 0;
+	virtual H265_NU			GetHEVCPPS(uint8_t pps_id) = 0;
+	virtual RET_CODE		UpdateHEVCVPS(H265_NU vps_nu) = 0;
+	virtual RET_CODE		UpdateHEVCSPS(H265_NU sps_nu) = 0;
+	virtual RET_CODE		UpdateHEVCPPS(H265_NU pps_nu) = 0;
+	virtual H265_NU			CreateHEVCNU() = 0;
+};
+
 extern RET_CODE CreateAVCNALContext(INALAVCContext** ppNALCtx);
+extern RET_CODE CreateHEVCNALContext(INALHEVCContext** ppNALCtx);
 
 inline uint8_t* FindNALStartCodePrefixOne3Bytes(uint8_t* pBuf, unsigned long cbSize)
 {

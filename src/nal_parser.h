@@ -147,7 +147,7 @@ public:
 
 protected:
 	int						PushESBP(uint8_t* pStart, uint8_t* pEnd);
-	int						LoadHEVCParameterSet(uint64_t cur_submit_pos);
+	int						LoadHEVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						LoadAVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						PickupLastSliceHeaderInfo(uint8_t* pNUBuf, int cbNUBuf);
 
@@ -179,7 +179,11 @@ protected:
 	NAL_BYTESTREAM_FORMAT	m_nal_bytestream_format;
 	uint8_t					m_nal_length_delimiter_size;
 	INALContext*			m_pCtx;
-	INALAVCContext*			m_pNALAVCCtx;
+	union
+	{
+		INALAVCContext*		m_pNALAVCCtx;
+		INALHEVCContext*	m_pNALHEVCCtx;
+	};
 	INALEnumerator*			m_nal_enum = nullptr;
 	uint32_t				m_nal_enum_options = NAL_ENUM_OPTION_ALL;
 

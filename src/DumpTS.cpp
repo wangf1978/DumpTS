@@ -61,7 +61,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
-extern int	ShowH264NUs(const char* szH264StreamFile, int top, int options);
+extern int	ShowNUs();
 extern int	ShowH264SPS(const char* szH264StreamFile);
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
@@ -1031,45 +1031,7 @@ int main(int argc, char* argv[])
 			}
 			else if (g_params.find("showNU") != g_params.end())
 			{
-				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0)
-				{
-					int options = 0;
-					std::string& strShowNU = g_params["showNU"];
-					std::vector<std::string> strShowNUOptions;
-					splitstr(strShowNU.c_str(), ",;.:", strShowNUOptions);
-					if (strShowNUOptions.size() == 0)
-						options = NAL_ENUM_OPTION_ALL;
-					else
-					{
-						for (auto& sopt : strShowNUOptions)
-						{
-							if (MBCSICMP(sopt.c_str(), "au") == 0)
-								options |= NAL_ENUM_OPTION_AU;
-
-							if (MBCSICMP(sopt.c_str(), "nu") == 0)
-								options |= NAL_ENUM_OPTION_NU;
-
-							if (MBCSICMP(sopt.c_str(), "seimsg") == 0 || MBCSICMP(sopt.c_str(), "seimessage") == 0)
-								options |= NAL_ENUM_OPTION_SEI_MSG;
-
-							if (MBCSICMP(sopt.c_str(), "seipayload") == 0)
-								options |= NAL_ENUM_OPTION_SEI_PAYLOAD;
-						}
-					}
-
-					int top = -1;
-					auto iterTop = g_params.find("top");
-					if (iterTop != g_params.end())
-					{
-						long long top_records = ConvertToLongLong(iterTop->second);
-						if (top_records < 0 || top_records > INT32_MAX)
-							top = -1;
-					}
-
-					nDumpRet = ShowH264NUs(g_params["input"].c_str(), top, options);
-					goto done;
-				}
-
+				nDumpRet = ShowNUs();
 				goto done;
 			}
 			else

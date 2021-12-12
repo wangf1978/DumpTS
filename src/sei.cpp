@@ -25,7 +25,7 @@ SOFTWARE.
 */
 #include "platcomm.h"
 #include "sei.h"
-//#include "h265_video.h"
+#include "h265_video.h"
 #include "h264_video.h"
 #include <vector>
 

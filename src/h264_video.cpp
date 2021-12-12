@@ -34,7 +34,7 @@ SOFTWARE.
 #include "DataUtil.h"
 #include "nal_parser.h"
 
-const char* h264_nal_unit_type_names[32] = {
+const char* avc_nal_unit_type_names[32] = {
 	"non-VCL::Unspecified",
 	"VCL::non-IDR",
 	"VCL::A",
@@ -69,7 +69,7 @@ const char* h264_nal_unit_type_names[32] = {
 	"non-VCL::Unspecified"
 };
 
-const char* h264_nal_unit_type_descs[32] = {
+const char* avc_nal_unit_type_descs[32] = {
 	"Unspecified",
 	"Coded slice of a non-IDR picture",
 	"Coded slice data partition A",
@@ -434,7 +434,7 @@ int LoadAVCParameterSet(INALAVCContext* pNALAVCCtx, AMLinearRingBuffer rbNALUnit
 	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
 	if (AMP_FAILED(iRet = nal_unit->Map(bst)))
 	{
-		printf("Failed to unpack %s parameter set {offset: %" PRIu64 ", err: %d}\n", h264_nal_unit_type_descs[nal_unit_type], cur_submit_pos, iRet);
+		printf("Failed to unpack %s parameter set {offset: %" PRIu64 ", err: %d}\n", avc_nal_unit_type_descs[nal_unit_type], cur_submit_pos, iRet);
 		goto done;
 	}
 
@@ -711,7 +711,7 @@ int ShowH264SPS(const char* szH264StreamFile)
 			nu_entries.emplace_back(file_offset, nal_unit_prefix_start_code_length, forbidden_zero_bit, nal_ref_idc, nal_unit_type);
 
 			//printf("#%08lld [byte_pos: %08lld] NAL_UNIT, type: %S, nal_ref_idc: %d.\n",
-			//	count_nal_unit_scanned, scan_info->nu_entries.back().file_offset, h264_nal_unit_type_names[nal_unit_type], nal_ref_idc);
+			//	count_nal_unit_scanned, scan_info->nu_entries.back().file_offset, avc_nal_unit_type_names[nal_unit_type], nal_ref_idc);
 
 			count_nal_unit_scanned++;
 
@@ -784,139 +784,6 @@ done:
 
 	if (pNALAVCCtx != NULL)
 		pNALAVCCtx->Release();
-
-	return iRet;
-}
-
-int	ShowH264NUs(const char* szH264StreamFile, int top, int options)
-{
-	INALContext* pAVCContext = nullptr;
-	CNALParser NALParser(NAL_CODING_AVC);
-	uint8_t pBuf[2048] = { 0 };
-
-	const int read_unit_size = 2048;
-
-	FILE* rfp = NULL;
-	int iRet = RET_CODE_SUCCESS;
-	int64_t file_size = 0;
-
-	if (AMP_FAILED(NALParser.GetNALContext(&pAVCContext)))
-	{
-		printf("Failed to get the AVC NAL context.\n");
-		return RET_CODE_ERROR_NOTIMPL;
-	}
-
-	class CAVCNALEnumerator : public INALEnumerator
-	{
-	public:
-		CAVCNALEnumerator(INALContext* pAVCNALCtx) : m_pNALContext(pAVCNALCtx) {
-		}
-
-		~CAVCNALEnumerator() {}
-
-		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
-		{
-			printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
-		{
-			uint8_t nal_unit_type = pEBSPNUBuf[0] & 0x1F;
-			printf("\tNAL Unit %s -- %s, len: %zu\n", h264_nal_unit_type_names[nal_unit_type], h264_nal_unit_type_descs[nal_unit_type], cbEBSPNUBuf);
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
-		{
-			printf("\t\tSEI message\n");
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
-		{
-			printf("\t\t\tSEI payload %s, length: %zu\n", sei_payload_type_names[payload_type], cbRBSPPayloadBuf);
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
-		{
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
-		{
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
-		{
-			m_NUCount++;
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
-		{
-			m_AUCount++;
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
-		{
-			printf("Hitting error {error_code: %d}.\n", error_code);
-			return RET_CODE_SUCCESS;
-		}
-
-		INALContext* m_pNALContext = nullptr;
-		uint64_t m_AUCount = 0;
-		uint64_t m_NUCount = 0;
-	}AVCNALEnumerator(pAVCContext);
-
-	errno_t errn = fopen_s(&rfp, szH264StreamFile, "rb");
-	if (errn != 0 || rfp == NULL)
-	{
-		printf("Failed to open the file: %s {errno: %d}.\n", szH264StreamFile, errn);
-		goto done;
-	}
-
-	// Get file size
-	_fseeki64(rfp, 0, SEEK_END);
-	file_size = _ftelli64(rfp);
-	_fseeki64(rfp, 0, SEEK_SET);
-
-	NALParser.SetEnumerator((INALEnumerator*)(&AVCNALEnumerator), options);
-
-	do
-	{
-		int read_size = read_unit_size;
-		if ((read_size = (int)fread(pBuf, 1, read_unit_size, rfp)) <= 0)
-		{
-			iRet = RET_CODE_IO_READ_ERROR;
-			break;
-		}
-
-		iRet = NALParser.ProcessInput(pBuf, read_size);
-		if (AMP_FAILED(iRet))
-			break;
-
-		iRet = NALParser.ProcessOutput();
-		if (iRet == RET_CODE_ABORT)
-			break;
-
-	} while (!feof(rfp));
-
-	if (feof(rfp))
-		iRet = NALParser.ProcessOutput(true);
-
-done:
-	if (rfp != nullptr)
-		fclose(rfp);
-
-	if (pAVCContext)
-	{
-		pAVCContext->Release();
-		pAVCContext = nullptr;
-	}
 
 	return iRet;
 }
