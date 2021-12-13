@@ -1382,7 +1382,7 @@ namespace BST {
 					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("TAG0", "for(i=0;i&lt;num_short_term_ref_pic_sets;i++)", "");
 					for (i = 0; i < num_short_term_ref_pic_sets; i++)
 					{
-						NAV_WRITE_TAG_ARRAY_BEGIN("st_ref_pic_set", i, " ");
+						NAV_WRITE_TAG_ARRAY_BEGIN0("st_ref_pic_set", i, "");
 						BST_FIELD_PROP_REF(st_ref_pic_set[i]);
 						NAV_WRITE_TAG_END("st_ref_pic_set");
 					}
@@ -3300,7 +3300,7 @@ namespace BST {
 							if (num_val_delta_dlt > 2 && max_diff > 0) {
 								uint8_t read_length_1 = (uint8_t)quick_log2(max_diff + 1);
 								read_length_1 += ((uint32_t)(1 << read_length_1)) < (max_diff + 1) ? 1 : 0;
-								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag01", "if (num_val_delta_dlt &gt; 2 && max_diff > 0)", " ");
+								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag01", "if (num_val_delta_dlt &gt; 2 && max_diff > 0)", "");
 								BST_FIELD_PROP_2NUMBER1(min_diff_minus1, read_length_1, "the minimum difference between two consecutive elements in the list deltaList");
 								NAV_WRITE_TAG_END("Tag01");
 							}
@@ -3308,7 +3308,7 @@ namespace BST {
 							BST_FIELD_PROP_2NUMBER1(delta_dlt_val0, read_length, "the 0-th element in the list deltaList");
 
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag02", "if(max_diff &gt; (min_diff_minus1 + 1))", "");
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag020", "for(k = 1; k &lt; num_val_delta_dlt; k++)", " ");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag020", "for(k = 1; k &lt; num_val_delta_dlt; k++)", "");
 
 							uint32_t curr_delta_list = delta_dlt_val0;
 							for (uint32_t k = 0; k < num_val_delta_dlt; k++) {
@@ -3425,19 +3425,17 @@ namespace BST {
 							if (dlt_val_flags_present_flag[i]) {
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0000", "for(j = 0; j &lt;= depthMaxValue; j++)", "");
 								for (uint32_t j = 0; j <= depthMaxValue; j++) {
-									MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "dlt_value_flag[%d][%d]", i, j);
-									NAV_WRITE_TAG_BEGIN(szTemp2);
+									NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("dlt_value_flag", "dlt_value_flag[%d][%d]", "", i, j);
 									BST_FIELD_PROP_BOOL(dlt_value_flag[j], "an entry in the depth look-up table of the layer", "not an entry in the depth look-up table of the layer");
-									NAV_WRITE_TAG_END(szTemp2);
+									NAV_WRITE_TAG_END("dlt_value_flag");
 								}
 								NAV_WRITE_TAG_END("Tag0000");
 							}
 							else
 							{
-								MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "delta_dlt[%d]", i);
-								NAV_WRITE_TAG_BEGIN(szTemp2);
+								NAV_WRITE_TAG_ARRAY_BEGIN0("delta_dlt", i, "");
 								BST_FIELD_PROP_REF(delta_dlt[i]);
-								NAV_WRITE_TAG_END(szTemp2);
+								NAV_WRITE_TAG_END("delta_dlt");
 							}
 							NAV_WRITE_TAG_END("Tag000");
 						}

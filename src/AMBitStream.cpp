@@ -332,7 +332,7 @@ AMBst AMBst_CreateFromRingBuffer(AMRingChunk pRingChunk, int access_mode)
 
 	if (access_mode&BST_MODE_WRITE)
 	{
-		AMP_Warning(_T("[Bitstream] BST_MODE_WRITE access mode is not supported for bitstream binding with ring buffer!\r\n"));
+		AMP_Warning(_T("[Bitstream] BST_MODE_WRITE access mode is not supported for bitstream binding with ring buffer!\n"));
 		return NULL;
 	}
 
@@ -721,7 +721,7 @@ inline int _RefineRingChunkBst(AM_BST_DATA* bst_data, bool bPeek = false)
 	bst_data->cursor.p_start = AM_RingChunk_LockRead(bst_data->rchunk);
 	if (bst_data->cursor.p_start == NULL){
 		// No data is available
-		AMP_Warning(_T("[Bitstream] no buffer is available in ring buffer.\r\n"));
+		AMP_Warning(_T("[Bitstream] no buffer is available in ring buffer.\n"));
 		return RET_CODE_ERROR;
 	}
 

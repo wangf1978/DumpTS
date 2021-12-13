@@ -1347,7 +1347,7 @@ namespace BST {
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(offset_sequence_id = 0;offset_sequence_id&lt;number_of_offset_sequences;offset_sequence_id++)", "");
 							for (i = 0; i < number_of_offset_sequences; i++)
 							{
-								NAV_WRITE_TAG_ARRAY_BEGIN("offset_sequence", i, " ");
+								NAV_WRITE_TAG_ARRAY_BEGIN0("offset_sequence", i, "");
 								for (int j = 0; j < number_of_displayed_frames_in_GOP; j++) {
 									BST_ARRAY_FIELD_PROP_NUMBER("Tag00", j, 1, plane_offsets[i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag,
 										plane_offsets[i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag ? "The associated Graphics plane appears further away from the viewer" :

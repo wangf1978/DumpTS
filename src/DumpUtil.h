@@ -649,7 +649,7 @@ SOFTWARE.
 		else\
 			cbRequired += MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "<%s_"formatstr" Offset=\"%lld\">", Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL);\
 		if(bPrint)\
-			printf("<%s>\r\n", szTemp4);\
+			printf("<%s>\n", szTemp4);\
 
 #define NAV_WRITE_TAG_ARRAY_BEGIN_(Group_Name, prefix_idx, idx, TAG_Desc, ...)\
 		MBCSPRINTF_S(szTemp2, sizeof(szTemp2)/sizeof(szTemp2[0]), TAG_Desc, ##__VA_ARGS__);\
@@ -673,13 +673,22 @@ SOFTWARE.
 
 #define NAV_WRITE_TAG_ARRAY_BEGIN(Group_Name, idx, TAG_Desc, ...)	NAV_WRITE_TAG_ARRAY_BEGIN_(Group_Name, "", idx, TAG_Desc)
 
+#define NAV_WRITE_TAG_ARRAY_BEGIN0(Group_Name, idx, TAG_Desc)	\
+		if(szOutXml != 0 && cbLen > 0)\
+			cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s Alias=\"%s[%lu]\" Offset=\"%lld\" Desc=\"%s\">", Group_Name, Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL, TAG_Desc);\
+		else\
+			cbRequired += MBCSPRINTF_S(szTemp, TEMP_SIZE, "<%s Alias=\"%s[%lu]\" Offset=\"%lld\" Desc=\"%s\">", Group_Name, Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL, TAG_Desc);\
+		if(bPrint)\
+			printf("<%s Alias=\"%s[%lu]\" Offset=\"%lld\" Desc=\"%s\">", Group_Name, Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL, TAG_Desc);\
+		AMP_NOP1(((void)0))
+
 #define NAV_FIELD_PROP(Field_Name, Field_Bits, Field_Value, Field_Desc, Field_Bit_Offset, Type)\
 	if(szOutXml != 0 && cbLen > 0)\
 		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s Value=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\"/>", Field_Name, Field_Value, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type);\
 	else\
 		cbRequired += MBCSPRINTF_S(szTemp, TEMP_SIZE, "<%s Value=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\"/>", Field_Name, Field_Value, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type);\
 	if(bPrint)\
-		printf("%s\r\n", szTemp);\
+		printf("%s\n", szTemp);\
 
 #define NAV_FIELD_PROP_BEGIN(Field_Name, Field_Bits, Field_Value, Field_Desc, Field_Bit_Offset, Type)\
 	if(szOutXml != 0 && cbLen > 0)\
@@ -687,7 +696,7 @@ SOFTWARE.
 	else\
 		cbRequired += MBCSPRINTF_S(szTemp, TEMP_SIZE, "<%s Value=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\">", Field_Name, Field_Value, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type);\
 	if(bPrint)\
-		printf("%s\r\n", szTemp);\
+		printf("%s\n", szTemp);\
 	if (bit_offset)*bit_offset += Field_Bits;\
 
 #define NAV_FIELD_PROP_WITH_ALIAS(Field_Name, Field_Alias, Field_Bits, Field_Value, Field_Desc, Field_Bit_Offset, Type)\
@@ -696,7 +705,7 @@ SOFTWARE.
 	else\
 		cbRequired += MBCSPRINTF_S(szTemp, TEMP_SIZE, "<%s Alias=\"%s\" Value=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\"/>", Field_Name, Field_Alias, Field_Value, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type);\
 	if(bPrint)\
-		printf("%s\r\n", szTemp);\
+		printf("%s\n", szTemp);\
 	if (bit_offset)*bit_offset += Field_Bits;\
 
 #define NAV_FIELD_PROP_WITH_ALIAS_BEGIN(Field_Name, Field_Alias, Field_Bits, Field_Value, Field_Desc, Field_Bit_Offset, Type)\
@@ -705,7 +714,7 @@ SOFTWARE.
 	else\
 		cbRequired += MBCSPRINTF_S(szTemp, TEMP_SIZE, "<%s Alias=\"%s\" Value=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\">", Field_Name, Field_Alias, Field_Value, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type);\
 	if(bPrint)\
-		printf("%s\r\n", szTemp);\
+		printf("%s\n", szTemp);\
 	if (bit_offset)*bit_offset += Field_Bits;\
 
 #define NAV_FIELD_PROP_END(Field_Name)	NAV_WRITE_TAG_END(Field_Name)
@@ -1260,11 +1269,11 @@ SOFTWARE.
 
 #define NAV_WRITE_TAG_END(Group_Name)\
 	if(szOutXml != 0 && cbLen > 0)\
-		cbRequired += MBCSPRINTF_S(szOutXml+cbRequired, cbLen-cbRequired, "</%s>\r\n", Group_Name);\
+		cbRequired += MBCSPRINTF_S(szOutXml+cbRequired, cbLen-cbRequired, "</%s>\n", Group_Name);\
 	else\
-		cbRequired += MBCSPRINTF_S(szTagName, TAGNAME_SIZE, "</%s>\r\n", Group_Name);\
+		cbRequired += MBCSPRINTF_S(szTagName, TAGNAME_SIZE, "</%s>\n", Group_Name);\
 	if(bPrint)\
-		printf("</%s>\r\n", Group_Name);\
+		printf("</%s>\n", Group_Name);\
 	AMP_NOP1(((void)0))
 
 #define NAV_WRITE_TAG_END2(Group_Name) NAV_WRITE_TAG_END(Group_Name)
@@ -1273,11 +1282,11 @@ SOFTWARE.
 
 #define NAV_WRITE_TAG_END4(Group_Name, formatstr, idx)\
 	if(szOutXml != 0 && cbLen > 0)\
-		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "</%s_"formatstr">\r\n", Group_Name, (unsigned long)(idx));\
+		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "</%s_"formatstr">\n", Group_Name, (unsigned long)(idx));\
 	else\
-		cbRequired += MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "</%s_"formatstr">\r\n", Group_Name, (unsigned long)(idx));\
+		cbRequired += MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "</%s_"formatstr">\n", Group_Name, (unsigned long)(idx));\
 	if(bPrint)\
-		printf("</%s>\r\n", Group_Name);\
+		printf("</%s>\n", Group_Name);\
 
 #define NAV_FIELD_PROP_OBJECT_WITH_TAG1(Obj_Name, Group_Name)\
 	NAV_WRITE_TAG_BEGIN(Group_Name);\

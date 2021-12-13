@@ -1724,7 +1724,7 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(SchedSelIdx=0;SchedSelIdx&lt;=cpb_cnt_minus1;SchedSelIdx++)", "");
 				for (i = 0; i <= CpbCnt; i++)
 				{
-					NAV_WRITE_TAG_ARRAY_BEGIN("nal_initial_cpb_removal", i, " ");
+					NAV_WRITE_TAG_ARRAY_BEGIN0("nal_initial_cpb_removal", i, "");
 					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
 					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
 					NAV_WRITE_TAG_END("nal_initial_cpb_removal");
@@ -1740,7 +1740,7 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "for(SchedSelIdx=0;SchedSelIdx&lt;=cpb_cnt_minus1;SchedSelIdx++)", "");
 				for (i = 0; i <= CpbCnt; i++)
 				{
-					NAV_WRITE_TAG_ARRAY_BEGIN("vcl_initial_cpb_removal", i, " ");
+					NAV_WRITE_TAG_ARRAY_BEGIN0("vcl_initial_cpb_removal", i, "");
 					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
 					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
 					NAV_WRITE_TAG_END("vcl_initial_cpb_removal");

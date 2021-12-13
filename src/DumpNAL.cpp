@@ -30,6 +30,8 @@ SOFTWARE.
 #include "DataUtil.h"
 #include "h264_video.h"
 #include "h265_video.h"
+#include "h266_video.h"
+#include "tinyxml2.h"
 #include <unordered_map>
 
 using namespace std;
@@ -102,14 +104,14 @@ int	ShowNUs()
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
-	class CHEVCNALEnumerator : public INALEnumerator
+	class CNALEnumerator : public INALEnumerator
 	{
 	public:
-		CHEVCNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
 			m_coding = m_pNALContext->GetNALCoding();
 		}
 
-		~CHEVCNALEnumerator() {}
+		~CNALEnumerator() {}
 
 		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
 		{
@@ -185,6 +187,333 @@ int	ShowNUs()
 	_fseeki64(rfp, 0, SEEK_SET);
 
 	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), options);
+
+	do
+	{
+		int read_size = read_unit_size;
+		if ((read_size = (int)fread(pBuf, 1, read_unit_size, rfp)) <= 0)
+		{
+			iRet = RET_CODE_IO_READ_ERROR;
+			break;
+		}
+
+		iRet = NALParser.ProcessInput(pBuf, read_size);
+		if (AMP_FAILED(iRet))
+			break;
+
+		iRet = NALParser.ProcessOutput();
+		if (iRet == RET_CODE_ABORT)
+			break;
+
+	} while (!feof(rfp));
+
+	if (feof(rfp))
+		iRet = NALParser.ProcessOutput(true);
+
+done:
+	if (rfp != nullptr)
+		fclose(rfp);
+
+	if (pNALContext)
+	{
+		pNALContext->Release();
+		pNALContext = nullptr;
+	}
+
+	return iRet;
+}
+
+template<class T>
+int PrintNALObject(std::shared_ptr<T> pNavFieldProp)
+{
+	char* szXmlOutput = NULL;
+	int iRet = RET_CODE_SUCCESS;
+	tinyxml2::XMLDocument xmlDoc;
+	int xml_buffer_size = (int)pNavFieldProp->ProduceDesc(NULL, 0);
+	if (xml_buffer_size <= 0)
+	{
+		printf("Failed to export Xml from the NAL Object.\n");
+		goto done;
+	}
+
+	szXmlOutput = new char[xml_buffer_size + 1];
+	if ((xml_buffer_size = (int)pNavFieldProp->ProduceDesc(szXmlOutput, xml_buffer_size + 1)) <= 0)
+	{
+		AMP_SAFEDELA(szXmlOutput);
+		printf("Failed to generate the Xml from the NAL Object.\n");
+		goto done;
+	}
+
+	if (xmlDoc.Parse(szXmlOutput, xml_buffer_size) == tinyxml2::XML_SUCCESS)
+	{
+		int max_len_of_fixed_part = 0;
+		// Get the max length
+		{
+			struct MaxLenTestUtil : tinyxml2::XMLVisitor
+			{
+				MaxLenTestUtil() : level(0), szLongSpace{ 0 }, max_length(0){
+					memset(szLongSpace, ' ', 240);
+				}
+				/// Visit an element.
+				virtual bool VisitEnter(const tinyxml2::XMLElement& element, const tinyxml2::XMLAttribute* firstAttribute) {
+					char szTmp[2048] = { 0 };
+					const char* szValue = element.Attribute("Value");
+					const char* szAlias = element.Attribute("Alias");
+					const char* szDesc = element.Attribute("Desc");
+					int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4, szLongSpace,
+						szAlias ? szAlias : element.Name(),
+						szValue ? szValue : "");
+
+					if (ccWritten > max_length && szDesc != NULL && strcmp(szDesc, "") != 0)
+						max_length = ccWritten;
+
+					level++;
+					return true;
+				}
+				/// Visit an element.
+				virtual bool VisitExit(const tinyxml2::XMLElement& element) {
+					level--;
+					return true;
+				}
+
+				int level;
+				char szLongSpace[241];
+				int max_length;
+
+			} max_length_tester;
+
+			xmlDoc.Accept(&max_length_tester);
+			max_len_of_fixed_part = max_length_tester.max_length;
+		}
+
+		struct TestUtil : tinyxml2::XMLVisitor
+		{
+			TestUtil(int max_length) : level(0), szLongSpace{ 0 }, max_fixed_part_length(max_length){
+				memset(szLongSpace, ' ', 240);
+			}
+			/// Visit an element.
+			virtual bool VisitEnter(const tinyxml2::XMLElement& element, const tinyxml2::XMLAttribute* firstAttribute) {
+				char szTmp[2048] = { 0 };
+				const char* szValue = element.Attribute("Value");
+				const char* szAlias = element.Attribute("Alias");
+				const char* szDesc = element.Attribute("Desc");
+				int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4, szLongSpace,
+					szAlias ? szAlias : element.Name(),
+					szValue ? szValue : "");
+
+				printf("%s%.*s%s%s\n", szTmp,
+					max_fixed_part_length > ccWritten?(max_fixed_part_length - ccWritten):0, szLongSpace,
+					szDesc && strcmp(szDesc, "") != 0 ? "// " : "",
+					szDesc ? GetFixedWidthStrWithEllipsis(szDesc, 70).c_str() : "");
+				level++;
+				return true;
+			}
+			/// Visit an element.
+			virtual bool VisitExit(const tinyxml2::XMLElement& element) {
+				level--;
+				return true;
+			}
+
+			int level;
+			char szLongSpace[241];
+			int max_fixed_part_length;
+
+		} tester(max_len_of_fixed_part);
+
+		xmlDoc.Accept(&tester);
+	}
+	else
+		printf("The generated XML is invalid.\n");
+
+done:
+	AMP_SAFEDELA(szXmlOutput);
+
+	return iRet;
+}
+
+int ShowSPS()
+{
+	INALContext* pNALContext = nullptr;
+	uint8_t pBuf[2048] = { 0 };
+
+	const int read_unit_size = 2048;
+
+	FILE* rfp = NULL;
+	int iRet = RET_CODE_SUCCESS;
+	int64_t file_size = 0;
+
+	auto iter_srcfmt = g_params.find("srcfmt");
+	if (iter_srcfmt == g_params.end())
+		return RET_CODE_ERROR_NOTIMPL;
+
+	NAL_CODING coding = NAL_CODING_UNKNOWN;
+	if (iter_srcfmt->second.compare("h264") == 0)
+		coding = NAL_CODING_AVC;
+	else if (iter_srcfmt->second.compare("h265") == 0)
+		coding = NAL_CODING_HEVC;
+	else if (iter_srcfmt->second.compare("h266") == 0)
+		coding = NAL_CODING_VVC;
+	else
+		return RET_CODE_ERROR_NOTIMPL;
+
+	int top = -1;
+	auto iterTop = g_params.find("top");
+	if (iterTop != g_params.end())
+	{
+		int64_t top_records = -1;
+		ConvertToInt(iterTop->second, top_records);
+		if (top_records < 0 || top_records > INT32_MAX)
+			top = -1;
+	}
+
+	CNALParser NALParser(coding);
+	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
+	{
+		printf("Failed to get the %s NAL context.\n", NAL_CODING_NAME(coding));
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (coding == NAL_CODING_AVC)
+		pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT });
+	else if (coding == NAL_CODING_HEVC)
+		pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT, BST::H265Video::SPS_NUT });
+	else if (coding == NAL_CODING_VVC)
+		pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT });
+
+	class CNALEnumerator : public INALEnumerator
+	{
+	public:
+		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+			m_coding = m_pNALContext->GetNALCoding();
+			if (m_coding == NAL_CODING_AVC)
+				m_pNALContext->QueryInterface(IID_INALAVCContext, (void**)&m_pNALAVCContext);
+			else if (m_coding == NAL_CODING_HEVC)
+				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
+		}
+
+		~CNALEnumerator() {}
+
+		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
+
+		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			uint8_t nal_unit_type = 0xFF;
+
+			AMBst bst = AMBst_CreateFromBuffer(pEBSPNUBuf, (int)cbEBSPNUBuf);
+			if (m_coding == NAL_CODING_AVC)
+			{
+				nal_unit_type = (pEBSPNUBuf[0] & 0x1F);
+				if (nal_unit_type == BST::H264Video::SPS_NUT)
+				{
+					H264_NU avc_sps_nu = m_pNALAVCContext->CreateAVCNU();
+					if (AMP_FAILED(iRet = avc_sps_nu->Map(bst)))
+					{
+						printf("Failed to unpack %s parameter set {error: %d}.\n", avc_nal_unit_type_descs[nal_unit_type], iRet);
+						goto done;
+					}
+
+					// Check whether the buffer is the same with previous one or not
+					AMSHA1_RET sha1_ret = { 0 };
+					AMSHA1 sha1_handle = AM_SHA1_Init(pEBSPNUBuf, (int)cbEBSPNUBuf);
+					AM_SHA1_Finalize(sha1_handle);
+					AM_SHA1_GetHash(sha1_handle, sha1_ret);
+					AM_SHA1_Uninit(sha1_handle);
+
+					if (memcmp(prev_sps_sha1_ret[avc_sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+						goto done;
+					else
+						memcpy(prev_sps_sha1_ret[avc_sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+					m_pNALAVCContext->UpdateAVCSPS(avc_sps_nu);
+
+					PrintNALObject(avc_sps_nu);
+				}
+			}
+			else if (m_coding == NAL_CODING_HEVC)
+			{
+				nal_unit_type = ((pEBSPNUBuf[0] >> 1) & 0x3F);
+				if (nal_unit_type == BST::H265Video::VPS_NUT)
+				{
+					H265_NU vps_nu = m_pNALHEVCContext->CreateHEVCNU();
+					if (AMP_FAILED(iRet = vps_nu->Map(bst)))
+					{
+						printf("Failed to unpack VPS unit.\n");
+						goto done;
+					}
+
+					m_pNALHEVCContext->UpdateHEVCVPS(vps_nu);
+				}
+				else if (nal_unit_type == BST::H265Video::SPS_NUT)
+				{
+					H265_NU hevc_sps_nu = m_pNALHEVCContext->CreateHEVCNU();
+					if (AMP_FAILED(iRet = hevc_sps_nu->Map(bst)))
+					{
+						printf("Failed to unpack HEVC SPS unit.\n");
+						goto done;
+					}
+
+					// Check whether the buffer is the same with previous one or not
+					AMSHA1_RET sha1_ret = { 0 };
+					AMSHA1 sha1_handle = AM_SHA1_Init(pEBSPNUBuf, (int)cbEBSPNUBuf);
+					AM_SHA1_Finalize(sha1_handle);
+					AM_SHA1_GetHash(sha1_handle, sha1_ret);
+					AM_SHA1_Uninit(sha1_handle);
+					if (memcmp(prev_sps_sha1_ret[hevc_sps_nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+						goto done;
+					else
+						memcpy(prev_sps_sha1_ret[hevc_sps_nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+					m_pNALHEVCContext->UpdateHEVCSPS(hevc_sps_nu);
+
+					PrintNALObject(hevc_sps_nu);
+				}
+			}
+
+		done:
+			if (bst)
+				AMBst_Destroy(bst);
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			m_NUCount++;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		{
+			printf("Hitting error {error_code: %d}.\n", error_code);
+			return RET_CODE_SUCCESS;
+		}
+
+		INALContext* m_pNALContext = nullptr;
+		INALAVCContext* m_pNALAVCContext = nullptr;
+		INALHEVCContext* m_pNALHEVCContext = nullptr;
+		uint64_t m_NUCount = 0;
+		NAL_CODING m_coding = NAL_CODING_UNKNOWN;
+		AMSHA1_RET prev_sps_sha1_ret[32] = { {0} };
+	}NALEnumerator(pNALContext);
+
+	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
+	if (errn != 0 || rfp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
+		goto done;
+	}
+
+	// Get file size
+	_fseeki64(rfp, 0, SEEK_END);
+	file_size = _ftelli64(rfp);
+	_fseeki64(rfp, 0, SEEK_SET);
+
+	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), NAL_ENUM_OPTION_NU);
 
 	do
 	{

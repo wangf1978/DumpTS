@@ -651,8 +651,3 @@ namespace BST {
 	}	// namespace H265Video
 }	// namespace BST
 
-int ShowH265SPS(const char* szH264StreamFile)
-{
-	return -1;
-}
-

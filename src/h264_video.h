@@ -412,7 +412,7 @@ namespace BST {
 				NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag1", "nextScale = 8", 8, "");
 				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag2", "for(j=0; j&lt;sizeOfScalingList; j++)", "");
 				for (int j = 0; j < m_sizeOfScalingList; j++) {
-					NAV_WRITE_TAG_ARRAY_BEGIN("ScalingList", j, " ");
+					NAV_WRITE_TAG_ARRAY_BEGIN0("ScalingList", j, "");
 					if (nextScale != 0)
 					{
 						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag20", "if(nextScale != 0)", "");
@@ -1576,14 +1576,14 @@ namespace BST {
 
 					BST_ARRAY_FIELD_PROP_NUMBER("vui_ext_nal_hrd_parameters_present_flag", i, 1, vui_ext_entries[i].vui_ext_nal_hrd_parameters_present_flag, "");
 					if (vui_ext_entries[i].vui_ext_nal_hrd_parameters_present_flag) {
-						NAV_WRITE_TAG_ARRAY_BEGIN("nal_hrd_parameters", i, " ");
+						NAV_WRITE_TAG_ARRAY_BEGIN0("nal_hrd_parameters", i, "");
 						BST_FIELD_PROP_REF(vui_ext_entries[i].nal_hrd_parameters);
 						NAV_WRITE_TAG_END("nal_hrd_parameters");
 					}
 
 					BST_ARRAY_FIELD_PROP_NUMBER("vui_ext_vcl_hrd_parameters_present_flag", i, 1, vui_ext_entries[i].vui_ext_vcl_hrd_parameters_present_flag, "");
 					if (vui_ext_entries[i].vui_ext_vcl_hrd_parameters_present_flag) {
-						NAV_WRITE_TAG_ARRAY_BEGIN("vcl_hrd_parameters", i, " ");
+						NAV_WRITE_TAG_ARRAY_BEGIN0("vcl_hrd_parameters", i, "");
 						BST_FIELD_PROP_REF(vui_ext_entries[i].vcl_hrd_parameters);
 						NAV_WRITE_TAG_END("vcl_hrd_parameters");
 					}

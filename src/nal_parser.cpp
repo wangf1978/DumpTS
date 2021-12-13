@@ -222,9 +222,10 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 			//if (pCurParseStartBuf[0] == 0xCE && pCurParseStartBuf[1] == 0xCF && pCurParseStartBuf[2] == 0x1E && pCurParseStartBuf[3] == 0xAB)
 /*			if (pCurParseStartBuf[0] == 0x37 && pCurParseStartBuf[1] == 0x95 && pCurParseStartBuf[2] == 0x12 && pCurParseStartBuf[3] == 0x83)
 				printf("Hitting here again.\n")*/;
-
-			pSubmitEnd = pBuf;
 		}
+
+		// pBuf is the next submit position
+		pSubmitEnd = pBuf;
 
 		// Failed to find the "start_code_prefix_one_3bytes"
 		if (cbSize < nal_unit_prefix_start_code_length + 2)

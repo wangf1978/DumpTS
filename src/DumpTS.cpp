@@ -62,7 +62,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
 extern int	ShowNUs();
-extern int	ShowH264SPS(const char* szH264StreamFile);
+extern int	ShowSPS();
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
 extern int	DiffTSATC();
@@ -1024,9 +1024,7 @@ int main(int argc, char* argv[])
 			}
 			else if (g_params.find("showSPS") != g_params.end())
 			{
-				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0)
-					nDumpRet = ShowH264SPS(g_params["input"].c_str());
-
+				nDumpRet = ShowSPS();
 				goto done;
 			}
 			else if (g_params.find("showNU") != g_params.end())
