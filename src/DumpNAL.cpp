@@ -331,7 +331,12 @@ done:
 	return iRet;
 }
 
-int ShowSPS()
+/*
+	1: VPS
+	2: SPS
+	3: PPS
+*/
+int ShowNALObj(int object_type)
 {
 	INALContext* pNALContext = nullptr;
 	uint8_t pBuf[2048] = { 0 };
@@ -354,7 +359,10 @@ int ShowSPS()
 	else if (iter_srcfmt->second.compare("h266") == 0)
 		coding = NAL_CODING_VVC;
 	else
+	{
+		printf("Only support H.264/265/266 at present.\n");
 		return RET_CODE_ERROR_NOTIMPL;
+	}
 
 	int top = -1;
 	auto iterTop = g_params.find("top");
@@ -374,16 +382,40 @@ int ShowSPS()
 	}
 
 	if (coding == NAL_CODING_AVC)
-		pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT });
+	{
+		if (object_type == 1)
+		{
+			printf("No VPS object in H.264 stream.\n");
+			return RET_CODE_INVALID_PARAMETER;
+		}
+		else if (object_type == 2)
+			pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT });
+		else if (object_type == 3)
+			pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT, BST::H264Video::PPS_NUT });
+	}
 	else if (coding == NAL_CODING_HEVC)
-		pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT, BST::H265Video::SPS_NUT });
+	{
+		if (object_type == 1)
+			pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT });
+		else if (object_type == 2)
+			pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT, BST::H265Video::SPS_NUT });
+		else if (object_type == 3)
+			pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT, BST::H265Video::SPS_NUT, BST::H265Video::PPS_NUT });
+	}
 	else if (coding == NAL_CODING_VVC)
-		pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT });
+	{
+		if (object_type == 1)
+			pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT });
+		else if (object_type == 2)
+			pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT });
+		else if (object_type == 3)
+			pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT, BST::H266Video::PPS_NUT });
+	}
 
 	class CNALEnumerator : public INALEnumerator
 	{
 	public:
-		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+		CNALEnumerator(INALContext* pNALCtx, int objType) : m_pNALContext(pNALCtx), object_type(objType) {
 			m_coding = m_pNALContext->GetNALCoding();
 			if (m_coding == NAL_CODING_AVC)
 				m_pNALContext->QueryInterface(IID_INALAVCContext, (void**)&m_pNALAVCContext);
@@ -404,10 +436,10 @@ int ShowSPS()
 			if (m_coding == NAL_CODING_AVC)
 			{
 				nal_unit_type = (pEBSPNUBuf[0] & 0x1F);
-				if (nal_unit_type == BST::H264Video::SPS_NUT)
+				if (nal_unit_type == BST::H264Video::SPS_NUT || nal_unit_type == BST::H264Video::PPS_NUT)
 				{
-					H264_NU avc_sps_nu = m_pNALAVCContext->CreateAVCNU();
-					if (AMP_FAILED(iRet = avc_sps_nu->Map(bst)))
+					H264_NU nu = m_pNALAVCContext->CreateAVCNU();
+					if (AMP_FAILED(iRet = nu->Map(bst)))
 					{
 						printf("Failed to unpack %s parameter set {error: %d}.\n", avc_nal_unit_type_descs[nal_unit_type], iRet);
 						goto done;
@@ -420,36 +452,42 @@ int ShowSPS()
 					AM_SHA1_GetHash(sha1_handle, sha1_ret);
 					AM_SHA1_Uninit(sha1_handle);
 
-					if (memcmp(prev_sps_sha1_ret[avc_sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
-						goto done;
-					else
-						memcpy(prev_sps_sha1_ret[avc_sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+					if (nal_unit_type == BST::H264Video::SPS_NUT)
+					{
+						if (memcmp(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
 
-					m_pNALAVCContext->UpdateAVCSPS(avc_sps_nu);
+						m_pNALAVCContext->UpdateAVCSPS(nu);
 
-					PrintNALObject(avc_sps_nu);
+						if (object_type == 2)
+							PrintNALObject(nu);
+					}
+					else if (nal_unit_type == BST::H264Video::PPS_NUT)
+					{
+						if (memcmp(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALAVCContext->UpdateAVCPPS(nu);
+
+						if (object_type == 3)
+							PrintNALObject(nu);
+					}
 				}
 			}
 			else if (m_coding == NAL_CODING_HEVC)
 			{
 				nal_unit_type = ((pEBSPNUBuf[0] >> 1) & 0x3F);
-				if (nal_unit_type == BST::H265Video::VPS_NUT)
-				{
-					H265_NU vps_nu = m_pNALHEVCContext->CreateHEVCNU();
-					if (AMP_FAILED(iRet = vps_nu->Map(bst)))
-					{
-						printf("Failed to unpack VPS unit.\n");
-						goto done;
-					}
 
-					m_pNALHEVCContext->UpdateHEVCVPS(vps_nu);
-				}
-				else if (nal_unit_type == BST::H265Video::SPS_NUT)
+				if (nal_unit_type == BST::H265Video::VPS_NUT || nal_unit_type == BST::H265Video::SPS_NUT || nal_unit_type == BST::H265Video::PPS_NUT)
 				{
-					H265_NU hevc_sps_nu = m_pNALHEVCContext->CreateHEVCNU();
-					if (AMP_FAILED(iRet = hevc_sps_nu->Map(bst)))
+					H265_NU nu = m_pNALHEVCContext->CreateHEVCNU();
+					if (AMP_FAILED(iRet = nu->Map(bst)))
 					{
-						printf("Failed to unpack HEVC SPS unit.\n");
+						printf("Failed to unpack %s.\n", hevc_nal_unit_type_names[nal_unit_type]);
 						goto done;
 					}
 
@@ -459,14 +497,43 @@ int ShowSPS()
 					AM_SHA1_Finalize(sha1_handle);
 					AM_SHA1_GetHash(sha1_handle, sha1_ret);
 					AM_SHA1_Uninit(sha1_handle);
-					if (memcmp(prev_sps_sha1_ret[hevc_sps_nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
-						goto done;
-					else
-						memcpy(prev_sps_sha1_ret[hevc_sps_nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
 
-					m_pNALHEVCContext->UpdateHEVCSPS(hevc_sps_nu);
+					if (nal_unit_type == BST::H265Video::VPS_NUT)
+					{
+						if (memcmp(prev_vps_sha1_ret[nu->ptr_video_parameter_set_rbsp->vps_video_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_vps_sha1_ret[nu->ptr_video_parameter_set_rbsp->vps_video_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
 
-					PrintNALObject(hevc_sps_nu);
+						m_pNALHEVCContext->UpdateHEVCVPS(nu);
+
+						if (object_type == 1)
+							PrintNALObject(nu);
+					}
+					else if (nal_unit_type == BST::H265Video::SPS_NUT)
+					{
+						if (memcmp(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCSPS(nu);
+
+						if (object_type == 2)
+							PrintNALObject(nu);
+					}
+					else if (nal_unit_type == BST::H265Video::PPS_NUT)
+					{
+						if (memcmp(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCPPS(nu);
+
+						if (object_type == 3)
+							PrintNALObject(nu);
+					}
 				}
 			}
 
@@ -499,7 +566,11 @@ int ShowSPS()
 		uint64_t m_NUCount = 0;
 		NAL_CODING m_coding = NAL_CODING_UNKNOWN;
 		AMSHA1_RET prev_sps_sha1_ret[32] = { {0} };
-	}NALEnumerator(pNALContext);
+		AMSHA1_RET prev_vps_sha1_ret[32] = { {0} };
+		// H.264, there may be 256 pps at maximum; H.265/266: there may be 64 pps at maximum
+		AMSHA1_RET prev_pps_sha1_ret[256] = { {0} };
+		int object_type = -1;
+	}NALEnumerator(pNALContext, object_type);
 
 	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || rfp == NULL)
@@ -548,5 +619,20 @@ done:
 	}
 
 	return iRet;
+}
+
+int	ShowVPS()
+{
+	return ShowNALObj(1);
+}
+
+int	ShowSPS()
+{
+	return ShowNALObj(2);
+}
+
+int ShowPPS()
+{
+	return ShowNALObj(3);
 }
 

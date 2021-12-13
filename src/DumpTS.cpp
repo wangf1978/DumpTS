@@ -62,7 +62,9 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
 extern int	ShowNUs();
+extern int	ShowVPS();
 extern int	ShowSPS();
+extern int	ShowPPS();
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
 extern int	DiffTSATC();
@@ -176,8 +178,10 @@ void ParseCommandLine(int argc, char* argv[])
 		"showDU",		// show the DU in the MMTP payload
 		"showPCR",
 		"showNTP",
-		"showSPS",
 		"showNU",
+		"showVPS",
+		"showSPS",
+		"showPPS",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
 		"listMMTPpacket",
 		"listMMTPpayload",
@@ -1022,14 +1026,24 @@ int main(int argc, char* argv[])
 				nDumpRet = BenchRead(0);
 				goto done;
 			}
+			else if (g_params.find("showNU") != g_params.end())
+			{
+				nDumpRet = ShowNUs();
+				goto done;
+			}
+			else if (g_params.find("showVPS") != g_params.end())
+			{
+				nDumpRet = ShowVPS();
+				goto done;
+			}
 			else if (g_params.find("showSPS") != g_params.end())
 			{
 				nDumpRet = ShowSPS();
 				goto done;
 			}
-			else if (g_params.find("showNU") != g_params.end())
+			else if (g_params.find("showPPS") != g_params.end())
 			{
-				nDumpRet = ShowNUs();
+				nDumpRet = ShowPPS();
 				goto done;
 			}
 			else
