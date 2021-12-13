@@ -4,6 +4,7 @@
 - **Matroska**: a multimedia container format based on EBML (Extensible Binary Meta Language), the file extension is normally *.mkv, .mka, .mk3d and .webm*
 - **MMT**: MPEG Media Transport stream, the file extension is normally *.mmts* 
 - **PS**: MPEG program stream, the file extension is normally *.vob, .vro, .mpg, .mpeg* 
+- **NAL**: Network Abstract Layer stream, the file extension is normally *.h264, .avc, .h265, .hevc, h266 and .vvc*
 
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
@@ -12,6 +13,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 - Show media information of elementary streams, *ISOBMFF* box, *Matroska EBML* element and *MMT/TLV* packet/message/table/descriptors.
 - Re-factor a *TS* stream file in place
 - Extract some elementary streams, and reconstruct a partial *TS* file
+- Show the primitive syntax and structure of media file of ISOBMFF/Matroska/TS/PS/TLV-MMT/NAL/.... 
 - Provide some utility features for *ISOBMFF* file reconstruction
 - Provide some utility functions for codec and container technology, for example, Huffman Codebook, CRC, container layout...
 
@@ -79,8 +81,10 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showPRC**|*[video][audio][full]*|print the PCR clock information in TS stream|
 |**--showNTP**|*N/A*|print the NTP information in MMT/TLV stream|
 |**--diffATC**|diff threshold<br>xxxx(27MHZ)|list the each TS packet arrive time and the diff with the previous TS pack|
-|**--showSPS**|*N/A*|print the SPS syntax of AVC/HEVC/VVC stream|
 |**--showNU**|*[AU];[NU];[SEIMSG];[SEIPAYLOAD]*|print the Access-Unit/nal-unit/sei-message/sei-payload tree of AVC/HEVC/VVC stream|
+|**--showVPS**|*N/A*|print the VPS syntax form of HEVC/VVC stream|
+|**--showSPS**|*N/A*|print the SPS syntax form of AVC/HEVC/VVC stream|
+|**--showSPS**|*N/A*|print the PPS syntax form of AVC/HEVC/VVC stream|
 |**--listMMTPpacket**|*N/A*|List the specified MMTP packets|
 |**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
 |**--listMPUtime**|*simple(default)<br>full*|List MPU presentation time and its pts/dts offset|
