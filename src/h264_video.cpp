@@ -326,6 +326,16 @@ namespace BST
 			return nal_unit_type_filters.empty() ||
 				std::find(nal_unit_type_filters.cbegin(), nal_unit_type_filters.cend(), nal_unit_type) != nal_unit_type_filters.cend();
 		}
+
+		void VideoBitstreamCtx::Reset()
+		{
+			nal_unit_type_filters.clear(); 
+			prev_seq_parameter_set_id = -1; 
+			sp_h264_spses.clear(); 
+			sp_h264_ppses.clear(); 
+			sp_prev_nal_unit = nullptr;
+			sp_active_h264_pps = nullptr;
+		}
 		
 		H264_NU VideoBitstreamCtx::GetAVCSPS(uint8_t sps_id)
 		{
@@ -368,6 +378,23 @@ namespace BST
 			auto ptr_AVC_NU = new NAL_UNIT;
 			ptr_AVC_NU->UpdateCtx(this);
 			return std::shared_ptr<NAL_UNIT>(ptr_AVC_NU);
+		}
+
+		H264_NU VideoBitstreamCtx::GetCurrentAUPPS()
+		{
+			return sp_active_h264_pps;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateCurrentAUPPS(H264_NU pps_nu)
+		{
+			sp_active_h264_pps = pps_nu;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::ResetCurrentAUPPS()
+		{
+			sp_active_h264_pps = nullptr;
+			return RET_CODE_SUCCESS;
 		}
 
 		VideoBitstreamCtx::~VideoBitstreamCtx()

@@ -140,6 +140,8 @@ extern const char* vui_colour_primaries_names[256];
 extern const char* vui_transfer_characteristics_names[256];
 extern const char* vui_matrix_coeffs_descs[256];
 
+class INALContext;
+
 namespace BST {
 
 	struct SEI_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -225,16 +227,9 @@ namespace BST {
 									reserved_sei_message_payload_bytes;
 					int				payload_size;
 
-					SEI_PAYLOAD*	ptr_sei_payload;
+					INALContext*	ptr_NAL_Context;
 
-					BUFFERING_PERIOD(int payloadSize, SEI_PAYLOAD* pSEIPayload)
-						: irap_cpb_params_present_flag(0)
-						, use_alt_cpb_params_flag(0)
-						, cpb_delay_offset(0)
-						, dpb_delay_offset(0)
-						, payload_size(payloadSize)
-						, ptr_sei_payload(pSEIPayload){
-					}
+					BUFFERING_PERIOD(int payloadSize, INALContext* pNALCtx);
 
 					int Map(AMBst in_bst);
 
@@ -282,12 +277,9 @@ namespace BST {
 					std::vector<uint8_t>
 									reserved_sei_message_payload_bytes;
 					int				payload_size;
+					INALContext*	ptr_NAL_Context;
 
-					PIC_TIMING_H264(int payloadSize)
-						: cpb_removal_delay(0)
-						, dpb_output_delay(0)
-						, payload_size(payloadSize){
-					}
+					PIC_TIMING_H264(int payloadSize, INALContext* pNALCtx);
 
 					int Map(AMBst in_bst);
 
@@ -2868,7 +2860,7 @@ namespace BST {
 						switch (payload_type)
 						{
 						case SEI_PAYLOAD_BUFFERING_PERIOD:
-							nal_read_ref(in_bst, buffering_period, BUFFERING_PERIOD, payload_size, this);
+							nal_read_ref(in_bst, buffering_period, BUFFERING_PERIOD, payload_size, ptr_sei_message->ptr_sei_rbsp->ctx_NAL);
 							break;
 						case SEI_PAYLOAD_PIC_TIMING:
 							nal_read_ref(in_bst, reserved_sei_message, RESERVED_SEI_MESSAGE, payload_size);

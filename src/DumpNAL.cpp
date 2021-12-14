@@ -331,10 +331,195 @@ done:
 	return iRet;
 }
 
+int PrintHRDFromAVCSPS(H264_NU sps_nu)
+{
+	if (!sps_nu || sps_nu->ptr_seq_parameter_set_rbsp == nullptr)
+		return RET_CODE_INVALID_PARAMETER;
+
+	uint64_t BitRates[32] = { 0 };
+	uint64_t CpbSize[32] = { 0 };
+	bool bUseConcludedValues[2] = { true, true };
+	if (sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters &&
+		sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters_present_flag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters)
+	{
+		printf("Type-I HRD:\n");
+		auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters;
+		for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
+		{
+			printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
+			BitRates[SchedSelIdx] = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL<<(6 + hrd_parameters->bit_rate_scale);
+			CpbSize[SchedSelIdx] = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+			printf("\t\tthe maximum input bit rate for the CPB: % " PRIu64"bps/%sbps \n", 
+				BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
+			printf("\t\tthe CPB size: % " PRIu64"b/%sb \n",
+				CpbSize[SchedSelIdx], GetHumanReadNumber(CpbSize[SchedSelIdx]).c_str());
+			printf("\t\t%s mode\n", hrd_parameters->cbr_flag[SchedSelIdx]?"CBR":"VBR");
+		}
+	}
+
+	if (sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters &&
+		sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters_present_flag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters)
+	{
+		printf("Type-II HRD:\n");
+		auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters;
+		for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
+		{
+			printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
+			BitRates[SchedSelIdx] = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
+			CpbSize[SchedSelIdx] = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+			printf("\t\tthe maximum input bit rate for the CPB: % " PRIu64"bps/%sbps \n",
+				BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
+			printf("\t\tthe CPB size: % " PRIu64"b/%sb \n",
+				CpbSize[SchedSelIdx], GetHumanReadNumber(CpbSize[SchedSelIdx]).c_str());
+			printf("\t\t%s mode\n", hrd_parameters->cbr_flag[SchedSelIdx] ? "CBR" : "VBR");
+		}
+	}
+
+
+	return RET_CODE_SUCCESS;
+}
+
+int PrintHRDFromSEIPayloadBufferingPeriod(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+{
+	int iRet = RET_CODE_SUCCESS;
+	if (pSEIPayload == nullptr || cbSEIPayload == 0)
+		return RET_CODE_INVALID_PARAMETER;
+
+	AMBst bst = nullptr;
+	BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD* pBufPeriod = new
+		BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD((int)cbSEIPayload, pCtx);
+	NAL_CODING coding = pCtx->GetNALCoding();
+	
+	if (pBufPeriod != nullptr)
+		bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
+
+	if (pBufPeriod == nullptr || bst == nullptr)
+	{
+		iRet = RET_CODE_OUTOFMEMORY;
+		goto done;
+	}
+
+	if (AMP_FAILED(iRet = pBufPeriod->Map(bst)))
+	{
+		printf("Failed to unpack the SEI payload: buffering period.\n");
+		goto done;
+	}
+
+	if (coding == NAL_CODING_AVC)
+	{
+		H264_NU sps_nu;
+		INALAVCContext* pNALAVCCtx = nullptr;
+		if (SUCCEEDED(pCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
+		{
+			sps_nu = pNALAVCCtx->GetAVCSPS(pBufPeriod->bp_seq_parameter_set_id);
+
+			pNALAVCCtx->Release();
+			pNALAVCCtx = nullptr;
+		}
+
+		if (sps_nu &&
+			sps_nu->ptr_seq_parameter_set_rbsp != nullptr &&
+			sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters)
+		{
+			auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
+
+			if (vui_parameters->vcl_hrd_parameters_present_flag)
+			{
+				printf("Type-I HRD:\n");
+				auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters;
+				for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
+				{
+					printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
+					printf("\t\tinitial_cpb_removal_delay: %" PRIu32 "\n", pBufPeriod->vcl_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_delay);
+					printf("\t\tinitial_cpb_removal_delay_offset: %" PRIu32 "\n", pBufPeriod->vcl_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_offset);
+				}
+			}
+
+			if (vui_parameters->nal_hrd_parameters_present_flag)
+			{
+				printf("Type-II HRD:\n");
+				auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters;
+				for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
+				{
+					printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
+					printf("\t\tinitial_cpb_removal_delay: %" PRIu32 "\n", pBufPeriod->nal_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_delay);
+					printf("\t\tinitial_cpb_removal_delay_offset: %" PRIu32 "\n", pBufPeriod->nal_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_offset);
+				}
+			}
+		}
+	}
+	else if (coding == NAL_CODING_HEVC)
+	{
+		
+	}
+	else if (coding == NAL_CODING_VVC)
+	{
+
+	}
+
+
+done:
+	if (bst)
+		AMBst_Destroy(bst);
+
+	AMP_SAFEDEL(pBufPeriod);
+
+	return iRet;
+}
+
+int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+{
+	int iRet = RET_CODE_SUCCESS;
+
+	if (pSEIPayload == nullptr || cbSEIPayload == 0)
+		return RET_CODE_INVALID_PARAMETER;
+
+	NAL_CODING coding = pCtx->GetNALCoding();
+
+	AMBst bst = nullptr;
+	bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
+
+	if (bst == nullptr)
+	{
+		iRet = RET_CODE_OUTOFMEMORY;
+		goto done;
+	}
+
+	if (coding == NAL_CODING_AVC)
+	{
+		BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264* pPicTiming = new
+			BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pCtx);
+		NAL_CODING coding = pCtx->GetNALCoding();
+
+		if (AMP_FAILED(iRet = pPicTiming->Map(bst)))
+		{
+			printf("Failed to unpack the SEI payload: buffering period.\n");
+			goto done;
+		}
+
+		printf("Picture Timing:\n");
+		printf("\tcpb_removal_delay: %" PRIu32 "\n", pPicTiming->cpb_removal_delay);
+		printf("\tdpb_output_delay: %" PRIu32 "\n", pPicTiming->dpb_output_delay);
+	}
+	else
+	{
+		// TODO...
+	}
+
+done:
+	if (bst)
+		AMBst_Destroy(bst);
+
+	return iRet;
+}
+
 /*
-	1: VPS
-	2: SPS
-	3: PPS
+	 1: VPS
+	 2: SPS
+	 3: PPS
+	12: HRD
 */
 int ShowNALObj(int object_type)
 {
@@ -463,6 +648,8 @@ int ShowNALObj(int object_type)
 
 						if (object_type == 2)
 							PrintNALObject(nu);
+						else if (object_type == 12)
+							PrintHRDFromAVCSPS(nu);
 					}
 					else if (nal_unit_type == BST::H264Video::PPS_NUT)
 					{
@@ -544,7 +731,20 @@ int ShowNALObj(int object_type)
 		}
 
 		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
-		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		{
+			if (payload_type == SEI_PAYLOAD_BUFFERING_PERIOD)
+			{
+				if (object_type == 12)
+					PrintHRDFromSEIPayloadBufferingPeriod(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf);
+			}
+			else if (payload_type == SEI_PAYLOAD_PIC_TIMING)
+			{
+				if (object_type == 12)
+					PrintHRDFromSEIPayloadPicTiming(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf);
+			}
+			return RET_CODE_SUCCESS;
+		}
 		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
 		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
 		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
@@ -584,7 +784,7 @@ int ShowNALObj(int object_type)
 	file_size = _ftelli64(rfp);
 	_fseeki64(rfp, 0, SEEK_SET);
 
-	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), NAL_ENUM_OPTION_NU);
+	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), object_type == 12?NAL_ENUM_OPTION_ALL:NAL_ENUM_OPTION_NU);
 
 	do
 	{
@@ -634,5 +834,10 @@ int	ShowSPS()
 int ShowPPS()
 {
 	return ShowNALObj(3);
+}
+
+int	ShowHRD()
+{
+	return ShowNALObj(12);
 }
 

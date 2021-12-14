@@ -65,6 +65,7 @@ extern int	ShowNUs();
 extern int	ShowVPS();
 extern int	ShowSPS();
 extern int	ShowPPS();
+extern int	ShowHRD();
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
 extern int	DiffTSATC();
@@ -182,6 +183,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showVPS",
 		"showSPS",
 		"showPPS",
+		"showHRD",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
 		"listMMTPpacket",
 		"listMMTPpayload",
@@ -643,8 +645,11 @@ void PrintHelp()
 	printf("\t--showPCR\t\tPrint the PCR clock information in TS stream\n");
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
-	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
 	printf("\t--showNU\t\tShow the access-unit, nal-unit, sei-message and sei_payload tree of AVC/HEVC/VVC stream\n");
+	printf("\t--showVPS\t\tShow the VPS syntax of HEVC/VVC stream\n");
+	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
+	printf("\t--showPPS\t\tShow the PPS syntax of AVC/HEVC/VVC stream\n");
+	printf("\t--showHRD\t\tShow the Hypothetical reference decoder parameters of AVC/HEVC/VVC stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -1044,6 +1049,11 @@ int main(int argc, char* argv[])
 			else if (g_params.find("showPPS") != g_params.end())
 			{
 				nDumpRet = ShowPPS();
+				goto done;
+			}
+			else if (g_params.find("showHRD") != g_params.end())
+			{
+				nDumpRet = ShowHRD();
 				goto done;
 			}
 			else

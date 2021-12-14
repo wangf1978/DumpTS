@@ -1435,6 +1435,16 @@ int64_t GetUEFromUint64(uint64_t v, int bits)
 	return (1LL << leadingZeroBits) - 1LL + ((v >> (bits - 2 * leadingZeroBits - 1))&((1LL << leadingZeroBits) - 1));
 }
 
+BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::BUFFERING_PERIOD(int payloadSize, INALContext* pNALCtx)
+	: irap_cpb_params_present_flag(0)
+	, use_alt_cpb_params_flag(0)
+	, cpb_delay_offset(0)
+	, dpb_delay_offset(0)
+	, payload_size(payloadSize)
+	, ptr_NAL_Context(pNALCtx)
+{
+}
+
 int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 {
 	int iRet = RET_CODE_SUCCESS;
@@ -1447,69 +1457,28 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 		bp_seq_parameter_set_id = (uint8_t)GetUEFromUint64(bitsValue, 9);
 
 		bool bMappedSucceeded = false;
-#if 0
-		H265Video::NAL_UNIT* cur_h265_sps = NULL;
-#endif
+		H265_NU cur_h265_sps;
 		H264_NU cur_h264_sps;
-		NAL_CODING coding = NAL_CODING_UNKNOWN;
-		if (ptr_sei_payload &&
-			ptr_sei_payload->ptr_sei_message &&
-			ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp &&
-			ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp->ctx_NAL)
-			coding = ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp->ctx_NAL->GetNALCoding();
+		NAL_CODING coding = ptr_NAL_Context->GetNALCoding();
 
-		do
+		if (coding == NAL_CODING_AVC)
 		{
-			if (coding == NAL_CODING_AVC)
+			INALAVCContext* pAVCCtx = NULL;
+			if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx)))
 			{
-				INALAVCContext* pAVCCtx = NULL;
-				if (SUCCEEDED(ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp->ctx_NAL->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx)))
-				{
-					cur_h264_sps = pAVCCtx->GetAVCSPS(bp_seq_parameter_set_id);
-					pAVCCtx->Release();
-				}
+				cur_h264_sps = pAVCCtx->GetAVCSPS(bp_seq_parameter_set_id);
+				pAVCCtx->Release();
 			}
-#if 0
-			else if (coding == NAL_CODING_HEVC)
+		}
+		else if (coding == NAL_CODING_HEVC)
+		{
+			INALHEVCContext* pHEVCCtx = NULL;
+			if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALHEVCContext, (void**)&pHEVCCtx)))
 			{
-				auto h265_spses = static_cast<CAMArrayRefHash<H265Video::BYTE_STREAM_NAL_UNIT::NAL_UNIT>*>(AMTLS_GetEnvPointer(_T("BST_CONTAINER_H265_SPS"), NULL));
-
-				if (h265_spses == NULL)
-					break;
-
-				int sel_id = 0;
-				std::vector<H265Video::BYTE_STREAM_NAL_UNIT::NAL_UNIT*> sel_spses(h265_spses->Length());
-				// how many SPSes are int current set with the specified seq_parameter_set_id
-				for (auto iter = h265_spses->begin(); iter != h265_spses->end(); iter++)
-				{
-					if (iter->value->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id == bp_seq_parameter_set_id)
-						sel_spses[sel_id] = iter->value;
-				}
-
-				if (sel_spses.size() > 1)
-				{
-					size_t vps_id = (size_t)AMTLS_GetEnvInteger(_T("BST_CONTAINER_ACTIVE_H265_VPS_ID"), -1LL);
-					for (auto v : sel_spses)
-					{
-						if (v->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id == vps_id)
-						{
-							cur_h265_sps = v;
-							break;
-						}
-					}
-
-					if (cur_h265_sps == NULL)
-						cur_h265_sps = (H265Video::BYTE_STREAM_NAL_UNIT::NAL_UNIT*)AMTLS_GetEnvPointer(_T("BST_CONTAINER_ACTIVE_H265_SPS"), NULL);
-				}
-				else if (sel_spses.size() == 1)
-				{
-					cur_h265_sps = sel_spses[0];
-				}
-				else
-					break;
+				cur_h265_sps = pHEVCCtx->GetHEVCSPS(bp_seq_parameter_set_id);
+				pHEVCCtx->Release();
 			}
-#endif
-		} while (0);
+		}
 
 		if (coding == NAL_CODING_AVC)
 		{
@@ -1568,10 +1537,8 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 				}
 			}
 		}
-#if 0
 		else if (coding == NAL_CODING_HEVC)
 		{
-			ctx_data = (void*)cur_h265_sps;
 			if (cur_h265_sps == NULL)
 			{
 				try
@@ -1657,7 +1624,6 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 				}
 			}
 		}
-#endif
 
 		MAP_BST_END();
 	}
@@ -1692,19 +1658,15 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 	if (reserved_sei_message_payload_bytes.size() <= 0)
 	{
 		H264_NU cur_h264_sps;
-		NAL_CODING coding = NAL_CODING_UNKNOWN;
-		if (ptr_sei_payload &&
-			ptr_sei_payload->ptr_sei_message &&
-			ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp &&
-			ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp->ctx_NAL)
-			coding = ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp->ctx_NAL->GetNALCoding();
+		H265_NU cur_h265_sps;
+		NAL_CODING coding = ptr_NAL_Context->GetNALCoding();
 
 		if (NAL_CODING_AVC == coding)
 		{
 			bool NalHrdBpPresentFlag = false, VclHrdBpPresentFlag = false;
 
 			INALAVCContext* pAVCCtx = NULL;
-			if (SUCCEEDED(ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp->ctx_NAL->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx)))
+			if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx)))
 			{
 				cur_h264_sps = pAVCCtx->GetAVCSPS(bp_seq_parameter_set_id);
 				pAVCCtx->Release();
@@ -1748,8 +1710,7 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				NAV_WRITE_TAG_END("Tag1");
 			}
 		}
-#if 0
-		else if (bst_stream_type == HEVC_VIDEO_STREAM)
+		else if (NAL_CODING_HEVC == coding)
 		{
 			bool sub_pic_hrd_params_present_flag = false;
 			bool NalHrdBpPresentFlag = false;
@@ -1758,7 +1719,12 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 			uint8_t dpb_output_delay_length_minus1 = 0;
 			uint8_t initial_cpb_removal_delay_length_minus1 = 0;
 
-			H265Video::BYTE_STREAM_NAL_UNIT::NAL_UNIT* cur_h265_sps = (H265Video::BYTE_STREAM_NAL_UNIT::NAL_UNIT*)ctx_data;
+			INALHEVCContext* pHEVCCtx = NULL;
+			if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALHEVCContext, (void**)&pHEVCCtx)))
+			{
+				cur_h265_sps = pHEVCCtx->GetHEVCSPS(bp_seq_parameter_set_id);
+				pHEVCCtx->Release();
+			}
 
 			if (cur_h265_sps->ptr_seq_parameter_set_rbsp->vui_parameters &&
 				cur_h265_sps->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters)
@@ -1824,7 +1790,6 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				NAV_WRITE_TAG_END("Tag1");
 			}
 		}
-#endif
 	}
 
 	if (reserved_sei_message_payload_bytes.size() > 0)
@@ -1837,3 +1802,101 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 
 	return cbRequired;
 }
+
+BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::PIC_TIMING_H264(int payloadSize, INALContext* pNALCtx)
+	: cpb_removal_delay(0)
+	, dpb_output_delay(0)
+	, payload_size(payloadSize)
+	, ptr_NAL_Context(pNALCtx){
+
+}
+
+int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
+{
+	int iRet = RET_CODE_SUCCESS;
+	SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+	bool bMappedSucceeded = false;
+	H264_NU cur_h264_sps;
+	NAL_CODING coding = ptr_NAL_Context->GetNALCoding();
+	if (coding != NAL_CODING_AVC)
+		return RET_CODE_ERROR_NOTIMPL;
+
+	// If there is no active SPS, skip all bytes in this payload
+	INALAVCContext* pAVCCtx = NULL;
+	if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx)))
+	{
+		auto active_pps = pAVCCtx->GetCurrentAUPPS();
+		if (active_pps && active_pps->ptr_pic_parameter_set_rbsp != NULL)
+		{
+			cur_h264_sps = pAVCCtx->GetAVCSPS(active_pps->ptr_pic_parameter_set_rbsp->seq_parameter_set_id);
+		}
+		pAVCCtx->Release();
+		pAVCCtx = NULL;
+	}
+	else
+		return RET_CODE_ERROR_NOTIMPL;
+
+	if (!cur_h264_sps)
+	{
+		// No SPS is found, try to skip the payload bytes
+		printf("No associated SPS is found for pic_timing SEI payload!.\n");
+		uint8_t payload_byte;
+		MAP_BST_BEGIN(0);
+		if (payload_size > 0)
+		{
+			reserved_sei_message_payload_bytes.reserve(payload_size);
+			for (int i = 0; i < payload_size; i++) {
+				nal_read_b(in_bst, payload_byte, 8, uint8_t);
+				reserved_sei_message_payload_bytes[i] = payload_byte;
+			}
+			MAP_BST_END();
+		}
+		return RET_CODE_SUCCESS;
+	}
+
+	try
+	{
+		MAP_BST_BEGIN(0);
+		
+		size_t parsed_payload_bits = 0;
+		auto vui_parameters = cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
+		if (vui_parameters && (vui_parameters->nal_hrd_parameters_present_flag || vui_parameters->vcl_hrd_parameters_present_flag))
+		{
+			uint8_t cpb_removal_delay_length_minus1 = 23;
+			uint8_t dpb_output_delay_length_minus1 = 23;
+			if (vui_parameters->nal_hrd_parameters_present_flag && vui_parameters->nal_hrd_parameters)
+			{
+				cpb_removal_delay_length_minus1 = vui_parameters->nal_hrd_parameters->cpb_removal_delay_length_minus1;
+				dpb_output_delay_length_minus1 = vui_parameters->nal_hrd_parameters->dpb_output_delay_length_minus1;
+			}
+			else if (vui_parameters->vcl_hrd_parameters_present_flag && vui_parameters->vcl_hrd_parameters)
+			{
+				cpb_removal_delay_length_minus1 = vui_parameters->vcl_hrd_parameters->cpb_removal_delay_length_minus1;
+				dpb_output_delay_length_minus1 = vui_parameters->vcl_hrd_parameters->dpb_output_delay_length_minus1;
+			}
+
+			cpb_removal_delay = (uint32_t)AMBst_GetBits(in_bst, cpb_removal_delay_length_minus1 + 1);
+			dpb_output_delay = (uint32_t)AMBst_GetBits(in_bst, dpb_output_delay_length_minus1 + 1);
+
+			parsed_payload_bits += cpb_removal_delay_length_minus1 + 1;
+			parsed_payload_bits += dpb_output_delay_length_minus1 + 1;
+		}
+
+		// Don't parse the left bits, but skip them
+		if (parsed_payload_bits < ((size_t)payload_size<<3))
+		{
+			size_t unparsed_bits = ((size_t)payload_size << 3) - parsed_payload_bits;
+			AMBst_SkipBits(in_bst, (int)unparsed_bits);
+		}
+
+		MAP_BST_END();
+	}
+	catch (AMException e)
+	{
+		return e.RetCode();
+	}
+
+	return RET_CODE_SUCCESS;
+}
+

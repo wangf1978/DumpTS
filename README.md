@@ -84,7 +84,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showNU**|*[AU];[NU];[SEIMSG];[SEIPAYLOAD]*|print the Access-Unit/nal-unit/sei-message/sei-payload tree of AVC/HEVC/VVC stream|
 |**--showVPS**|*N/A*|print the VPS syntax form of HEVC/VVC stream|
 |**--showSPS**|*N/A*|print the SPS syntax form of AVC/HEVC/VVC stream|
-|**--showSPS**|*N/A*|print the PPS syntax form of AVC/HEVC/VVC stream|
+|**--showPPS**|*N/A*|print the PPS syntax form of AVC/HEVC/VVC stream|
+|**--showHRD**|*N/A*|print the Hypothetical reference decoder parameters of AVC/HEVC/VVC stream|
 |**--listMMTPpacket**|*N/A*|List the specified MMTP packets|
 |**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
 |**--listMPUtime**|*simple(default)<br>full*|List MPU presentation time and its pts/dts offset|

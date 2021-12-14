@@ -1389,6 +1389,8 @@ int CNALParser::CommitAVCPicture(
 
 		auto sps = m_pNALAVCCtx->GetAVCSPS(pps->ptr_pic_parameter_set_rbsp->seq_parameter_set_id);
 
+		m_pNALAVCCtx->UpdateCurrentAUPPS(pps);
+
 		auto& sps_data = sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data;
 		pic_width_in_luma_samples = (sps_data.pic_width_in_mbs_minus1 + 1) << 4;
 		pic_height_in_luma_samples = (sps_data.pic_height_in_map_units_minus1 + 1)*(2 - sps_data.frame_mbs_only_flag) << 4;

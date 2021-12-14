@@ -93,6 +93,10 @@ public:
 	virtual RET_CODE		UpdateAVCSPS(H264_NU sps_nu) = 0;
 	virtual RET_CODE		UpdateAVCPPS(H264_NU pps_nu) = 0;
 	virtual H264_NU			CreateAVCNU() = 0;
+
+	virtual H264_NU			GetCurrentAUPPS() = 0;
+	virtual	RET_CODE		UpdateCurrentAUPPS(H264_NU pps_nu) = 0;
+	virtual RET_CODE		ResetCurrentAUPPS() = 0;
 };
 
 class INALHEVCContext : public INALContext

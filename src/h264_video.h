@@ -167,12 +167,15 @@ namespace BST {
 			RET_CODE		SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
 			RET_CODE		GetNUFilters(std::vector<uint8_t>& NU_type_filters);
 			bool			IsNUFiltered(uint8_t nal_unit_type);
-			void			Reset() { nal_unit_type_filters.clear(); prev_seq_parameter_set_id = -1; sp_h264_spses.clear(); sp_h264_ppses.clear(); sp_prev_nal_unit = nullptr; }
+			void			Reset();
 			H264_NU			GetAVCSPS(uint8_t sps_id);
 			H264_NU			GetAVCPPS(uint8_t pps_id);
 			RET_CODE		UpdateAVCSPS(H264_NU sps_nu);
 			RET_CODE		UpdateAVCPPS(H264_NU pps_nu);
 			H264_NU			CreateAVCNU();
+			H264_NU			GetCurrentAUPPS();
+			RET_CODE		UpdateCurrentAUPPS(H264_NU pps_nu);
+			RET_CODE		ResetCurrentAUPPS();
 
 		public:
 			std::vector<uint8_t>		nal_unit_type_filters;
@@ -184,6 +187,14 @@ namespace BST {
 										sp_h264_ppses;		// the smart pointers of PPS for the current h264 bitstream
 			std::shared_ptr<NAL_UNIT>
 										sp_prev_nal_unit;
+			/*
+				According to the H.264 spec, the pps should be the same  for a coded picture
+				7.4.3 Slice header semantics
+				When present, the value of the slice header syntax elements pic_parameter_set_id, frame_num, field_pic_flag, 
+				bottom_field_flag, idr_pic_id, pic_order_cnt_lsb, delta_pic_order_cnt_bottom, delta_pic_order_cnt[ 0 ], 
+				delta_pic_order_cnt[ 1 ], sp_for_switch_flag, and slice_group_change_cycle shall be the same in all slice headers of a coded picture.
+			*/
+			std::shared_ptr<NAL_UNIT>	sp_active_h264_pps;
 
 			VideoBitstreamCtx(): in_scanning(0), prev_seq_parameter_set_id(-1) {
 			}
@@ -584,8 +595,7 @@ namespace BST {
 					uint32_t	time_scale;
 
 					HRD_PARAMETERS*
-						nal_hrd_parameters;
-
+								nal_hrd_parameters;
 
 					uint8_t		low_delay_hrd_flag : 1;
 					uint8_t		pic_struct_present_flag : 1;
@@ -594,7 +604,7 @@ namespace BST {
 					uint8_t		reserved : 4;
 
 					HRD_PARAMETERS*
-						vcl_hrd_parameters;
+								vcl_hrd_parameters;
 
 					uint8_t		max_bytes_per_pic_denom;
 					uint8_t		max_bits_per_mb_denom;
