@@ -350,9 +350,9 @@ int PrintHRDFromAVCSPS(H264_NU sps_nu)
 			printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
 			BitRates[SchedSelIdx] = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL<<(6 + hrd_parameters->bit_rate_scale);
 			CpbSize[SchedSelIdx] = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
-			printf("\t\tthe maximum input bit rate for the CPB: % " PRIu64"bps/%sbps \n", 
+			printf("\t\tthe maximum input bit rate for the CPB: %" PRIu64 "bps/%sbps \n", 
 				BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
-			printf("\t\tthe CPB size: % " PRIu64"b/%sb \n",
+			printf("\t\tthe CPB size: %" PRIu64 "b/%sb \n",
 				CpbSize[SchedSelIdx], GetHumanReadNumber(CpbSize[SchedSelIdx]).c_str());
 			printf("\t\t%s mode\n", hrd_parameters->cbr_flag[SchedSelIdx]?"CBR":"VBR");
 		}
@@ -369,9 +369,9 @@ int PrintHRDFromAVCSPS(H264_NU sps_nu)
 			printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
 			BitRates[SchedSelIdx] = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
 			CpbSize[SchedSelIdx] = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
-			printf("\t\tthe maximum input bit rate for the CPB: % " PRIu64"bps/%sbps \n",
+			printf("\t\tthe maximum input bit rate for the CPB: %" PRIu64 "bps/%sbps \n",
 				BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
-			printf("\t\tthe CPB size: % " PRIu64"b/%sb \n",
+			printf("\t\tthe CPB size: %" PRIu64 "b/%sb \n",
 				CpbSize[SchedSelIdx], GetHumanReadNumber(CpbSize[SchedSelIdx]).c_str());
 			printf("\t\t%s mode\n", hrd_parameters->cbr_flag[SchedSelIdx] ? "CBR" : "VBR");
 		}
