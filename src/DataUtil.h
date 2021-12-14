@@ -398,3 +398,62 @@ inline bool splitstr(const char* szStr, const char* delimiters, std::vector<std:
 	return true;
 }
 
+inline std::string GetHumanReadNumber(uint64_t n, bool base10241K = false, uint8_t fraction_keep = 2)
+{
+	uint32_t base = 1000;
+	if (base10241K)
+		base = 1024;
+
+	uint64_t fraction_scaler = 1;
+	for (uint8_t i = 0; i < fraction_keep; i++)
+		fraction_scaler *= 10ULL;
+
+	uint64_t decimal = 0, fraction = 0;
+	const char* unit_names[2][4] = { { "G", "M", "K", "" }, { "Gi", "Mi", "Ki", "" } };
+	const char* unit_sel = "";
+	if (n >= base * base*base)
+	{
+		decimal = n / (base*base*base);
+		fraction = n * fraction_scaler / (base*base*base) % fraction_scaler;
+		unit_sel = unit_names[base10241K ? 1 : 0][0];
+	}
+	else if (n >= base * base)
+	{
+		decimal = n / (base*base);
+		fraction = n * fraction_scaler / (base*base) % fraction_scaler;
+		unit_sel = unit_names[base10241K ? 1 : 0][1];
+	}
+	else if (n >= base)
+	{
+		decimal = n / base;
+		fraction = n * fraction_scaler / base % fraction_scaler;
+		unit_sel = unit_names[base10241K ? 1 : 0][2];
+	}
+	else
+	{
+		decimal = n;
+		fraction = 0;
+	}
+
+	int ccWritten = 0, ccWrittenOnce = 0;
+	char szOutput[256] = { 0 };
+	ccWrittenOnce = MBCSPRINTF_S(szOutput + ccWritten, sizeof(szOutput) / sizeof(szOutput[0]) - ccWritten, "%" PRIu64 "", decimal);
+
+	if (ccWrittenOnce > 0)
+		ccWritten += ccWrittenOnce;
+
+	if (fraction > 0)
+	{
+		char szFormatStr[64] = { 0 };
+		MBCSPRINTF_S(szFormatStr, 64, ".%%0%d" PRIu64 "", fraction_keep);
+		ccWrittenOnce = MBCSPRINTF_S(szOutput + ccWritten, sizeof(szOutput) / sizeof(szOutput[0]) - ccWritten, szFormatStr, fraction);
+		if (ccWrittenOnce > 0)
+			ccWritten += ccWrittenOnce;
+	}
+
+	if (unit_sel[0] != '\0')
+		ccWrittenOnce = MBCSPRINTF_S(szOutput + ccWritten, sizeof(szOutput) / sizeof(szOutput[0]) - ccWritten, "%s", unit_sel);
+
+	return szOutput;
+}
+
