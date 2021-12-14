@@ -1700,6 +1700,7 @@ int AMBst_GetBytes(AMBst bst, uint8_t* dest, int n)
 		}
 		else if (bst_data->type == BST_TYPE_EXTERNAL_BUF)
 		{
+			bool bNeedUpdateCurBits = false;
 			// Fill the destination buffer with the nal_unit raw bit stream payload
 			while (bst_data->cursor.p < bst_data->cursor.p_end && nLeft > 0)
 			{
@@ -1712,11 +1713,13 @@ int AMBst_GetBytes(AMBst bst, uint8_t* dest, int n)
 					{
 						dest[nProcessed++] = *(bst_data->cursor.p + 1);
 						nLeft--;
+						bNeedUpdateCurBits = true;
 					}
 					else
 					{
 						bst_data->cursor.curbits = *(bst_data->cursor.p + 1);
 						bst_data->cursor.bits_left = 8;
+						bNeedUpdateCurBits = false;
 					}
 
 					bst_data->cursor.p += NAL_EMULATION_PREVENTION_BYTELEN;
@@ -1725,7 +1728,15 @@ int AMBst_GetBytes(AMBst bst, uint8_t* dest, int n)
 				{
 					dest[nProcessed++] = *(bst_data->cursor.p++);
 					nLeft--;
+
+					bNeedUpdateCurBits = true;
 				}
+			}
+
+			if (bNeedUpdateCurBits && bst_data->cursor.p < bst_data->cursor.p_end)
+			{
+				bst_data->cursor.bits_left = 0;
+				_FillCurrentBits(bst_data);
 			}
 
 			return n - nLeft;
