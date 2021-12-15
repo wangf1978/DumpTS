@@ -624,11 +624,14 @@ void PrintHelp()
 		"\t\t\t\t(*)If it is not specified, decide it by its file extension or find the sync-word to decide it\n");
 	printf("\t--CID\t\t\tthe context ID of a header compressed IP packet in MMT/TLV stream\n");
 	printf("\t--outputfmt\t\tThe destination dumped format, including: ts, m2ts, pes, es, binary_search_table and sourcecode\n");
-	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--showpts\t\tPrint the pts of every elementary stream packet\n");
 	printf("\t--stream_id\t\tThe stream_id in PES header of dumped stream\n");
 	printf("\t--sub_stream_id\t\tThe sub_stream_id in the private data of pack of dumped stream\n");
 	printf("\t--stream_id_extension\tThe stream_id_extension in PES header of dumped stream\n");
+	printf("\t--MPUseqno\t\tthe MPU sequence number of MMT stream\n");
+	printf("\t--PKTseqno\t\tthe packet sequence number of MMT stream\n");
+	printf("\t--MFU\t\t\tDumping the each MFU as a separate file, filename will be {MPUseqno}_xxxx.{assert_type}\n");
+	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--boxtype\t\tthe box type FOURCC\n");
 	printf("\t--showinfo\t\tPrint the media information of summary, layout or elementary stream in TS/ISOBMFF/Matroska file\n");
 	printf("\t--showpack\n");
@@ -646,6 +649,9 @@ void PrintHelp()
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
 	printf("\t--showNU\t\tShow the access-unit, nal-unit, sei-message and sei_payload tree of AVC/HEVC/VVC stream\n");
+	printf("\t--listMMTPpacket\tList the specified MMTP packets\n");
+	printf("\t--listMMTPpayload\tList the specified MMTP payloads\n");
+	printf("\t--listMPUtime\t\tList MPU presentation time and its pts/dts offset\n");
 	printf("\t--showVPS\t\tShow the VPS syntax of HEVC/VVC stream\n");
 	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
 	printf("\t--showPPS\t\tShow the PPS syntax of AVC/HEVC/VVC stream\n");
@@ -655,6 +661,9 @@ void PrintHelp()
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
 	printf("\t--listmkvebml\t\tShow EBML elements defined in Matroska specification and exit\n");
 	printf("\t--listMMTPpacketid\tShow Assignment of Packet ID of MMTP transmitting message and data\n");
+	printf("\t--listMMTSImsg\t\tShow Assignment of message identifier of MMT-SI\n");
+	printf("\t--listMMTSItable\tShow Assignment of identifier of table of MMT-SI\n");
+	printf("\t--listMMTSIdesc\t\tShow Assignment of descriptor tag of MMT-SI");
 	printf("\t--dashinitmp4\t\tSpecify the DASH initialization mp4 file to process m4s\n");
 	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
 	printf("\t--video\t\t\tThe current dumped stream is a video stream\n");
