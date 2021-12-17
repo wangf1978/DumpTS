@@ -786,6 +786,7 @@ namespace BST {
 						BST_FIELD_PROP_REF4(vcl_hrd_parameters, "vcl_parameters", "VCL HRD parameters");
 					}
 
+					BST_FIELD_PROP_BOOL(low_delay_hrd_flag, "", "");
 					BST_FIELD_PROP_BOOL(pic_struct_present_flag, "picture timing SEI messages (clause D.2.2) are present that include the pic_struct syntax element", "the pic_struct syntax element is not present");
 					BST_FIELD_PROP_BOOL(bitstream_restriction_flag, "the following coded video sequence bitstream restriction parameters are present", "the following coded video sequence bitstream restriction parameters are not present");
 
