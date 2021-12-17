@@ -243,6 +243,12 @@ namespace BST {
 
 				};
 
+				/*
+					¨C If CpbDpbDelaysPresentFlag is equal to 1 or pic_struct_present_flag is equal to 1, 
+					  one picture timing SEI message shall be present in every access unit of the coded video sequence.
+					¨C Otherwise (CpbDpbDelaysPresentFlag is equal to 0 and pic_struct_present_flag is equal to 0), 
+					  no picture timing SEI messages shall be present in any access unit of the coded video sequence.		
+				*/
 				struct PIC_TIMING_H264 : public SYNTAX_BITSTREAM_MAP
 				{
 					struct CLOCK_TIMESTAMP

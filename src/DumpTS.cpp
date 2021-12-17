@@ -61,6 +61,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	RunH264HRD();
 extern int	ShowNUs();
 extern int	ShowVPS();
 extern int	ShowSPS();
@@ -184,6 +185,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showSPS",
 		"showPPS",
 		"showHRD",
+		"runHRD",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
 		"listMMTPpacket",
 		"listMMTPpayload",
@@ -656,6 +658,7 @@ void PrintHelp()
 	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
 	printf("\t--showPPS\t\tShow the PPS syntax of AVC/HEVC/VVC stream\n");
 	printf("\t--showHRD\t\tShow the Hypothetical reference decoder parameters of AVC/HEVC/VVC stream\n");
+	printf("\t--runHRD\t\tRun the Hypothetical reference decoder verifier of AVC/HEVC/VVC stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -1063,6 +1066,11 @@ int main(int argc, char* argv[])
 			else if (g_params.find("showHRD") != g_params.end())
 			{
 				nDumpRet = ShowHRD();
+				goto done;
+			}
+			else if (g_params.find("runHRD") != g_params.end())
+			{
+				nDumpRet = RunH264HRD();
 				goto done;
 			}
 			else

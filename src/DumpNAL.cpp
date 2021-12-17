@@ -481,6 +481,8 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 	AMBst bst = nullptr;
 	bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
 
+	BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264* pPicTiming = nullptr;
+
 	if (bst == nullptr)
 	{
 		iRet = RET_CODE_OUTOFMEMORY;
@@ -489,9 +491,7 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 
 	if (coding == NAL_CODING_AVC)
 	{
-		BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264* pPicTiming = new
-			BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pCtx);
-		NAL_CODING coding = pCtx->GetNALCoding();
+		pPicTiming = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pCtx);
 
 		if (AMP_FAILED(iRet = pPicTiming->Map(bst)))
 		{
@@ -511,6 +511,8 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 done:
 	if (bst)
 		AMBst_Destroy(bst);
+
+	AMP_SAFEDEL(pPicTiming);
 
 	return iRet;
 }
@@ -839,5 +841,578 @@ int ShowPPS()
 int	ShowHRD()
 {
 	return ShowNALObj(12);
+}
+
+// At present, only support Type-II HRD
+int RunH264HRD()
+{
+	INALContext* pNALContext = nullptr;
+	uint8_t pBuf[2048] = { 0 };
+
+	const int read_unit_size = 2048;
+
+	FILE* rfp = NULL;
+	int iRet = RET_CODE_SUCCESS;
+	int64_t file_size = 0;
+
+	auto iter_srcfmt = g_params.find("srcfmt");
+	if (iter_srcfmt == g_params.end())
+		return RET_CODE_ERROR_NOTIMPL;
+
+	NAL_CODING coding = NAL_CODING_UNKNOWN;
+	if (iter_srcfmt->second.compare("h264") == 0)
+		coding = NAL_CODING_AVC;
+	else if (iter_srcfmt->second.compare("h265") == 0)
+		coding = NAL_CODING_HEVC;
+	else if (iter_srcfmt->second.compare("h266") == 0)
+		coding = NAL_CODING_VVC;
+	else
+	{
+		printf("Only support H.264/265/266 at present.\n");
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	int top = -1;
+	auto iterTop = g_params.find("top");
+	if (iterTop != g_params.end())
+	{
+		int64_t top_records = -1;
+		ConvertToInt(iterTop->second, top_records);
+		if (top_records < 0 || top_records > INT32_MAX)
+			top = -1;
+	}
+
+	CNALParser NALParser(coding);
+	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
+	{
+		printf("Failed to get the %s NAL context.\n", NAL_CODING_NAME(coding));
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	class CHRDRunner : public INALEnumerator
+	{
+	public:
+		CHRDRunner(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+			m_coding = m_pNALContext->GetNALCoding();
+			if (m_coding == NAL_CODING_AVC)
+				m_pNALContext->QueryInterface(IID_INALAVCContext, (void**)&m_pNALAVCContext);
+			else if (m_coding == NAL_CODING_HEVC)
+				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
+		}
+
+		~CHRDRunner() {}
+
+		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) 
+		{ 
+			bHaveSEIBufferingPeriod = false;
+			return RET_CODE_SUCCESS; 
+		}
+
+		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			uint8_t nal_unit_type = 0xFF;
+
+			AMBst bst = AMBst_CreateFromBuffer(pEBSPNUBuf, (int)cbEBSPNUBuf);
+			if (m_coding == NAL_CODING_AVC)
+			{
+				nal_unit_type = (pEBSPNUBuf[0] & 0x1F);
+				if (nal_unit_type == BST::H264Video::SPS_NUT || nal_unit_type == BST::H264Video::PPS_NUT)
+				{
+					H264_NU nu = m_pNALAVCContext->CreateAVCNU();
+					if (AMP_FAILED(iRet = nu->Map(bst)))
+					{
+						printf("Failed to unpack %s parameter set {error: %d}.\n", avc_nal_unit_type_descs[nal_unit_type], iRet);
+						goto done;
+					}
+
+					// Check whether the buffer is the same with previous one or not
+					AMSHA1_RET sha1_ret = { 0 };
+					AMSHA1 sha1_handle = AM_SHA1_Init(pEBSPNUBuf, (int)cbEBSPNUBuf);
+					AM_SHA1_Finalize(sha1_handle);
+					AM_SHA1_GetHash(sha1_handle, sha1_ret);
+					AM_SHA1_Uninit(sha1_handle);
+
+					if (nal_unit_type == BST::H264Video::SPS_NUT)
+					{
+						if (memcmp(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALAVCContext->UpdateAVCSPS(nu);
+					}
+					else if (nal_unit_type == BST::H264Video::PPS_NUT)
+					{
+						if (memcmp(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALAVCContext->UpdateAVCPPS(nu);
+					}
+				}
+			}
+			else if (m_coding == NAL_CODING_HEVC)
+			{
+				nal_unit_type = ((pEBSPNUBuf[0] >> 1) & 0x3F);
+
+				if (nal_unit_type == BST::H265Video::VPS_NUT || nal_unit_type == BST::H265Video::SPS_NUT || nal_unit_type == BST::H265Video::PPS_NUT)
+				{
+					H265_NU nu = m_pNALHEVCContext->CreateHEVCNU();
+					if (AMP_FAILED(iRet = nu->Map(bst)))
+					{
+						printf("Failed to unpack %s.\n", hevc_nal_unit_type_names[nal_unit_type]);
+						goto done;
+					}
+
+					// Check whether the buffer is the same with previous one or not
+					AMSHA1_RET sha1_ret = { 0 };
+					AMSHA1 sha1_handle = AM_SHA1_Init(pEBSPNUBuf, (int)cbEBSPNUBuf);
+					AM_SHA1_Finalize(sha1_handle);
+					AM_SHA1_GetHash(sha1_handle, sha1_ret);
+					AM_SHA1_Uninit(sha1_handle);
+
+					if (nal_unit_type == BST::H265Video::VPS_NUT)
+					{
+						if (memcmp(prev_vps_sha1_ret[nu->ptr_video_parameter_set_rbsp->vps_video_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_vps_sha1_ret[nu->ptr_video_parameter_set_rbsp->vps_video_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCVPS(nu);
+					}
+					else if (nal_unit_type == BST::H265Video::SPS_NUT)
+					{
+						if (memcmp(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCSPS(nu);
+					}
+					else if (nal_unit_type == BST::H265Video::PPS_NUT)
+					{
+						if (memcmp(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCPPS(nu);
+					}
+				}
+			}
+
+		done:
+			if (bst)
+				AMBst_Destroy(bst);
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		{
+			if (payload_type == SEI_PAYLOAD_BUFFERING_PERIOD)
+			{
+				BeginBufferPeriod(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf);
+			}
+			else if (payload_type == SEI_PAYLOAD_PIC_TIMING)
+			{
+				BeginPicTiming(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf);
+			}
+			return RET_CODE_SUCCESS;
+		}
+		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			m_NUCount++;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		{
+			uint64_t t_ai_earliest = UINT64_MAX;
+
+			/*
+				Update the t_a_f
+				The final arrival time for access unit n is derived by
+			*/
+			uint64_t t_a_f = UINT64_MAX;
+			// Assume going into the CPB buffer now
+			if (HRD_AU_n == 0)
+			{
+				HRD_AU_t_ai.push_back(0);
+				HRD_AU_t_r_n.push_back(active_initial_cpb_removal_delay);
+			}
+			else if (HRD_AU_n != UINT32_MAX)
+			{
+				if (active_cbr_flag == 1)
+				{
+					/*
+						If cbr_flag[ SchedSelIdx ] is equal to 1, the initial arrival time for access unit n, 
+						is equal to the final arrival time (which is derived below) of access unit n-1, i.e.,	
+					*/
+					HRD_AU_t_ai.push_back(HRD_AU_t_af.back());
+				}
+				else
+				{
+					/*
+						Otherwise (cbr_flag[ SchedSelIdx ] is equal to 0), the initial arrival time for access unit n is derived by	
+					*/
+					assert(HRD_AU_t_r.size() == HRD_AU_n + 1);
+					if (HRD_AU_n_of_buffering_period == 0)
+					{
+						
+						if (HRD_AU_t_r.back() > active_initial_cpb_removal_delay)
+							t_ai_earliest = HRD_AU_t_r.back() - active_initial_cpb_removal_delay;
+						else
+							t_ai_earliest = 0;
+					}
+					else
+					{
+						if (HRD_AU_t_r.back() > (active_initial_cpb_removal_delay + active_initial_cpb_removal_delay_offset))
+							t_ai_earliest = HRD_AU_t_r.back() - (active_initial_cpb_removal_delay + active_initial_cpb_removal_delay_offset);
+						else
+							t_ai_earliest = 0;
+					}
+
+					uint64_t t_ai = AMP_MAX(HRD_AU_t_af.back(), t_ai_earliest);
+					HRD_AU_t_ai.push_back(t_ai);
+				}
+			}
+
+			assert(HRD_AU_n == HRD_AU_t_af.size());
+			t_a_f = HRD_AU_t_ai.back() + cbEBSPAUBuf * 8ULL * 90000 / active_bitrate;
+			HRD_AU_t_af.push_back(t_a_f);
+
+			int64_t delta_t_g_90 = -1LL;
+			if (HRD_AU_t_r.back() < HRD_AU_t_af.back())
+			{
+				printf("\t!!!!!!!!CPB will underflow.\n");
+			}
+			else if (HRD_AU_n > 0)
+			{
+				delta_t_g_90 = HRD_AU_t_r.back() - HRD_AU_t_af[HRD_AU_n - 1];
+
+				//if (!active_cbr_flag)
+				//{
+				//	if (active_initial_cpb_removal_delay > delta_t_g_90)
+				//		printf("assert happened!!!\n");
+				//}
+				//else
+				//{
+				//	//
+				//}
+			}
+
+			printf("[AU#%05" PRIu32 "] -- initial arrive time: %" PRIu64 "(%" PRIu64 ".%03" PRIu64 "ms), final arrive time: %" PRIu64 "(%" PRIu64 ".%03" PRIu64 "ms), CPB removal time: %" PRIu64 "(%" PRIu64 ".%03" PRIu64 "ms), delta_t_g_90: %" PRId64 "\n", 
+				HRD_AU_n,
+				HRD_AU_t_ai.back(), HRD_AU_t_ai.back()/90, HRD_AU_t_ai.back() * 100 / 9 % 1000,
+				HRD_AU_t_af.back(), HRD_AU_t_af.back()/90, HRD_AU_t_af.back() * 100 / 9 % 1000,
+				 HRD_AU_t_r.back(),  HRD_AU_t_r.back()/90 , HRD_AU_t_r.back() * 100 / 9 % 1000,
+				delta_t_g_90);
+
+			HRD_AU_n++;
+			HRD_AU_n_of_buffering_period++;
+
+			return RET_CODE_SUCCESS; 
+		}
+		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		{
+			printf("Hitting error {error_code: %d}.\n", error_code);
+			return RET_CODE_SUCCESS;
+		}
+
+		int BeginBufferPeriod(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			uint32_t sel_initial_cpb_removal_delay = UINT32_MAX;
+			uint32_t sel_initial_cpb_removal_delay_offset = UINT32_MAX;
+
+			if (pSEIPayload == nullptr || cbSEIPayload == 0)
+				return RET_CODE_INVALID_PARAMETER;
+
+			AMBst bst = nullptr;
+			BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD* pBufPeriod = new
+				BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD((int)cbSEIPayload, pCtx);
+			NAL_CODING coding = pCtx->GetNALCoding();
+
+			if (pBufPeriod != nullptr)
+				bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
+
+			if (pBufPeriod == nullptr || bst == nullptr)
+			{
+				iRet = RET_CODE_OUTOFMEMORY;
+				goto done;
+			}
+
+			if (AMP_FAILED(iRet = pBufPeriod->Map(bst)))
+			{
+				printf("Failed to unpack the SEI payload: buffering period.\n");
+				goto done;
+			}
+
+			if (coding == NAL_CODING_AVC)
+			{
+				H264_NU sps_nu;
+				INALAVCContext* pNALAVCCtx = nullptr;
+				if (SUCCEEDED(pCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
+				{
+					sps_nu = pNALAVCCtx->GetAVCSPS(pBufPeriod->bp_seq_parameter_set_id);
+
+					active_sps = sps_nu;
+
+					pNALAVCCtx->Release();
+					pNALAVCCtx = nullptr;
+				}
+
+				if (sps_nu &&
+					sps_nu->ptr_seq_parameter_set_rbsp != nullptr &&
+					sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters)
+				{
+					auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
+
+					if (vui_parameters->vcl_hrd_parameters_present_flag)
+					{
+						auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters;
+						for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
+						{
+							if (active_HRD_type == 1 && active_SchedSelIdx == SchedSelIdx)
+							{
+								sel_initial_cpb_removal_delay = pBufPeriod->vcl_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_delay;
+								sel_initial_cpb_removal_delay_offset = pBufPeriod->vcl_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_offset;
+								active_cbr_flag = hrd_parameters->cbr_flag[SchedSelIdx];
+								active_bitrate = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
+								active_cpb_size = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+								break;
+							}
+						}
+					}
+
+					if (vui_parameters->nal_hrd_parameters_present_flag)
+					{
+						auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters;
+						for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
+						{
+							if (active_HRD_type == 2 && active_SchedSelIdx == SchedSelIdx)
+							{
+								sel_initial_cpb_removal_delay = pBufPeriod->nal_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_delay;
+								sel_initial_cpb_removal_delay_offset = pBufPeriod->nal_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_offset;
+								active_cbr_flag = hrd_parameters->cbr_flag[SchedSelIdx];
+								active_bitrate = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
+								active_cpb_size = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+								break;
+							}
+						}
+					}
+
+					if (vui_parameters->timing_info_present_flag)
+						HRD_t_c = vui_parameters->num_units_in_tick * 90000ULL / vui_parameters->time_scale;
+
+					active_low_delay_hrd_flag = vui_parameters->low_delay_hrd_flag;
+
+					printf("New buffering period(initial_cpb_removal_delay:%" PRIu32 " initial_cpb_removal_delay_offset:%" PRIu32 ")\n", 
+						sel_initial_cpb_removal_delay, sel_initial_cpb_removal_delay_offset);
+				}
+			}
+			else if (coding == NAL_CODING_HEVC)
+			{
+
+			}
+			else if (coding == NAL_CODING_VVC)
+			{
+
+			}
+
+			// Initialize the HRD
+			if (bHRDInited == false)
+			{
+				HRD_AU_n = 0;
+				HRD_AU_t_ai.clear();
+				HRD_AU_t_r_n.clear();
+				active_initial_cpb_removal_delay = sel_initial_cpb_removal_delay;
+				active_initial_cpb_removal_delay_offset = sel_initial_cpb_removal_delay_offset;
+
+				bHRDInited = true;
+			}
+
+			HRD_AU_n_of_buffering_period = 0;
+			bHaveSEIBufferingPeriod = true;
+
+		done:
+			if (bst)
+				AMBst_Destroy(bst);
+
+			AMP_SAFEDEL(pBufPeriod);
+
+			return iRet;
+		}
+
+		int BeginPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+		{
+			int iRet = RET_CODE_SUCCESS;
+
+			if (pSEIPayload == nullptr || cbSEIPayload == 0)
+				return RET_CODE_INVALID_PARAMETER;
+
+			NAL_CODING coding = pCtx->GetNALCoding();
+
+			AMBst bst = nullptr;
+			bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
+
+			BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264* pPicTiming = nullptr;
+
+			if (bst == nullptr)
+			{
+				iRet = RET_CODE_OUTOFMEMORY;
+				goto done;
+			}
+
+			if (coding == NAL_CODING_AVC)
+			{
+				pPicTiming = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pCtx);
+				if (AMP_FAILED(iRet = pPicTiming->Map(bst)))
+				{
+					printf("Failed to unpack the SEI payload: buffering period.\n");
+					goto done;
+				}
+
+				uint64_t t_r_n = UINT64_MAX;
+				if (HRD_AU_n > 0)
+				{
+					if (bHaveSEIBufferingPeriod)
+					{
+						/*
+							When an access unit n is the first access unit of a buffering period that does not initialize the HRD,
+							the nominal removal time of the access unit from the CPB is specified by
+						*/
+						if (HRD_AU_previous_t_r_n != UINT64_MAX && HRD_t_c != UINT64_MAX)
+						{
+							t_r_n = HRD_AU_previous_t_r_n + HRD_t_c * pPicTiming->cpb_removal_delay;
+							HRD_AU_t_r_n.push_back(t_r_n);
+
+							HRD_AU_previous_t_r_n = t_r_n;
+						}
+					}
+					else
+					{
+						/*
+							The nominal removal time tr,n(n) of an access unit n that is not the first access unit of a buffering period is given by
+						*/
+						t_r_n = HRD_AU_previous_t_r_n + HRD_t_c * pPicTiming->cpb_removal_delay;
+						HRD_AU_t_r_n.push_back(t_r_n);
+					}
+				}
+				else
+				{
+					t_r_n = active_initial_cpb_removal_delay;
+					HRD_AU_previous_t_r_n = t_r_n;
+				}
+
+				if (active_low_delay_hrd_flag == 0 || t_r_n >= HRD_AU_t_af[HRD_AU_n])
+				{
+					/*
+						If low_delay_hrd_flag is equal to 0 or tr,n( n ) >= taf( n ), the removal time of access unit n is specified by
+					*/
+					HRD_AU_t_r.push_back(t_r_n);
+				}
+				else
+				{
+					uint64_t t_r = t_r_n + (HRD_AU_t_af[HRD_AU_n] - t_r_n + HRD_t_c - 1) / HRD_t_c * HRD_t_c;
+					HRD_AU_t_r.push_back(t_r);
+				}
+			}
+
+		done:
+			if (bst)
+				AMBst_Destroy(bst);
+
+			AMP_SAFEDEL(pPicTiming);
+
+			return iRet;
+		}
+
+		INALContext* m_pNALContext = nullptr;
+		INALAVCContext* m_pNALAVCContext = nullptr;
+		INALHEVCContext* m_pNALHEVCContext = nullptr;
+		uint64_t m_NUCount = 0;
+		NAL_CODING m_coding = NAL_CODING_UNKNOWN;
+		AMSHA1_RET prev_sps_sha1_ret[32] = { {0} };
+		AMSHA1_RET prev_vps_sha1_ret[32] = { {0} };
+		// H.264, there may be 256 pps at maximum; H.265/266: there may be 64 pps at maximum
+		AMSHA1_RET prev_pps_sha1_ret[256] = { {0} };
+
+		H264_NU active_sps;
+		uint32_t active_HRD_type = 2;	// At present, only support HDR type-II
+		uint32_t active_SchedSelIdx = 0;	// At present, always using the first one
+		uint32_t active_initial_cpb_removal_delay = UINT32_MAX;
+		uint32_t active_initial_cpb_removal_delay_offset = UINT32_MAX;
+		uint32_t active_cbr_flag = UINT32_MAX;
+		uint32_t active_low_delay_hrd_flag = UINT32_MAX;
+		uint64_t active_bitrate = UINT64_MAX;
+		uint64_t active_cpb_size = 0;
+
+		// For HRD analyzing
+		bool bHRDInited = false;
+		uint32_t HRD_AU_n = UINT32_MAX;
+		uint32_t HRD_AU_n_of_buffering_period = UINT32_MAX;
+		std::vector<uint64_t> HRD_AU_t_ai;
+		std::vector<uint64_t> HRD_AU_t_af;
+		std::vector<uint64_t> HRD_AU_t_r_n;
+		std::vector<uint64_t> HRD_AU_t_r;
+		bool bHaveSEIBufferingPeriod = false;
+		uint64_t HRD_AU_previous_t_r_n = UINT64_MAX;
+		uint64_t HRD_t_c = UINT64_MAX;
+
+	}HRDRunner(pNALContext);
+
+	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
+	if (errn != 0 || rfp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
+		goto done;
+	}
+
+	// Get file size
+	_fseeki64(rfp, 0, SEEK_END);
+	file_size = _ftelli64(rfp);
+	_fseeki64(rfp, 0, SEEK_SET);
+
+	NALParser.SetEnumerator((INALEnumerator*)(&HRDRunner), NAL_ENUM_OPTION_ALL);
+
+	do
+	{
+		int read_size = read_unit_size;
+		if ((read_size = (int)fread(pBuf, 1, read_unit_size, rfp)) <= 0)
+		{
+			iRet = RET_CODE_IO_READ_ERROR;
+			break;
+		}
+
+		iRet = NALParser.ProcessInput(pBuf, read_size);
+		if (AMP_FAILED(iRet))
+			break;
+
+		iRet = NALParser.ProcessOutput();
+		if (iRet == RET_CODE_ABORT)
+			break;
+
+	} while (!feof(rfp));
+
+	if (feof(rfp))
+		iRet = NALParser.ProcessOutput(true);
+
+done:
+	if (rfp != nullptr)
+		fclose(rfp);
+
+	if (pNALContext)
+	{
+		pNALContext->Release();
+		pNALContext = nullptr;
+	}
+
+	return iRet;
 }
 
