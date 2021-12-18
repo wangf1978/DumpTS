@@ -359,8 +359,6 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 										TM_HNS hns = pNTPData->transmit_timestamp.ToHns();
 
 										uint64_t curr_file_pos = bs.Tell();
-
-
 										printf("NTP packet [leap indicator: %d, working mode: %9s, stratum: %d, poll: %d, precision: %d] transmit_timestamp: %" PRId64 ".%03" PRId64 " (ms), size: %" PRIu64 "(bytes)\n",
 											pNTPData->leap_indicator,
 											pNTPData->mode == 5?"broadcast":(
@@ -1818,6 +1816,14 @@ int DumpMMTOneStream()
 
 	std::string& szInputFile = g_params["input"];
 	bool bExplicitVideoStreamDump = g_params.find("video") == g_params.end() ? false : true;
+	uint32_t video_asset_type = -1;
+	if (bExplicitVideoStreamDump)
+	{
+		if (MBCSICMP(g_params["video"].c_str(), "hvc1") == 0)
+			video_asset_type = 'hvc1';
+		else if (MBCSICMP(g_params["video"].c_str(), "hev1") == 0)
+			video_asset_type = 'hev1';
+	}
 
 	bool bListMMTPpacket = g_params.find("listMMTPpacket") != g_params.end();
 	bool bListMMTPpayload = g_params.find("listMMTPpayload") != g_params.end();
@@ -2128,6 +2134,14 @@ int DumpMMTOneStream()
 								config.codec_id = CODEC_ID_MMT_ASSET_AAGD;
 							else
 							{
+								if (bExplicitVideoStreamDump && PIDN == 0 && (
+									video_asset_type == 'hvc1' || video_asset_type == 'hev1'))
+								{
+									asset_type[i] = video_asset_type;
+									config.codec_id = CODEC_ID_V_MPEGH_HEVC;
+									dstESFmt = ES_BYTE_STREAM_HEVC_ANNEXB;
+								}
+								else
 								//
 								// Now skip the data before a valid MPT at default
 								//
