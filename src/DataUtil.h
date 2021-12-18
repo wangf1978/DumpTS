@@ -398,7 +398,7 @@ inline bool splitstr(const char* szStr, const char* delimiters, std::vector<std:
 	return true;
 }
 
-inline std::string GetHumanReadNumber(uint64_t n, bool base10241K = false, uint8_t fraction_keep = 2)
+inline std::string GetHumanReadNumber(uint64_t n, bool base10241K = false, uint8_t fraction_keep = 2, uint8_t integer_keep = 0, bool fixed_width=false)
 {
 	uint32_t base = 1000;
 	if (base10241K)
@@ -437,12 +437,19 @@ inline std::string GetHumanReadNumber(uint64_t n, bool base10241K = false, uint8
 
 	int ccWritten = 0, ccWrittenOnce = 0;
 	char szOutput[256] = { 0 };
-	ccWrittenOnce = MBCSPRINTF_S(szOutput + ccWritten, sizeof(szOutput) / sizeof(szOutput[0]) - ccWritten, "%" PRIu64 "", decimal);
+	if (integer_keep == 0)
+		ccWrittenOnce = MBCSPRINTF_S(szOutput + ccWritten, sizeof(szOutput) / sizeof(szOutput[0]) - ccWritten, "%" PRIu64 "", decimal);
+	else
+	{
+		char szFormatStr[64] = { 0 };
+		MBCSPRINTF_S(szFormatStr, 64, "%%%d" PRIu64 "", integer_keep);
+		ccWrittenOnce = MBCSPRINTF_S(szOutput + ccWritten, sizeof(szOutput) / sizeof(szOutput[0]) - ccWritten, szFormatStr, decimal);
+	}
 
 	if (ccWrittenOnce > 0)
 		ccWritten += ccWrittenOnce;
 
-	if (fraction > 0)
+	if (fixed_width || fraction > 0)
 	{
 		char szFormatStr[64] = { 0 };
 		MBCSPRINTF_S(szFormatStr, 64, ".%%0%d" PRIu64 "", fraction_keep);

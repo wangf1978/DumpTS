@@ -29,6 +29,7 @@ SOFTWARE.
 #include "AMRingBuffer.h"
 #include <algorithm>
 #include "Syncer.h"
+#include "DataUtil.h"
 
 extern unordered_map<std::string, std::string> g_params;
 
@@ -48,6 +49,9 @@ int ShowPCR(int option)
 	std::map<unsigned short, std::tuple<uint32_t/*start ATC time*/, uint32_t/*AU size(how many TS packs)*/, uint32_t/*AU idx*/>> filter_stat;
 	int64_t prev_PCR_byte_position = INT64_MAX;
 	uint64_t prev_PCR = UINT64_MAX;
+	uint32_t prev_ATC = UINT32_MAX;
+	uint64_t max_diff_diff_PCR_ATC = 0;
+	int64_t max_transport_rate = 0;
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -276,6 +280,19 @@ int ShowPCR(int option)
 
 		uint64_t original_program_clock_reference_base = UINT64_MAX;
 		uint16_t original_program_clock_reference_extension = UINT16_MAX;
+
+		char szATC[256] = { 0 };
+		if (header_offset == 4)
+		{
+			MBCSPRINTF_S(szATC, 256, ", ATC:%" PRIu32 "(27MHZ)", atc_tm);
+		}
+
+		int64_t transport_rate = 
+			prev_PCR_byte_position == INT64_MAX ? 0 : (byte_position - prev_PCR_byte_position) * 27000000 * 8 / (program_clock_reference_base * 300 + program_clock_reference_extension - prev_PCR);
+
+		if (max_transport_rate < transport_rate)
+			max_transport_rate = transport_rate;
+
 		if (OPCR_flag)
 		{
 			original_program_clock_reference_base = 0;
@@ -289,7 +306,7 @@ int ShowPCR(int option)
 			original_program_clock_reference_extension = (original_program_clock_reference_extension << 8) | *(p++);
 
 			printf(" -> PCR_PID: 0X%04X PCR(base: %10" PRIu64 "(90KHZ), ext: %3" PRIu16 ", %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), OPCR(base: %10" PRIu64 ", ext: %3" PRIu16 ", %" PRIu64 "(27MHZ), %" PRIu64 ".%03" PRIu64 "(ms)), "
-				"transport_rate: %" PRId64 "bps\n",
+				"transport_rate: %sbps%s\n",
 				PID,
 				program_clock_reference_base, program_clock_reference_extension,
 				program_clock_reference_base * 300 + program_clock_reference_extension,
@@ -299,25 +316,61 @@ int ShowPCR(int option)
 				original_program_clock_reference_base * 300 + original_program_clock_reference_extension,
 				(original_program_clock_reference_base * 300 + original_program_clock_reference_extension) / 27000,
 				(original_program_clock_reference_base * 300 + original_program_clock_reference_extension) / 27 % 1000,
-				prev_PCR_byte_position == INT64_MAX ? 0 : (byte_position - prev_PCR_byte_position) * 27000000 * 8 / (program_clock_reference_base * 300 + program_clock_reference_extension - prev_PCR)
+				GetHumanReadNumber(transport_rate, false, 2, 3, true).c_str(),
+				szATC
 			);
 		}
 		else
 		{
 			printf(" -> PCR_PID: 0X%04X PCR(base: %10" PRIu64 "(90KHZ), ext: %3" PRIu16 ", %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), "
-				"transport_rate: %" PRId64 "bps\n",
+				"transport_rate: %sbps%s\n",
 				PID,
 				program_clock_reference_base, program_clock_reference_extension,
 				program_clock_reference_base * 300 + program_clock_reference_extension,
 				(program_clock_reference_base * 300 + program_clock_reference_extension) / 27000,
 				(program_clock_reference_base * 300 + program_clock_reference_extension) / 27 % 1000,
-				prev_PCR_byte_position == INT64_MAX ? 0 : (byte_position - prev_PCR_byte_position) * 27000000 * 8 / (program_clock_reference_base * 300 + program_clock_reference_extension - prev_PCR)
+				GetHumanReadNumber(transport_rate, false, 2, 3, true).c_str(),
+				szATC
 			);
 		}
 
+		uint32_t diff_ATC = atc_tm >= prev_ATC ? (atc_tm - prev_ATC) : (0x40000000 + atc_tm - prev_ATC);
+
+		uint64_t base_diff = 0;
+		uint64_t prev_PCR_base = prev_PCR / 300;
+		uint64_t prev_PCR_ext = prev_PCR % 300;
+
+		if (program_clock_reference_base >= prev_PCR_base)
+			base_diff = program_clock_reference_base - prev_PCR_base;
+		else
+			base_diff = 0x200000000ULL + program_clock_reference_base - prev_PCR_base;
+
+		base_diff *= 300ULL;
+
+		if (program_clock_reference_extension >= prev_PCR_ext)
+			base_diff += program_clock_reference_extension - prev_PCR_ext;
+		else
+			base_diff += 300 + program_clock_reference_extension - prev_PCR_ext;
+
+		if (prev_ATC != UINT32_MAX && prev_PCR != UINT64_MAX)
+		{
+			if (max_diff_diff_PCR_ATC < (base_diff > diff_ATC ? (base_diff - diff_ATC) : (diff_ATC - base_diff)))
+				max_diff_diff_PCR_ATC = (base_diff > diff_ATC ? (base_diff - diff_ATC) : (diff_ATC - base_diff));
+
+			if ((base_diff > diff_ATC?(base_diff - diff_ATC):(diff_ATC - base_diff)) > 300)	// tolerance 0.1ms = 100 us
+			{
+				printf("!!!!! Diff ATC(%" PRIu32 " is not equal to the diff of PCR(%" PRIu64 ").\n", diff_ATC, base_diff);
+			}
+		}
+		
 		prev_PCR_byte_position = byte_position;
 		prev_PCR = program_clock_reference_base * 300ULL + program_clock_reference_extension;
+		prev_ATC = atc_tm;
 	}
+
+	printf("The max diff between diff ATC and diff PCR: %" PRIu64 "(270MHZ), %" PRIu64".%03" PRIu64 "(ms).\n",
+		max_diff_diff_PCR_ATC, max_diff_diff_PCR_ATC / 27000, max_diff_diff_PCR_ATC / 27 % 1000);
+	printf("The max transport rate: %" PRId64 "bps(%sbps)\n", max_transport_rate, GetHumanReadNumber(max_transport_rate, false, 2).c_str());
 
 done:
 	for (auto lrb : ring_buffers)

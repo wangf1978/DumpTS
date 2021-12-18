@@ -378,7 +378,7 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 				else if (clock_val1_base > clock_val2_base)
 					base_diff = clock_val1_base - clock_val2_base;
 				else
-					base_diff = 0x200000000 + clock_val1_base - clock_val2_base;
+					base_diff = 0x200000000ULL + clock_val1_base - clock_val2_base;
 
 				uint64_t diff = base_diff * 300;
 
