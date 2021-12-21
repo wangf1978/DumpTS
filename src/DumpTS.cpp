@@ -179,6 +179,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showCAT",
 		"showDU",		// show the DU in the MMTP payload
 		"showPCR",
+		"showPCRDiagram",
 		"showNTP",
 		"showNU",
 		"showVPS",
@@ -636,11 +637,11 @@ void PrintHelp()
 	printf("\t--removebox\t\tThe removed box type and its children boxes in MP4\n");
 	printf("\t--boxtype\t\tthe box type FOURCC\n");
 	printf("\t--showinfo\t\tPrint the media information of summary, layout or elementary stream in TS/ISOBMFF/Matroska file\n");
-	printf("\t--showpack\n");
-	printf("\t--showIPv4pack\n");
-	printf("\t--showIPv6pack\n");
-	printf("\t--showHCIPpack\n");
-	printf("\t--showTCSpack[ps]\tPrint the specified or all stream packet, only support TLV/MMT\n");
+	printf("\t--showpack\t\tPrint the syntax details for every pack\n");
+	printf("\t--showIPv4pack\t\tPrint the IP-v4 pack syntax details\n");
+	printf("\t--showIPv6pack\t\tPrint the IP-v6 pack syntax details\n");
+	printf("\t--showHCIPpack\t\tPrint Header-Compressed IP packet syntax details\n");
+	printf("\t--showTCSpack\t\tPrint the specified or all stream packet, only support TLV/MMT\n");
 	printf("\t--showSIT\t\tPrint the SIT information for DTV stream\n");
 	printf("\t--showPMT\t\tPrint the PMT information in TS stream\n");
 	printf("\t--showPAT\t\tPrint the PAT information in TS stream\n");
@@ -648,6 +649,7 @@ void PrintHelp()
 	printf("\t--showPLT\t\tPrint the PLT information in MMT/TLV stream\n");
 	printf("\t--showCAT\t\tPrint the CAT information in MMT/TLV stream\n");
 	printf("\t--showPCR\t\tPrint the PCR clock information in TS stream\n");
+	printf("\t--showPCRDiagram\tPrint the PCR and its related PTS, DTS diagram, export PCR, ATC, PTS/DTS into csv file\n");
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
 	printf("\t--showNU\t\tShow the access-unit, nal-unit, sei-message and sei_payload tree of AVC/HEVC/VVC stream\n");
@@ -666,7 +668,7 @@ void PrintHelp()
 	printf("\t--listMMTPpacketid\tShow Assignment of Packet ID of MMTP transmitting message and data\n");
 	printf("\t--listMMTSImsg\t\tShow Assignment of message identifier of MMT-SI\n");
 	printf("\t--listMMTSItable\tShow Assignment of identifier of table of MMT-SI\n");
-	printf("\t--listMMTSIdesc\t\tShow Assignment of descriptor tag of MMT-SI");
+	printf("\t--listMMTSIdesc\t\tShow Assignment of descriptor tag of MMT-SI\n");
 	printf("\t--dashinitmp4\t\tSpecify the DASH initialization mp4 file to process m4s\n");
 	printf("\t--VLCTypes\t\tSpecify the number value literal formats, a: auto; h: hex; d: dec; o: oct; b: bin, for example, \"aah\"\n");
 	printf("\t--video\t\t\tThe current dumped stream is a video stream\n");
@@ -1031,6 +1033,12 @@ int main(int argc, char* argv[])
 				}
 
 				nDumpRet = ShowPCR(optionShowPCR);
+				goto done;
+			}
+			else if (g_params.find("showPCRDiagram") != g_params.end())
+			{
+				int optionShowPCRDiagram = 5;
+				nDumpRet = ShowPCR(optionShowPCRDiagram);
 				goto done;
 			}
 			else if (g_params.find("showNTP") != g_params.end())

@@ -53,6 +53,17 @@ int ShowPCR(int option)
 	uint64_t max_diff_diff_PCR_ATC = 0;
 	int64_t max_transport_rate = 0;
 
+	std::vector<std::tuple<uint32_t, uint64_t>> SPN_PCR;
+	std::vector<std::tuple<uint32_t, uint32_t>> SPN_ATC;
+	std::map<uint16_t, std::vector<std::tuple<uint32_t, uint64_t, uint64_t>>> STM_SPN_PTS_DTS;
+	std::map<uint16_t, 
+		std::tuple<uint32_t/*start_TS_pack_index with payload_unit_start_indicator*/, 
+				   uint32_t/*current TS pack_index*/,
+				   uint32_t/*total counts of TS packs*/,
+				   uint64_t/*PTS*/,
+				   uint64_t/*DTS*/,
+				   bool/*is elementary stream or not*/>> stream_pack_info;
+
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
 	{
@@ -104,7 +115,12 @@ int ShowPCR(int option)
 		uint32_t atc_tm = UINT32_MAX;
 
 		if (header_offset == 4)
+		{
 			atc_tm = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+
+			if (option == 5)
+				SPN_ATC.emplace_back(ts_pack_idx, atc_tm);
+		}
 
 		if (PID >= 0x10 && PID <= 0x1FFE)
 		{
@@ -112,6 +128,45 @@ int ShowPCR(int option)
 			auto iter = ring_buffers.find(PID);
 			if (payload_unit_start_indicator == 1)
 			{
+				auto iterStmPackInfo = stream_pack_info.find(PID);
+				
+				// submit the previous pts and dts information
+				if (iterStmPackInfo != stream_pack_info.end())
+				{
+					if (std::get<5>(iterStmPackInfo->second))
+					{
+						auto& curr_stm_spn_pts_dts = STM_SPN_PTS_DTS[PID];
+						if (std::get<3>(iterStmPackInfo->second) != UINT64_MAX)
+						{
+							curr_stm_spn_pts_dts.emplace_back(
+								std::get<0>(iterStmPackInfo->second),
+								std::get<3>(iterStmPackInfo->second),
+								std::get<4>(iterStmPackInfo->second)
+							);
+
+							if (std::get<0>(iterStmPackInfo->second) != std::get<1>(iterStmPackInfo->second))
+							{
+								curr_stm_spn_pts_dts.emplace_back(
+									std::get<1>(iterStmPackInfo->second),
+									std::get<3>(iterStmPackInfo->second),
+									std::get<4>(iterStmPackInfo->second)
+								);
+							}
+						}
+					}
+
+					std::get<0>(iterStmPackInfo->second) = ts_pack_idx;	// the start TS pack index
+					std::get<1>(iterStmPackInfo->second) = ts_pack_idx;	// the current TS pack index
+					std::get<2>(iterStmPackInfo->second) = 1;				// the total count of TS packs for this AU
+					std::get<3>(iterStmPackInfo->second) = UINT64_MAX;
+					std::get<4>(iterStmPackInfo->second) = UINT64_MAX;
+				}
+				else
+				{
+					iterStmPackInfo = stream_pack_info.insert(
+						std::make_pair(PID, std::make_tuple(ts_pack_idx, ts_pack_idx, 1, UINT64_MAX, UINT64_MAX, false))).first;
+				}
+
 				if (iter != ring_buffers.end())
 				{
 					int read_buf_len = 0;
@@ -150,6 +205,8 @@ int ShowPCR(int option)
 								pts = pts << 15;
 								pts |= (pes_buf[12] << 7) | (pes_buf[13] >> 1);
 
+								std::get<3>(iterStmPackInfo->second) = pts;
+
 								if (PTS_DTS_flags == 0x3)
 								{
 									dts = 0;
@@ -158,7 +215,11 @@ int ShowPCR(int option)
 									dts |= (pes_buf[15] << 7) | (pes_buf[16] >> 1);
 									dts = dts << 15;
 									dts |= (pes_buf[17] << 7) | (pes_buf[18] >> 1);
+
+									std::get<4>(iterStmPackInfo->second) = dts;
 								}
+
+								std::get<5>(iterStmPackInfo->second) = true;
 
 								start_atc_tm = std::get<0>(filter_stat[PID]);
 
@@ -167,7 +228,7 @@ int ShowPCR(int option)
 									if (PTS_DTS_flags == 0x3)
 									{
 										printf("%sPES_PID: 0X%04X PTS(base: %10" PRIu64 "(90KHZ),           %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)),\n"
-											"                    DTS(base: %10" PRIu64 "(90KHZ)            %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), ATC interval %" PRIu32 ", %" PRIu64 ".%03" PRIu64 "(ms).\n",
+											"                     DTS(base: %10" PRIu64 "(90KHZ)            %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), ATC interval %" PRIu32 ", %" PRIu64 ".%03" PRIu64 "(ms).\n",
 											(stream_id & 0xF0) == 0xE0 ? "[<V]" : (
 											(stream_id & 0xC0) == 0xC0 ? "[<A]" : "    "),
 											PID, pts, pts * 300, pts / 90, pts * 1000 / 90 % 1000, dts, dts * 300, dts / 90, dts * 1000 / 90 % 1000,
@@ -223,6 +284,14 @@ int ShowPCR(int option)
 				if (header_offset == 4)
 					std::get<0>(filter_stat[PID]) = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
 			}
+			else
+			{
+				auto iterStmPackInfo = stream_pack_info.find(PID);
+				if (iterStmPackInfo != stream_pack_info.end())
+				{
+					std::get<2>(iterStmPackInfo->second)++;
+				}
+			}
 
 			std::get<1>(filter_stat[PID])++;
 
@@ -249,6 +318,7 @@ int ShowPCR(int option)
 			}
 		}
 
+		ts_pack_idx++;
 		if (!(adaptation_field_control & 0x2))
 			continue;
 
@@ -292,6 +362,9 @@ int ShowPCR(int option)
 
 		if (max_transport_rate < transport_rate)
 			max_transport_rate = transport_rate;
+
+		if (option == 5)
+			SPN_PCR.emplace_back((uint32_t)(byte_position / ts_pack_size), program_clock_reference_base * 300 + program_clock_reference_extension);
 
 		if (OPCR_flag)
 		{
@@ -384,6 +457,144 @@ done:
 		fclose(fp);
 		fp = NULL;
 	}
+
+	if (option == 5)
+	{
+		auto iterShowDiagram = g_params.find("showPCRDiagram");
+
+		if (iterShowDiagram != g_params.end())
+		{
+			FILE* fp_csv = NULL;
+			FOPEN(fp_csv, iterShowDiagram->second.c_str(), "wb");
+			if (fp_csv != NULL)
+			{
+				int ccWritten = 0;
+				int ccWrittenOnce = 0;
+
+				char szRow[1024] = { 0 };
+				size_t max_number_of_rows = 0;
+				if (max_number_of_rows < SPN_ATC.size())
+					max_number_of_rows = SPN_ATC.size();
+
+				if (max_number_of_rows < SPN_PCR.size())
+					max_number_of_rows = SPN_PCR.size();
+
+				ccWrittenOnce = MBCSPRINTF_S(szRow, sizeof(szRow) / sizeof(szRow[0]), "SPN,ATC(27MHZ),PCR(27MHZ)");
+				ccWritten += ccWrittenOnce;
+
+				size_t next_PCR_idx = SIZE_MAX;
+				size_t next_SPN_for_PCR = SIZE_MAX;
+				std::vector<
+					std::tuple<
+					size_t/*next_stm_pts_dts_entry_idx*/,
+					size_t/*next_stm_SPN*/,
+					std::vector<std::tuple<uint32_t, uint64_t, uint64_t>>&>
+				> next_stm_spn_entry;
+
+				for (auto& stm : STM_SPN_PTS_DTS)
+				{
+					if (stm.second.size() > 0)
+					{
+						if (max_number_of_rows < stm.second.size())
+							max_number_of_rows = stm.second.size();
+
+						next_stm_spn_entry.emplace_back(0, std::get<0>(stm.second[0]), stm.second);
+					}
+					else
+						next_stm_spn_entry.emplace_back(SIZE_MAX, SIZE_MAX, stm.second);
+
+					ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten,
+						",PTS(27MHZ)(0x%04x),DTS(27MHZ)(0x%04x)", stm.first, stm.first);
+					ccWritten += ccWrittenOnce;
+				}
+				szRow[ccWritten++] = '\n';
+
+				fwrite(szRow, 1, ccWritten, fp_csv);
+
+				if (SPN_PCR.size() > 0)
+				{
+					next_PCR_idx = 0;
+					next_SPN_for_PCR = std::get<0>(SPN_PCR[next_PCR_idx]);
+				}
+
+				for (size_t i = 0; i < max_number_of_rows; i++)
+				{
+					ccWritten = 0;
+					ccWrittenOnce = 0;
+					if (i >= SPN_ATC.size())
+						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
+					else
+						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu32 ",%" PRIu32 ",",
+							std::get<0>(SPN_ATC[i]), std::get<1>(SPN_ATC[i]));
+					ccWritten += ccWrittenOnce;
+
+					if (std::get<0>(SPN_ATC[i]) != next_SPN_for_PCR)
+						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",");
+					else
+					{
+						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",",
+							std::get<1>(SPN_PCR[next_PCR_idx]));
+						if (next_PCR_idx + 1 >= SPN_PCR.size())
+						{
+							next_PCR_idx = SIZE_MAX;
+							next_SPN_for_PCR = SIZE_MAX;
+						}
+						else
+						{
+							next_PCR_idx++;
+							next_SPN_for_PCR = std::get<0>(SPN_PCR[next_PCR_idx]);
+						}
+					}
+					ccWritten += ccWrittenOnce;
+
+					// For stream SPN and PTS/DTS(27MHZ)
+					for (size_t j = 0; j < next_stm_spn_entry.size(); j++)
+					{
+						size_t next_stm_entry_idx = std::get<0>(next_stm_spn_entry[j]);
+						size_t next_SPN_for_stm = std::get<1>(next_stm_spn_entry[j]);
+						auto pts_dts_entry = std::get<2>(next_stm_spn_entry[j]);
+
+						if (std::get<0>(SPN_ATC[i]) != next_SPN_for_stm)
+							ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
+						else
+						{
+							uint64_t pts = std::get<1>(std::get<2>(next_stm_spn_entry[j])[next_stm_entry_idx]);
+							uint64_t dts = std::get<2>(std::get<2>(next_stm_spn_entry[j])[next_stm_entry_idx]);
+
+							if (pts != UINT64_MAX && dts != UINT64_MAX)
+								ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",%" PRIu64 ",", pts * 300, dts * 300);
+							else if (pts != UINT64_MAX)
+								ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",,", pts * 300);
+							else
+								ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
+
+							if (next_stm_entry_idx + 1 >= pts_dts_entry.size())
+							{
+								std::get<0>(next_stm_spn_entry[j]) = SIZE_MAX;
+								std::get<1>(next_stm_spn_entry[j]) = SIZE_MAX;
+							}
+							else
+							{
+								next_stm_entry_idx++;
+								std::get<0>(next_stm_spn_entry[j]) = next_stm_entry_idx;
+								next_SPN_for_stm = std::get<0>(pts_dts_entry[next_stm_entry_idx]);
+								std::get<1>(next_stm_spn_entry[j]) = next_SPN_for_stm;
+							}
+						}
+
+						ccWritten += ccWrittenOnce;
+					}
+
+					szRow[ccWritten++] = '\n';
+
+					fwrite(szRow, 1, ccWritten, fp_csv);
+				}
+
+				fclose(fp_csv);
+			}
+		}
+	}
+
 	return iRet;
 }
 
