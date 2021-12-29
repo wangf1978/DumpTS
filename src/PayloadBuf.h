@@ -70,6 +70,7 @@ using namespace std;
 #define PID_TRANSPORT_STREAM_DESCRIPTION_TABLE	\
 											0x0002
 #define PID_IPMP_CONTROL_INFORMATION_TABLE	0x0003
+#define PID_SELECTION_INFORMATION_TABLE		0x001F
 
 #define IS_PES_PAYLOAD(p)					((p)[0] == 0 && (p)[1] == 0 && (p)[2] == 1 && (p)[3] >= 0xBC)
 

@@ -2010,6 +2010,7 @@ int DumpOneStream()
 	psi_process_ctx.bChanged = false;
 
 	pPSIBufs[0] = new CPSIBuf(&psi_process_ctx, PID_PROGRAM_ASSOCIATION_TABLE);
+	pPSIBufs[0x1F] = new CPSIBuf(&psi_process_ctx, PID_SELECTION_INFORMATION_TABLE);
 
 	unsigned char buf[1024];
 
