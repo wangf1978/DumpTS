@@ -26,6 +26,7 @@ SOFTWARE.
 #include "platcomm.h"
 #include "PayloadBuf.h"
 #include "crc.h"
+#include "DataUtil.h"
 #include <algorithm>
 
 std::unordered_map<unsigned char, std::string> g_SIT_descriptors= {
@@ -404,16 +405,24 @@ void PrintDescriptor(int level, unsigned char* p)
 	case 0x63:	// partial_transport_stream_descriptor
 	{
 		{
-			uint32_t peak_rate = (((*p) << 16) | ((*(p + 1)) << 8) | ((*(p + 2)))) & 0x3FFFF;
+			uint32_t peak_rate = (((*p) << 16) | ((*(p + 1)) << 8) | ((*(p + 2)))) & 0x3FFFFF;
 			p += 3;
-			uint32_t minimum_overall_smoothing_rate = (((*(p)) << 16) | ((*(p + 1)) << 8) | ((*(p + 2)))) & 0x3FFFF;
+			uint32_t minimum_overall_smoothing_rate = (((*(p)) << 16) | ((*(p + 1)) << 8) | ((*(p + 2)))) & 0x3FFFFF;
 			p += 3;
-			uint32_t maximum_overall_smoothing_rate = (((*(p)) << 16) | ((*(p + 1)) << 8) | ((*(p + 2)))) & 0x3FFFF;
-			p += 3;
+			uint32_t maximum_overall_smoothing_buffer = (((*(p)) << 8) | (*(p + 1))) & 0x3FFF;
+			p += 2;
 
-			printf("%speak_rate: %d\n", szIndent, peak_rate);
-			printf("%sminimum_overall_smoothing_rate: %d\n", szIndent, minimum_overall_smoothing_rate);
-			printf("%smaximum_overall_smoothing_rate: %d\n", szIndent, maximum_overall_smoothing_rate);
+			printf("%speak_rate: %d(%" PRIu32 "bps/%sbps)\n", szIndent, peak_rate, peak_rate * 400, GetHumanReadNumber(peak_rate * 400).c_str());
+			if (minimum_overall_smoothing_rate == 0x3FFFFF)
+				printf("%sminimum_overall_smoothing_rate: undefined\n", szIndent);
+			else
+				printf("%sminimum_overall_smoothing_rate: %d(%" PRIu32 "bps/%sbps)\n", szIndent, 
+					minimum_overall_smoothing_rate, minimum_overall_smoothing_rate * 400, GetHumanReadNumber(minimum_overall_smoothing_rate * 400).c_str());
+
+			if (maximum_overall_smoothing_buffer == 0x3FFF)
+				printf("%smaximum_overall_smoothing_buffer: undefined\n", szIndent);
+			else
+				printf("%smaximum_overall_smoothing_buffer: %d byte\n", szIndent, maximum_overall_smoothing_buffer);
 			break;
 		}
 		break;
