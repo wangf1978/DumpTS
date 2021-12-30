@@ -468,7 +468,7 @@ void PrintDescriptor(int level, unsigned char* p)
 		unsigned short media_type = (*p << 8) | *(p + 1);
 		p += 2;
 		printf("%sMedia Type: 0X%X(%s)\n", szIndent, media_type, media_type == 0x4253?"BS/broadband CS":(
-													 media_type == 0x4353?"Narrow-band CS / Advanced narrow-band CS":(
+													 media_type == 0x4353?"Narrow-band CS/Advanced narrow-band CS":(
 													 media_type == 0x5442?"Terrestrial broadcasting":"")));
 		unsigned short network_id = (*p << 8) | *(p + 1);
 		printf("%sNetwork ID: 0X%X\n", szIndent, network_id);
