@@ -32,7 +32,7 @@ SOFTWARE.
 void print_mem(uint8_t* pBuf, int cbSize, int indent)
 {
 	// At first calculate the total size of dumped memory size.
-	size_t ccBufLen = 80 * 2 + ((size_t)cbSize + 15) / 16 * (80 + 20 + indent);
+	size_t ccBufLen = (80 + indent) * 2 + ((size_t)cbSize + 15) / 16 * (80 + 20 + indent);
 	char szIndent[256] = { 0 };
 	memset(szIndent, ' ', indent > 255 ? 255 : indent);
 
