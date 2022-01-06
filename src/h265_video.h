@@ -61,7 +61,16 @@ struct GENERAL_TIER_AND_LEVEL_LIMIT
 	uint8_t		MaxTileCols;
 };
 
+struct HEVC_PROFILE_FACTOR
+{
+	uint16_t	CpbVclFactor;
+	uint16_t	CpbNalFactor;
+	float		FormatCapabilityFactor;
+	float		MinCrScaleFactor;
+};
+
 extern const GENERAL_TIER_AND_LEVEL_LIMIT general_tier_and_level_limits[256];
+extern const HEVC_PROFILE_FACTOR hevc_profile_factors[36];
 
 namespace BST {
 

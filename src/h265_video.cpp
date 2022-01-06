@@ -533,6 +533,46 @@ const GENERAL_TIER_AND_LEVEL_LIMIT general_tier_and_level_limits[256] = {
 	/*255*/	{(uint32_t)-1,	(uint32_t)-1,	(uint32_t)-1,	(uint16_t)-1,	(uint8_t)-1,	(uint8_t)-1 },
 };
 
+const HEVC_PROFILE_FACTOR hevc_profile_factors[36] =
+{
+	/* Monochrome								*/	{667,	733,	1.000f,	1.0f},
+	/* Monochrome 10							*/	{833,	917,	1.250f,	1.0f},
+	/* Monochrome 12							*/	{1000,	1100,	1.500f,	1.0f},
+	/* Monochrome 16							*/	{1333,	1467,	2.000f,	1.0f},
+	/* Main										*/	{1000,	1100,	1.500f,	1.0f},
+	/* Screen-Extended Main						*/	{1000,	1100,	1.500f,	1.0f},
+	/* Main 10									*/	{1000,	1100,	1.875f,	1.0f},
+	/* Screen-Extended Main 10					*/	{1000,	1100,	1.875f,	1.0f},
+	/* Main 12									*/	{1500,	1650,	2.250f,	1.0f},
+	/* Main Still Picture						*/	{1000,	1100,	1.500f,	1.0f},
+	/* Main 10 Still Picture					*/	{1000,	1100,	1.875f,	1.0f},
+	/* Main 4:2:2 10							*/	{1667,	1833,	2.500f,	0.5f},
+	/* Main 4:2:2 12							*/	{2000,	2200,	3.000f,	0.5f},
+	/* Main 4:4:4								*/	{2000,	2200,	3.000f,	0.5f},
+	/* High Throughput 4:4:4					*/	{2000,	2200,	3.000f,	0.5f},
+	/* Screen-Extended Main 4:4:4				*/	{2000,	2200,	3.000f,	0.5f},
+	/* Screen-Extended High Throughput 4:4:4	*/	{2000,	2200,	3.000f,	0.5f},
+	/* Main 4:4:4 10							*/	{2500,	2750,	3.750f,	0.5f},
+	/* High Throughput 4:4:4 10					*/	{2500,	2750,	3.750f,	0.5f},
+	/* Screen-Extended Main 4:4:4 10			*/	{2500,	2750,	3.750f,	0.5f},
+	/* Screen-Extended High Throughput 4:4:4 10	*/	{2500,	2750,	3.750f,	0.5f},
+	/* Main 4:4:4 12							*/	{3000,	3300,	4.500f,	0.5f},
+	/* High Throughput 4:4:4 14					*/	{3500,	3850,	5.250f,	0.5f},
+	/* Screen-Extended High Throughput 4:4:4 14	*/	{3500,	3850,	5.250f,	0.5f},
+	/* Main Intra								*/	{1000,	1100,	1.500f,	1.0f},
+	/* Main 10 Intra							*/	{1000,	1100,	1.875f,	1.0f},
+	/* Main 12 Intra							*/	{1500,	1650,	2.250f,	1.0f},
+	/* Main 4:2:2 10 Intra						*/	{1667,	1833,	2.500f,	0.5f},
+	/* Main 4:2:2 12 Intra						*/	{2000,	2200,	3.000f,	0.5f},
+	/* Main 4:4:4 Intra							*/	{2000,	2200,	3.000f,	0.5f},
+	/* Main 4:4:4 10 Intra						*/	{2500,	2750,	3.750f,	0.5f},
+	/* Main 4:4:4 12 Intra						*/	{3000,	3300,	4.500f,	0.5f},
+	/* Main 4:4:4 16 Intra						*/	{4000,	4400,	6.000f,	0.5f},
+	/* Main 4:4:4 Still Picture					*/	{2000,	2200,	3.000f,	0.5f},
+	/* Main 4:4:4 16 Still Picture				*/	{4000,	4400,	6.000f,	0.5f},
+	/* High Throughput 4:4:4 16 Intra			*/	{4000,	4400,	6.000f,	0.5f},
+};
+
 const char* get_hevc_profile_name(int profile)
 {
 	if (profile >= 0 && (size_t)profile < sizeof(hevc_profile_name) / sizeof(hevc_profile_name[0]))
