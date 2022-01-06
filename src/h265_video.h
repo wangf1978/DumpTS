@@ -59,6 +59,12 @@ struct GENERAL_TIER_AND_LEVEL_LIMIT
 	uint16_t	MaxSliceSegmentsPerPicture;
 	uint8_t		MaxTileRows;
 	uint8_t		MaxTileCols;
+
+	uint32_t	MaxLumaSr;
+	uint32_t	MaxBr_High_tier;
+	uint32_t	MaxBr_Main_tier;
+	uint8_t		MinCrBase_High_tier;
+	uint8_t		MinCrBase_Main_tier;
 };
 
 struct HEVC_PROFILE_FACTOR
@@ -69,8 +75,10 @@ struct HEVC_PROFILE_FACTOR
 	float		MinCrScaleFactor;
 };
 
-extern const GENERAL_TIER_AND_LEVEL_LIMIT general_tier_and_level_limits[256];
+extern const std::map<uint8_t, GENERAL_TIER_AND_LEVEL_LIMIT> general_tier_and_level_limits;
 extern const HEVC_PROFILE_FACTOR hevc_profile_factors[36];
+
+extern GENERAL_TIER_AND_LEVEL_LIMIT get_hevc_tier_and_level_limit(uint8_t level_idc);
 
 namespace BST {
 
@@ -2528,9 +2536,11 @@ namespace BST {
 
 					uint32_t MaxDpbSize;
 					uint32_t maxDpbPicBuf = 6;
-					uint32_t MaxLumaPs = general_tier_and_level_limits[profile_tier_level->general_profile_level.level_idc].MaxLumaPs;
+					uint32_t MaxLumaPs = get_hevc_tier_and_level_limit(profile_tier_level->general_profile_level.level_idc).MaxLumaPs;
 
-					if (PicSizeInSamplesY <= (MaxLumaPs >> 2))
+					if (MaxLumaPs == (uint32_t)-1)
+						MaxDpbSize = maxDpbPicBuf;
+					else if (PicSizeInSamplesY <= (MaxLumaPs >> 2))
 						MaxDpbSize = AMP_MIN(4*maxDpbPicBuf, 16);
 					else if (PicSizeInSamplesY <= (MaxLumaPs >> 1))
 						MaxDpbSize = AMP_MIN(2*maxDpbPicBuf, 16);
