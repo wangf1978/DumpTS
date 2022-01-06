@@ -34,6 +34,45 @@ SOFTWARE.
 #include "DataUtil.h"
 #include "nal_parser.h"
 
+const char* hevc_profile_name[36] = {
+	"Monochrome",
+	"Monochrome 10",
+	"Monochrome 12",
+	"Monochrome 16",
+	"Main",
+	"Screen-Extended Main",
+	"Main 10",
+	"Screen-Extended Main 10",
+	"Main 12",
+	"Main Still Picture",
+	"Main 10 Still Picture",
+	"Main 4:2:2 10",
+	"Main 4:2:2 12",
+	"Main 4:4:4",
+	"High Throughput 4:4:4",
+	"Screen-Extended Main 4:4:4",
+	"Screen-Extended High Throughput 4:4:4",
+	"Main 4:4:4 10",
+	"High Throughput 4:4:4 10",
+	"Screen-Extended Main 4:4:4 10",
+	"Screen-Extended High Throughput 4:4:4 10",
+	"Main 4:4:4 12",
+	"High Throughput 4:4:4 14",
+	"Screen-Extended High Throughput 4:4:4 14",
+	"Main Intra",
+	"Main 10 Intra",
+	"Main 12 Intra",
+	"Main 4:2:2 10 Intra",
+	"Main 4:2:2 12 Intra",
+	"Main 4:4:4 Intra",
+	"Main 4:4:4 10 Intra",
+	"Main 4:4:4 12 Intra",
+	"Main 4:4:4 16 Intra",
+	"Main 4:4:4 Still Picture",
+	"Main 4:4:4 16 Still Picture",
+	"High Throughput 4:4:4 16 Intra"
+};
+
 const char* hevc_nal_unit_type_names[64] = {
 	/*00*/ "VCL::TRAIL_N",
 	/*01*/ "VCL::TRAIL_R",
@@ -496,32 +535,8 @@ const GENERAL_TIER_AND_LEVEL_LIMIT general_tier_and_level_limits[256] = {
 
 const char* get_hevc_profile_name(int profile)
 {
-	switch (profile)
-	{
-	case BST::H265Video::MAIN_PROFILE: return "Main Profile"; break;
-	case BST::H265Video::MAIN_10_PROFILE: return "Main 10 Profile"; break;
-	case BST::H265Video::MAIN_STILL_PICTURE_PROFILE: return "Main Still Picture Profile"; break;
-	case BST::H265Video::MONOCHROME_PROFILE: return "Monochrome Profile"; break;
-	case BST::H265Video::MONOCHROME_12_PROFILE: return "Monochrome 12 Profile"; break;
-	case BST::H265Video::MONOCHROME_16_PROFILE: return "Monochrome 16 Profile"; break;
-	case BST::H265Video::MAIN_12_PROFILE: return "Main 12 Profile"; break;
-	case BST::H265Video::MAIN_422_10_PROFILE: return "Main 4:2:2 10 Profile"; break;
-	case BST::H265Video::MAIN_422_12_PROFILE: return "Main 4:2:2 12 Profile"; break;
-	case BST::H265Video::MAIN_444_PROFILE: return "Main 4:4:4 Profile"; break;
-	case BST::H265Video::MAIN_444_10_PROFILE: return "Main 4:4:4 10 Profile"; break;
-	case BST::H265Video::MAIN_444_12_PROFILE: return "Main 4:4:4 12 Profile"; break;
-	case BST::H265Video::MAIN_INTRA_PROFILE: return "Main Intra Profile"; break;
-	case BST::H265Video::MAIN_10_INTRA_PROFILE: return "Main 10 Intra Profile"; break;
-	case BST::H265Video::MAIN_12_INTRA_PROFILE: return "Main 12 Intra Profile"; break;
-	case BST::H265Video::MAIN_422_10_INTRA_PROFILE: return "Main 4:2:2 10 Intra Profile"; break;
-	case BST::H265Video::MAIN_422_12_INTRA_PROFILE: return "Main 4:2:2 12 Intra Profile"; break;
-	case BST::H265Video::MAIN_444_INTRA_PROFILE: return "Main 4:4:4 Intra Profile"; break;
-	case BST::H265Video::MAIN_444_10_INTRA_PROFILE: return "Main 4:4:4 10 Intra Profile"; break;
-	case BST::H265Video::MAIN_444_12_INTRA_PROFILE: return "Main 4:4:4 12 Intra Profile"; break;
-	case BST::H265Video::MAIN_444_16_INTRA_PROFILE: return "Main 4:4:4 16 Intra Profile"; break;
-	case BST::H265Video::MAIN_444_STILL_PICTURE: return "Main 4:4:4 Still Picture Profile"; break;
-	case BST::H265Video::MAIN_444_16_STILL_PICTURE: return "Main 4:4:4 16 Still Picture Profile"; break;
-	}
+	if (profile >= 0 && (size_t)profile < sizeof(hevc_profile_name) / sizeof(hevc_profile_name[0]))
+		return hevc_profile_name[profile];
 
 	return "Unknown HEVC Profile";
 }
