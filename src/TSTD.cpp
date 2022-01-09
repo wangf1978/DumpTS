@@ -228,7 +228,7 @@ int ShowPCR(int option)
 									if (PTS_DTS_flags == 0x3)
 									{
 										printf("%sPES_PID: 0X%04X PTS(base: %10" PRIu64 "(90KHZ),           %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)),\n"
-											"                     DTS(base: %10" PRIu64 "(90KHZ)            %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), ATC interval %" PRIu32 ", %" PRIu64 ".%03" PRIu64 "(ms).\n",
+											"                    DTS(base: %10" PRIu64 "(90KHZ)            %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), ATC interval %" PRIu32 ", %" PRIu64 ".%03" PRIu64 "(ms).\n",
 											(stream_id & 0xF0) == 0xE0 ? "[<V]" : (
 											(stream_id & 0xC0) == 0xC0 ? "[<A]" : "    "),
 											PID, pts, pts * 300, pts / 90, pts * 1000 / 90 % 1000, dts, dts * 300, dts / 90, dts * 1000 / 90 % 1000,
