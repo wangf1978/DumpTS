@@ -864,7 +864,7 @@ SOFTWARE.
 
 #define NAV_2ARRAY_FIELD_PROP_2NUMBER_(Field_Name, Prefix_Idx1, Idx1, Prefix_Idx2, Idx2, Field_Bits, Field_Value, Field_Desc)\
 	MBCSPRINTF_S(szTagName, TAGNAME_SIZE, "%s[%s%d][%s%d]", Field_Name, Prefix_Idx1, (int)Idx1, Prefix_Idx2, (int)Idx2);\
-	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%lu(0X%X)", (unsigned long)(Field_Value), (unsigned long)(Field_Value));\
+	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%lu(0X%lX)", (unsigned long)(Field_Value), (unsigned long)(Field_Value));\
 	NAV_FIELD_PROP_WITH_ALIAS(Field_Name, szTagName, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
 
 #define NAV_2ARRAY_FIELD_PROP_NUMBER(Field_Name, Idx1, Idx2, Field_Bits, Field_Value, Field_Desc)\
@@ -958,7 +958,7 @@ SOFTWARE.
 #define BST_FIELD_PROP_2NUMBER_ALIAS_F_(Field_Name, Field_Alias, Field_Bits, Field_Value, Field_Desc, ...)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
 		MBCSPRINTF_S(szTagName, TAGNAME_SIZE, Field_Alias, ##__VA_ARGS__);\
-		MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%lu(0X%X)", (unsigned long)(Field_Value), (unsigned long)(Field_Value));\
+		MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%lu(0X%lX)", (unsigned long)(Field_Value), (unsigned long)(Field_Value));\
 		NAV_FIELD_PROP_WITH_ALIAS(Field_Name, szTagName, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
 		field_prop_idx++;}\
 
@@ -1042,7 +1042,7 @@ SOFTWARE.
 
 #define NAV_FIELD_PROP_NUMBER_ALIAS_F(Field_Name, Field_Alias, Field_Bits, Field_Format, Field_Value, Field_Desc, ...)\
 	MBCSPRINTF_S(szTagName, TAGNAME_SIZE, Field_Alias, ##__VA_ARGS__); \
-	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, Field_Format, (unsigned long)(Field_Value));\
+	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, Field_Format, Field_Value);\
 	NAV_FIELD_PROP_WITH_ALIAS(Field_Name, szTagName, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
 
 #define NAV_FIELD_PROP_2NUMBER_ALIAS_F(Field_Name, Field_Alias, Field_Bits, Field_Format, Field_Value, Field_Desc, ...)\
@@ -1061,6 +1061,7 @@ SOFTWARE.
 
 #define NAV_FIELD_PROP_2NUMBER1(Field_Name, Field_Bits, Field_Desc) \
 	NAV_FIELD_PROP_2NUMBER(#Field_Name, Field_Bits, Field_Name, Field_Desc)
+
 #define NAV_FIELD_PROP_2NUMBER1_DESC_F(Field_Name, Field_Bits, Field_Desc, ...)	\
 	NAV_FIELD_PROP_2NUMBER_DESC_F(#Field_Name, Field_Bits, Field_Name, Field_Desc, ##__VA_ARGS__)
 

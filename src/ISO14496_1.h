@@ -28,6 +28,7 @@ SOFTWARE.
 #include <stdint.h>
 #include "Bitstream.h"
 #include "combase.h"
+#include "DumpUtil.h"
 #include <algorithm>
 
 #ifdef _MSC_VER
@@ -46,6 +47,10 @@ SOFTWARE.
 
 namespace MPEG4System
 {
+	extern const char* ObjectTypeIndication_Names[256];
+	extern const char* DecoderConfig_StreamType_Names[64];
+	extern std::tuple<const char*, const char*> MP4_descriptor_descs[256];
+
 	enum DescriptorTag
 	{
 		Forbidden = 0,
@@ -96,6 +101,30 @@ namespace MPEG4System
 		M4MuxChannelDescrTag,
 	};
 
+	enum objectTypeIndication
+	{
+		INTERACTION_STREAM = 0x03,
+		FONT_DATA_STREAM = 0x06,
+		SYNTHESIZED_TEXTURE_STREAM = 0x07,
+		STREAMING_TEXT_STREAM = 0x08,
+		MPEG4_VIDEO = 0x20,
+		MPEG4_AAC = 0x40,
+		MPEG2_VIDEO_SIMPLE_PROFILE = 0x60,
+		MPEG2_VIDEO_MAIN_PROFILE = 0x61,
+		MPEG2_VIDEO_SNR_PROFILE = 0x62,
+		MPEG2_VIDEO_SPATIAL_PROFILE = 0x63,
+		MPEG2_VIDEO_HIGH_PROFILE = 0x64,
+		MPEG2_VIDEO_422_PROFILE = 0x65,
+		MPEG2_AAC_MAIN_PROFILE = 0x66,
+		MPEG2_AAC_LC = 0x67,
+		MPEG2_AAC_SSR = 0x68,
+		MPEG2_MPEG2_AUDIO = 0x69,
+		MPEG1_VIDEO = 0x6A,
+		MPEG1_AUDIO = 0x6B,
+		JPEG = 0x6C,
+		JPEG_2000 = 0x6E
+	};
+
 	constexpr uint32_t GetDescHeaderSize(uint32_t size)
 	{
 		return size < (1 << 7) ? 1 : (
@@ -103,7 +132,7 @@ namespace MPEG4System
 			   size < (1 << 21) ? 3 : 4));
 	}
 
-	struct BaseDescriptor
+	struct BaseDescriptor : public BST::INavFieldProp
 	{
 		uint64_t	start_bitpos = 0;
 		uint8_t		tag;
@@ -169,6 +198,64 @@ namespace MPEG4System
 
 		static int LoadDescriptor(CBitstream& bs, BaseDescriptor** ppDescr = nullptr);
 
+		DECLARE_FIELDPROP_BEGIN()
+		NAV_FIELD_PROP_2NUMBER1(tag, 8, std::get<0>(MP4_descriptor_descs[tag]));
+		NAV_FIELD_PROP_2NUMBER1(sizeOfInstance, (header_size-1) << 3, "the size of the following bytes");
+		DECLARE_FIELDPROP_END()
+
+	}PACKED;
+
+	struct UnimplDescriptor : public BaseDescriptor
+	{
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = BaseDescriptor::Unpack(bs);
+			SkipLeftBits(bs);
+			return iRet;
+		}
+	}PACKED;
+
+	// base class 
+	struct SLExtensionDescriptor
+	{
+		uint8_t				tag;
+	}PACKED;
+
+	struct DependencyPointer : public SLExtensionDescriptor
+	{
+		uint8_t				reserved : 6;
+		uint8_t				mode : 1;
+		uint8_t				hasESID : 1;
+		uint8_t				dependencyLength;;
+		uint16_t			ESID;
+	}PACKED;
+
+	struct MarkerDescriptor : public SLExtensionDescriptor
+	{
+		int8_t				markerLength;
+	}PACKED;
+
+		// base class 
+	struct DecoderSpecificInfo : public BaseDescriptor {
+		virtual ~DecoderSpecificInfo(){}
+	}PACKED;
+
+	struct UnimplementedDecoderSpecificInfo : public DecoderSpecificInfo
+	{
+		virtual int Unpack(CBitstream& bs)
+		{
+			int iRet = BaseDescriptor::Unpack(bs);
+			SkipLeftBits(bs);
+			return iRet;
+		}
+	}PACKED;
+
+	struct JPEG_DecoderConfig : public DecoderSpecificInfo
+	{
+		int16_t				headerLength;
+		int16_t				Xdensity;
+		int16_t				Ydensity;
+		int8_t				numComponents;
 	}PACKED;
 
 	struct IPI_DescrPointer : public BaseDescriptor
@@ -280,16 +367,6 @@ namespace MPEG4System
 		done:
 			SkipLeftBits(bs);
 			return iRet; 
-		}
-	}PACKED;
-
-	struct UnimplDescriptor : public BaseDescriptor
-	{
-		virtual int Unpack(CBitstream& bs)
-		{
-			int iRet = BaseDescriptor::Unpack(bs);
-			SkipLeftBits(bs);
-			return iRet;
 		}
 	}PACKED;
 

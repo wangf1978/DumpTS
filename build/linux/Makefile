@@ -45,6 +45,7 @@ SOURCES := \
 	$(SOURCEDIR)/HuffmanTree.cpp \
 	$(SOURCEDIR)/IP.cpp \
 	$(SOURCEDIR)/ISO14496_1.cpp \
+	$(SOURCEDIR)/ISO14496_3.cpp \
 	$(SOURCEDIR)/ISO14496_12.cpp \
 	$(SOURCEDIR)/ISO14496_15.cpp \
 	$(SOURCEDIR)/MMT.cpp \

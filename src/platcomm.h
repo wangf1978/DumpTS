@@ -235,6 +235,23 @@ SOFTWARE.
 #define AMP_NEWT(p, mtype, ...)				{(p) = _AMP_NEWT(mtype, __VA_ARGS__); if(p){/*AMP_RegisterMem(GetCurrentModule(), (void*)(p), sizeof(mtype));*/}}AMP_NOP1(p)
 #define AMP_NEWT1(p, mtype, ...)			mtype* p = _AMP_NEWT(mtype, __VA_ARGS__); if(p){/*AMP_RegisterMem(GetCurrentModule(), (void*)(p), sizeof(mtype));*/}AMP_NOP1(p)
 
+#define _MACRO_W(x)							L ## x
+
+#define DECL_TUPLE_A(x)						{x, #x}
+#define DECL_TUPLE_W(x)						{x, _MACRO_W(#x)}
+
+#ifdef _UNICODE
+#define DECL_TUPLE(x)						DECL_TUPLE_W(##x)
+#else
+#define DECL_TUPLE(x)						DECL_TUPLE_A(##x)
+#endif
+
+#define DECL_ENUM_ITEMW(x, l)				((x) == l? _MACRO_W(#l):
+#define DECL_ENUM_LAST_ITEMW(x, l, v)		((x) == l? _MACRO_W(#l):v
+
+#define DECL_ENUM_ITEMA(x, l)				((x) == l? #l:
+#define DECL_ENUM_LAST_ITEMA(x, l, v)		((x) == l? #l:v
+
 #ifndef UNREFERENCED_PARAMETER
 #ifdef _WIN32
 #define UNREFERENCED_PARAMETER(P)          (P)

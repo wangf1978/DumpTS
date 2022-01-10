@@ -281,6 +281,7 @@
     <ClCompile Include="..\..\src\ISO14496_1.cpp" />
     <ClCompile Include="..\..\src\ISO14496_12.cpp" />
     <ClCompile Include="..\..\src\ISO14496_15.cpp" />
+    <ClCompile Include="..\..\src\ISO14496_3.cpp" />
     <ClCompile Include="..\..\src\Matroska.cpp" />
     <ClCompile Include="..\..\src\MMT.cpp" />
     <ClCompile Include="..\..\src\nal_com.cpp" />
@@ -320,6 +321,7 @@
     <ClInclude Include="..\..\src\ISO14496_1.h" />
     <ClInclude Include="..\..\src\ISO14496_12.h" />
     <ClInclude Include="..\..\src\ISO14496_15.h" />
+    <ClInclude Include="..\..\src\ISO14496_3.h" />
     <ClInclude Include="..\..\src\LibPlatform\basetsd.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
