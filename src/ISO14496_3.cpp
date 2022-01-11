@@ -643,7 +643,7 @@ namespace BST {
 					{
 						if (m_bSynced == false)
 						{
-							if (VerifyAudioMuxElement(1, pBuf + 3, cbSize - 3))
+							if (VerifyAudioMuxElement(1, pBuf + 3, audioMuxLengthBytes))
 							{
 								m_bSynced = true;
 								printf("[MP4AAC] Successfully located the syncword in LOAS AudioMuxElement.\n");
@@ -657,7 +657,7 @@ namespace BST {
 
 						if ((*(pBuf + 3) & 0x80) == 0)	// useSameStreamMux = 0
 						{
-							AMBst in_bst = AMBst_CreateFromBuffer(pBuf + 3, cbSize - 3);
+							AMBst in_bst = AMBst_CreateFromBuffer(pBuf + 3, audioMuxLengthBytes);
 							if (in_bst != nullptr)
 							{
 								try
@@ -727,13 +727,13 @@ namespace BST {
 						if (m_loas_enum)
 						{
 							int iEnumRet = RET_CODE_SUCCESS;
-							if ((iEnumRet = m_loas_enum->EnumLATMAUBegin(m_pCtxMP4AAC, pBuf + 3, (size_t)(cbSize - 3))) == RET_CODE_ABORT)
+							if ((iEnumRet = m_loas_enum->EnumLATMAUBegin(m_pCtxMP4AAC, pBuf + 3, audioMuxLengthBytes)) == RET_CODE_ABORT)
 							{
 								iRet = iEnumRet;
 								goto done;
 							}
 
-							if ((iEnumRet = m_loas_enum->EnumLATMAUEnd(m_pCtxMP4AAC, pBuf + 3, (size_t)(cbSize - 3))) == RET_CODE_ABORT)
+							if ((iEnumRet = m_loas_enum->EnumLATMAUEnd(m_pCtxMP4AAC, pBuf + 3, audioMuxLengthBytes)) == RET_CODE_ABORT)
 							{
 								iRet = iEnumRet;
 								goto done;
@@ -741,6 +741,7 @@ namespace BST {
 						}
 
 						pBuf += 3 + audioMuxLengthBytes;
+						cbSize -= 3 + audioMuxLengthBytes;
 					}
 					else
 					{
