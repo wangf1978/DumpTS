@@ -1615,7 +1615,7 @@ namespace MMT
 			if (descriptor_length > (desc_end_bit_pos - desc_start_bit_pos)>>3)
 				cbPrivateData = (uint32_t)(descriptor_length - ((desc_end_bit_pos - desc_start_bit_pos)>>3));
 
-			if (cbPrivateData > 0 && left_bits >= (cbPrivateData<<3))
+			if (cbPrivateData > 0 && left_bits >= ((uint64_t)cbPrivateData<<3))
 			{
 				private_data.resize(cbPrivateData);
 				bs.Read(&private_data[0], cbPrivateData);
@@ -1676,7 +1676,7 @@ namespace MMT
 			if (descriptor_length > (desc_end_bit_pos - desc_start_bit_pos) >> 3)
 				cbPrivateData = (uint32_t)(descriptor_length - ((desc_end_bit_pos - desc_start_bit_pos) >> 3));
 
-			if (cbPrivateData > 0 && left_bits >= (cbPrivateData << 3))
+			if (cbPrivateData > 0 && left_bits >= ((uint64_t)cbPrivateData << 3))
 			{
 				private_data.resize(cbPrivateData);
 				bs.Read(&private_data[0], cbPrivateData);
@@ -1747,7 +1747,7 @@ namespace MMT
 			if (descriptor_length > (desc_end_bit_pos - desc_start_bit_pos) >> 3)
 				countServiceIDs = (uint32_t)(descriptor_length - ((desc_end_bit_pos - desc_start_bit_pos + 7) >> 3)) >> 1;
 
-			if (countServiceIDs > 0 && left_bits >= (countServiceIDs << 4))
+			if (countServiceIDs > 0 && left_bits >= ((uint64_t)countServiceIDs << 4))
 			{
 				service_ids.reserve(countServiceIDs);
 				for (uint32_t i = 0; i < countServiceIDs; i++)
