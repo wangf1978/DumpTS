@@ -36,6 +36,85 @@ namespace BST {
 
 	namespace AACAudio {
 
+		class LOASBitstreamCtx : public CComUnknown, public IMP4AACContext
+		{
+		public:
+			DECLARE_IUNKNOWN
+
+			HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+			{
+				if (ppvObj == NULL)
+					return E_POINTER;
+
+				if (uuid == IID_IMP4AACContext)
+					return GetCOMInterface((IMP4AACContext*)this, ppvObj);
+
+				return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+			}
+
+			MP4AMuxStreamConfig GetMuxStreamConfig()
+			{
+				return m_currMuxStreamConfig;
+			}
+
+			RET_CODE UpdateMuxStreamConfig(MP4AMuxStreamConfig mux_stream_config)
+			{
+				// try to merge with the previous Mux Stream Config
+				if (mux_stream_config == nullptr)
+					return RET_CODE_INVALID_PARAMETER;
+
+				if (mux_stream_config->audioMuxVersionA == 0)
+				{
+					for (uint16_t prog = 0; prog < mux_stream_config->numProgram; prog++)
+					{
+						for (uint16_t lay = 0; lay < mux_stream_config->numLayer[prog]; lay++)
+						{
+							if (mux_stream_config->useSameConfig[prog][lay])
+							{
+								// copy the previous shared pointer into the new stream config
+								mux_stream_config->AudioSpecificConfig[prog][lay] =
+									m_currMuxStreamConfig->AudioSpecificConfig[prog][lay];
+							}
+						}
+					}
+				}
+
+				m_currMuxStreamConfig = mux_stream_config;
+				return RET_CODE_SUCCESS;
+			}
+
+			MP4AMuxElement	CreateAudioMuxElement(bool muxConfigPresent)
+			{
+				auto ptr_audio_mux_element = new BST::AACAudio::CAudioMuxElement(muxConfigPresent);
+				ptr_audio_mux_element->UpdateCtx(this);
+				return std::shared_ptr<CAudioMuxElement>(ptr_audio_mux_element);
+			}
+
+			void Reset()
+			{
+				m_currMuxStreamConfig = nullptr;
+			}
+
+		protected:
+			MP4AMuxStreamConfig		m_currMuxStreamConfig;
+		};
+
+		RET_CODE CreateMP2AACContext(IMP2AACContext** ppMP2AACCtx)
+		{
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		RET_CODE CreateMP4AACContext(IMP4AACContext** ppMP4AACCtx)
+		{
+			if (ppMP4AACCtx == NULL)
+				return RET_CODE_INVALID_PARAMETER;
+
+			auto pCtx = new BST::AACAudio::LOASBitstreamCtx();
+			pCtx->AddRef();
+			*ppMP4AACCtx = (IMP4AACContext*)pCtx;
+			return RET_CODE_SUCCESS;
+		}
+
 		int RAW_DATA_BLOCK::Unpack(CBitstream& bs, int start_bit_offset)
 		{
 			uint8_t id = 0;
@@ -484,6 +563,265 @@ namespace BST {
 
 			return iRet;
 		}
+
+		CLOASParser::CLOASParser(RET_CODE* pRetCode)
+			: m_loas_enum(nullptr)
+			, m_loas_enum_options(UINT32_MAX)
+		{
+			RET_CODE retCode = CreateMP4AACContext(&m_pCtxMP4AAC);
+
+			m_rbRawBuf = AM_LRB_Create(1024 * 128);
+
+			AMP_SAFEASSIGN(pRetCode, retCode);
+		}
+
+		CLOASParser::~CLOASParser()
+		{
+			AMP_SAFERELEASE(m_pCtxMP4AAC);
+			AM_LRB_Destroy(m_rbRawBuf);
+		}
+
+		RET_CODE CLOASParser::SetEnumerator(ILOASEnumerator* pEnumerator, uint32_t options)
+		{
+			m_loas_enum = pEnumerator;
+			m_loas_enum_options = options;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE CLOASParser::ProcessInput(uint8_t* pInput, size_t cbInput)
+		{
+			int read_size = 0;
+			RET_CODE iRet = RET_CODE_SUCCESS;
+
+			if (pInput == NULL || cbInput == 0)
+				return RET_CODE_INVALID_PARAMETER;
+
+			uint8_t* pBuf = AM_LRB_GetWritePtr(m_rbRawBuf, &read_size);
+			if (pBuf == NULL || read_size < 0 || (size_t)read_size < cbInput)
+			{
+				// Try to reform linear ring buffer
+				AM_LRB_Reform(m_rbRawBuf);
+				if ((pBuf = AM_LRB_GetWritePtr(m_rbRawBuf, &read_size)) == NULL || read_size < 0 || (size_t)read_size < cbInput)
+				{
+					printf("[NALParser] Failed to get the write buffer(%p), or the write buffer size(%d) is not enough.\n", pBuf, read_size);
+					return RET_CODE_BUFFER_TOO_SMALL;
+				}
+			}
+
+			memcpy(pBuf, pInput, cbInput);
+
+			AM_LRB_SkipWritePtr(m_rbRawBuf, (unsigned int)cbInput);
+
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE CLOASParser::ProcessOutput(bool bDrain)
+		{
+			int cbSize = 0;
+			RET_CODE iRet = RET_CODE_SUCCESS;
+			uint8_t* pStartBuf = NULL, *pBuf = NULL, *pCurParseStartBuf = NULL;
+
+			if ((pStartBuf = AM_LRB_GetReadPtr(m_rbRawBuf, &cbSize)) == NULL || cbSize <= 0)
+			{
+				return RET_CODE_NEEDMOREINPUT;
+			}
+
+			int minimum_loas_parse_buffer_size = 3;
+			pCurParseStartBuf = pBuf = pStartBuf;
+			while (cbSize >= minimum_loas_parse_buffer_size)
+			{
+				// Find "syncword"
+				while (cbSize >= minimum_loas_parse_buffer_size && (((*pBuf)<<3) | ((*(pBuf + 1)>>5)&0x7)) != 0x2B7)
+				{
+					cbSize--; pBuf++;
+				}
+
+				if (cbSize >= minimum_loas_parse_buffer_size)
+				{
+					uint16_t audioMuxLengthBytes = ((*(pBuf + 1) & 0x1F) << 8) | *(pBuf + 2);
+					if (cbSize >= audioMuxLengthBytes + 3)
+					{
+						if (m_bSynced == false)
+						{
+							if (VerifyAudioMuxElement(1, pBuf + 3, cbSize - 3))
+							{
+								m_bSynced = true;
+								printf("[MP4AAC] Successfully located the syncword in LOAS AudioMuxElement.\n");
+							}
+							else
+							{
+								cbSize--; pBuf++;
+								continue;
+							}
+						}
+
+						if ((*(pBuf + 3) & 0x80) == 0)	// useSameStreamMux = 0
+						{
+							AMBst in_bst = AMBst_CreateFromBuffer(pBuf + 3, cbSize - 3);
+							if (in_bst != nullptr)
+							{
+								try
+								{
+									CStreamMuxConfig* pStreamMuxConfig = new CStreamMuxConfig();
+									AMBst_SkipBits(in_bst, 1);
+									if (AMP_SUCCEEDED(pStreamMuxConfig->Map(in_bst)))
+									{
+										MP4AMuxStreamConfig spStreamConfig = std::shared_ptr<CStreamMuxConfig>(pStreamMuxConfig);
+
+										// generate the SHA1 for each AudioSpecificConfig
+										for (uint16_t prog = 0; prog < 16; prog++)
+										{
+											for (uint16_t lay = 0; lay < 8; lay++)
+											{
+												if (pStreamMuxConfig->AudioSpecificConfig[prog][lay] == nullptr)
+													continue;
+
+												assert(pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos > 0 &&
+													pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_end_pos > 0);
+
+												AMSHA1 handleSHA1 = AM_SHA1_Init();
+
+												int left_bits = pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_end_pos -
+													pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos;
+
+												AMBst_Seek(in_bst, pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos);
+												while (left_bits >= 64)
+												{
+													uint64_t u64Val = AMBst_GetBits(in_bst, 64);
+													AM_SHA1_Input(handleSHA1, (uint8_t*)(&u64Val), 8);
+													left_bits -= 64;
+												}
+
+												if (left_bits > 0)
+												{
+													uint64_t u64Val = AMBst_GetBits(in_bst, left_bits);
+													AM_SHA1_Input(handleSHA1, (uint8_t*)(&u64Val), 8);
+													left_bits = 0;
+												}
+
+												AM_SHA1_Finalize(handleSHA1);
+												AM_SHA1_GetHash(handleSHA1, pStreamMuxConfig->AudioSpecificConfig[prog][lay]->sha1_value);
+												AM_SHA1_Uninit(handleSHA1);
+
+												//auto h = pStreamMuxConfig->AudioSpecificConfig[prog][lay]->sha1_value;
+												//printf("start_bitpos: %d, end_bitpos: %d, SHA1 value: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n",
+												//	pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos,
+												//	pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_end_pos, 
+												//	h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], h[9], h[10], h[11], h[12], h[13], h[14], h[15]);
+											}
+										}
+
+										m_pCtxMP4AAC->UpdateMuxStreamConfig(spStreamConfig);
+									}
+									else
+									{
+										delete pStreamMuxConfig;
+									}
+								}
+								catch(...)
+								{ }
+								AMBst_Destroy(in_bst);
+							}
+						}
+
+						if (m_loas_enum)
+						{
+							int iEnumRet = RET_CODE_SUCCESS;
+							if ((iEnumRet = m_loas_enum->EnumLATMAUBegin(m_pCtxMP4AAC, pBuf + 3, (size_t)(cbSize - 3))) == RET_CODE_ABORT)
+							{
+								iRet = iEnumRet;
+								goto done;
+							}
+
+							if ((iEnumRet = m_loas_enum->EnumLATMAUEnd(m_pCtxMP4AAC, pBuf + 3, (size_t)(cbSize - 3))) == RET_CODE_ABORT)
+							{
+								iRet = iEnumRet;
+								goto done;
+							}
+						}
+
+						pBuf += 3 + audioMuxLengthBytes;
+					}
+					else
+					{
+						// the buffer is not enough
+						iRet = RET_CODE_NEEDMOREINPUT;
+						break;
+					}
+				}
+			}
+
+			AM_LRB_SkipReadPtr(m_rbRawBuf, (unsigned int)(pBuf - pCurParseStartBuf));
+
+			if (bDrain)
+			{
+				AM_LRB_Reset(m_rbRawBuf);
+				iRet = RET_CODE_SUCCESS;
+			}
+			else
+			{
+				iRet = RET_CODE_NEEDMOREINPUT;
+			}
+
+		done:
+			return iRet;
+		}
+
+		RET_CODE CLOASParser::GetMP4AContext(IMP4AACContext** ppCtx)
+		{
+			if (ppCtx == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
+
+			m_pCtxMP4AAC->AddRef();
+			*ppCtx = m_pCtxMP4AAC;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE CLOASParser::Reset()
+		{
+			AM_LRB_Reset(m_rbRawBuf);
+
+			m_pCtxMP4AAC->Reset();
+
+			m_bSynced = false;
+
+			return RET_CODE_SUCCESS;
+		}
+
+		bool CLOASParser::VerifyAudioMuxElement(bool muxConfigPresent, uint8_t* pAudioMuxElement, int cbAudioMuxElement)
+		{
+			AMBst in_bst = AMBst_CreateFromBuffer(pAudioMuxElement, cbAudioMuxElement);
+			if (in_bst == nullptr)
+				return false;
+
+			bool bRet = true;
+			CStreamMuxConfig* pStreamMuxConfig = nullptr;
+			try
+			{
+				if (muxConfigPresent)
+				{
+					if (!AMBst_GetBits(in_bst, 1)) {
+						pStreamMuxConfig = new CStreamMuxConfig();
+						int iMSMRet = pStreamMuxConfig->Map(in_bst);
+						if (AMP_FAILED(iMSMRet))
+						{
+							bRet = false;
+							goto done;
+						}
+					}
+				}
+			}
+			catch (...)
+			{
+				bRet = false;
+			}
+
+		done:
+			AMP_SAFEDEL(pStreamMuxConfig);
+			AMBst_Destroy(in_bst);
+			return bRet;
+		}
+
 
 		const std::tuple<const char*, int> audioProfileLevelIndication_Descs[256] = {
 			/* 0x00 */		{ "Reserved for ISO use", -1 },

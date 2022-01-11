@@ -61,6 +61,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	ShowStreamMuxConfig();
 extern int	RunH264HRD();
 extern int	ShowNUs();
 extern int	ShowVPS();
@@ -186,6 +187,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showSPS",
 		"showPPS",
 		"showHRD",
+		"showStreamMuxConfig",
 		"runHRD",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
 		"listMMTPpacket",
@@ -466,6 +468,10 @@ int PrepareParams()
 					g_params["srcfmt"] = "h265";
 				else if (_stricmp(file_name_ext.c_str(), ".h266") == 0 || _stricmp(file_name_ext.c_str(), ".vvc") == 0)
 					g_params["srcfmt"] = "h266";
+				else if (_stricmp(file_name_ext.c_str(), ".adts") == 0)
+					g_params["srcfmt"] = "adts";
+				else if (_stricmp(file_name_ext.c_str(), ".loas") == 0)
+					g_params["srcfmt"] = "loas";
 			}
 		}
 
@@ -528,7 +534,9 @@ int PrepareParams()
 			iter->second.compare("mmt") == 0 ||
 			iter->second.compare("h264") == 0 ||
 			iter->second.compare("h265") == 0 || 
-			iter->second.compare("h266") == 0)
+			iter->second.compare("h266") == 0 ||
+			iter->second.compare("loas") == 0 ||
+			iter->second.compare("adts") == 0)
 			bIgnorePreparseTS = true;
 	}
 
@@ -661,6 +669,7 @@ void PrintHelp()
 	printf("\t--showPPS\t\tShow the PPS syntax of AVC/HEVC/VVC stream\n");
 	printf("\t--showHRD\t\tShow the Hypothetical reference decoder parameters of AVC/HEVC/VVC stream\n");
 	printf("\t--runHRD\t\tRun the Hypothetical reference decoder verifier of AVC/HEVC/VVC stream\n");
+	printf("\t--showStreamMuxConfig\tShow the StreamMuxConfig in MPEG4 AAC LOAS/LATM stream\n");
 	printf("\t--crc\t\t\tSpecify the crc type, if crc type is not specified, list all crc types\n");
 	printf("\t--listcrc\t\tList all crc types and exit\n");
 	printf("\t--listmp4box\t\tShow the ISOBMFF box-table defined in ISO14496-12/15 and QTFF and exit\n");
@@ -998,12 +1007,45 @@ int main(int argc, char* argv[])
 		}
 		else if (g_params.find("output") == g_params.end())
 		{
+			if (g_params.find("showinfo") != g_params.end())
+			{
+				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("loas") == 0)
+				{
+					printf("Oops! Not implement yet....\n");
+					goto done;
+				}
+				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("adts") == 0)
+				{
+					printf("Oops! Not implement yet....\n");
+					goto done;
+				}
+				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0)
+				{
+					printf("Oops! Not implement yet....\n");
+					goto done;
+				}
+				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h265") == 0)
+				{
+					printf("Oops! Not implement yet....\n");
+					goto done;
+				}
+				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h266") == 0)
+				{
+					printf("Oops! Not implement yet....\n");
+					goto done;
+				}
+				else
+				{
+					g_params["pid"] = "0";
+					nDumpRet = DumpOneStream();
+					goto done;
+				}
+			}
 			// No output file is specified
 			// Check whether pid and showinfo is there
-			if (g_params.find("showinfo") != g_params.end() || 
-				g_params.find("showSIT") != g_params.end() || 
-				g_params.find("showPAT") != g_params.end() || 
-				g_params.find("showPMT") != g_params.end())
+			else if (g_params.find("showSIT") != g_params.end() || 
+					 g_params.find("showPAT") != g_params.end() || 
+					 g_params.find("showPMT") != g_params.end())
 			{
 				g_params["pid"] = "0";
 				nDumpRet = DumpOneStream();
@@ -1079,6 +1121,11 @@ int main(int argc, char* argv[])
 			else if (g_params.find("runHRD") != g_params.end())
 			{
 				nDumpRet = RunH264HRD();
+				goto done;
+			}
+			else if (g_params.find("showStreamMuxConfig") != g_params.end())
+			{
+				nDumpRet = ShowStreamMuxConfig();
 				goto done;
 			}
 			else

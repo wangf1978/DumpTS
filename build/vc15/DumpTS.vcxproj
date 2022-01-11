@@ -265,6 +265,7 @@
     <ClCompile Include="..\..\src\Bitstream.cpp" />
     <ClCompile Include="..\..\src\combase.cpp" />
     <ClCompile Include="..\..\src\crc.cpp" />
+    <ClCompile Include="..\..\src\DumpAAC.cpp" />
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
     <ClCompile Include="..\..\src\DumpMMT.cpp" />
     <ClCompile Include="..\..\src\DumpMP4.cpp" />
@@ -378,6 +379,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="..\..\src\Matroska.h" />
+    <ClInclude Include="..\..\src\mediaobjprint.h" />
     <ClInclude Include="..\..\src\MMT.h" />
     <ClInclude Include="..\..\src\NAL.h" />
     <ClInclude Include="..\..\src\nal_com.h" />

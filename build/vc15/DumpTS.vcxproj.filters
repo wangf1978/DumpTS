@@ -180,6 +180,9 @@
     <ClCompile Include="..\..\src\ISO14496_3.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\DumpAAC.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
@@ -315,6 +318,9 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\ISO14496_3.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mediaobjprint.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

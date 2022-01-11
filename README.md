@@ -5,6 +5,8 @@
 - **MMT**: MPEG Media Transport stream, the file extension is normally *.mmts* 
 - **PS**: MPEG program stream, the file extension is normally *.vob, .vro, .mpg, .mpeg* 
 - **NAL**: Network Abstract Layer stream, the file extension is normally *.h264, .avc, .h265, .hevc, h266 and .vvc*
+- **ADTS** The elementary stream exported from MPEG2-AAC stream which is packetized in TS stream, the file extension is normally .adts
+- **LOAS/LATM** The elementary stream exported from MPEG4-AAC stream which is packetized in TS or MMT/TLV stream, the file extension is normally .loas(with sync layer) or .latm, normally exported MPEG4-AAC as .loas
 
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
@@ -87,6 +89,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showSPS**|*N/A*|print the SPS syntax form of AVC/HEVC/VVC stream|
 |**--showPPS**|*N/A*|print the PPS syntax form of AVC/HEVC/VVC stream|
 |**--showHRD**|*N/A*|print the Hypothetical reference decoder parameters of AVC/HEVC/VVC stream|
+|**--showStreamMuxConfig**|*N/A*|print MPEG4-AAC StreamMuxConfig|
 |**--listMMTPpacket**|*N/A*|List the specified MMTP packets|
 |**--listMMTPpayload**|*N/A*|List the specified MMTP payloads|
 |**--listMPUtime**|*simple(default)<br>full*|List MPU presentation time and its pts/dts offset|

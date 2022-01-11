@@ -38,6 +38,8 @@ SOFTWARE.
 #include <unordered_map>
 #include <vector>
 #include <math.h>
+#include "dump_data_type.h"
+#include "AMSHA1.h"
 
 extern const char* Audio_Object_Type_Names[32];
 extern const char* audioProfileLevelIndication_names[256];
@@ -237,6 +239,8 @@ namespace BST {
 
 		#define MPE					0
 		#define RPE					1
+
+		class IMP4AACContext;
 
 		struct CAudioSpecificConfig : public SYNTAX_BITSTREAM_MAP {
 
@@ -784,7 +788,11 @@ namespace BST {
 				unsigned char*		config_data;
 			}PACKED;
 
-			CAudioSpecificConfig() { config_data_len = 0; config_data = NULL; }
+			// In order to check whether the AudioSpecificConfig is changed or not
+			// The upper layer may generate sha1_value for it, and then it can be used to identify the content of this part
+			AMSHA1_RET			sha1_value;
+
+			CAudioSpecificConfig() { config_data_len = 0; config_data = NULL; memset(sha1_value, 0, sizeof(sha1_value)); }
 			~CAudioSpecificConfig() {
 				unsigned audioObjectType = (audioObjectType_1 == 31) ? (32 + audioObjectTypeExt_1) : audioObjectType_1;
 				if (audioObjectType_1 == 5)
@@ -857,6 +865,8 @@ namespace BST {
 				{
 					return RET_CODE_BUFFER_TOO_SMALL;
 				}
+
+				SYNTAX_BITSTREAM_MAP::EndMap(in_bst);
 
 				return RET_CODE_SUCCESS;
 			}
@@ -1797,7 +1807,7 @@ namespace BST {
 				int sbrPresentFlag = -1;
 				int psPresentFlag = -1;
 				uint8_t extensionAudioObjectType = 0;
-				uint64_t left_bits = LeftBytes(bs)<<3;
+				uint64_t left_bits = (uint64_t)LeftBytes(bs)<<3;
 
 				AAC_CHECK_LEFT_BITS(5);
 				audioObjectType_1 = (uint8_t)bs.GetBits(5);
@@ -2517,7 +2527,7 @@ namespace BST {
 					{
 						// Skip the left bits
 						uint64_t cur_bitpos = bs.Tell();
-						bs.SkipBits((int64_t)(cnt << 3) - (cur_bitpos - start_bitpos));
+						bs.SkipBits(((int64_t)cnt << 3) - (cur_bitpos - start_bitpos));
 					}
 				}
 				else
@@ -4908,8 +4918,8 @@ namespace BST {
 			bool				useSameConfig[16][8] = { 0 };
 
 			uint32_t			ascLen[16][8] = { 0 };
-			CAudioSpecificConfig*
-								AudioSpecificConfig[16][8] = { 0 };
+			std::shared_ptr<CAudioSpecificConfig>
+								AudioSpecificConfig[16][8];
 			AMBitArray			fillBits[16][8] = { 0 };
 			uint8_t				frameLengthType[128] = { 0 };
 			union
@@ -4931,7 +4941,7 @@ namespace BST {
 				{
 					for (uint8_t lay = 0; lay < 8; lay++)
 					{
-						UNMAP_STRUCT_POINTER5(AudioSpecificConfig[prog][lay]);
+						AudioSpecificConfig[prog][lay] = nullptr;
 						if (fillBits[prog][lay])
 						{
 							AM_DestoryBitArray(fillBits[prog][lay]);
@@ -4985,14 +4995,18 @@ namespace BST {
 								{
 									if (audioMuxVersion == 0)
 									{
-										bsrbreadref(in_bst, AudioSpecificConfig[prog][lay], CAudioSpecificConfig);
+										CAudioSpecificConfig* pAudioSpecificConfig = nullptr;
+										bsrbreadref(in_bst, pAudioSpecificConfig, CAudioSpecificConfig);
+										AudioSpecificConfig[prog][lay] = std::shared_ptr<CAudioSpecificConfig>(pAudioSpecificConfig);
 									}
 									else
 									{
 										ascLen[prog][lay] = AMBst_LatmGetValue(in_bst);
 										map_status.number_of_fields++;
 										int bit_pos = AMBst_Tell(in_bst);
-										bsrbreadref(in_bst, AudioSpecificConfig[prog][lay], CAudioSpecificConfig);
+										CAudioSpecificConfig* pAudioSpecificConfig = nullptr;
+										bsrbreadref(in_bst, pAudioSpecificConfig, CAudioSpecificConfig);
+										AudioSpecificConfig[prog][lay] = std::shared_ptr<CAudioSpecificConfig>(pAudioSpecificConfig);
 										int left_bits = ascLen[prog][lay] - AMBst_Tell(in_bst) - bit_pos;
 
 										fillBits[prog][lay] = AM_CreateBitArray(left_bits);
@@ -5075,6 +5089,8 @@ namespace BST {
 				{
 					return RET_CODE_NO_MORE_DATA;
 				}
+
+				SYNTAX_BITSTREAM_MAP::EndMap(in_bst);
 
 				return RET_CODE_SUCCESS;
 			}
@@ -5210,7 +5226,7 @@ namespace BST {
 					}
 				}
 			DECLARE_FIELDPROP_END()
-		}PACKED;
+		};
 
 		struct CPayloadLengthInfo : public SYNTAX_BITSTREAM_MAP
 		{
@@ -5401,7 +5417,7 @@ namespace BST {
 
 			int Map(AMBst in_bst)
 			{
-				if (_StreamMuxConfig == NULL || _StreamMuxConfig == NULL)
+				if (_StreamMuxConfig == NULL)
 					return RET_CODE_ERROR;
 
 				SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -5469,10 +5485,11 @@ namespace BST {
 
 			AMBitArray				otherDataBits = NULL;
 
-			CAudioMuxElement(bool muxConfigPresent)
-				:_muxConfigPresent(muxConfigPresent)
-			{
+			IMP4AACContext*			ptr_context_MP4AAC;
 
+			CAudioMuxElement(bool muxConfigPresent)
+				: _muxConfigPresent(muxConfigPresent)
+				, ptr_context_MP4AAC(nullptr){
 			}
 
 			~CAudioMuxElement()
@@ -5494,6 +5511,11 @@ namespace BST {
 				if (!useSameStreamMux && StreamMuxConfig != NULL) {
 					UNMAP_STRUCT_POINTER5(StreamMuxConfig);
 				}
+			}
+
+			void UpdateCtx(IMP4AACContext* ctx)
+			{
+				ptr_context_MP4AAC = ctx;
 			}
 
 			int Map(AMBst in_bst)
@@ -5767,6 +5789,80 @@ namespace BST {
 			DECLARE_FIELDPROP_END()
 
 		}PACKED;
+
+
+
+		//
+		// For ADTS or LOAS enumerator
+		//
+		using MP4AMuxStreamConfig = std::shared_ptr<BST::AACAudio::CStreamMuxConfig>;
+		using MP4AMuxElement = std::shared_ptr<BST::AACAudio::CAudioMuxElement>;
+		class IMP4AACContext : public IUnknown
+		{
+		public:
+			virtual MP4AMuxStreamConfig			
+									GetMuxStreamConfig()=0;
+			virtual RET_CODE		UpdateMuxStreamConfig(MP4AMuxStreamConfig mux_stream_config)=0;
+			virtual MP4AMuxElement	CreateAudioMuxElement(bool muxConfigPresent)=0;
+			virtual void			Reset() = 0;
+
+		public:
+			IMP4AACContext() {}
+			virtual ~IMP4AACContext() {}
+		};
+
+		class IMP2AACContext : public IUnknown
+		{
+		public:
+			virtual void			Reset() = 0;
+
+		public:
+			IMP2AACContext() {}
+			virtual ~IMP2AACContext() {}
+		};
+
+		class IADTSEnumerator
+		{
+		public:
+			// TODO...
+		};
+
+		class ILOASEnumerator
+		{
+		public:
+			virtual RET_CODE		EnumLATMAUBegin(IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf) = 0;
+			virtual RET_CODE		EnumSubFrameBegin(IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload) = 0;
+			virtual RET_CODE		EnumSubFrameEnd(IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload) = 0;
+			virtual RET_CODE		EnumLATMAUEnd(IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf) = 0;
+			virtual RET_CODE		EnumError(IMP4AACContext* pCtx, RET_CODE error_code) = 0;
+		};
+
+		class CLOASParser
+		{
+		public:
+			CLOASParser(RET_CODE* pRetCode = nullptr);
+			virtual ~CLOASParser();
+
+		public:
+			RET_CODE				SetEnumerator(ILOASEnumerator* pEnumerator, uint32_t options);
+			RET_CODE				ProcessInput(uint8_t* pBuf, size_t cbBuf);
+			RET_CODE				ProcessOutput(bool bDrain = false);
+			RET_CODE				GetMP4AContext(IMP4AACContext** ppCtx);
+			RET_CODE				Reset();
+
+		protected:
+			IMP4AACContext*			m_pCtxMP4AAC = nullptr;
+			ILOASEnumerator*		m_loas_enum = nullptr;
+			uint32_t				m_loas_enum_options = UINT32_MAX;
+			AMLinearRingBuffer		m_rbRawBuf = nullptr;
+			bool					m_bSynced = false;
+
+		private:
+			bool					VerifyAudioMuxElement(bool muxConfigPresent, uint8_t* pAudioMuxElement, int cbAudioMuxElement);
+		};
+
+		extern RET_CODE CreateMP2AACContext(IMP2AACContext** ppMP2AACCtx);
+		extern RET_CODE CreateMP4AACContext(IMP4AACContext** ppMP4AACCtx);
 
 	}	// namespace AAC-Audio
 

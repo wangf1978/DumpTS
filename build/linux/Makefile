@@ -35,6 +35,7 @@ SOURCES := \
 	$(SOURCEDIR)/DumpTS.cpp \
 	$(SOURCEDIR)/DumpPS.cpp \
 	$(SOURCEDIR)/DumpNAL.cpp \
+	$(SOURCEDIR)/DumpAAC.cpp \
 	$(SOURCEDIR)/nal_com.cpp \
 	$(SOURCEDIR)/nal_parser.cpp \
 	$(SOURCEDIR)/sei.cpp \
