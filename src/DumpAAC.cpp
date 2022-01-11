@@ -93,6 +93,7 @@ int	ShowStreamMuxConfig()
 
 					if (memcmp(mux_stream_config->AudioSpecificConfig[prog][lay]->sha1_value, audio_specific_config_sha1[prog][lay], sizeof(AMSHA1_RET)) != 0)
 					{
+						printf("Audio Stream#%d:\n", mux_stream_config->streamID[prog][lay]);
 						PrintMediaObject(mux_stream_config->AudioSpecificConfig[prog][lay]);
 						memcpy(audio_specific_config_sha1[prog][lay], mux_stream_config->AudioSpecificConfig[prog][lay]->sha1_value, sizeof(AMSHA1_RET));
 					}
