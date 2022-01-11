@@ -1275,7 +1275,7 @@ namespace BST {
 
 				if (frame_cropping_flag)
 				{
-					uint32_t crop_unit_x, crop_unit_y;
+					uint32_t crop_unit_x = 0, crop_unit_y = 0;
 					if (0 == chroma_format_idc)	// monochrome
 					{
 						crop_unit_x = 1;

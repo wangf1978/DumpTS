@@ -29,7 +29,6 @@ SOFTWARE.
 #include "AMRingBuffer.h"
 
 #include "NAL.h"
-#include "tinyxml2.h"
 #include "AMSHA1.h"
 #include "DataUtil.h"
 #include "nal_parser.h"
