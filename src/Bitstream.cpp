@@ -402,8 +402,8 @@ CBitstream::~CBitstream()
 
 CFileBitstream::CFileBitstream(const char* szFileName, int cache_size, int* ptr_ret)
 	: m_fp(nullptr)
-	, m_filemappos(0)
 	, m_filesize(0)
+	, m_filemappos(0)
 {
 	int iRet = -1;
 	errno_t err_no;
