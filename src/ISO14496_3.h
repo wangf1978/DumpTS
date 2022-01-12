@@ -1,4 +1,4 @@
-﻿/*
+/*
 
 MIT License
 
@@ -3184,7 +3184,7 @@ namespace BST {
 
 							/*
 							4.6.2.3.2 Decoding of scalefactors
-							In the case of sf_escapes_present==1, a decoded value of �7 is used as ESC_FLAG. It signals that an escape
+							In the case of sf_escapes_present==1, a decoded value of is used as ESC_FLAG. It signals that an escape
 							value exists, that has to be added to +7 or subtracted from -7 in order to find the actual scalefactor value. This
 							escape value is Huffman encoded.
 							*/
@@ -3641,7 +3641,7 @@ namespace BST {
 			};
 
 			/*
-			Table 4.56 � Syntax of spectral_data()
+			Table 4.56 Syntax of spectral_data()
 			*/
 			struct SPECTRAL_DATA
 			{
