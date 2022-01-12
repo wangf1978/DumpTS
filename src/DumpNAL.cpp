@@ -409,11 +409,112 @@ done:
 	return iRet;
 }
 
+void PrintAVCSPSRoughInfo(H264_NU sps_nu)
+{
+	if (!sps_nu || sps_nu->ptr_seq_parameter_set_rbsp == nullptr)
+		return;
+
+	auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data;
+
+	printf("A new H.264 sequence(seq_parameter_set_id:%d):\n", sps_seq.seq_parameter_set_id);
+	printf("\tAVC Profile: %s\n", get_h264_profile_name(sps_seq.GetH264Profile()));
+	printf("\tAVC Level: %s\n", get_h264_level_name(sps_seq.GetH264Level()));
+	auto profile_idc = sps_seq.profile_idc;
+	if (profile_idc == 100 || profile_idc == 110 ||
+		profile_idc == 122 || profile_idc == 244 || profile_idc == 44 ||
+		profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
+		profile_idc == 128 || profile_idc == 138)
+		printf("\tChroma: %s\n", chroma_format_idc_names[sps_seq.chroma_format_idc]);
+
+	printf("\tScan type: %s\n", sps_seq.frame_mbs_only_flag?"Progressive":"Interlaced");
+
+	uint8_t SubWidthC = (sps_seq.chroma_format_idc == 1 || sps_seq.chroma_format_idc == 2) ? 2 : (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0 ? 1 : 0);
+	uint8_t SubHeightC = (sps_seq.chroma_format_idc == 2 || (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0)) ? 1 : (sps_seq.chroma_format_idc == 1 ? 2 : 0);
+
+	uint16_t PicWidthInMbs = sps_seq.pic_width_in_mbs_minus1 + 1;
+	uint32_t PicWidthInSamplesL = PicWidthInMbs * 16;
+	//uint32_t PicWidthInSamplesC = PicWidthInMbs * MbWidthC;
+	uint16_t PicHeightInMapUnits = sps_seq.pic_height_in_map_units_minus1 + 1;
+	uint32_t PicSizeInMapUnits = PicWidthInMbs * PicHeightInMapUnits;
+	uint16_t FrameHeightInMbs = (2 - sps_seq.frame_mbs_only_flag) * PicHeightInMapUnits;
+	uint8_t ChromaArrayType = sps_seq.separate_colour_plane_flag == 0 ? sps_seq.chroma_format_idc : 0;
+	uint8_t CropUnitX = ChromaArrayType == 0 ? 1 : SubWidthC;
+	uint8_t CropUnitY = ChromaArrayType == 0 ? (2 - sps_seq.frame_mbs_only_flag) : SubHeightC * (2 - sps_seq.frame_mbs_only_flag);
+
+	uint32_t frame_buffer_width = PicWidthInSamplesL, frame_buffer_height = FrameHeightInMbs * 16;
+	uint32_t display_width = frame_buffer_width, display_height = frame_buffer_height;
+
+	if (sps_seq.frame_cropping_flag)
+	{
+		uint32_t crop_unit_x = 0, crop_unit_y = 0;
+		if (0 == sps_seq.chroma_format_idc)	// monochrome
+		{
+			crop_unit_x = 1;
+			crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+		}
+		else if (1 == sps_seq.chroma_format_idc)	// 4:2:0
+		{
+			crop_unit_x = 2;
+			crop_unit_y = 2 * (2 - sps_seq.frame_mbs_only_flag);
+		}
+		else if (2 == sps_seq.chroma_format_idc)	// 4:2:2
+		{
+			crop_unit_x = 2;
+			crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+		}
+		else if (3 == sps_seq.chroma_format_idc)
+		{
+			crop_unit_x = 1;
+			crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+		}
+
+		display_width -= crop_unit_x * (sps_seq.frame_crop_left_offset + sps_seq.frame_crop_right_offset);
+		display_height -= crop_unit_y * (sps_seq.frame_crop_top_offset + sps_seq.frame_crop_bottom_offset);
+	}
+
+	printf("\tCoded Frame resolution: %" PRIu32 "x%" PRIu32 "\n", frame_buffer_width, frame_buffer_height);
+	printf("\tDisplay resolution: %" PRIu32 "x%" PRIu32 "\n", display_width, display_height);
+
+	if (sps_seq.vui_parameters_present_flag && sps_seq.vui_parameters)
+	{
+		auto vui_parameters = sps_seq.vui_parameters;
+
+		if (vui_parameters->aspect_ratio_info_present_flag)
+		{
+			if (vui_parameters->aspect_ratio_idc == 0xFF)
+				printf("\tSample Aspect-Ratio: %" PRIu16 "x%" PRIu16 "\n", vui_parameters->sar_width, vui_parameters->sar_height);
+			else
+				printf("\tSample Aspect-Ratio: %s\n", sample_aspect_ratio_descs[vui_parameters->aspect_ratio_idc]);
+		}
+
+		if (vui_parameters->colour_description_present_flag)
+		{
+			printf("\tColour Primaries: %d(%s)\n", vui_parameters->colour_primaries, vui_colour_primaries_names[vui_parameters->colour_primaries]);
+			printf("\tTransfer Characteristics: %d(%s)\n", vui_parameters->transfer_characteristics, vui_transfer_characteristics_names[vui_parameters->transfer_characteristics]);
+			printf("\tMatrix Coeffs: %d(%s)\n", vui_parameters->matrix_coeffs, vui_matrix_coeffs_descs[vui_parameters->matrix_coeffs]);
+		}
+
+		uint32_t units_field_based_flag = 1;		// For H264, default value is 1
+		if (vui_parameters->timing_info_present_flag)
+		{
+			if (vui_parameters->time_scale > 0)
+			{
+				float frame_rate = (float)vui_parameters->time_scale / (vui_parameters->num_units_in_tick * (units_field_based_flag + 1));
+				printf("\tFrame-Rate: %f fps\n", frame_rate);
+			}
+		}
+	}
+
+	return;
+}
+
 /*
 	 1: VPS
 	 2: SPS
 	 3: PPS
 	12: HRD
+	81: rough VPS
+	82: rough SPS
 */
 int ShowNALObj(int object_type)
 {
@@ -467,25 +568,25 @@ int ShowNALObj(int object_type)
 			printf("No VPS object in H.264 stream.\n");
 			return RET_CODE_INVALID_PARAMETER;
 		}
-		else if (object_type == 2)
+		else if (object_type == 2 || object_type == 82)
 			pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT });
 		else if (object_type == 3)
 			pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT, BST::H264Video::PPS_NUT });
 	}
 	else if (coding == NAL_CODING_HEVC)
 	{
-		if (object_type == 1)
+		if (object_type == 1 || object_type == 81)
 			pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT });
-		else if (object_type == 2)
+		else if (object_type == 2 || object_type == 82)
 			pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT, BST::H265Video::SPS_NUT });
 		else if (object_type == 3)
 			pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT, BST::H265Video::SPS_NUT, BST::H265Video::PPS_NUT });
 	}
 	else if (coding == NAL_CODING_VVC)
 	{
-		if (object_type == 1)
+		if (object_type == 1 || object_type == 81)
 			pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT });
-		else if (object_type == 2)
+		else if (object_type == 2 || object_type == 82)
 			pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT });
 		else if (object_type == 3)
 			pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT, BST::H266Video::PPS_NUT });
@@ -542,6 +643,8 @@ int ShowNALObj(int object_type)
 
 						if (object_type == 2)
 							PrintMediaObject(nu);
+						else if (object_type == 82)
+							PrintAVCSPSRoughInfo(nu);
 						else if (object_type == 12)
 							PrintHRDFromAVCSPS(nu);
 					}
@@ -723,6 +826,11 @@ int	ShowVPS()
 int	ShowSPS()
 {
 	return ShowNALObj(2);
+}
+
+int ShowNALInfo()
+{
+	return ShowNALObj(82);
 }
 
 int ShowPPS()

@@ -61,13 +61,14 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
-extern int	ShowStreamMuxConfig();
+extern int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig);
 extern int	RunH264HRD();
 extern int	ShowNUs();
 extern int	ShowVPS();
 extern int	ShowSPS();
 extern int	ShowPPS();
 extern int	ShowHRD();
+extern int	ShowNALInfo();
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
 extern int	DiffTSATC();
@@ -1011,7 +1012,7 @@ int main(int argc, char* argv[])
 			{
 				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("loas") == 0)
 				{
-					printf("Oops! Not implement yet....\n");
+					nDumpRet = ShowStreamMuxConfig(true);
 					goto done;
 				}
 				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("adts") == 0)
@@ -1021,7 +1022,7 @@ int main(int argc, char* argv[])
 				}
 				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0)
 				{
-					printf("Oops! Not implement yet....\n");
+					nDumpRet = ShowNALInfo();
 					goto done;
 				}
 				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h265") == 0)
@@ -1125,7 +1126,7 @@ int main(int argc, char* argv[])
 			}
 			else if (g_params.find("showStreamMuxConfig") != g_params.end())
 			{
-				nDumpRet = ShowStreamMuxConfig();
+				nDumpRet = ShowStreamMuxConfig(false);
 				goto done;
 			}
 			else
