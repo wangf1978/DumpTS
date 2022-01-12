@@ -38,6 +38,7 @@ SOFTWARE.
 #include <unordered_map>
 #include <vector>
 #include <math.h>
+#include <stdexcept>
 #include "dump_data_type.h"
 #include "AMSHA1.h"
 
@@ -5085,7 +5086,7 @@ namespace BST {
 				{
 					return e.RetCode();
 				}
-				catch (std::out_of_range&)
+				catch (std::out_of_range& )
 				{
 					return RET_CODE_NO_MORE_DATA;
 				}

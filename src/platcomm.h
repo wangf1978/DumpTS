@@ -199,7 +199,7 @@ SOFTWARE.
 	}
 #endif
 
-#ifdef _WIN32
+#if defined(_MSC_VER) && _MSC_VER < 1920
 #define CODE_NOP1(p)						p
 #else
 #define CODE_NOP1(p)						(void)0
