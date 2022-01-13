@@ -42,11 +42,6 @@ SOFTWARE.
 #include "dump_data_type.h"
 #include "AMSHA1.h"
 
-extern const char* Audio_Object_Type_Names[32];
-extern const char* audioProfileLevelIndication_names[256];
-
-extern const char* ADTS_profile_ObjectType_names[2][4];
-
 #define ZERO_HCB								0
 #define FIRST_PAIR_HCB							5
 #define ESC_HCB									11
@@ -83,6 +78,11 @@ extern const char* ADTS_profile_ObjectType_names[2][4];
 namespace BST {
 
 	namespace AACAudio {
+
+		extern const char* Audio_Object_Type_Names[42];
+		extern const char* audioProfileLevelIndication_names[256];
+
+		extern const char* ADTS_profile_ObjectType_names[2][4];
 
 		using VLC_ITEM = std::tuple<int64_t, uint8_t, uint64_t>;
 		using Huffman_Codebook = std::vector<VLC_ITEM>;
@@ -4915,7 +4915,7 @@ namespace BST {
 			uint8_t				numLayer[16] = { 0 };
 			uint8_t				progSIndx[16 * 8] = { 0 };
 			uint8_t				laySIndx[16 * 8] = { 0 };
-			uint8_t				streamID[16][8] = { 0 };
+			int8_t				streamID[16][8] = { 0 };
 			bool				useSameConfig[16][8] = { 0 };
 
 			uint32_t			ascLen[16][8] = { 0 };
@@ -4937,6 +4937,16 @@ namespace BST {
 			uint32_t			otherDataLenBits = 0;
 			uint8_t				crcCheckSum = 0;
 
+			CStreamMuxConfig() {
+				for (uint8_t prog = 0; prog < 16; prog++)
+				{
+					for (uint8_t lay = 0; lay < 8; lay++)
+					{
+						streamID[prog][lay] = (int8_t)-1;
+					}
+				}
+			}
+
 			~CStreamMuxConfig() {
 				for (uint8_t prog = 0; prog < 16; prog++)
 				{
@@ -4950,6 +4960,44 @@ namespace BST {
 						}
 					}
 				}
+			}
+
+			std::shared_ptr<CAudioSpecificConfig> GetAudioSpecificConfig(int8_t StmID)
+			{
+				if (StmID < 0)
+					return nullptr;
+
+				for (uint8_t prog = 0; prog < 16; prog++)
+				{
+					for (uint8_t lay = 0; lay < 8; lay++)
+					{
+						if (streamID[prog][lay] == StmID)
+							return AudioSpecificConfig[prog][lay];
+					}
+				}
+
+				return nullptr;
+			}
+
+			RET_CODE GetProgAndLayByStreamID(int8_t StmID, uint8_t& ret_prog, uint8_t& ret_lay)
+			{
+				if (StmID < 0)
+					return RET_CODE_INVALID_PARAMETER;
+
+				for (uint8_t prog = 0; prog < 16; prog++)
+				{
+					for (uint8_t lay = 0; lay < 8; lay++)
+					{
+						if (streamID[prog][lay] == StmID)
+						{
+							ret_prog = prog;
+							ret_lay = lay;
+							return RET_CODE_SUCCESS;
+						}
+					}
+				}
+
+				return RET_CODE_OUT_OF_RANGE;
 			}
 
 			int Map(AMBst in_bst) {

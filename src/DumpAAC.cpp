@@ -71,7 +71,9 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 	class CLOASEnumerator : public BST::AACAudio::ILOASEnumerator
 	{
 	public:
-		CLOASEnumerator(BST::AACAudio::IMP4AACContext* pCtxMP4AAC) : m_pCtxMP4AAC(pCtxMP4AAC) {
+		CLOASEnumerator(BST::AACAudio::IMP4AACContext* pCtxMP4AAC, bool bOnlyShowAudioSpecificConfig) 
+			: m_pCtxMP4AAC(pCtxMP4AAC)
+			, m_bOnlyShowAudioSpecificConfig(bOnlyShowAudioSpecificConfig){
 			memset(audio_specific_config_sha1, 0, sizeof(audio_specific_config_sha1));
 		}
 
@@ -93,8 +95,57 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 
 					if (memcmp(mux_stream_config->AudioSpecificConfig[prog][lay]->sha1_value, audio_specific_config_sha1[prog][lay], sizeof(AMSHA1_RET)) != 0)
 					{
-						printf("Audio Stream#%d:\n", mux_stream_config->streamID[prog][lay]);
-						PrintMediaObject(mux_stream_config->AudioSpecificConfig[prog][lay]);
+						if (m_bOnlyShowAudioSpecificConfig)
+						{
+							printf("Audio Stream#%d:\n", mux_stream_config->streamID[prog][lay]);
+							PrintMediaObject(mux_stream_config->AudioSpecificConfig[prog][lay]);
+
+							// Also show the audio frame duration
+							auto audio_specific_config = mux_stream_config->AudioSpecificConfig[prog][lay];
+							auto audio_object_type = audio_specific_config->GetAudioObjectType();
+
+							int frameLength = 0;	// Unknown
+							if (audio_object_type == BST::AACAudio::AAC_main ||
+								audio_object_type == BST::AACAudio::AAC_LC ||
+								audio_object_type == BST::AACAudio::AAC_SSR ||
+								audio_object_type == BST::AACAudio::AAC_LTP ||
+								audio_object_type == BST::AACAudio::AAC_Scalable ||
+								audio_object_type == BST::AACAudio::TwinVQ ||
+								audio_object_type == BST::AACAudio::ER_AAC_LC ||
+								audio_object_type == BST::AACAudio::ER_AAC_LTP ||
+								audio_object_type == BST::AACAudio::ER_AAC_scalable ||
+								audio_object_type == BST::AACAudio::ER_TwinVQ ||
+								audio_object_type == BST::AACAudio::ER_BSAC ||
+								audio_object_type == BST::AACAudio::ER_AAC_LD)
+							{
+								int nSamplingRates[] = { 96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350, -1, -1, -1 };
+
+								if (audio_object_type == BST::AACAudio::AAC_SSR)
+									frameLength = 256;
+								else if (audio_object_type == BST::AACAudio::ER_AAC_LD)
+									frameLength = audio_specific_config->GASpecificConfig->frameLengthFlag ? 480 : 512;
+								else
+									frameLength = audio_specific_config->GASpecificConfig->frameLengthFlag ? 960 : 1024;
+
+								if (audio_specific_config->samplingFrequencyIndex == 0xF)
+								{
+									printf("\tFrame Duration: %" PRIu64 ".%03" PRIu32 "ms\n", 
+										(uint64_t)(frameLength * 1000ULL / audio_specific_config->samplingFrequency),
+										(uint32_t)(frameLength * 1000000ULL / audio_specific_config->samplingFrequency%1000));
+								}
+								else if (nSamplingRates[audio_specific_config->samplingFrequencyIndex] > 0)
+								{
+									printf("\tFrame Duration: %" PRIu64 ".%03" PRIu32 "ms\n",
+										(uint64_t)(frameLength * 1000ULL / nSamplingRates[audio_specific_config->samplingFrequencyIndex]),
+										(uint32_t)(frameLength * 1000000ULL / nSamplingRates[audio_specific_config->samplingFrequencyIndex] % 1000));
+								}
+							}
+						}
+						else
+						{
+							printf("Updated Stream Mux Config:\n");
+							PrintMediaObject(mux_stream_config);
+						}
 						memcpy(audio_specific_config_sha1[prog][lay], mux_stream_config->AudioSpecificConfig[prog][lay]->sha1_value, sizeof(AMSHA1_RET));
 					}
 				}
@@ -128,7 +179,8 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 		BST::AACAudio::IMP4AACContext* m_pCtxMP4AAC = nullptr;
 		uint64_t m_AUCount = 0;
 		AMSHA1_RET audio_specific_config_sha1[16][8];
-	}LOASEnumerator(pCtxMP4AAC);
+		bool m_bOnlyShowAudioSpecificConfig;
+	}LOASEnumerator(pCtxMP4AAC, bOnlyShowAudioSpecificConfig);
 
 	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || rfp == NULL)
