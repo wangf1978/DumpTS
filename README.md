@@ -27,6 +27,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
         Open build/DumpTS_vc14.sln and build it
     2. VS2017/vc15<br>
         Open build/DumpTS_vc15.sln and build it
+    3. VS2019/vc16<br>
+        Open build/DumpTS_vc16.sln and build it
 - Linux<br>
     *Make sure gcc with modern C++11/14 support is installed*<br>
     Here are steps to build and install this application

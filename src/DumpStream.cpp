@@ -32,6 +32,7 @@ SOFTWARE.
 #include "AudChMap.h"
 #include <limits>
 #include <type_traits>
+#include <iterator>
 
 using namespace std;
 
@@ -624,7 +625,7 @@ int ParseDTSExSSAU(unsigned short PID, int stream_type, unsigned long sync_code,
 				nuInfoTextByteSize = (uint16_t)bst.GetBits(10) + 1;
 
 			if (bInfoTextPresent)
-				bst.SkipBits(nuInfoTextByteSize * 8);
+				bst.SkipBits((int64_t)nuInfoTextByteSize * 8);
 			nuBitResolution = (uint8_t)bst.GetBits(5) + 1;
 			nuMaxSampleRate = (uint8_t)bst.GetBits(4);
 			nuTotalNumChs = (uint8_t)bst.GetBits(8) + 1;

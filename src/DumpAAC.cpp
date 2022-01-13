@@ -34,7 +34,7 @@ using namespace std;
 
 extern unordered_map<std::string, std::string> g_params;
 
-int	ShowStreamMuxConfig()
+int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 {
 	BST::AACAudio::IMP4AACContext* pCtxMP4AAC = nullptr;
 	uint8_t pBuf[2048] = { 0 };
