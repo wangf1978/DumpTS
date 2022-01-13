@@ -584,7 +584,7 @@ namespace BST {
 								if (pan_scan_cnt_minus1 > 2)
 								{
 									map_status.number_of_fields--;
-									printf(_T("[H265] pan_scan_cnt_minus1(%d) shall be in the range of 0 to 2, inclusive.\n"), pan_scan_cnt_minus1);
+									printf("[H265] pan_scan_cnt_minus1(%d) shall be in the range of 0 to 2, inclusive.\n", pan_scan_cnt_minus1);
 									return RET_CODE_BUFFER_NOT_COMPATIBLE;
 								}
 

@@ -25,7 +25,6 @@ SOFTWARE.
 */
 #pragma once
 
-#include "platcomm.h"
 #include "dump_data_type.h"
 
 #ifdef _MSC_VER

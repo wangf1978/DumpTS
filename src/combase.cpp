@@ -1,7 +1,7 @@
 #include "platcomm.h"
 #include "combase.h"
 
-CComUnknown::CComUnknown() : m_cRef(0)
+CComUnknown::CComUnknown() : m_cRef(0), m_pUnknown(nullptr)
 {
 	m_pUnknown = reinterpret_cast<IUnknown*>(static_cast<INonDelegatingCOMUnknown*>(this));
 }

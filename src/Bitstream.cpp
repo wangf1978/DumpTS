@@ -210,7 +210,7 @@ int64_t CBitstream::GetSignBits(int n)
 	if (n == 64)
 		return -((int64_t)((~u64Val) + 1ULL));
 	
-	uint64_t nMask = (1 << n) - 1;
+	uint64_t nMask = (uint64_t)((1ULL << n) - 1);
 	return -((int64_t)(((~u64Val)&nMask) + 1ULL));
 }
 
