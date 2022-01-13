@@ -305,6 +305,8 @@ SOFTWARE.
 #define RET_CODE_BUFFER_NOT_COMPATIBLE	   -2002			// The loaded buffer is not compatible with spec.
 #define RET_CODE_BUFFER_NOT_FOUND		   -2003
 #define RET_CODE_ERROR_CRC				   -2004
+#define RET_CODE_BUFFER_OVERFLOW		   -2005
+#define RET_CODE_BUFFER_UNDERFLOW		   -2006
 
 #define RET_CODE_BOX_TOO_SMALL			   -2100			// ISO 14496-12 box size is too small, and can't unpack the information according to spec
 #define RET_CODE_BOX_INCOMPATIBLE		   -2101			// the current stream is incompatible with ISO 14496-12

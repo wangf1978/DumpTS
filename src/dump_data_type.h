@@ -50,6 +50,7 @@ using TM_90KHZ = int64_t;
 using TM_45KHZ = int64_t;
 using RET_CODE = int32_t;
 using TM_HNS = int64_t;
+using TS_PID = uint16_t;
 
 union RET_READ
 {
