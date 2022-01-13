@@ -1146,7 +1146,7 @@ namespace BST {
 					BST_FIELD_PROP_UE(bit_depth_luma_minus8, "");
 					BST_FIELD_PROP_UE(bit_depth_chroma_minus8, "");
 
-					BST_FIELD_PROP_BOOL(qpprime_y_zero_transform_bypass_flag, "when QP��Y is equal to 0, a transform bypass operation for the transform coefficient decoding process and picture construction process prior to deblocking filter process as specified in clause 8.5 shall be applied",
+					BST_FIELD_PROP_BOOL(qpprime_y_zero_transform_bypass_flag, "when QP'Y is equal to 0, a transform bypass operation for the transform coefficient decoding process and picture construction process prior to deblocking filter process as specified in clause 8.5 shall be applied",
 						"the transform coefficient decoding process and picture construction process prior to deblocking filter process shall not use the transform bypass operation");
 					BST_FIELD_PROP_BOOL(seq_scaling_matrix_present_flag, "the flags seq_scaling_list_present_flag[ i ] for i = 0..7 or i = 0..11 are present",
 						"the flags seq_scaling_list_present_flag[ i ] for i = 0..7 or i = 0..11 are not present");

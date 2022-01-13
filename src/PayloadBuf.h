@@ -175,7 +175,7 @@ struct TS_FORMAT_INFO
 	bool						encrypted;
 };
 
-// Please see Table 2-28 ¨C Program-specific information
+// Please see Table 2-28 - Program-specific information
 enum PSI_TYPE
 {
 	PSI_PAT = 0,
