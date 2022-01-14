@@ -1679,12 +1679,30 @@ void NotifyAUStartPoint(TM_90KHZ pts, TM_90KHZ dts, const PROCESS_DATA_INFO* dat
 	char szAUItem[256] = { 0 };
 	size_t ccLog = sizeof(szAUItem) / sizeof(szAUItem[0]);
 
-	int ccWritten = 0;
-	int ccWrittenOnce = MBCSPRINTF_S(szAUItem, ccLog, "#%-10" PRId64 ", MPU/packet sequence number: 0x%08X/0x%08X, %-8s",
-		idx_AU_Notified,
-		data_info->MPU_sequence_number, data_info->packet_sequence_number,
-		HEVC_PICTURE_TYPE_NAMEA(au_info->picture_type)
-	);
+	CODEC_ID codec_id = CODEC_ID_UNKNOWN;
+	CESRepacker* pESRepacker = (CESRepacker*)pCtx;
+	
+	if (pESRepacker != nullptr)
+	{
+		codec_id = pESRepacker->GetConfig().codec_id;
+	}
+
+	const char* au_type_name = (codec_id == CODEC_ID_V_MPEGH_HEVC ? HEVC_PICTURE_TYPE_NAMEA(au_info->picture_type) : (
+								codec_id == CODEC_ID_V_MPEG4_AVC ? AVC_PIC_SLICE_TYPE_NAMEA(au_info->avc_picture_slice_type) : nullptr));
+
+	int ccWritten = 0,ccWrittenOnce = 0;
+	if (au_type_name == nullptr)
+	{
+		ccWrittenOnce = MBCSPRINTF_S(szAUItem, ccLog, "#%-10" PRId64 ", MPU/packet sequence number: 0x%08X/0x%08X",
+			idx_AU_Notified,
+			data_info->MPU_sequence_number, data_info->packet_sequence_number);
+	}
+	else
+	{
+		ccWrittenOnce = MBCSPRINTF_S(szAUItem, ccLog, "#%-10" PRId64 ", MPU/packet sequence number: 0x%08X/0x%08X, %-8s",
+			idx_AU_Notified,
+			data_info->MPU_sequence_number, data_info->packet_sequence_number, au_type_name);
+	}
 
 	if (ccWrittenOnce > 0)
 		ccWritten += ccWrittenOnce;
@@ -2167,7 +2185,7 @@ int DumpMMTOneStream()
 								pESRepacker[i] = new CESRepacker(ES_BYTE_STREAM_RAW, dstESFmt);
 
 							if (bShowPTS)
-								pESRepacker[i]->SetAUStartPointCallback(NotifyAUStartPoint, nullptr);
+								pESRepacker[i]->SetAUStartPointCallback(NotifyAUStartPoint, (void*)pESRepacker[i]);
 
 							pESRepacker[i]->Config(config);
 							pESRepacker[i]->Open(nullptr);
