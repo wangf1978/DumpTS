@@ -748,6 +748,7 @@ int CNALRepacker::Close()
 CMPEG4AACLOASRepacker::CMPEG4AACLOASRepacker(ES_BYTE_STREAM_FORMAT srcESFmt, ES_BYTE_STREAM_FORMAT dstESFmt)
 	: CESRepacker(srcESFmt, dstESFmt)
 	, m_lrb_input(nullptr)
+	, m_current_au_idx(0)
 {
 }
 
@@ -758,6 +759,17 @@ CMPEG4AACLOASRepacker::~CMPEG4AACLOASRepacker()
 		AM_LRB_Destroy(m_lrb_input);
 		m_lrb_input = nullptr;
 	}
+}
+
+int CMPEG4AACLOASRepacker::SetNextMPUPtsDts(int number_of_au, const TM_90KHZ* PTSes, const TM_90KHZ* DTSes)
+{
+	int iRet = CESRepacker::SetNextMPUPtsDts(number_of_au, PTSes, DTSes);
+	if (iRet < 0)
+		return iRet;
+
+	m_current_au_idx = 0;
+
+	return iRet;
 }
 
 int CMPEG4AACLOASRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info)
@@ -789,6 +801,20 @@ int CMPEG4AACLOASRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA
 				}
 
 				AM_LRB_Reset(m_lrb_input);
+
+				if (m_callback_au_startpoint != nullptr)
+				{
+					ACCESS_UNIT_INFO au_info;
+					memset(&au_info, 0, sizeof(au_info));
+
+					TM_90KHZ dts = -1LL, pts = -1LL;
+					if (m_current_au_idx > 0 && (size_t)m_current_au_idx < m_next_ptses.size())
+						pts = m_next_ptses[m_current_au_idx];
+					if (m_current_au_idx > 0 && (size_t)m_current_au_idx < m_next_dtses.size())
+						dts = m_next_dtses[m_current_au_idx];
+					m_callback_au_startpoint(pts, dts, data_info, &au_info, m_context_au_startpoint);
+				}
+				m_current_au_idx++;
 			}
 		}
 
@@ -800,6 +826,20 @@ int CMPEG4AACLOASRepacker::Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA
 
 		if (data_info->indicator == FRAG_INDICATOR_COMPLETE)
 		{
+			if (m_callback_au_startpoint != nullptr)
+			{
+				ACCESS_UNIT_INFO au_info;
+				memset(&au_info, 0, sizeof(au_info));
+
+				TM_90KHZ dts = -1LL, pts = -1LL;
+				if (m_current_au_idx > 0 && (size_t)m_current_au_idx < m_next_ptses.size())
+					pts = m_next_ptses[m_current_au_idx];
+				if (m_current_au_idx > 0 && (size_t)m_current_au_idx < m_next_dtses.size())
+					dts = m_next_dtses[m_current_au_idx];
+				m_callback_au_startpoint(pts, dts, data_info, &au_info, m_context_au_startpoint);
+			}
+			m_current_au_idx++;
+
 			return WriteLATMToLOASDstFile(pBuf, cbSize);
 		}
 

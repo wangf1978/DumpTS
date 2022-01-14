@@ -158,6 +158,12 @@ public:
 	/*!	@brief Close ES re-packer and release the resource. */
 	virtual int Close();
 
+	virtual ES_BYTE_STREAM_FORMAT GetSrcFormat() { return m_srcESFmt; }
+
+	virtual ES_BYTE_STREAM_FORMAT GetDstFormat() { return m_dstESFmt; }
+
+	virtual ES_REPACK_CONFIG GetConfig() { return m_config; }
+
 protected:
 	/* 
 		Pre-process the block header from the current seek point, 
@@ -219,6 +225,7 @@ public:
 	~CMPEG4AACLOASRepacker();
 
 	virtual int Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info = NULL);
+	virtual int SetNextMPUPtsDts(int number_of_au, const TM_90KHZ* PTSes, const TM_90KHZ* DTSes);
 
 	// Method
 protected:
@@ -227,5 +234,7 @@ protected:
 	// Data
 protected:
 	AMLinearRingBuffer		m_lrb_input;
+
+	int						m_current_au_idx;
 };
 
