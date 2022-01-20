@@ -610,6 +610,7 @@ int DiffTSATC()
 	long long end_pkt_idx = -1LL;
 	long long pkt_idx = 0;
 	uint32_t previous_arrive_time = UINT32_MAX;
+	uint16_t pid_filter = UINT16_MAX;
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -634,6 +635,14 @@ int DiffTSATC()
 			end_pkt_idx = ConvertToLongLong(iterEnd->second);
 	}
 
+	if (g_params.find("pid") != g_params.end())
+	{
+		long long pid = ConvertToLongLong(g_params["pid"]);
+		if (pid >= 0 && pid <= 0x1FFF)
+			pid_filter = (uint16_t)pid;
+	}
+
+	uint64_t sum_duration = 0;
 	while (true)
 	{
 		size_t nRead = fread(buf, 1, ts_pack_size, fp);
@@ -649,7 +658,7 @@ int DiffTSATC()
 		uint32_t arrive_time = ((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]) & 0x3FFFFFFF;
 		int32_t diff = INT32_MAX;
 
-		uint16_t PID = ((buf[5] & 0x1F) << 8) | (buf[7]);
+		uint16_t PID = ((buf[5] & 0x1F) << 8) | (buf[6]);
 
 		if (previous_arrive_time != UINT32_MAX)
 		{
@@ -658,18 +667,25 @@ int DiffTSATC()
 			else
 				diff = 0x40000000 + arrive_time - previous_arrive_time;
 
+			sum_duration += diff;
+
 			if ((diff_threshold == -1LL || (diff_threshold > 0 && (long long)diff > diff_threshold)) &&
 				(start_pkt_idx == -1LL || (start_pkt_idx >= 0 && pkt_idx >= start_pkt_idx)) &&
 				(end_pkt_idx == -1LL || (end_pkt_idx >= 0 && pkt_idx < end_pkt_idx)))
 			{
-				printf("pkt_idx: %20lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId32 "(%fms)\n",
-					pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time, diff, diff*1000.0f / 27000000.f);
+				if (pid_filter == UINT16_MAX || pid_filter == PID)
+				{
+					printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId64 "(%fms)\n",
+						pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time, sum_duration, sum_duration*1000.0f / 27000000.f);
+					sum_duration = 0;
+				}
 			}
 		}
 		else
 		{
-			printf("pkt_idx: %20lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: \n",
-				pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time);
+			if (pid_filter == UINT16_MAX || pid_filter == PID)
+				printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: \n",
+					pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time);
 		}
 
 		previous_arrive_time = arrive_time;

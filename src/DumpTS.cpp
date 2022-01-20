@@ -949,7 +949,8 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
-	else if (g_params.find("pid") != g_params.end())
+	else if (g_params.find("pid") != g_params.end() && (
+														g_params.find("diffATC") == g_params.end()))
 	{
 		if (g_params.find("outputfmt") == g_params.end())
 			g_params["outputfmt"] = "es";
