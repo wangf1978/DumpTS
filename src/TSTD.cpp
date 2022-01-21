@@ -613,6 +613,11 @@ int DiffTSATC()
 	uint16_t pid_filter = UINT16_MAX;
 	uint16_t previous_PID = UINT16_MAX;
 	bool diff_AU_first_last = false;
+	uint64_t sum_duration = 0;
+	uint64_t pure_sum_duration = 0;
+	int payload_unit_length = 0;
+	long long payload_unit_count = 0;
+
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -651,10 +656,6 @@ int DiffTSATC()
 		}
 	}
 
-	uint64_t sum_duration = 0;
-	uint64_t pure_sum_duration = 0;
-	int payload_unit_length = 0;
-	long long payload_unit_count = 0;
 	while (true)
 	{
 		size_t nRead = fread(buf, 1, ts_pack_size, fp);
