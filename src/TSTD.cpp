@@ -659,6 +659,7 @@ int DiffTSATC()
 		int32_t diff = INT32_MAX;
 
 		uint16_t PID = ((buf[5] & 0x1F) << 8) | (buf[6]);
+		uint8_t cc = buf[7] & 0xF;
 
 		if (previous_arrive_time != UINT32_MAX)
 		{
@@ -675,8 +676,9 @@ int DiffTSATC()
 			{
 				if (pid_filter == UINT16_MAX || pid_filter == PID)
 				{
-					printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId64 "(%fms)\n",
-						pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time, sum_duration, sum_duration*1000.0f / 27000000.f);
+					printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] CC:%02d ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId64 "(%fms)\n",
+						pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], cc,
+						arrive_time, arrive_time, sum_duration, sum_duration*1000.0f / 27000000.f);
 					sum_duration = 0;
 				}
 			}
@@ -684,8 +686,8 @@ int DiffTSATC()
 		else
 		{
 			if (pid_filter == UINT16_MAX || pid_filter == PID)
-				printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: \n",
-					pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], arrive_time, arrive_time);
+				printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] CC:%02d ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: \n",
+					pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], cc, arrive_time, arrive_time);
 		}
 
 		previous_arrive_time = arrive_time;
