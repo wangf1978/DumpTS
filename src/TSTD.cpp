@@ -611,6 +611,8 @@ int DiffTSATC()
 	long long pkt_idx = 0;
 	uint32_t previous_arrive_time = UINT32_MAX;
 	uint16_t pid_filter = UINT16_MAX;
+	uint16_t previous_PID = UINT16_MAX;
+	bool diff_AU_first_last = false;
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -639,10 +641,20 @@ int DiffTSATC()
 	{
 		long long pid = ConvertToLongLong(g_params["pid"]);
 		if (pid >= 0 && pid <= 0x1FFF)
+		{
 			pid_filter = (uint16_t)pid;
+
+			if (g_params.find("payload_first_last") != g_params.end())
+			{
+				diff_AU_first_last = true;
+			}
+		}
 	}
 
 	uint64_t sum_duration = 0;
+	uint64_t pure_sum_duration = 0;
+	int payload_unit_length = 0;
+	long long payload_unit_count = 0;
 	while (true)
 	{
 		size_t nRead = fread(buf, 1, ts_pack_size, fp);
@@ -659,6 +671,7 @@ int DiffTSATC()
 		int32_t diff = INT32_MAX;
 
 		uint16_t PID = ((buf[5] & 0x1F) << 8) | (buf[6]);
+		uint8_t payload_unit_start_indicator = (buf[5] & 0x40) >> 6;
 		uint8_t cc = buf[7] & 0xF;
 
 		if (previous_arrive_time != UINT32_MAX)
@@ -669,6 +682,11 @@ int DiffTSATC()
 				diff = 0x40000000 + arrive_time - previous_arrive_time;
 
 			sum_duration += diff;
+			if (pid_filter == previous_PID)
+				pure_sum_duration += diff;
+
+			if (pid_filter == PID)
+				payload_unit_length += 192;
 
 			if ((diff_threshold == -1LL || (diff_threshold > 0 && (long long)diff > diff_threshold)) &&
 				(start_pkt_idx == -1LL || (start_pkt_idx >= 0 && pkt_idx >= start_pkt_idx)) &&
@@ -676,10 +694,28 @@ int DiffTSATC()
 			{
 				if (pid_filter == UINT16_MAX || pid_filter == PID)
 				{
-					printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] CC:%02d ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId64 "(%fms)\n",
-						pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], cc,
-						arrive_time, arrive_time, sum_duration, sum_duration*1000.0f / 27000000.f);
-					sum_duration = 0;
+					if (diff_AU_first_last == false)
+					{
+						printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] CC:%02d ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId64 "(%fms)\n",
+							pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], cc,
+							arrive_time, arrive_time, sum_duration, sum_duration*1000.0f / 27000000.f);
+						sum_duration = 0;
+						pure_sum_duration = 0;
+					}
+					else if (payload_unit_start_indicator)
+					{
+						if (diff_AU_first_last == true)
+						{
+							printf("payload_idx: %8lld [PID: 0X%04X] length: %8d(B) diff between first and last packet: %10" PRId64 "(%3d.%04dms), pure duration:%10" PRId64 "(%3d.%04dms)\n",
+								payload_unit_count, PID, payload_unit_length, 
+								sum_duration, (int)(sum_duration/27000), (int)(sum_duration*10000/ 27000%10000),
+								pure_sum_duration, (int)(pure_sum_duration / 27000), (int)(pure_sum_duration * 10000 / 27000 % 10000));
+							sum_duration = 0;
+							pure_sum_duration = 0;
+							payload_unit_length = 0;
+						}
+						payload_unit_count++;
+					}
 				}
 			}
 		}
@@ -692,6 +728,21 @@ int DiffTSATC()
 
 		previous_arrive_time = arrive_time;
 		pkt_idx++;
+		previous_PID = PID;
+	}
+
+	if (sum_duration > 0)
+	{
+		if (diff_AU_first_last == true)
+		{
+			printf("payload_idx: %8lld [PID: 0X%04X] length: %8d(B) diff between first and last packet: %10" PRId64 "(%3d.%04dms), pure duration:%10" PRId64 "(%3d.%04dms)\n",
+				payload_unit_count, pid_filter, payload_unit_length,
+				sum_duration, (int)(sum_duration / 27000), (int)(sum_duration * 10000 / 27000 % 10000),
+				pure_sum_duration, (int)(pure_sum_duration / 27000), (int)(pure_sum_duration * 10000 / 27000 % 10000));
+			sum_duration = 0;
+			pure_sum_duration = 0;
+			payload_unit_length = 0;
+		}
 	}
 
 	iRet = 0;

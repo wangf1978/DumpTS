@@ -209,6 +209,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"verbose",
 		"diffATC",
 		"top",			// Show the n top records
+		"payload_first_last",
 	};
 
 	for (; iarg < argc; iarg++)
