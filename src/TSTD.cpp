@@ -52,6 +52,7 @@ int ShowPCR(int option)
 	uint32_t prev_ATC = UINT32_MAX;
 	uint64_t max_diff_diff_PCR_ATC = 0;
 	int64_t max_transport_rate = 0;
+	std::map<uint16_t, uint64_t> first_PCR_values;
 
 	std::vector<std::tuple<uint32_t, uint64_t>> SPN_PCR;
 	std::vector<std::tuple<uint32_t, uint32_t>> SPN_ATC;
@@ -157,7 +158,7 @@ int ShowPCR(int option)
 
 					std::get<0>(iterStmPackInfo->second) = ts_pack_idx;	// the start TS pack index
 					std::get<1>(iterStmPackInfo->second) = ts_pack_idx;	// the current TS pack index
-					std::get<2>(iterStmPackInfo->second) = 1;				// the total count of TS packs for this AU
+					std::get<2>(iterStmPackInfo->second) = 1;			// the total count of TS packs for this AU
 					std::get<3>(iterStmPackInfo->second) = UINT64_MAX;
 					std::get<4>(iterStmPackInfo->second) = UINT64_MAX;
 				}
@@ -366,6 +367,9 @@ int ShowPCR(int option)
 		if (option == 5)
 			SPN_PCR.emplace_back((uint32_t)(byte_position / ts_pack_size), program_clock_reference_base * 300 + program_clock_reference_extension);
 
+		if (first_PCR_values.find(PID) == first_PCR_values.end())
+			first_PCR_values[PID] = program_clock_reference_base * 300 + program_clock_reference_extension;
+
 		if (OPCR_flag)
 		{
 			original_program_clock_reference_base = 0;
@@ -444,6 +448,33 @@ int ShowPCR(int option)
 	printf("The max diff between diff ATC and diff PCR: %" PRIu64 "(270MHZ), %" PRIu64".%03" PRIu64 "(ms).\n",
 		max_diff_diff_PCR_ATC, max_diff_diff_PCR_ATC / 27000, max_diff_diff_PCR_ATC / 27 % 1000);
 	printf("The max transport rate: %" PRId64 "bps(%sbps)\n", max_transport_rate, GetHumanReadNumber(max_transport_rate, false, 2).c_str());
+
+	printf("              The first pts(27MHZ)    The first dts(27MHZ)\n");
+	printf("----------------------------------------------------------\n");
+	uint64_t min_ts = UINT64_MAX;
+	for (auto& stm : STM_SPN_PTS_DTS)
+	{
+		if (stm.second.size() == 0)
+			continue;
+
+		uint64_t pts = std::get<1>(stm.second[0]);
+		uint64_t dts = std::get<2>(stm.second[0]);
+		if (pts != UINT64_MAX && dts != UINT64_MAX)
+		{
+			printf("PID:0X%04X    %20" PRIu64 "    %20" PRIu64 "\n", stm.first, pts * 300ULL, dts * 300ULL);
+			if (min_ts > dts * 300ULL)
+				min_ts = dts * 300ULL;
+		}
+		else if (pts != UINT64_MAX)
+		{
+			printf("PID:0X%04X    %20" PRIu64 "\n", stm.first, pts * 300ULL);
+			if (min_ts > pts * 300ULL)
+				min_ts = pts * 300ULL;
+		}
+	}
+	for(auto iter: first_PCR_values)
+		printf("PCR_PID: 0X%04X, The initial PCR value: %" PRIu64 "(27MHZ), diff with minimum dts: %" PRId64 " (27MHZ)/%" PRId64 ".%04" PRId64 "(ms)\n", 
+			iter.first, iter.second, (int64_t)(min_ts - iter.second), (int64_t)(min_ts - iter.second)/27000, (int64_t)(min_ts - iter.second)*1000 / 27000%1000);
 
 done:
 	for (auto lrb : ring_buffers)
