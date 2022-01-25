@@ -1657,7 +1657,7 @@ int FlushPESBuffer(
 			unsigned char* raw_data = NULL;
 
 			if (pes_stream_id != SID_PROGRAM_STREAM_MAP &&
-				pes_stream_id != SID_PRIVATE_STREAM_1 &&
+				//pes_stream_id != SID_PRIVATE_STREAM_1 &&
 				pes_stream_id != SID_PADDING_STREAM &&
 				pes_stream_id != SID_PRIVATE_STREAM_2 &&
 				pes_stream_id != SID_ECM &&
