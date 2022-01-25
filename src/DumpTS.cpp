@@ -61,6 +61,8 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	DiffATCDTS();
+extern int	LayoutTSPacket();
 extern int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig);
 extern int	RunH264HRD();
 extern int	ShowNUs();
@@ -208,8 +210,10 @@ void ParseCommandLine(int argc, char* argv[])
 		"end",
 		"verbose",
 		"diffATC",
+		"diffATCDTS",	// Diff ATC and DTS with the specified PIDs
 		"top",			// Show the n top records
 		"payload_first_last",
+		"layoutpacket",
 	};
 
 	for (; iarg < argc; iarg++)
@@ -662,6 +666,7 @@ void PrintHelp()
 	printf("\t--showPCRDiagram\tPrint the PCR and its related PTS, DTS diagram, export PCR, ATC, PTS/DTS into csv file\n");
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
+	printf("\t--diffATCDTS\t\tShow the ATC and DTS diff at the payload unit start point between 2 specified PIDs\n");
 	printf("\t--showNU\t\tShow the access-unit, nal-unit, sei-message and sei_payload tree of AVC/HEVC/VVC stream\n");
 	printf("\t--listMMTPpacket\tList the specified MMTP packets\n");
 	printf("\t--listMMTPpayload\tList the specified MMTP payloads\n");
@@ -951,7 +956,8 @@ int main(int argc, char* argv[])
 		}
 	}
 	else if (g_params.find("pid") != g_params.end() && (
-														g_params.find("diffATC") == g_params.end()))
+														g_params.find("diffATC") == g_params.end() &&
+														g_params.find("diffATCDTS") == g_params.end()))
 	{
 		if (g_params.find("outputfmt") == g_params.end())
 			g_params["outputfmt"] = "es";
@@ -1044,12 +1050,12 @@ int main(int argc, char* argv[])
 					goto done;
 				}
 			}
-			// No output file is specified
-			// Check whether pid and showinfo is there
 			else if (g_params.find("showSIT") != g_params.end() || 
 					 g_params.find("showPAT") != g_params.end() || 
 					 g_params.find("showPMT") != g_params.end())
 			{
+				// No output file is specified
+				// Check whether pid and showinfo is there
 				g_params["pid"] = "0";
 				nDumpRet = DumpOneStream();
 				goto done;
@@ -1129,6 +1135,16 @@ int main(int argc, char* argv[])
 			else if (g_params.find("showStreamMuxConfig") != g_params.end())
 			{
 				nDumpRet = ShowStreamMuxConfig(false);
+				goto done;
+			}
+			else if (g_params.find("layoutpacket") != g_params.end())
+			{
+				nDumpRet = LayoutTSPacket();
+				goto done;
+			}
+			else if (g_params.find("diffATCDTS") != g_params.end())
+			{
+				nDumpRet = DiffATCDTS();
 				goto done;
 			}
 			else

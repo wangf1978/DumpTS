@@ -53,6 +53,7 @@ int ShowPCR(int option)
 	uint64_t max_diff_diff_PCR_ATC = 0;
 	int64_t max_transport_rate = 0;
 	std::map<uint16_t, uint64_t> first_PCR_values;
+	uint64_t min_ts = UINT64_MAX;
 
 	std::vector<std::tuple<uint32_t, uint64_t>> SPN_PCR;
 	std::vector<std::tuple<uint32_t, uint32_t>> SPN_ATC;
@@ -451,7 +452,6 @@ int ShowPCR(int option)
 
 	printf("              The first pts(27MHZ)    The first dts(27MHZ)\n");
 	printf("----------------------------------------------------------\n");
-	uint64_t min_ts = UINT64_MAX;
 	for (auto& stm : STM_SPN_PTS_DTS)
 	{
 		if (stm.second.size() == 0)
@@ -461,13 +461,13 @@ int ShowPCR(int option)
 		uint64_t dts = std::get<2>(stm.second[0]);
 		if (pts != UINT64_MAX && dts != UINT64_MAX)
 		{
-			printf("PID:0X%04X    %20" PRIu64 "    %20" PRIu64 "\n", stm.first, pts * 300ULL, dts * 300ULL);
+			printf("PID:0X%04X    %20" PRIu64 "    %20" PRIu64 "\n", stm.first, pts * 300, dts * 300);
 			if (min_ts > dts * 300ULL)
 				min_ts = dts * 300ULL;
 		}
 		else if (pts != UINT64_MAX)
 		{
-			printf("PID:0X%04X    %20" PRIu64 "\n", stm.first, pts * 300ULL);
+			printf("PID:0X%04X    %20" PRIu64 "\n", stm.first, pts * 300);
 			if (min_ts > pts * 300ULL)
 				min_ts = pts * 300ULL;
 		}
@@ -895,6 +895,258 @@ int BenchRead(int option)
 			read_bitrate, read_bitrate / 1000 / 1000, (uint16_t)(read_bitrate / 1000 % 1000),
 			transport_rate, transport_rate / 1000 / 1000, (uint16_t)(transport_rate / 1000 % 1000));
 	}
+done:
+	if (fp != NULL)
+	{
+		fclose(fp);
+		fp = NULL;
+	}
+	return iRet;
+}
+
+int	LayoutTSPacket()
+{
+	int iRet = RET_CODE_SUCCESS;
+
+	return iRet;
+}
+
+int DiffATCDTS()
+{
+	int iRet = -1;
+	unsigned long ts_pack_idx = 0;
+	unsigned char ts_pack_size = TS_PACKET_SIZE;
+	unsigned char buf[TS_PACKET_SIZE];
+	FILE *fp = NULL;
+	long long start_pkt_idx = -1LL;
+	long long end_pkt_idx = -1LL;
+	long long pkt_idx = 0;
+	uint32_t previous_arrive_time = UINT32_MAX;
+	bool diff_AU_first_last = false;
+	uint64_t sum_duration = 0;
+	long long payload_unit_count = 0;
+	std::vector<uint16_t> PIDs;
+	std::vector<uint64_t> payload_unit_packets;
+	std::vector<uint64_t> the_latest_stream_atc_sum;
+	std::vector<uint64_t> the_payload_start_atc_sum;
+	std::vector<uint64_t> the_latest_stream_dts;
+	std::vector<std::vector<uint8_t>> pes_hdr_bufs;
+
+	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
+	if (errn != 0 || fp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
+		goto done;
+	}
+
+	{
+		auto iterStart = g_params.find("start");
+		if (iterStart != g_params.end())
+			start_pkt_idx = ConvertToLongLong(iterStart->second);
+
+		auto iterEnd = g_params.find("end");
+		if (iterEnd != g_params.end())
+			end_pkt_idx = ConvertToLongLong(iterEnd->second);
+	}
+
+	if (g_params.find("pid") != g_params.end())
+	{
+		std::vector<std::string> strPIDs;
+		splitstr(g_params["pid"].c_str(), ",;.:", strPIDs);
+
+		if (strPIDs.size() < 2)
+		{
+			printf("Please specify 2 PIDs to diff!\n");
+			goto done;
+		}
+
+		for (auto& strPID : strPIDs)
+		{
+			long long pid = ConvertToLongLong(strPID);
+			if (pid >= 0 && pid <= 0x1FFF)
+			{
+				PIDs.push_back((uint16_t)pid);
+			}
+		}
+	}
+
+	if (PIDs.size() < 2)
+	{
+		printf("Please specify 2 valid PIDs to diff.\n");
+		goto done;
+	}
+
+	if (PIDs.size() > 2)
+		printf("Only compare the ATC and DTS of payload unit start for the PIDs: 0X%04X vs. 0X%04X\n", PIDs[0], PIDs[1]);
+
+	payload_unit_packets.resize(PIDs.size());
+	the_latest_stream_atc_sum.resize(PIDs.size());
+	the_latest_stream_dts.resize(PIDs.size());
+	the_payload_start_atc_sum.resize(PIDs.size());
+	pes_hdr_bufs.resize(PIDs.size());
+
+	for (size_t i = 0; i < the_latest_stream_dts.size(); i++)
+		the_latest_stream_dts[i] = UINT64_MAX;
+
+	while (true)
+	{
+		size_t nRead = fread(buf, 1, ts_pack_size, fp);
+		if (nRead < ts_pack_size)
+			break;
+
+		if (buf[4] != 0x47)
+		{
+			printf("It seems not to be a supported m2ts or tts stream file.\n");
+			break;
+		}
+
+		uint32_t arrive_time = ((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]) & 0x3FFFFFFF;
+		int32_t diff = INT32_MAX;
+
+		uint16_t PID = ((buf[5] & 0x1F) << 8) | (buf[6]);
+		uint8_t payload_unit_start_indicator = (buf[5] & 0x40) >> 6;
+		uint8_t adaptation_field_control = (buf[7] >> 4) & 0x3;
+		uint8_t cc = buf[7] & 0xF;
+
+		uint8_t* data_start = buf + 8;
+		uint8_t adaptation_field_length = 0;
+		if (adaptation_field_control == 2 || adaptation_field_control == 3)
+		{
+			adaptation_field_length = buf[8];
+			data_start += 1 + adaptation_field_length;
+		}
+
+		if (previous_arrive_time != UINT32_MAX)
+		{
+			if (arrive_time > previous_arrive_time)
+				diff = (int32_t)(arrive_time - previous_arrive_time);
+			else
+				diff = 0x40000000 + arrive_time - previous_arrive_time;
+
+			sum_duration += diff;
+
+			for (size_t idxPID = 0; idxPID < PIDs.size(); idxPID++)
+			{
+				if (PID != PIDs[idxPID])
+					continue;
+
+				bool bNeedParseDTS = 0;
+				if (payload_unit_start_indicator)
+				{
+					payload_unit_packets[idxPID] = 1;
+					the_payload_start_atc_sum[idxPID] = sum_duration;
+
+					bNeedParseDTS = true;
+					pes_hdr_bufs[idxPID].clear();
+				}
+				else
+					payload_unit_packets[idxPID]++;
+
+				if (pes_hdr_bufs[idxPID].size() > 0 || bNeedParseDTS)
+				{
+					// need continue fill the buffer, and analyze the dts
+					if (buf + 192 > data_start)
+						pes_hdr_bufs[idxPID].insert(pes_hdr_bufs[idxPID].end(), data_start, buf + 192);
+
+					const uint8_t* pes_buf = pes_hdr_bufs[idxPID].data();
+					size_t pes_buf_size = pes_hdr_bufs[idxPID].size();
+
+					// check the dts
+					if (pes_buf_size > 9 && pes_buf[0] == 0 && pes_buf[1] == 0 && pes_buf[2] == 0x01)
+					{
+						uint8_t stream_id = pes_buf[3];
+						uint16_t PES_packet_length = (pes_buf[4] << 8) | pes_buf[5];
+
+						if (stream_id != SID_PROGRAM_STREAM_MAP
+							&& stream_id != SID_PADDING_STREAM
+							&& stream_id != SID_PRIVATE_STREAM_2
+							&& stream_id != SID_ECM
+							&& stream_id != SID_EMM
+							&& stream_id != SID_PROGRAM_STREAM_DIRECTORY
+							&& stream_id != SID_DSMCC_STREAM
+							&& stream_id != SID_H222_1_TYPE_E)
+						{
+							uint8_t reserved_0 = (pes_buf[6] >> 6) & 0x3;
+							uint8_t PES_scrambling_control = (pes_buf[6] >> 4) & 0x3;
+
+							uint8_t PTS_DTS_flags = (pes_buf[7] >> 6) & 0x3;
+							uint8_t PES_header_data_length = pes_buf[8];
+
+							uint64_t pts = UINT64_MAX, dts = UINT64_MAX, start_atc_tm = UINT64_MAX;
+
+							if ((PTS_DTS_flags == 0x2 && ((pes_buf[9] >> 4) & 0xF) == 0x2 && pes_buf_size > 14 && PES_header_data_length >= 5) ||
+								(PTS_DTS_flags == 0x3 && ((pes_buf[9] >> 4) & 0xF) == 0x3 && pes_buf_size > 19 && PES_header_data_length >= 10))
+							{
+								pts = 0;
+								pts = (pes_buf[9] >> 1) & 0x7;
+								pts = pts << 15;
+								pts |= (pes_buf[10] << 7) | (pes_buf[11] >> 1);
+								pts = pts << 15;
+								pts |= (pes_buf[12] << 7) | (pes_buf[13] >> 1);
+
+								if (PTS_DTS_flags == 0x3)
+								{
+									dts = 0;
+									dts = (pes_buf[14] >> 1) & 0x7;
+									dts = dts << 15;
+									dts |= (pes_buf[15] << 7) | (pes_buf[16] >> 1);
+									dts = dts << 15;
+									dts |= (pes_buf[17] << 7) | (pes_buf[18] >> 1);
+
+									the_latest_stream_dts[idxPID] = dts;
+								}
+								else
+									the_latest_stream_dts[idxPID] = pts;
+
+								the_latest_stream_atc_sum[idxPID] = the_payload_start_atc_sum[idxPID];
+
+								if (the_latest_stream_dts[0] != UINT64_MAX && the_latest_stream_dts[1] != UINT64_MAX)
+								{
+									int64_t delta_atc_sum = (int64_t)(the_latest_stream_atc_sum[0] - the_latest_stream_atc_sum[1]);
+									int64_t delta_dts = (int64_t)(the_latest_stream_dts[0] - the_latest_stream_dts[1]) * 300LL;
+
+									printf("pkt#%10lld PID: 0X%04X delta_atc_sum: %12" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms) -- delta_dts: %12" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms) | delta: %14" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms)\n",
+										pkt_idx, PID, 
+										delta_atc_sum, delta_atc_sum / 27000, abs(delta_atc_sum) / 27 % 1000, 
+										delta_dts, delta_dts / 27000, abs(delta_dts) / 27 % 1000,
+										delta_dts - delta_atc_sum, (delta_dts - delta_atc_sum)/27000, abs(delta_dts - delta_atc_sum)/27%1000);
+								}
+
+								pes_hdr_bufs[idxPID].clear();
+							}
+							else if (PTS_DTS_flags != 0x2 && PTS_DTS_flags != 0x3)
+							{
+								pes_hdr_bufs[idxPID].clear();
+								the_latest_stream_dts[idxPID] = UINT64_MAX;
+							}
+						}
+						else
+						{
+							pes_hdr_bufs[idxPID].clear();
+							the_latest_stream_dts[idxPID] = UINT64_MAX;
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+		}
+
+		previous_arrive_time = arrive_time;
+		pkt_idx++;
+	}
+
+	if (sum_duration > 0)
+	{
+		if (diff_AU_first_last == true)
+		{
+			sum_duration = 0;
+		}
+	}
+
+	iRet = 0;
+
 done:
 	if (fp != NULL)
 	{
