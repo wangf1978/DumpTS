@@ -283,9 +283,10 @@ namespace BST {
 							uint32_t	cpb_size_du_value_minus1;
 							uint32_t	bit_rate_du_value_minus1;
 							uint8_t		cbr_flag;
-							BOOL		sub_pic_hrd_params_present_flag;
+							SUB_LAYER_HRD_PARAMETERS*
+										m_ptr_sub_layer_hrd_parameters;
 
-							SUB_LAYER_HRD_PARAMETER(BOOL SubPicHrdParamsPresentFlag) :sub_pic_hrd_params_present_flag(SubPicHrdParamsPresentFlag) {}
+							SUB_LAYER_HRD_PARAMETER(SUB_LAYER_HRD_PARAMETERS* ptr_sub_layer_hrd_parameters) :m_ptr_sub_layer_hrd_parameters(ptr_sub_layer_hrd_parameters) {}
 
 							int Map(AMBst bst)
 							{
@@ -297,7 +298,7 @@ namespace BST {
 									MAP_BST_BEGIN(0);
 									nal_read_ue(bst, bit_rate_value_minus1, uint32_t);
 									nal_read_ue(bst, cpb_size_value_minus1, uint32_t);
-									if (sub_pic_hrd_params_present_flag) {
+									if (m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->sub_pic_hrd_params_present_flag) {
 										nal_read_ue(bst, cpb_size_du_value_minus1, uint32_t);
 										nal_read_ue(bst, bit_rate_du_value_minus1, uint32_t);
 									}
@@ -321,26 +322,32 @@ namespace BST {
 							DECLARE_FIELDPROP_BEGIN()
 								BST_FIELD_PROP_2NUMBER1(bit_rate_value_minus1, quick_log2(bit_rate_du_value_minus1 + 1) * 2 + 1, "")
 								BST_FIELD_PROP_2NUMBER1(cpb_size_value_minus1, quick_log2(cpb_size_value_minus1 + 1) * 2 + 1, "")
-								if (sub_pic_hrd_params_present_flag)
+								if (m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->sub_pic_hrd_params_present_flag)
 								{
 									BST_FIELD_PROP_2NUMBER1(cpb_size_du_value_minus1, quick_log2(cpb_size_du_value_minus1 + 1) * 2 + 1, "")
 									BST_FIELD_PROP_2NUMBER1(bit_rate_du_value_minus1, quick_log2(bit_rate_du_value_minus1 + 1) * 2 + 1, "")
 								}
 								BST_FIELD_PROP_2NUMBER1(cbr_flag, 1, cbr_flag ? "the HSS operates in a constant bit rate (CBR) mode" : "the HSS operates in an intermittent bit rate mode")
+
+								if (m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters &&
+									m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->m_commonInfPresentFlag)
+								{
+									uint8_t bit_rate_scale = m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->bit_rate_scale;
+									uint8_t cpb_size_scale = m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->cpb_size_scale;
+									NAV_WRITE_TAG_WITH_1NUMBER_VALUE("BitRate", ((bit_rate_value_minus1 + 1) << (6 + bit_rate_scale)), "The bit rate in bits per second");
+									NAV_WRITE_TAG_WITH_1NUMBER_VALUE("CpbSize", ((cpb_size_value_minus1 + 1) << (4 + cpb_size_scale)), "The CPB size in bits");
+								}
 							DECLARE_FIELDPROP_END()
 						}PACKED;
 
 						SUB_LAYER_HRD_PARAMETER** sub_layer_hrd_parameters;
-						BOOL			sub_pic_hrd_params_present_flag;
-						uint8_t			m_CpbCnt;
+						SUB_LAYER_INFO*	m_sub_layer_info;
 
-						SUB_LAYER_HRD_PARAMETERS(uint8_t CpbCnt, BOOL SubPicHrdParamsPresentFlag) 
-							: sub_pic_hrd_params_present_flag(SubPicHrdParamsPresentFlag)
-							, m_CpbCnt(CpbCnt){
-							if (CpbCnt >= 0)
+						SUB_LAYER_HRD_PARAMETERS(SUB_LAYER_INFO* ptr_sub_layer_info) : m_sub_layer_info(ptr_sub_layer_info){
+							if (m_sub_layer_info->cpb_cnt_minus1 >= 0)
 							{
-								sub_layer_hrd_parameters = new SUB_LAYER_HRD_PARAMETER*[CpbCnt + 1];
-								for (unsigned long i = 0; i <= CpbCnt; i++)
+								sub_layer_hrd_parameters = new SUB_LAYER_HRD_PARAMETER*[m_sub_layer_info->cpb_cnt_minus1 + 1];
+								for (unsigned long i = 0; i <= m_sub_layer_info->cpb_cnt_minus1; i++)
 									sub_layer_hrd_parameters[i] = NULL;
 							}
 							else
@@ -348,7 +355,7 @@ namespace BST {
 						}
 
 						virtual ~SUB_LAYER_HRD_PARAMETERS() {
-							for (unsigned long i = 0; i <= m_CpbCnt && sub_layer_hrd_parameters != NULL; i++) {
+							for (unsigned long i = 0; i <= m_sub_layer_info->cpb_cnt_minus1 && sub_layer_hrd_parameters != NULL; i++) {
 								AMP_SAFEDEL(sub_layer_hrd_parameters[i]);
 							}
 							AMP_SAFEDELA(sub_layer_hrd_parameters);
@@ -362,8 +369,8 @@ namespace BST {
 							try
 							{
 								MAP_BST_BEGIN(0);
-								for (unsigned long i = 0; i <= m_CpbCnt; i++) {
-									nal_read_ref(bst, sub_layer_hrd_parameters[i], SUB_LAYER_HRD_PARAMETER, sub_pic_hrd_params_present_flag);
+								for (unsigned long i = 0; i <= m_sub_layer_info->cpb_cnt_minus1; i++) {
+									nal_read_ref(bst, sub_layer_hrd_parameters[i], SUB_LAYER_HRD_PARAMETER, this);
 								}
 								MAP_BST_END();
 							}
@@ -382,7 +389,7 @@ namespace BST {
 						}
 
 						DECLARE_FIELDPROP_BEGIN()
-						for (i = 0; i <= m_CpbCnt; i++) {
+						for (i = 0; i <= m_sub_layer_info->cpb_cnt_minus1; i++) {
 							NAV_FIELD_PROP_REF3(sub_layer_hrd_parameters[i], "sub_layer_hrd_parameters", i);
 						}
 						DECLARE_FIELDPROP_END()
@@ -408,7 +415,7 @@ namespace BST {
 						: cpb_cnt_minus1(0)
 						, ptr_nal_sub_layer_hrd_parameters(NULL)
 						, ptr_vcl_sub_layer_hrd_parameters(NULL)
-						, m_ptr_hdr_parameters(ptr_hdr_parameters){}
+						, m_ptr_hdr_parameters(ptr_hdr_parameters) {}
 
 					virtual ~SUB_LAYER_INFO() {
 						UNMAP_STRUCT_POINTER5(ptr_nal_sub_layer_hrd_parameters);
@@ -444,10 +451,10 @@ namespace BST {
 								cpb_cnt_minus1 = 0;
 
 							nal_read_ref1(bst, m_ptr_hdr_parameters->nal_hrd_parameters_present_flag, ptr_nal_sub_layer_hrd_parameters,
-								SUB_LAYER_HRD_PARAMETERS, cpb_cnt_minus1, m_ptr_hdr_parameters->sub_pic_hrd_params_present_flag);
+								SUB_LAYER_HRD_PARAMETERS, this);
 
 							nal_read_ref1(bst, m_ptr_hdr_parameters->vcl_hrd_parameters_present_flag, ptr_vcl_sub_layer_hrd_parameters,
-								SUB_LAYER_HRD_PARAMETERS, cpb_cnt_minus1, m_ptr_hdr_parameters->sub_pic_hrd_params_present_flag);
+								SUB_LAYER_HRD_PARAMETERS, this);
 
 							MAP_BST_END();
 						}
