@@ -1152,6 +1152,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	int iParseRet = -1;
 	unsigned char audio_program_id = 0;
 	STREAM_INFO stm_info;
+	memset(&stm_info, 0, sizeof(stm_info));
 
 	if (dumpopt&DUMP_VOB)
 	{
