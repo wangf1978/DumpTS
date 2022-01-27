@@ -52,8 +52,12 @@ int ShowPCR(int option)
 	uint32_t prev_ATC = UINT32_MAX;
 	uint64_t max_diff_diff_PCR_ATC = 0;
 	int64_t max_transport_rate = 0;
+	int64_t avg_transport_rate = 0;
 	std::map<uint16_t, uint64_t> first_PCR_values;
 	uint64_t min_ts = UINT64_MAX;
+	uint64_t atc_sum = 0;
+	uint32_t atc_tm = UINT32_MAX;
+	uint64_t total_processed_bytes = 0;
 
 	std::vector<std::tuple<uint32_t, uint64_t>> SPN_PCR;
 	std::vector<std::tuple<uint32_t, uint32_t>> SPN_ATC;
@@ -104,6 +108,8 @@ int ShowPCR(int option)
 		if (nRead < ts_pack_size)
 			break;
 
+		total_processed_bytes += nRead;
+
 		if (buf[header_offset] != 0x47)
 		{
 			printf("Seems to hit an wrong TS packet.\n");
@@ -114,11 +120,21 @@ int ShowPCR(int option)
 		uint16_t adaptation_field_control = (buf[header_offset + 3] >> 4) & 0x3;
 		uint8_t  payload_unit_start_indicator = (buf[header_offset + 1] >> 6) & 0x1;
 		uint8_t  continuity_counter = (buf[header_offset + 4] & 0xF);
-		uint32_t atc_tm = UINT32_MAX;
 
 		if (header_offset == 4)
 		{
-			atc_tm = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+			uint32_t diff = 0;
+			uint32_t arrive_time = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+			if (atc_tm != UINT32_MAX)
+			{
+				if (arrive_time > atc_tm)
+					diff = (int32_t)(arrive_time - atc_tm);
+				else
+					diff = 0x40000000 + arrive_time - atc_tm;
+			}
+
+			atc_tm = arrive_time;
+			atc_sum += (uint64_t)diff;
 
 			if (option == 5)
 				SPN_ATC.emplace_back(ts_pack_idx, atc_tm);
@@ -446,9 +462,12 @@ int ShowPCR(int option)
 		prev_ATC = atc_tm;
 	}
 
+	avg_transport_rate = total_processed_bytes * 8 * 27000000 / atc_sum;
+
 	printf("The max diff between diff ATC and diff PCR: %" PRIu64 "(270MHZ), %" PRIu64".%03" PRIu64 "(ms).\n",
 		max_diff_diff_PCR_ATC, max_diff_diff_PCR_ATC / 27000, max_diff_diff_PCR_ATC / 27 % 1000);
 	printf("The max transport rate: %" PRId64 "bps(%sbps)\n", max_transport_rate, GetHumanReadNumber(max_transport_rate, false, 2).c_str());
+	printf("The average transport rate: %" PRId64 "bps(%sbps)\n", avg_transport_rate, GetHumanReadNumber(avg_transport_rate, false, 2).c_str());
 
 	printf("              The first pts(27MHZ)    The first dts(27MHZ)\n");
 	printf("----------------------------------------------------------\n");
