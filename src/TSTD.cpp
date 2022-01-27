@@ -648,7 +648,7 @@ int DiffTSATC()
 	uint64_t pure_sum_duration = 0;
 	int payload_unit_length = 0;
 	long long payload_unit_count = 0;
-
+	long long first_pkt_idx = -1LL, last_pkt_idx = -1LL;
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -736,18 +736,22 @@ int DiffTSATC()
 					}
 					else if (payload_unit_start_indicator)
 					{
-						if (diff_AU_first_last == true)
+						if (diff_AU_first_last == true && payload_unit_count > 0)
 						{
-							printf("payload_idx: %8lld [PID: 0X%04X] length: %8d(B) diff between first and last packet: %10" PRId64 "(%3d.%04dms), pure duration:%10" PRId64 "(%3d.%04dms)\n",
-								payload_unit_count, PID, payload_unit_length, 
-								sum_duration, (int)(sum_duration/27000), (int)(sum_duration*10000/ 27000%10000),
+							printf("payload_idx: %8lld [PID: 0X%04X] len: %8d(B) diff[packet first:%8lld ~ last:%8lld]: %10" PRId64 "(%3d.%04dms), pure duration:%10" PRId64 "(%3d.%04dms)\n",
+								payload_unit_count-1, PID, payload_unit_length, first_pkt_idx, last_pkt_idx,
+								sum_duration, (int)(sum_duration / 27000), (int)(sum_duration * 10000 / 27000 % 10000),
 								pure_sum_duration, (int)(pure_sum_duration / 27000), (int)(pure_sum_duration * 10000 / 27000 % 10000));
 							sum_duration = 0;
 							pure_sum_duration = 0;
 							payload_unit_length = 0;
 						}
 						payload_unit_count++;
+						first_pkt_idx = pkt_idx;
+						last_pkt_idx = first_pkt_idx;
 					}
+					else
+						last_pkt_idx = pkt_idx;
 				}
 			}
 		}
