@@ -1321,7 +1321,11 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 			if (pVisualSampleEntry == nullptr)
 				continue;
 
-			if (pVisualSampleEntry->type == 'hvc1' || pVisualSampleEntry->type == 'hev1' || pVisualSampleEntry->type == 'hvcC')
+			if (pVisualSampleEntry->type == 'av1C')
+			{
+
+			}
+			else if (pVisualSampleEntry->type == 'hvc1' || pVisualSampleEntry->type == 'hev1' || pVisualSampleEntry->type == 'hvcC')
 			{
 				auto pHEVCSampleEntry = (HEVCSampleEntry*)pVisualSampleEntry;
 				if (pHEVCSampleEntry != nullptr && pHEVCSampleEntry->config != nullptr)

@@ -106,6 +106,53 @@ DDP_Program_StreamInfos g_ddp_program_stream_infos;
 uint8_t g_cur_ddp_program_id = 0XFF;
 std::vector<STREAM_INFO> g_cur_dtshd_stream_infos;
 
+struct FRAME_SIZE_CODE_TABLE
+{
+	short	nominal_bit_rate;
+	short	words[3];
+}PACKED;
+
+const FRAME_SIZE_CODE_TABLE frame_size_code_table[38] = {
+	{ 32,  {64,   69,     96} },
+	{ 32,  {64,   70,     96} },
+	{ 40,  {80,   87,    120} },
+	{ 40,  {80,   88,    120} },
+	{ 48,  {96,   104,   144} },
+	{ 48,  {96,   105,   144} },
+	{ 56,  {112,  121,   168} },
+	{ 56,  {112,  122,   168} },
+	{ 64,  {128,  139,   192} },
+	{ 64,  {128,  140,   192} },
+	{ 80,  {160,  174,   240} },
+	{ 80,  {160,  175,   240} },
+	{ 96,  {192,  208,   288} },
+	{ 96,  {192,  209,   288} },
+	{ 112, {224,  243,   336} },
+	{ 112, {224,  244,   336} },
+	{ 128, {256,  278,   384} },
+	{ 128, {256,  279,   384} },
+	{ 160, {320,  348,   480} },
+	{ 160, {320,  349,   480} },
+	{ 192, {384,  417,   576} },
+	{ 192, {384,  418,   576} },
+	{ 224, {448,  487,   672} },
+	{ 224, {448,  488,   672} },
+	{ 256, {512,  557,   768} },
+	{ 256, {512,  558,   768} },
+	{ 320, {640,  696,   960} },
+	{ 320, {640,  697,   960} },
+	{ 384, {768,  835,  1152} },
+	{ 384, {768,  836,  1152} },
+	{ 448, {896,  975,  1344} },
+	{ 448, {896,  976,  1344} },
+	{ 512, {1024, 1114, 1536} },
+	{ 512, {1024, 1115, 1536} },
+	{ 576, {1152, 1253, 1728} },
+	{ 576, {1152, 1254, 1728} },
+	{ 640, {1280, 1393, 1920} },
+	{ 640, {1280, 1394, 1920} },
+};
+
 int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
 	if (cbSize < 0)
@@ -147,6 +194,9 @@ int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int 
 		audio_info.audio_info.channel_mapping |= CHANNEL_BITMASK(CH_LOC_LFE);
 
 	audio_info.stream_coding_type = stream_type;
+
+	if (frmsizecod >= 0 && frmsizecod <= 37)
+		audio_info.audio_info.bitrate = frame_size_code_table[frmsizecod].nominal_bit_rate*1000;
 
 	return 0;
 }
