@@ -46,6 +46,7 @@ extern DUMP_STATUS g_dump_status;
 
 extern const char* vui_transfer_characteristics_names[256];
 extern const char* vui_colour_primaries_names[256];
+extern const char* chroma_format_idc_names[4];
 
 // For MLP audio
 #define FBB_SYNC_CODE				0xF8726FBB
@@ -1399,6 +1400,14 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			iParseRet = 0;
 		}
 	}
+	else if (HEVC_VIDEO_STREAM == stream_type)
+	{
+		stm_info.stream_coding_type = stream_type;
+		if (AMP_SUCCEEDED(GetStreamInfoFromSPS(NAL_CODING_HEVC, p, cbLeft, stm_info)))
+		{
+			iParseRet = 0;
+		}
+	}
 
 	if (iParseRet == 0)
 	{
@@ -1447,8 +1456,8 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 				if (stm_info.video_info.aspect_ratio_numerator != 0 && stm_info.video_info.aspect_ratio_denominator != 0)
 					printf("\tVideo Aspect Ratio: %d:%d\n", stm_info.video_info.aspect_ratio_numerator, stm_info.video_info.aspect_ratio_denominator);
 
-				if (stm_info.video_info.chroma_format_idc > 0 && stm_info.video_info.chroma_format_idc <= 3)
-					printf("\tVideo Chroma format: %s\n", stm_info.video_info.chroma_format_idc == 1 ? "4:2:0" : (stm_info.video_info.chroma_format_idc == 2 ? "4:2:2" : "4:4:4"));
+				if (stm_info.video_info.chroma_format_idc >= 0 && stm_info.video_info.chroma_format_idc <= 3)
+					printf("\tVideo Chroma format: %s\n", chroma_format_idc_names[stm_info.video_info.chroma_format_idc]);
 
 				if (stm_info.video_info.colour_primaries > 0)
 					printf("\tColor Primaries: %s\n", vui_colour_primaries_names[stm_info.video_info.colour_primaries]);

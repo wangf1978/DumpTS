@@ -510,6 +510,77 @@ void PrintAVCSPSRoughInfo(H264_NU sps_nu)
 	return;
 }
 
+void PrintHEVCSPSRoughInfo(H265_NU sps_nu)
+{
+	if (!sps_nu || sps_nu->ptr_seq_parameter_set_rbsp == nullptr)
+		return;
+
+	auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
+
+	if (sps_seq == nullptr ||
+		sps_seq->profile_tier_level == nullptr ||
+		!sps_seq->profile_tier_level->general_profile_level.profile_present_flag)
+		return;
+
+	const char* szProfileName = get_hevc_profile_name(sps_seq->profile_tier_level->GetHEVCProfile());
+	printf("A new H.265 sequence(seq_parameter_set_id:%d):\n", sps_seq->sps_seq_parameter_set_id);
+	printf("\tHEVC Profile: %s\n", szProfileName);
+	printf("\tTiger: %s\n", sps_seq->profile_tier_level->general_profile_level.tier_flag?"High":"Main");
+
+	if (sps_seq->profile_tier_level->general_profile_level.level_present_flag)
+		printf("\tLevel %d.%d\n", (int)(sps_seq->profile_tier_level->general_profile_level.level_idc / 30), (int)(sps_seq->profile_tier_level->general_profile_level.level_idc % 30 / 3));
+
+	printf("\tChroma: %s\n", chroma_format_idc_names[sps_seq->chroma_format_idc]);
+
+	if (sps_seq->vui_parameters_present_flag &&
+		sps_seq->vui_parameters)
+		printf("\tScan type: %s\n", sps_seq->vui_parameters->field_seq_flag ? "Interlaced" : "Progressive");
+
+	uint32_t display_width = sps_seq->pic_width_in_luma_samples, display_height = sps_seq->pic_height_in_luma_samples;
+	if (sps_seq->conformance_window_flag)
+	{
+		uint32_t sub_width_c = ((1 == sps_seq->chroma_format_idc) || (2 == sps_seq->chroma_format_idc)) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
+		uint32_t sub_height_c = (1 == sps_seq->chroma_format_idc) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
+		display_width -= sub_width_c * (sps_seq->conf_win_left_offset + sps_seq->conf_win_right_offset);
+		display_height = sub_height_c * (sps_seq->conf_win_top_offset + sps_seq->conf_win_bottom_offset);
+	}
+
+	printf("\tCoded Frame resolution: %" PRIu32 "x%" PRIu32 "\n", sps_seq->pic_width_in_luma_samples, sps_seq->pic_height_in_luma_samples);
+	printf("\tDisplay resolution: %" PRIu32 "x%" PRIu32 "\n", display_width, display_height);
+
+	if (sps_seq->vui_parameters_present_flag && sps_seq->vui_parameters)
+	{
+		auto vui_parameters = sps_seq->vui_parameters;
+
+		if (vui_parameters->aspect_ratio_info_present_flag)
+		{
+			if (vui_parameters->aspect_ratio_idc == 0xFF)
+				printf("\tSample Aspect-Ratio: %" PRIu16 "x%" PRIu16 "\n", vui_parameters->sar_width, vui_parameters->sar_height);
+			else
+				printf("\tSample Aspect-Ratio: %s\n", sample_aspect_ratio_descs[vui_parameters->aspect_ratio_idc]);
+		}
+
+		if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
+		{
+			printf("\tColour Primaries: %d(%s)\n", vui_parameters->colour_primaries, vui_colour_primaries_names[vui_parameters->colour_primaries]);
+			printf("\tTransfer Characteristics: %d(%s)\n", vui_parameters->transfer_characteristics, vui_transfer_characteristics_names[vui_parameters->transfer_characteristics]);
+			printf("\tMatrix Coeffs: %d(%s)\n", vui_parameters->matrix_coeffs, vui_matrix_coeffs_descs[vui_parameters->matrix_coeffs]);
+		}
+
+		uint32_t units_field_based_flag = 1;		// For H264, default value is 1
+		if (vui_parameters->vui_timing_info_present_flag)
+		{
+			if (vui_parameters->vui_time_scale > 0)
+			{
+				float frame_rate = (float)vui_parameters->vui_time_scale / (vui_parameters->vui_num_units_in_tick * (vui_parameters->field_seq_flag + 1));
+				printf("\tFrame-Rate: %f fps\n", frame_rate);
+			}
+		}
+	}
+
+	return;
+}
+
 int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexBBuf, STREAM_INFO& stm_info)
 {
 	INALContext* pNALContext = nullptr;
@@ -630,6 +701,8 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 						else
 							memcpy(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
 
+						m_spsid = nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id;
+
 						m_pNALHEVCContext->UpdateHEVCSPS(nu);
 					}
 					else if (nal_unit_type == BST::H265Video::PPS_NUT)
@@ -688,6 +761,8 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 
 	uint8_t* p = pAnnexBBuf;
 	int64_t cbLeft = (int64_t)cbAnnexBBuf;
+	INALAVCContext* pNALAVCContext = nullptr;
+	INALHEVCContext* pNALHEVCContext = nullptr;
 	while (cbLeft > 0)
 	{
 		int64_t cbSubmit = AMP_MIN(cbLeft, 2048);
@@ -696,7 +771,6 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 			NALParser.ProcessOutput(cbLeft <= 2048 ? true : false);
 			if (coding == NAL_CODING_AVC)
 			{
-				INALAVCContext* pNALAVCContext = nullptr;
 				if (SUCCEEDED(pNALContext->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCContext)))
 				{
 					int16_t sps_id = NALEnumerator.GetSPSID();
@@ -823,8 +897,97 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 			}
 			else if (coding == NAL_CODING_HEVC)
 			{
-				INALHEVCContext* pNALHEVCContext = nullptr;
-				pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCContext);
+				if (SUCCEEDED(pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCContext)))
+				{
+					int16_t sps_id = NALEnumerator.GetSPSID();
+					if (sps_id >= 0 && sps_id <= UINT8_MAX)
+					{
+						auto sps_nu = pNALHEVCContext->GetHEVCSPS((uint8_t)sps_id);
+						if (sps_nu &&
+							sps_nu->ptr_seq_parameter_set_rbsp)
+						{
+							auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
+
+							uint32_t display_width = sps_seq->pic_width_in_luma_samples, display_height = sps_seq->pic_height_in_luma_samples;
+							if (sps_seq->conformance_window_flag)
+							{
+								uint32_t sub_width_c = ((1 == sps_seq->chroma_format_idc) || (2 == sps_seq->chroma_format_idc)) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
+								uint32_t sub_height_c = (1 == sps_seq->chroma_format_idc) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
+								display_width -= sub_width_c * (sps_seq->conf_win_left_offset + sps_seq->conf_win_right_offset);
+								display_height = sub_height_c * (sps_seq->conf_win_top_offset + sps_seq->conf_win_bottom_offset);
+							}
+
+							stm_info.video_info.video_width = display_width;
+							stm_info.video_info.video_height = display_height;
+
+							if (sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters_present_flag &&
+								sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters)
+							{
+								auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters;
+								if (vui_parameters->vui_hrd_parameters_present_flag &&
+									vui_parameters->hrd_parameters &&
+									vui_parameters->hrd_parameters->m_commonInfPresentFlag &&
+									vui_parameters->hrd_parameters->sub_layer_infos)
+								{
+									if (vui_parameters->hrd_parameters->nal_hrd_parameters_present_flag)
+									{
+										auto ptr_nal_sub_layer_hrd_parameters = vui_parameters->hrd_parameters->sub_layer_infos[0]->ptr_nal_sub_layer_hrd_parameters;
+										stm_info.video_info.bitrate = 
+											(ptr_nal_sub_layer_hrd_parameters->sub_layer_hrd_parameters[0]->bit_rate_value_minus1 + 1) << (vui_parameters->hrd_parameters->bit_rate_scale + 6);
+									}
+									else if (vui_parameters->hrd_parameters->vcl_hrd_parameters_present_flag)
+									{
+										auto ptr_vcl_sub_layer_hrd_parameters = vui_parameters->hrd_parameters->sub_layer_infos[0]->ptr_vcl_sub_layer_hrd_parameters;
+										stm_info.video_info.bitrate = 
+											(ptr_vcl_sub_layer_hrd_parameters->sub_layer_hrd_parameters[0]->bit_rate_value_minus1 + 1) << (vui_parameters->hrd_parameters->bit_rate_scale + 6);
+									}
+								}
+
+								if (vui_parameters->aspect_ratio_info_present_flag)
+								{
+									uint16_t SAR_N = 0, SAR_D = 0;
+									if (vui_parameters->aspect_ratio_idc == 0xFF)
+									{
+										SAR_N = vui_parameters->sar_width;
+										SAR_D = vui_parameters->sar_height;
+									}
+									else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < sizeof(sample_aspect_ratios) / sizeof(sample_aspect_ratios[0]))
+									{
+										SAR_N = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+										SAR_D = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+									}
+
+									if (SAR_N != 0 && SAR_D != 0)
+									{
+										float diff_4_3 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 4.0f / 3.0f);
+										float diff_16_9 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 16.0f / 9.0f);
+
+										stm_info.video_info.aspect_ratio_numerator = diff_4_3 < diff_16_9 ? 4 : 16;
+										stm_info.video_info.aspect_ratio_denominator = diff_4_3 < diff_16_9 ? 3 : 9;
+									}
+								}
+
+								if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
+								{
+									stm_info.video_info.transfer_characteristics = vui_parameters->transfer_characteristics;
+									stm_info.video_info.colour_primaries = vui_parameters->colour_primaries;
+								}
+
+								stm_info.video_info.chroma_format_idc = sps_seq->chroma_format_idc;
+
+								if (vui_parameters->vui_timing_info_present_flag)
+								{
+									uint64_t GCD = gcd(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag), vui_parameters->vui_time_scale);
+									stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->vui_time_scale / GCD);
+									stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag) / GCD);
+								}
+							}
+
+							iRet = RET_CODE_SUCCESS;
+							break;
+						}
+					}
+				}
 			}
 
 			cbLeft -= cbSubmit;
@@ -832,6 +995,18 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 		}
 		else
 			break;
+	}
+
+	if (pNALAVCContext)
+	{
+		pNALAVCContext->Release();
+		pNALAVCContext = nullptr;
+	}
+
+	if (pNALHEVCContext)
+	{
+		pNALHEVCContext->Release();
+		pNALHEVCContext = nullptr;
 	}
 
 	if (pNALContext)
@@ -1040,6 +1215,8 @@ int ShowNALObj(int object_type)
 
 						if (object_type == 2)
 							PrintMediaObject(nu);
+						else if (object_type == 82)
+							PrintHEVCSPSRoughInfo(nu);
 					}
 					else if (nal_unit_type == BST::H265Video::PPS_NUT)
 					{
