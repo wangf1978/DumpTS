@@ -46,6 +46,7 @@ SOFTWARE.
 
 extern const char* avc_nal_unit_type_names[32];
 extern const char* avc_nal_unit_type_descs[32];
+extern const std::tuple<int16_t, int16_t> sample_aspect_ratios[18];
 extern const char* sample_aspect_ratio_descs[256];
 extern const char* vui_video_format_names[7];
 extern const char* vui_colour_primaries_names[256];
@@ -66,6 +67,17 @@ extern const char* get_h264_level_name(int level);
 	(v) == 4 ? "Specify the maximum long-term frame index and mark all long-term reference pictures having long-term frame indices greater than the maximum value as &quot;unused for reference&quot;" : (\
 	(v) == 5 ? "Mark all reference pictures as &quot;unused for reference&quot; and set the MaxLongTermFrameIdx variable to &quot;no long-term frame indices&quot;" : (\
 	(v) == 6 ? "Mark the current picture as &quot;used for long-term reference&quot; and assign a long-term frame index to it" : "Unknown")))))))
+
+#define PIC_STRUCT_MEANING(s)	(\
+	(s) == 0? "progressive frame":(\
+	(s) == 1? "top field":(\
+	(s) == 2? "bottom field":(\
+	(s) == 3? "top/bottom fields":(\
+	(s) == 4? "bottom/top fields":(\
+	(s) == 5? "top-bottom-top fields":(\
+	(s) == 6? "bottom-field-bottom fields":(\
+	(s) == 7? "frame doubling":(\
+	(s) == 8? "frame tripling":"unknown")))))))))
 
 namespace BST {
 

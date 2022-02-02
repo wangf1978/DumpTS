@@ -1150,6 +1150,27 @@ const char* vui_matrix_coeffs_descs[256] = {
 	"For future use by ITU-T | ISO/IEC"
 };
 
+const std::tuple<int16_t, int16_t> sample_aspect_ratios[18] = {
+	{0, 0},
+	{1, 1},
+	{12, 11},
+	{10, 11},
+	{16, 11},
+	{40, 33},
+	{24, 11},
+	{20, 11},
+	{32, 11},
+	{80, 33},
+	{18, 11},
+	{15, 11},
+	{64, 33},
+	{160, 99},
+	{4, 3},
+	{3, 2},
+	{2, 1},
+	{0, 0},
+};
+
 const char* sample_aspect_ratio_descs[256] = {
 	"Unspecified",
 	"1:1(Square), example: 3840x2160 16:9 frame without horizontal overscan",
@@ -1806,6 +1827,7 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::PIC_TIMING_H264(int payloadSize, INALContext* pNALCtx)
 	: cpb_removal_delay(0)
 	, dpb_output_delay(0)
+	, pic_struct(0xFF)
 	, payload_size(payloadSize)
 	, ptr_NAL_Context(pNALCtx){
 
@@ -1881,6 +1903,12 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 
 			parsed_payload_bits += cpb_removal_delay_length_minus1 + 1;
 			parsed_payload_bits += dpb_output_delay_length_minus1 + 1;
+		}
+
+		if (vui_parameters && vui_parameters->pic_struct_present_flag)
+		{
+			pic_struct = (uint8_t)AMBst_GetBits(in_bst, 4);
+			parsed_payload_bits += 4;
 		}
 
 		// Don't parse the left bits, but skip them

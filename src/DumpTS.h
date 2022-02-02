@@ -74,3 +74,39 @@ union PES_FILTER_INFO
 	} VOB;
 };
 
+struct AUDIO_INFO
+{
+	uint32_t		sample_frequency;
+	uint32_t		channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
+	uint32_t		bits_per_sample;
+	uint32_t		bitrate;			// bits/second
+};
+
+struct VIDEO_INFO
+{
+	uint8_t			transfer_characteristics;
+										// HDR10, SDR
+	uint8_t			colour_primaries;	// REC.601, BT.709 and BT.2020
+	uint8_t			chroma_format_idc;	// 0: unspecified, 1: YUV 4:2:0, 2: 4:2:2 or 3: 4:4:4
+	uint8_t			reserved;
+	uint32_t		video_height;
+	uint32_t		video_width;
+	uint32_t		framerate_numerator;
+	uint32_t		framerate_denominator;
+	uint16_t		aspect_ratio_numerator;
+	uint16_t		aspect_ratio_denominator;
+	uint32_t		bitrate;			// bits/second
+	uint32_t		max_bitrate;		// bits/second
+};
+
+struct STREAM_INFO
+{
+	int	stream_coding_type;
+
+	union
+	{
+		AUDIO_INFO	audio_info;
+		VIDEO_INFO	video_info;
+	};
+};
+

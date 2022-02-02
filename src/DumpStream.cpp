@@ -30,9 +30,11 @@ SOFTWARE.
 #include "Bitstream.h"
 #include "DumpTS.h"
 #include "AudChMap.h"
+#include "nal_com.h"
 #include <limits>
 #include <type_traits>
 #include <iterator>
+#include "DataUtil.h"
 
 using namespace std;
 
@@ -41,6 +43,9 @@ extern unordered_map<std::string, std::string> g_params;
 extern TS_FORMAT_INFO g_ts_fmtinfo;
 extern int g_verbose_level;
 extern DUMP_STATUS g_dump_status;
+
+extern const char* vui_transfer_characteristics_names[256];
+extern const char* vui_colour_primaries_names[256];
 
 // For MLP audio
 #define FBB_SYNC_CODE				0xF8726FBB
@@ -64,39 +69,6 @@ extern DUMP_STATUS g_dump_status;
 #define MPEGA_FRAME_SYNC			0x7FF
 
 #define ADTS_HEADER_SIZE			7
-
-struct AUDIO_INFO
-{
-	uint32_t		sample_frequency;
-	uint32_t		channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
-	uint32_t		bits_per_sample;
-	uint32_t		bitrate;			// bits/second
-};
-
-struct VIDEO_INFO
-{
-	uint8_t			EOTF;				// HDR10, SDR
-	uint8_t			colorspace;			// REC.601, BT.709 and BT.2020
-	uint8_t			colorfmt;			// YUV 4:2:0, 4:2:2 or 4:4:4
-	uint8_t			reserved;
-	uint32_t		video_height;
-	uint32_t		video_width;
-	uint16_t		framerate_numerator;
-	uint16_t		framerate_denominator;
-	uint16_t		aspect_ratio_numerator;
-	uint16_t		aspect_ratio_denominator;
-};
-
-struct STREAM_INFO
-{
-	int	stream_coding_type;
-
-	union
-	{
-		AUDIO_INFO	audio_info;
-		VIDEO_INFO	video_info;
-	};
-};
 
 using PID_StramInfos = unordered_map<unsigned short, std::vector<STREAM_INFO>>;
 using DDP_Program_StreamInfos = unordered_map<uint8_t /* Program */, std::vector<STREAM_INFO>>;
@@ -152,6 +124,8 @@ const FRAME_SIZE_CODE_TABLE frame_size_code_table[38] = {
 	{ 640, {1280, 1393, 1920} },
 	{ 640, {1280, 1394, 1920} },
 };
+
+extern int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexBBuf, STREAM_INFO& stm_info);
 
 int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
@@ -1417,6 +1391,14 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			iParseRet = 0;
 		}
 	}
+	else if (MPEG4_AVC_VIDEO_STREAM == stream_type)
+	{
+		stm_info.stream_coding_type = stream_type;
+		if (AMP_SUCCEEDED(GetStreamInfoFromSPS(NAL_CODING_AVC, p, cbLeft, stm_info)))
+		{
+			iParseRet = 0;
+		}
+	}
 
 	if (iParseRet == 0)
 	{
@@ -1424,6 +1406,17 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 		// Compare with the previous audio information.
 		if (g_stream_infos.find(PID) == g_stream_infos.end())
 			bChanged = true;
+		else if (IS_VIDEO_STREAM_TYPE(stream_type))
+		{
+			if (g_stream_infos[PID].size() > 0)
+			{
+				STREAM_INFO& cur_stm_info = g_stream_infos[PID][0];
+				if (memcmp(&cur_stm_info, &stm_info, sizeof(stm_info)) != 0)
+					bChanged = true;
+			}
+			else
+				bChanged = true;
+		}
 		else
 		{
 			if (g_stream_infos[PID].size() > audio_program_id)
@@ -1438,29 +1431,72 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 
 		if (bChanged)
 		{
-			if (g_stream_infos[PID].size() <= audio_program_id)
-				g_stream_infos[PID].resize(audio_program_id + 1);
-			g_stream_infos[PID][audio_program_id] = stm_info;
-			if (g_stream_infos[PID].size() > 1)
-				printf("%s Stream information#%d:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
-			else
-				printf("%s Stream information:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
-			printf("\tPID: 0X%X.\n", PID);
-			printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
-			printf("\tSample Frequency: %d (HZ).\n", stm_info.audio_info.sample_frequency);
-			printf("\tBits Per Sample: %d.\n", stm_info.audio_info.bits_per_sample);
-			printf("\tChannel Layout: %s.\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
-
-			if (stm_info.audio_info.bitrate != 0 && stm_info.audio_info.bitrate != 0xFFFFFFFE)
+			if (IS_VIDEO_STREAM_TYPE(stream_type))
 			{
-				uint32_t k = 1000;
-				uint32_t m = k * k;
-				if (stm_info.audio_info.bitrate >= 1024 * 1024)
-					printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " mbps.\n", stm_info.audio_info.bitrate / m, stm_info.audio_info.bitrate * 1000 / m % 1000);
-				else if(stm_info.audio_info.bitrate >= 1024)
-					printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " kbps.\n", stm_info.audio_info.bitrate / k, stm_info.audio_info.bitrate * 1000 / k % 1000);
+				if (g_stream_infos[PID].size() == 0)
+					g_stream_infos[PID].resize(1);
+				g_stream_infos[PID][audio_program_id] = stm_info;
+				printf("%s Stream information:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
+
+				printf("\tPID: 0X%X.\n", PID);
+				printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+
+				if (stm_info.video_info.video_width != 0 && stm_info.video_info.video_height != 0)
+					printf("\tVideo Resolution: %" PRIu32 "x%" PRIu32 "\n", stm_info.video_info.video_width, stm_info.video_info.video_height);
+
+				if (stm_info.video_info.aspect_ratio_numerator != 0 && stm_info.video_info.aspect_ratio_denominator != 0)
+					printf("\tVideo Aspect Ratio: %d:%d\n", stm_info.video_info.aspect_ratio_numerator, stm_info.video_info.aspect_ratio_denominator);
+
+				if (stm_info.video_info.chroma_format_idc > 0 && stm_info.video_info.chroma_format_idc <= 3)
+					printf("\tVideo Chroma format: %s\n", stm_info.video_info.chroma_format_idc == 1 ? "4:2:0" : (stm_info.video_info.chroma_format_idc == 2 ? "4:2:2" : "4:4:4"));
+
+				if (stm_info.video_info.colour_primaries > 0)
+					printf("\tColor Primaries: %s\n", vui_colour_primaries_names[stm_info.video_info.colour_primaries]);
+
+				if (stm_info.video_info.transfer_characteristics > 0)
+					printf("\tEOTF: %s\n", vui_transfer_characteristics_names[stm_info.video_info.transfer_characteristics]);
+
+				if (stm_info.video_info.framerate_denominator != 0 && stm_info.video_info.framerate_numerator != 0)
+					printf("\tFrame rate: %" PRIu32 "/%" PRIu32 " fps\n", stm_info.video_info.framerate_numerator, stm_info.video_info.framerate_denominator);
+
+				if (stm_info.video_info.bitrate != 0 && stm_info.video_info.bitrate != UINT32_MAX)
+				{
+					uint32_t k = 1000;
+					uint32_t m = k * k;
+					if (stm_info.video_info.bitrate >= m)
+						printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " Mbps.\n", stm_info.video_info.bitrate / m, (uint32_t)(((uint64_t)stm_info.video_info.bitrate * 1000) / m % 1000));
+					else if (stm_info.video_info.bitrate >= k)
+						printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " Kbps.\n", stm_info.video_info.bitrate / k, stm_info.video_info.bitrate * 1000 / k % 1000);
+					else
+						printf("\tBitrate: %" PRIu32 " bps.\n", stm_info.video_info.bitrate);
+				}
+			}
+			else
+			{
+				if (g_stream_infos[PID].size() <= audio_program_id)
+					g_stream_infos[PID].resize(audio_program_id + 1);
+				g_stream_infos[PID][audio_program_id] = stm_info;
+				if (g_stream_infos[PID].size() > 1)
+					printf("%s Stream information#%d:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
 				else
-					printf("\tBitrate: %" PRIu32 " bps.\n", stm_info.audio_info.bitrate);
+					printf("%s Stream information:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
+				printf("\tPID: 0X%X.\n", PID);
+				printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+				printf("\tSample Frequency: %d (HZ).\n", stm_info.audio_info.sample_frequency);
+				printf("\tBits Per Sample: %d.\n", stm_info.audio_info.bits_per_sample);
+				printf("\tChannel Layout: %s.\n", GetChannelMappingDesc(stm_info.audio_info.channel_mapping).c_str());
+
+				if (stm_info.audio_info.bitrate != 0 && stm_info.audio_info.bitrate != UINT32_MAX)
+				{
+					uint32_t k = 1000;
+					uint32_t m = k * k;
+					if (stm_info.audio_info.bitrate >= m)
+						printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " Mbps.\n", stm_info.video_info.bitrate / m, (uint32_t)(((uint64_t)stm_info.video_info.bitrate * 1000) / m % 1000));
+					else if (stm_info.audio_info.bitrate >= k)
+						printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " kbps.\n", stm_info.audio_info.bitrate / k, stm_info.audio_info.bitrate * 1000 / k % 1000);
+					else
+						printf("\tBitrate: %" PRIu32 " bps.\n", stm_info.audio_info.bitrate);
+				}
 			}
 		}
 	}

@@ -118,6 +118,14 @@ using namespace std;
 #define DSMCC_TYPE_C						0x0C
 #define DSMCC_TYPE_D						0x0D
 
+#define IS_VIDEO_STREAM_TYPE(coding_type)				\
+	((coding_type) == MPEG1_VIDEO_STREAM ||				\
+	 (coding_type) == MPEG2_VIDEO_STREAM ||				\
+	 (coding_type) == MPEG4_AVC_VIDEO_STREAM ||			\
+	 (coding_type) == SMPTE_VC1_VIDEO_STREAM ||			\
+	 (coding_type) == MPEG4_MVC_VIDEO_STREAM ||			\
+	 (coding_type) == HEVC_VIDEO_STREAM)
+
 #define STREAM_TYPE_NAMEA(st)	(\
 	(st) == MPEG1_VIDEO_STREAM?"MPEG1 Video":(\
 	(st) == MPEG2_VIDEO_STREAM?"MPEG2 Video":(\

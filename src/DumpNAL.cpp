@@ -32,6 +32,7 @@ SOFTWARE.
 #include "h265_video.h"
 #include "h266_video.h"
 #include "mediaobjprint.h"
+#include "DumpTS.h"
 #include <unordered_map>
 
 using namespace std;
@@ -394,6 +395,7 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 		printf("Picture Timing:\n");
 		printf("\tcpb_removal_delay: %" PRIu32 "\n", pPicTiming->cpb_removal_delay);
 		printf("\tdpb_output_delay: %" PRIu32 "\n", pPicTiming->dpb_output_delay);
+		printf("\tpic_struct: %d (%s)\n", pPicTiming->pic_struct, PIC_STRUCT_MEANING(pPicTiming->pic_struct));
 	}
 	else
 	{
@@ -487,7 +489,7 @@ void PrintAVCSPSRoughInfo(H264_NU sps_nu)
 				printf("\tSample Aspect-Ratio: %s\n", sample_aspect_ratio_descs[vui_parameters->aspect_ratio_idc]);
 		}
 
-		if (vui_parameters->colour_description_present_flag)
+		if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
 		{
 			printf("\tColour Primaries: %d(%s)\n", vui_parameters->colour_primaries, vui_colour_primaries_names[vui_parameters->colour_primaries]);
 			printf("\tTransfer Characteristics: %d(%s)\n", vui_parameters->transfer_characteristics, vui_transfer_characteristics_names[vui_parameters->transfer_characteristics]);
@@ -506,6 +508,339 @@ void PrintAVCSPSRoughInfo(H264_NU sps_nu)
 	}
 
 	return;
+}
+
+int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexBBuf, STREAM_INFO& stm_info)
+{
+	INALContext* pNALContext = nullptr;
+	int iRet = RET_CODE_ERROR;
+
+	if (cbAnnexBBuf >= INT64_MAX)
+		return RET_CODE_BUFFER_OVERFLOW;
+
+	CNALParser NALParser(coding);
+	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
+	{
+		printf("Failed to get the %s NAL context.\n", NAL_CODING_NAME(coding));
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (coding == NAL_CODING_AVC)
+		pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT });
+	else if (coding == NAL_CODING_HEVC)
+		pNALContext->SetNUFilters({ BST::H265Video::VPS_NUT, BST::H265Video::SPS_NUT });
+	else if (coding == NAL_CODING_VVC)
+		pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT });
+
+	class CNALEnumerator : public INALEnumerator
+	{
+	public:
+		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+			m_coding = m_pNALContext->GetNALCoding();
+			if (m_coding == NAL_CODING_AVC)
+				m_pNALContext->QueryInterface(IID_INALAVCContext, (void**)&m_pNALAVCContext);
+			else if (m_coding == NAL_CODING_HEVC)
+				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
+		}
+
+		~CNALEnumerator() {}
+
+		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
+
+		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			uint8_t nal_unit_type = 0xFF;
+
+			AMBst bst = AMBst_CreateFromBuffer(pEBSPNUBuf, (int)cbEBSPNUBuf);
+			if (m_coding == NAL_CODING_AVC)
+			{
+				nal_unit_type = (pEBSPNUBuf[0] & 0x1F);
+				if (nal_unit_type == BST::H264Video::SPS_NUT || nal_unit_type == BST::H264Video::PPS_NUT)
+				{
+					H264_NU nu = m_pNALAVCContext->CreateAVCNU();
+					if (AMP_FAILED(iRet = nu->Map(bst)))
+					{
+						printf("Failed to unpack %s parameter set {error: %d}.\n", avc_nal_unit_type_descs[nal_unit_type], iRet);
+						goto done;
+					}
+
+					// Check whether the buffer is the same with previous one or not
+					AMSHA1_RET sha1_ret = { 0 };
+					AMSHA1 sha1_handle = AM_SHA1_Init(pEBSPNUBuf, (int)cbEBSPNUBuf);
+					AM_SHA1_Finalize(sha1_handle);
+					AM_SHA1_GetHash(sha1_handle, sha1_ret);
+					AM_SHA1_Uninit(sha1_handle);
+
+					if (nal_unit_type == BST::H264Video::SPS_NUT)
+					{
+						if (memcmp(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_spsid = nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.seq_parameter_set_id;
+
+						m_pNALAVCContext->UpdateAVCSPS(nu);
+					}
+					else if (nal_unit_type == BST::H264Video::PPS_NUT)
+					{
+						if (memcmp(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALAVCContext->UpdateAVCPPS(nu);
+					}
+				}
+			}
+			else if (m_coding == NAL_CODING_HEVC)
+			{
+				nal_unit_type = ((pEBSPNUBuf[0] >> 1) & 0x3F);
+
+				if (nal_unit_type == BST::H265Video::VPS_NUT || nal_unit_type == BST::H265Video::SPS_NUT || nal_unit_type == BST::H265Video::PPS_NUT)
+				{
+					H265_NU nu = m_pNALHEVCContext->CreateHEVCNU();
+					if (AMP_FAILED(iRet = nu->Map(bst)))
+					{
+						printf("Failed to unpack %s.\n", hevc_nal_unit_type_names[nal_unit_type]);
+						goto done;
+					}
+
+					// Check whether the buffer is the same with previous one or not
+					AMSHA1_RET sha1_ret = { 0 };
+					AMSHA1 sha1_handle = AM_SHA1_Init(pEBSPNUBuf, (int)cbEBSPNUBuf);
+					AM_SHA1_Finalize(sha1_handle);
+					AM_SHA1_GetHash(sha1_handle, sha1_ret);
+					AM_SHA1_Uninit(sha1_handle);
+
+					if (nal_unit_type == BST::H265Video::VPS_NUT)
+					{
+						if (memcmp(prev_vps_sha1_ret[nu->ptr_video_parameter_set_rbsp->vps_video_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_vps_sha1_ret[nu->ptr_video_parameter_set_rbsp->vps_video_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCVPS(nu);
+					}
+					else if (nal_unit_type == BST::H265Video::SPS_NUT)
+					{
+						if (memcmp(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_sps_sha1_ret[nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCSPS(nu);
+					}
+					else if (nal_unit_type == BST::H265Video::PPS_NUT)
+					{
+						if (memcmp(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET)) == 0)
+							goto done;
+						else
+							memcpy(prev_pps_sha1_ret[nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id], sha1_ret, sizeof(AMSHA1_RET));
+
+						m_pNALHEVCContext->UpdateHEVCPPS(nu);
+					}
+				}
+			}
+
+		done:
+			if (bst)
+				AMBst_Destroy(bst);
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		{
+			return RET_CODE_SUCCESS;
+		}
+		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		{
+			m_NUCount++;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		{
+			printf("Hitting error {error_code: %d}.\n", error_code);
+			return RET_CODE_SUCCESS;
+		}
+
+		int16_t GetSPSID() { return m_spsid; }
+
+		INALContext* m_pNALContext = nullptr;
+		INALAVCContext* m_pNALAVCContext = nullptr;
+		INALHEVCContext* m_pNALHEVCContext = nullptr;
+		uint64_t m_NUCount = 0;
+		NAL_CODING m_coding = NAL_CODING_UNKNOWN;
+		AMSHA1_RET prev_sps_sha1_ret[32] = { {0} };
+		AMSHA1_RET prev_vps_sha1_ret[32] = { {0} };
+		// H.264, there may be 256 pps at maximum; H.265/266: there may be 64 pps at maximum
+		AMSHA1_RET prev_pps_sha1_ret[256] = { {0} };
+		int16_t m_spsid = -1;
+	}NALEnumerator(pNALContext);
+
+	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), NAL_ENUM_OPTION_NU);
+
+	uint8_t* p = pAnnexBBuf;
+	int64_t cbLeft = (int64_t)cbAnnexBBuf;
+	while (cbLeft > 0)
+	{
+		int64_t cbSubmit = AMP_MIN(cbLeft, 2048);
+		if (AMP_SUCCEEDED(NALParser.ProcessInput(p, (size_t)cbSubmit)))
+		{
+			NALParser.ProcessOutput(cbLeft <= 2048 ? true : false);
+			if (coding == NAL_CODING_AVC)
+			{
+				INALAVCContext* pNALAVCContext = nullptr;
+				if (SUCCEEDED(pNALContext->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCContext)))
+				{
+					int16_t sps_id = NALEnumerator.GetSPSID();
+					if (sps_id >= 0 && sps_id <= UINT8_MAX)
+					{
+						auto sps_nu = pNALAVCContext->GetAVCSPS((uint8_t)sps_id);
+						if (sps_nu &&
+							sps_nu->ptr_seq_parameter_set_rbsp)
+						{
+							auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data;
+
+							uint8_t SubWidthC = (sps_seq.chroma_format_idc == 1 || sps_seq.chroma_format_idc == 2) ? 2 : (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0 ? 1 : 0);
+							uint8_t SubHeightC = (sps_seq.chroma_format_idc == 2 || (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0)) ? 1 : (sps_seq.chroma_format_idc == 1 ? 2 : 0);
+
+							uint16_t PicWidthInMbs = sps_seq.pic_width_in_mbs_minus1 + 1;
+							uint32_t PicWidthInSamplesL = PicWidthInMbs * 16;
+							//uint32_t PicWidthInSamplesC = PicWidthInMbs * MbWidthC;
+							uint16_t PicHeightInMapUnits = sps_seq.pic_height_in_map_units_minus1 + 1;
+							uint32_t PicSizeInMapUnits = PicWidthInMbs * PicHeightInMapUnits;
+							uint16_t FrameHeightInMbs = (2 - sps_seq.frame_mbs_only_flag) * PicHeightInMapUnits;
+							uint8_t ChromaArrayType = sps_seq.separate_colour_plane_flag == 0 ? sps_seq.chroma_format_idc : 0;
+							uint8_t CropUnitX = ChromaArrayType == 0 ? 1 : SubWidthC;
+							uint8_t CropUnitY = ChromaArrayType == 0 ? (2 - sps_seq.frame_mbs_only_flag) : SubHeightC * (2 - sps_seq.frame_mbs_only_flag);
+
+							uint32_t frame_buffer_width = PicWidthInSamplesL, frame_buffer_height = FrameHeightInMbs * 16;
+							uint32_t display_width = frame_buffer_width, display_height = frame_buffer_height;
+
+							if (sps_seq.frame_cropping_flag)
+							{
+								uint32_t crop_unit_x = 0, crop_unit_y = 0;
+								if (0 == sps_seq.chroma_format_idc)	// monochrome
+								{
+									crop_unit_x = 1;
+									crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+								}
+								else if (1 == sps_seq.chroma_format_idc)	// 4:2:0
+								{
+									crop_unit_x = 2;
+									crop_unit_y = 2 * (2 - sps_seq.frame_mbs_only_flag);
+								}
+								else if (2 == sps_seq.chroma_format_idc)	// 4:2:2
+								{
+									crop_unit_x = 2;
+									crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+								}
+								else if (3 == sps_seq.chroma_format_idc)
+								{
+									crop_unit_x = 1;
+									crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+								}
+
+								display_width -= crop_unit_x * (sps_seq.frame_crop_left_offset + sps_seq.frame_crop_right_offset);
+								display_height -= crop_unit_y * (sps_seq.frame_crop_top_offset + sps_seq.frame_crop_bottom_offset);
+							}
+
+							stm_info.video_info.video_width = display_width;
+							stm_info.video_info.video_height = display_height;
+
+							if (sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters_present_flag &&
+								sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters)
+							{
+								auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
+								if (vui_parameters->nal_hrd_parameters_present_flag &&
+									vui_parameters->nal_hrd_parameters)
+								{
+									stm_info.video_info.bitrate = (vui_parameters->nal_hrd_parameters->bit_rate_value_minus1[0] + 1) << (vui_parameters->nal_hrd_parameters->bit_rate_scale + 6);
+								}
+								else if (vui_parameters->vcl_hrd_parameters_present_flag &&
+									vui_parameters->vcl_hrd_parameters)
+								{
+									stm_info.video_info.bitrate = (vui_parameters->vcl_hrd_parameters->bit_rate_value_minus1[0] + 1) << (vui_parameters->vcl_hrd_parameters->bit_rate_scale + 6);
+								}
+
+								if (vui_parameters->aspect_ratio_info_present_flag)
+								{
+									uint16_t SAR_N = 0, SAR_D = 0;
+									if (vui_parameters->aspect_ratio_idc == 0xFF)
+									{
+										SAR_N = vui_parameters->sar_width;
+										SAR_D = vui_parameters->sar_height;
+									}
+									else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < sizeof(sample_aspect_ratios) / sizeof(sample_aspect_ratios[0]))
+									{
+										SAR_N = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+										SAR_D = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+									}
+
+									if (SAR_N != 0 && SAR_D != 0)
+									{
+										float diff_4_3 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 4.0f / 3.0f);
+										float diff_16_9 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 16.0f / 9.0f);
+
+										stm_info.video_info.aspect_ratio_numerator = diff_4_3 < diff_16_9 ? 4 : 16;
+										stm_info.video_info.aspect_ratio_denominator = diff_4_3 < diff_16_9 ? 3 : 9;
+									}
+								}
+
+								if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
+								{
+									stm_info.video_info.transfer_characteristics = vui_parameters->transfer_characteristics;
+									stm_info.video_info.colour_primaries = vui_parameters->colour_primaries;
+								}
+
+								auto profile_idc = sps_seq.profile_idc;
+								if (profile_idc == 100 || profile_idc == 110 ||
+									profile_idc == 122 || profile_idc == 244 || profile_idc == 44 ||
+									profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
+									profile_idc == 128 || profile_idc == 138)
+									stm_info.video_info.chroma_format_idc = sps_seq.chroma_format_idc;
+
+								if (vui_parameters->timing_info_present_flag && vui_parameters->fixed_frame_rate_flag)
+								{
+									uint64_t GCD = gcd(vui_parameters->num_units_in_tick * 2, vui_parameters->time_scale);
+									stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->time_scale / GCD);
+									stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->num_units_in_tick * 2 / GCD);
+								}
+							}
+
+							iRet = RET_CODE_SUCCESS;
+							break;
+						}
+					}
+				}
+			}
+			else if (coding == NAL_CODING_HEVC)
+			{
+				INALHEVCContext* pNALHEVCContext = nullptr;
+				pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCContext);
+			}
+
+			cbLeft -= cbSubmit;
+			p += cbSubmit;
+		}
+		else
+			break;
+	}
+
+	if (pNALContext)
+	{
+		pNALContext->Release();
+		pNALContext = nullptr;
+	}
+
+	return iRet;
 }
 
 /*

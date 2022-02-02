@@ -464,3 +464,15 @@ inline std::string GetHumanReadNumber(uint64_t n, bool base10241K = false, uint8
 	return szOutput;
 }
 
+inline uint64_t gcd(uint64_t a, uint64_t b)
+{
+	if (b == 0)
+		return 0;
+
+	uint64_t c = a % b;
+	if (c == 0)
+		return b;
+	else
+		return gcd(b, c);
+}
+
