@@ -47,6 +47,9 @@ extern DUMP_STATUS g_dump_status;
 extern const char* vui_transfer_characteristics_names[256];
 extern const char* vui_colour_primaries_names[256];
 extern const char* chroma_format_idc_names[4];
+extern const char* hevc_profile_name[36];
+extern const char* get_h264_profile_name(int profile);
+extern const char* get_h264_level_name(int level);
 
 // For MLP audio
 #define FBB_SYNC_CODE				0xF8726FBB
@@ -1449,6 +1452,20 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 
 				printf("\tPID: 0X%X.\n", PID);
 				printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+
+				if (stream_type == HEVC_VIDEO_STREAM)
+				{
+					printf("\tHEVC Profile: %s\n", 
+						stm_info.video_info.profile >= 0 && 
+						stm_info.video_info.profile < (int32_t)(sizeof(hevc_profile_name)/sizeof(hevc_profile_name[0]))?hevc_profile_name[stm_info.video_info.profile]:"Unknown");
+					printf("\tHEVC tier: %s\n", stm_info.video_info.tier == 0 ? "Main Tier" : (stm_info.video_info.tier == 1 ? "High Tier" : "Unknown"));
+					printf("\tHEVC level: %d.%d\n", (int)(stm_info.video_info.level / 30), (int)(stm_info.video_info.level % 30 / 3));
+				}
+				else if (stream_type == MPEG4_AVC_VIDEO_STREAM)
+				{
+					printf("\tAVC Profile: %s\n", get_h264_profile_name(stm_info.video_info.profile));
+					printf("\tAVC Level: %s\n", get_h264_level_name(stm_info.video_info.level));
+				}
 
 				if (stm_info.video_info.video_width != 0 && stm_info.video_info.video_height != 0)
 					printf("\tVideo Resolution: %" PRIu32 "x%" PRIu32 "\n", stm_info.video_info.video_width, stm_info.video_info.video_height);

@@ -149,6 +149,14 @@ const char* get_h264_profile_name(int profile)
 		case BST::H264Video::HIGH_444_PREDICTIVE_PROFILE: return "High 444 Predictive Profile";
 		case BST::H264Video::HIGH_444_INTRA_PROFILE: return "High 444 Intra Profile";
 		case BST::H264Video::CAVLC_444_INTRA_PROFIILE: return "CAVLC 444 Intra Profile";
+		case BST::H264Video::MULTIVIEW_HIGH_PROFILE: return "MultiView High Profile";
+		case BST::H264Video::STEREO_HIGH_PROFILE: return "Stereo High Profile";
+		case BST::H264Video::SCALABLE_BASELINE_PROFILE: return "Scalable Baseline Profile";
+		case BST::H264Video::SCALABLE_CONSTRAINED_BASELINE_PROFILE: return "Scalable Constrained Baseline Profile";
+		case BST::H264Video::SCALABLE_HIGH_PROFILE: return "Scalable High Profile";
+		case BST::H264Video::SCALABLE_CONSTRAINED_HIGH_PROFILE: return "Scalable Constrained High Profile";
+		case BST::H264Video::SCALABLE_HIGH_INTRA_PROFILE: return "Scalable High Intra Profile";
+		case BST::H264Video::MULTIVIEW_DEPTH_HIGH_PROFILE: return "MultiView Depth High Profile";
 	}
 
 	return "Unknown Profile";

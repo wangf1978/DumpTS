@@ -125,6 +125,13 @@ namespace BST {
 			HEVC_PROFILE_High_Throughput_444_16_Intra,
 		};
 
+		enum HEVC_TIER
+		{
+			HEVC_TIER_Unknown = -1,
+			HEVC_TIER_Main,
+			HEVC_TIER_High
+		};
+
 		enum NAL_UNIT_TYPE
 		{
 			TRAIL_N				= 0,

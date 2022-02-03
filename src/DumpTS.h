@@ -84,6 +84,9 @@ struct AUDIO_INFO
 
 struct VIDEO_INFO
 {
+	int32_t			profile;			// See H264_PRFOILE, or HEVC_PROFILE
+	int32_t			tier;
+	int32_t			level;
 	uint8_t			transfer_characteristics;
 										// HDR10, SDR
 	uint8_t			colour_primaries;	// REC.601, BT.709 and BT.2020

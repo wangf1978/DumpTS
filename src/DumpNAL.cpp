@@ -782,6 +782,10 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 						{
 							auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data;
 
+							stm_info.video_info.profile = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.GetH264Profile();
+							stm_info.video_info.tier = -1;
+							stm_info.video_info.level = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.GetH264Level();
+
 							uint8_t SubWidthC = (sps_seq.chroma_format_idc == 1 || sps_seq.chroma_format_idc == 2) ? 2 : (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0 ? 1 : 0);
 							uint8_t SubHeightC = (sps_seq.chroma_format_idc == 2 || (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0)) ? 1 : (sps_seq.chroma_format_idc == 1 ? 2 : 0);
 
@@ -907,6 +911,16 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 							sps_nu->ptr_seq_parameter_set_rbsp)
 						{
 							auto sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
+
+							stm_info.video_info.profile = BST::H265Video::HEVC_PROFILE_Unknown;
+							stm_info.video_info.tier = BST::H265Video::HEVC_TIER_Unknown;
+							if (sps_seq && sps_seq->profile_tier_level && sps_seq->profile_tier_level->general_profile_level.profile_present_flag)
+							{
+								stm_info.video_info.profile = sps_seq->profile_tier_level->GetHEVCProfile();
+								stm_info.video_info.tier = sps_seq->profile_tier_level->general_profile_level.tier_flag;
+							}
+
+							stm_info.video_info.level = sps_seq->profile_tier_level->general_profile_level.level_idc;
 
 							uint32_t display_width = sps_seq->pic_width_in_luma_samples, display_height = sps_seq->pic_height_in_luma_samples;
 							if (sps_seq->conformance_window_flag)
