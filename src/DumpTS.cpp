@@ -1028,8 +1028,9 @@ int main(int argc, char* argv[])
 					printf("Oops! Not implement yet....\n");
 					goto done;
 				}
-				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h264") == 0 ||
-					iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h265") == 0)
+				else if (iter_srcfmt != g_params.end() && (
+					iter_srcfmt->second.compare("h264") == 0 ||
+					iter_srcfmt->second.compare("h265") == 0))
 				{
 					nDumpRet = ShowNALInfo();
 					goto done;

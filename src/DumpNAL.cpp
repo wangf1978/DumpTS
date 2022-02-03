@@ -515,7 +515,7 @@ void PrintHEVCSPSRoughInfo(H265_NU sps_nu)
 	if (!sps_nu || sps_nu->ptr_seq_parameter_set_rbsp == nullptr)
 		return;
 
-	auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
+	auto sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
 
 	if (sps_seq == nullptr ||
 		sps_seq->profile_tier_level == nullptr ||
@@ -906,7 +906,7 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 						if (sps_nu &&
 							sps_nu->ptr_seq_parameter_set_rbsp)
 						{
-							auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
+							auto sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
 
 							uint32_t display_width = sps_seq->pic_width_in_luma_samples, display_height = sps_seq->pic_height_in_luma_samples;
 							if (sps_seq->conformance_window_flag)
