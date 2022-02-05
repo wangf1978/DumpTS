@@ -46,6 +46,7 @@ SOFTWARE.
 #include <stdint.h>
 #include <inttypes.h>
 #include <climits>
+#include <new>
 #include "LibPlatform/platdef.h"
 
 #ifdef _WIN32

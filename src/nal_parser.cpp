@@ -87,9 +87,14 @@ CNALParser::~CNALParser()
 {
 	if (m_nal_coding == NAL_CODING_AVC)
 	{
-		m_pCtx->Release();
-		m_pCtx = nullptr;
+		AMP_SAFERELEASE(m_pNALAVCCtx);
 	}
+	else if (m_nal_coding == NAL_CODING_HEVC)
+	{
+		AMP_SAFERELEASE(m_pNALHEVCCtx);
+	}
+
+	AMP_SAFERELEASE(m_pCtx);
 
 	AM_LRB_Destroy(m_rbNALUnitEBSP);
 	AM_LRB_Destroy(m_rbRawBuf);

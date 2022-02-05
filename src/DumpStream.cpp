@@ -35,6 +35,8 @@ SOFTWARE.
 #include <type_traits>
 #include <iterator>
 #include "DataUtil.h"
+#include "mpeg2videoparser.h"
+#include "mpeg2video.h"
 
 using namespace std;
 
@@ -1173,6 +1175,175 @@ int ParseMPEGAudioFrame(unsigned short PID, int stream_type, unsigned long sync_
 	return iRet;
 }
 
+int GetStreamInfoFromMPEG2AU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_info)
+{
+	IMPVContext* pMPVContext = nullptr;
+	int iRet = RET_CODE_ERROR;
+
+	if (cbAUBuf >= INT64_MAX)
+		return RET_CODE_BUFFER_OVERFLOW;
+
+	CMPEG2VideoParser MPVParser;
+	if (AMP_FAILED(MPVParser.GetMPVContext(&pMPVContext)))
+	{
+		printf("Failed to get the MPEG video context.\n");
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	pMPVContext->SetStartCodeFilters({ SEQUENCE_HEADER_CODE, EXTENSION_START_CODE });
+
+	class CMPVEnumerator : public IMPVEnumerator
+	{
+	public:
+		CMPVEnumerator(IMPVContext* pCtx)
+		: m_pMPVContext(pCtx){
+		}
+
+		virtual ~CMPVEnumerator() {
+		}
+
+		RET_CODE EnumAUStart(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumSliceStart(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumSliceEnd(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumAUEnd(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumObject(IMPVContext* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+		{
+			if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
+				return RET_CODE_NOTHING_TODO;
+
+			AMBst bst = nullptr;
+			RET_CODE ret_code = RET_CODE_SUCCESS;
+			uint8_t mpv_start_code = pBufWithStartCode[3];
+			if (mpv_start_code == EXTENSION_START_CODE && 
+				m_pMPVContext->GetCurrentLevel() == 0 && 
+				cbBufWithStartCode > 4 && 
+				((pBufWithStartCode[4]>>4)&0xFF) == SEQUENCE_DISPLAY_EXTENSION_ID)
+			{
+				// Try to find sequence_display_extension()
+				if ((bst = AMBst_CreateFromBuffer(pBufWithStartCode, (int)cbBufWithStartCode)) == nullptr)
+				{
+					printf("Failed to create a bitstream object.\n");
+					return RET_CODE_ABORT;
+				}
+
+				try
+				{
+					AMBst_SkipBits(bst, 32);
+					int left_bits = 0;
+
+					BST::MPEG2Video::CSequenceDisplayExtension* pSeqDispExt =
+						new (std::nothrow) BST::MPEG2Video::CSequenceDisplayExtension;
+					if (pSeqDispExt == nullptr)
+					{
+						printf("Failed to create Sequence_Display_Extension.\n");
+						ret_code = RET_CODE_ABORT;
+						goto done;
+					}
+					if (AMP_FAILED(ret_code = pSeqDispExt->Map(bst)))
+					{
+						delete pSeqDispExt;
+						printf("Failed to parse the sequence_display_extension() {error code: %d}.\n", ret_code);
+						goto done;
+					}
+					m_sp_sequence_display_extension = std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>(pSeqDispExt);
+				}
+				catch (AMException& e)
+				{
+					ret_code = e.RetCode();
+				}
+			}
+
+		done:
+			if (bst != nullptr)
+				AMBst_Destroy(bst);
+			return ret_code;
+		}
+		RET_CODE EnumError(IMPVContext* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
+
+		IMPVContext*			m_pMPVContext;
+		std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>
+								m_sp_sequence_display_extension;
+
+	} MPVEnumerator(pMPVContext);
+
+	MPVParser.SetEnumerator(&MPVEnumerator, MPV_ENUM_OPTION_OBJ);
+
+	if (AMP_SUCCEEDED(iRet = MPVParser.ParseAUBuf(pAUBuf, cbAUBuf)))
+	{
+		auto spSeqHdr = pMPVContext->GetSeqHdr();
+		auto spSeqExt = pMPVContext->GetSeqExt();
+
+		if (!spSeqHdr || !spSeqExt)
+			iRet = RET_CODE_NEEDMOREINPUT;
+		else
+		{
+			stm_info.video_info.profile = spSeqExt->GetProfile();
+			stm_info.video_info.level = spSeqExt->GetLevel();
+			stm_info.video_info.video_width = (spSeqExt->horizontal_size_extension << 12) | spSeqHdr->horizontal_size_value;
+			stm_info.video_info.video_height = (spSeqExt->vertical_size_extension << 12) | spSeqHdr->vertical_size_value;
+
+			if (MPVEnumerator.m_sp_sequence_display_extension)
+			{
+				stm_info.video_info.video_width = MPVEnumerator.m_sp_sequence_display_extension->display_horizontal_size;
+				stm_info.video_info.video_height = MPVEnumerator.m_sp_sequence_display_extension->display_vertical_size;
+				if (MPVEnumerator.m_sp_sequence_display_extension->colour_description)
+				{
+					stm_info.video_info.colour_primaries = MPVEnumerator.m_sp_sequence_display_extension->colour_primaries;
+					stm_info.video_info.transfer_characteristics = MPVEnumerator.m_sp_sequence_display_extension->transfer_characteristics;
+				}
+			}
+
+			stm_info.video_info.chroma_format_idc = spSeqExt->chroma_format;
+			stm_info.video_info.bitrate = (uint32_t)(((uint32_t)spSeqExt->bit_rate_extension << 18) | spSeqHdr->bit_rate_value) * 400;
+			switch (spSeqHdr->frame_rate_code)
+			{
+			case 1: stm_info.video_info.framerate_numerator = 24000; stm_info.video_info.framerate_denominator = 1001; break;
+			case 2: stm_info.video_info.framerate_numerator = 24; stm_info.video_info.framerate_denominator = 1; break;
+			case 3: stm_info.video_info.framerate_numerator = 25; stm_info.video_info.framerate_denominator = 1; break;
+			case 4: stm_info.video_info.framerate_numerator = 30000; stm_info.video_info.framerate_denominator = 1001; break;
+			case 5: stm_info.video_info.framerate_numerator = 30; stm_info.video_info.framerate_denominator = 1; break;
+			case 6: stm_info.video_info.framerate_numerator = 50; stm_info.video_info.framerate_denominator = 1; break;
+			case 7: stm_info.video_info.framerate_numerator = 60000; stm_info.video_info.framerate_denominator = 1001; break;
+			case 8: stm_info.video_info.framerate_numerator = 60; stm_info.video_info.framerate_denominator = 1; break;
+			}
+
+			stm_info.video_info.framerate_numerator *= (spSeqExt->frame_rate_extension_n + 1);
+			stm_info.video_info.framerate_denominator *= (spSeqExt->frame_rate_extension_d + 1);
+
+			uint64_t c = gcd(stm_info.video_info.framerate_numerator, stm_info.video_info.framerate_denominator);
+
+			stm_info.video_info.framerate_numerator = (uint32_t)(stm_info.video_info.framerate_numerator / c);
+			stm_info.video_info.framerate_denominator = (uint32_t)(stm_info.video_info.framerate_denominator / c);
+
+			if (spSeqHdr->aspect_ratio_information == 1)
+			{
+				c = gcd(stm_info.video_info.video_width, stm_info.video_info.video_height);
+				stm_info.video_info.aspect_ratio_numerator = (uint32_t)(stm_info.video_info.video_width / c);
+				stm_info.video_info.aspect_ratio_denominator = (uint32_t)(stm_info.video_info.video_height / c);
+			}
+			else if (spSeqHdr->aspect_ratio_information == 2)
+			{
+				stm_info.video_info.aspect_ratio_numerator = 4;
+				stm_info.video_info.aspect_ratio_denominator = 3;
+			}
+			else if (spSeqHdr->aspect_ratio_information == 3)
+			{
+				stm_info.video_info.aspect_ratio_numerator = 16;
+				stm_info.video_info.aspect_ratio_denominator = 9;
+			}
+			else if (spSeqHdr->aspect_ratio_information == 4)
+			{
+				stm_info.video_info.aspect_ratio_numerator = 221;
+				stm_info.video_info.aspect_ratio_denominator = 100;
+			}
+		}
+	}
+
+	AMP_SAFERELEASE(pMPVContext);
+
+	return iRet;
+}
+
 int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, int dumpopt)
 {
 	unsigned char* p = pBuf;
@@ -1395,6 +1566,14 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			iParseRet = 0;
 		}
 	}
+	else if (MPEG2_VIDEO_STREAM == stream_type)
+	{
+		stm_info.stream_coding_type = stream_type;
+		if (AMP_SUCCEEDED(GetStreamInfoFromMPEG2AU(p, cbLeft, stm_info)))
+		{
+			iParseRet = 0;
+		}
+	}
 	else if (MPEG4_AVC_VIDEO_STREAM == stream_type)
 	{
 		stm_info.stream_coding_type = stream_type;
@@ -1465,6 +1644,11 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 				{
 					printf("\tAVC Profile: %s\n", get_h264_profile_name(stm_info.video_info.profile));
 					printf("\tAVC Level: %s\n", get_h264_level_name(stm_info.video_info.level));
+				}
+				else if (stream_type == MPEG2_VIDEO_STREAM)
+				{
+					printf("\tMPEG2 Video Profile: %s\n", mpeg2_profile_names[stm_info.video_info.profile]);
+					printf("\tMPEG2 Video Level: %s\n", mpeg2_level_names[stm_info.video_info.level]);
 				}
 
 				if (stm_info.video_info.video_width != 0 && stm_info.video_info.video_height != 0)

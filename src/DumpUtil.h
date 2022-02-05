@@ -1320,42 +1320,42 @@ SOFTWARE.
 	NAV_WRITE_TAG_END3(Group_Name, idx)\
 
 #define NAV_FIELD_PROP_REF_WITH_TAG1(Obj_Name, Group_Name)\
-	if (##Obj_Name){\
+	if (Obj_Name){\
 	NAV_WRITE_TAG_BEGIN(Group_Name);\
 	NAV_FIELD_PROP_REF(Obj_Name)\
 	NAV_WRITE_TAG_END(Group_Name);\
 	}\
 
 #define NAV_FIELD_PROP_REF_WITH_TAG2(Obj_Name, Group_Name)\
-	if (##Obj_Name){\
+	if (Obj_Name){\
 	NAV_WRITE_TAG_BEGIN2(Group_Name);\
 	NAV_FIELD_PROP_REF(Obj_Name)\
 	NAV_WRITE_TAG_END2(Group_Name);\
 	}\
 
 #define NAV_FIELD_PROP_REF_WITH_TAG2_1(Obj_Name, Group_Name, TAG_DESC)\
-	if (##Obj_Name){\
+	if (Obj_Name){\
 	NAV_WRITE_TAG_BEGIN2_1(Group_Name, TAG_DESC);\
 	NAV_FIELD_PROP_REF(Obj_Name)\
 	NAV_WRITE_TAG_END2(Group_Name);\
 	}\
 
 #define NAV_FIELD_PROP_REF_WITH_TAG2_2(Obj_Name, Group_Name, TAG_DESC, auto_expand)\
-	if (##Obj_Name){\
+	if (Obj_Name){\
 	NAV_WRITE_TAG_BEGIN_1(Group_Name, TAG_DESC, auto_expand);\
 	NAV_FIELD_PROP_REF(Obj_Name)\
 	NAV_WRITE_TAG_END(Group_Name);\
 	}\
 
 #define NAV_FIELD_PROP_REF_WITH_TAG3(Obj_Name, Group_Name, idx)\
-	if (##Obj_Name){\
+	if (Obj_Name){\
 	NAV_WRITE_TAG_BEGIN3(Group_Name, idx);\
 	NAV_FIELD_PROP_REF(Obj_Name)\
 	NAV_WRITE_TAG_END3(Group_Name, idx);\
 	}\
 
 #define NAV_FIELD_PROP_REF_WITH_TAG3_1(Obj_Name, Group_Name, idx, TAG_DESC)\
-	if (##Obj_Name){\
+	if (Obj_Name){\
 		NAV_WRITE_TAG_BEGIN3_1(Group_Name, idx, TAG_DESC);\
 		NAV_FIELD_PROP_REF(Obj_Name)\
 		NAV_WRITE_TAG_END3(Group_Name, idx);\
