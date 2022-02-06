@@ -200,7 +200,7 @@ namespace MPEG4System
 
 		DECLARE_FIELDPROP_BEGIN()
 		NAV_FIELD_PROP_2NUMBER1(tag, 8, std::get<0>(MP4_descriptor_descs[tag]));
-		NAV_FIELD_PROP_2NUMBER1(sizeOfInstance, ((int)header_size-1) << 3, "the size of the following bytes");
+		NAV_FIELD_PROP_2NUMBER1(sizeOfInstance, ((long long)header_size-1) << 3, "the size of the following bytes");
 		DECLARE_FIELDPROP_END()
 
 	}PACKED;

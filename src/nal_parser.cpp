@@ -1516,7 +1516,8 @@ int CNALParser::CommitAVCPicture(
 	}
 
 	// Add all related pps_pic_parameter_set_id
-	nal_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] = true;
+	if (slice_pic_parameter_set_id >= 0 && slice_pic_parameter_set_id <= 255)
+		nal_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] = true;
 
 	if (avc_time_scale != 0 && avc_presentation_time_code >= 0)
 		avc_presentation_time_code += avc_num_units_in_tick * 10000000LL * (1 + avc_nuit_field_based_flag) / avc_time_scale;

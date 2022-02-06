@@ -894,7 +894,7 @@ int ProcessPAMessage(
 
 			if (bFoundNewMPT && pMPT != nullptr)
 			{
-				uint32_t MPT_CID_packet_id = (uint32_t)((CID << 16) | packet_id);
+				uint32_t MPT_CID_packet_id = (uint32_t)(((uint64_t)CID << 16) | packet_id);
 				auto iterMPTCIDPktAsset = MMT::MMTPPacket::MMTP_packet_asset_types.find(MPT_CID_packet_id);
 				if (iterMPTCIDPktAsset == MMT::MMTPPacket::MMTP_packet_asset_types.end())
 					MMT::MMTPPacket::MMTP_packet_asset_types[MPT_CID_packet_id].insert('mmpt');
