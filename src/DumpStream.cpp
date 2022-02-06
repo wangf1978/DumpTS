@@ -132,6 +132,11 @@ const FRAME_SIZE_CODE_TABLE frame_size_code_table[38] = {
 };
 
 extern int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexBBuf, STREAM_INFO& stm_info);
+extern int GetStreamInfoSeqHdrAndExt(
+	BST::MPEG2Video::CSequenceHeader* pSeqHdr,
+	BST::MPEG2Video::CSequenceExtension* pSeqExt,
+	BST::MPEG2Video::CSequenceDisplayExtension* pSeqDispExt,
+	STREAM_INFO& stm_info);
 
 int ParseAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, STREAM_INFO& audio_info)
 {
@@ -1216,7 +1221,6 @@ int GetStreamInfoFromMPEG2AU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_i
 			uint8_t mpv_start_code = pBufWithStartCode[3];
 			if (mpv_start_code == EXTENSION_START_CODE && 
 				m_pMPVContext->GetCurrentLevel() == 0 && 
-				cbBufWithStartCode > 4 && 
 				((pBufWithStartCode[4]>>4)&0xFF) == SEQUENCE_DISPLAY_EXTENSION_ID)
 			{
 				// Try to find sequence_display_extension()
@@ -1272,71 +1276,7 @@ int GetStreamInfoFromMPEG2AU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_i
 	{
 		auto spSeqHdr = pMPVContext->GetSeqHdr();
 		auto spSeqExt = pMPVContext->GetSeqExt();
-
-		if (!spSeqHdr || !spSeqExt)
-			iRet = RET_CODE_NEEDMOREINPUT;
-		else
-		{
-			stm_info.video_info.profile = spSeqExt->GetProfile();
-			stm_info.video_info.level = spSeqExt->GetLevel();
-			stm_info.video_info.video_width = (spSeqExt->horizontal_size_extension << 12) | spSeqHdr->horizontal_size_value;
-			stm_info.video_info.video_height = (spSeqExt->vertical_size_extension << 12) | spSeqHdr->vertical_size_value;
-
-			if (MPVEnumerator.m_sp_sequence_display_extension)
-			{
-				stm_info.video_info.video_width = MPVEnumerator.m_sp_sequence_display_extension->display_horizontal_size;
-				stm_info.video_info.video_height = MPVEnumerator.m_sp_sequence_display_extension->display_vertical_size;
-				if (MPVEnumerator.m_sp_sequence_display_extension->colour_description)
-				{
-					stm_info.video_info.colour_primaries = MPVEnumerator.m_sp_sequence_display_extension->colour_primaries;
-					stm_info.video_info.transfer_characteristics = MPVEnumerator.m_sp_sequence_display_extension->transfer_characteristics;
-				}
-			}
-
-			stm_info.video_info.chroma_format_idc = spSeqExt->chroma_format;
-			stm_info.video_info.bitrate = (uint32_t)(((uint32_t)spSeqExt->bit_rate_extension << 18) | spSeqHdr->bit_rate_value) * 400;
-			switch (spSeqHdr->frame_rate_code)
-			{
-			case 1: stm_info.video_info.framerate_numerator = 24000; stm_info.video_info.framerate_denominator = 1001; break;
-			case 2: stm_info.video_info.framerate_numerator = 24; stm_info.video_info.framerate_denominator = 1; break;
-			case 3: stm_info.video_info.framerate_numerator = 25; stm_info.video_info.framerate_denominator = 1; break;
-			case 4: stm_info.video_info.framerate_numerator = 30000; stm_info.video_info.framerate_denominator = 1001; break;
-			case 5: stm_info.video_info.framerate_numerator = 30; stm_info.video_info.framerate_denominator = 1; break;
-			case 6: stm_info.video_info.framerate_numerator = 50; stm_info.video_info.framerate_denominator = 1; break;
-			case 7: stm_info.video_info.framerate_numerator = 60000; stm_info.video_info.framerate_denominator = 1001; break;
-			case 8: stm_info.video_info.framerate_numerator = 60; stm_info.video_info.framerate_denominator = 1; break;
-			}
-
-			stm_info.video_info.framerate_numerator *= (spSeqExt->frame_rate_extension_n + 1);
-			stm_info.video_info.framerate_denominator *= (spSeqExt->frame_rate_extension_d + 1);
-
-			uint64_t c = gcd(stm_info.video_info.framerate_numerator, stm_info.video_info.framerate_denominator);
-
-			stm_info.video_info.framerate_numerator = (uint32_t)(stm_info.video_info.framerate_numerator / c);
-			stm_info.video_info.framerate_denominator = (uint32_t)(stm_info.video_info.framerate_denominator / c);
-
-			if (spSeqHdr->aspect_ratio_information == 1)
-			{
-				c = gcd(stm_info.video_info.video_width, stm_info.video_info.video_height);
-				stm_info.video_info.aspect_ratio_numerator = (uint32_t)(stm_info.video_info.video_width / c);
-				stm_info.video_info.aspect_ratio_denominator = (uint32_t)(stm_info.video_info.video_height / c);
-			}
-			else if (spSeqHdr->aspect_ratio_information == 2)
-			{
-				stm_info.video_info.aspect_ratio_numerator = 4;
-				stm_info.video_info.aspect_ratio_denominator = 3;
-			}
-			else if (spSeqHdr->aspect_ratio_information == 3)
-			{
-				stm_info.video_info.aspect_ratio_numerator = 16;
-				stm_info.video_info.aspect_ratio_denominator = 9;
-			}
-			else if (spSeqHdr->aspect_ratio_information == 4)
-			{
-				stm_info.video_info.aspect_ratio_numerator = 221;
-				stm_info.video_info.aspect_ratio_denominator = 100;
-			}
-		}
+		iRet = GetStreamInfoSeqHdrAndExt(spSeqHdr.get(), spSeqExt.get(), MPVEnumerator.m_sp_sequence_display_extension.get(), stm_info);
 	}
 
 	AMP_SAFERELEASE(pMPVContext);

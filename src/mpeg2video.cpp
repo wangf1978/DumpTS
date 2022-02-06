@@ -229,25 +229,27 @@ namespace BST
 {
 	namespace MPEG2Video
 	{
-		RET_CODE VideoBitstreamCtx::SetStartCodeFilters(std::initializer_list<uint8_t> start_code_filters)
+		RET_CODE VideoBitstreamCtx::SetStartCodeFilters(std::initializer_list<uint16_t> start_code_filters)
 		{
 			m_start_code_filters = start_code_filters;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE VideoBitstreamCtx::GetStartCodeFilters(std::vector<uint8_t>& start_code_filters)
+		RET_CODE VideoBitstreamCtx::GetStartCodeFilters(std::vector<uint16_t>& start_code_filters)
 		{
 			start_code_filters = m_start_code_filters;
 			return RET_CODE_SUCCESS;
 		}
 
-		bool VideoBitstreamCtx::IsStartCodeFiltered(uint8_t start_code)
+		bool VideoBitstreamCtx::IsStartCodeFiltered(uint16_t start_code)
 		{
-			return m_start_code_filters.size() == 0 ||
-				std::find(m_start_code_filters.begin(), m_start_code_filters.end(), start_code) == m_start_code_filters.end() ? false : true;
+			if (m_start_code_filters.size() == 0)
+				return true;
+
+			return std::find(m_start_code_filters.begin(), m_start_code_filters.end(), start_code) == m_start_code_filters.end() ? false : true;
 		}
 
-		void VideoBitstreamCtx::UpdateStartCode(uint8_t start_code)
+		void VideoBitstreamCtx::UpdateStartCode(uint16_t start_code)
 		{
 			// If a new sequence header is started, clear the start code history
 			if (start_code == SEQUENCE_HEADER_CODE || start_code == GROUP_START_CODE || start_code == PICTURE_START_CODE)

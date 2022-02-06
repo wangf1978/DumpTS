@@ -2950,10 +2950,10 @@ namespace BST {
 			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
 		}
 
-		RET_CODE				SetStartCodeFilters(std::initializer_list<uint8_t> start_code_filters);
-		RET_CODE				GetStartCodeFilters(std::vector<uint8_t>& start_code_filters);
-		bool					IsStartCodeFiltered(uint8_t start_code);
-		void					UpdateStartCode(uint8_t start_code);
+		RET_CODE				SetStartCodeFilters(std::initializer_list<uint16_t> start_code_filters);
+		RET_CODE				GetStartCodeFilters(std::vector<uint16_t>& start_code_filters);
+		bool					IsStartCodeFiltered(uint16_t start_code);
+		void					UpdateStartCode(uint16_t start_code);
 		int						GetCurrentLevel();
 		SEQHDR					GetSeqHdr();
 		RET_CODE				UpdateSeqHdr(SEQHDR seqHdr);
@@ -2962,7 +2962,7 @@ namespace BST {
 		void					Reset();
 
 	public:
-		std::vector<uint8_t>	m_start_code_filters;
+		std::vector<uint16_t>	m_start_code_filters;
 
 		uint8_t					m_in_scanning : 1;
 		uint8_t					m_unit_split : 1;	// 0: each byte stream unit need locate the next start code
@@ -2972,7 +2972,7 @@ namespace BST {
 		uint8_t					m_phase;			// 0: Finish paring sequence_header and sequence_extension
 														// 1: Finish paring group_pictures_heder
 														// 2: Finish parsing picture_header and picture_coding_extension
-		std::vector<uint8_t>	m_start_codes;
+		std::vector<uint16_t>	m_start_codes;
 		int						m_curr_level = -1;
 
 		SEQHDR					m_seq_hdr;
@@ -3446,7 +3446,7 @@ namespace BST {
 		VideoBitstreamCtx				ctx_video_bst;
 
 		CVideoBitstream() {}
-		CVideoBitstream(std::initializer_list<uint8_t> start_code_filters) {
+		CVideoBitstream(std::initializer_list<uint16_t> start_code_filters) {
 			ctx_video_bst.m_start_code_filters = start_code_filters;
 		}
 		virtual ~CVideoBitstream(){

@@ -29,6 +29,9 @@ SOFTWARE.
 #include "Bitstream.h"
 #include <assert.h>
 #include <functional>
+#include "DataUtil.h"
+#include "mpeg2videoparser.h"
+#include "mpeg2video.h"
 
 extern std::unordered_map<std::string, std::string> g_params;
 extern int g_verbose_level;
@@ -42,6 +45,10 @@ extern int FlushPESBuffer(
 	PES_FILTER_INFO& filter_info,
 	FILE* fw,
 	int dumpopt);
+
+extern const char* vui_transfer_characteristics_names[256];
+extern const char* vui_colour_primaries_names[256];
+extern const char* chroma_format_idc_names[4];
 
 #define MPEG_PROGRAM_END_CODE					0xB9
 #define MPEG_PROGRAM_PACK_START_CODE			0xBA
@@ -349,5 +356,323 @@ done:
 		delete[] pes_buffer;
 
 	return iRet;
+}
+
+
+int GetStreamInfoSeqHdrAndExt(
+	BST::MPEG2Video::CSequenceHeader* pSeqHdr, 
+	BST::MPEG2Video::CSequenceExtension* pSeqExt, 
+	BST::MPEG2Video::CSequenceDisplayExtension* pSeqDispExt,
+	STREAM_INFO& stm_info)
+{
+	if (pSeqHdr == nullptr || pSeqExt == nullptr)
+		return RET_CODE_NEEDMOREINPUT;
+
+	stm_info.video_info.profile = pSeqExt->GetProfile();
+	stm_info.video_info.level = pSeqExt->GetLevel();
+	stm_info.video_info.video_width = (pSeqExt->horizontal_size_extension << 12) | pSeqHdr->horizontal_size_value;
+	stm_info.video_info.video_height = (pSeqExt->vertical_size_extension << 12) | pSeqHdr->vertical_size_value;
+
+	if (pSeqDispExt)
+	{
+		stm_info.video_info.video_width = pSeqDispExt->display_horizontal_size;
+		stm_info.video_info.video_height = pSeqDispExt->display_vertical_size;
+		if (pSeqDispExt->colour_description)
+		{
+			stm_info.video_info.colour_primaries = pSeqDispExt->colour_primaries;
+			stm_info.video_info.transfer_characteristics = pSeqDispExt->transfer_characteristics;
+		}
+	}
+
+	stm_info.video_info.chroma_format_idc = pSeqExt->chroma_format;
+	stm_info.video_info.bitrate = (uint32_t)(((uint32_t)pSeqExt->bit_rate_extension << 18) | pSeqHdr->bit_rate_value) * 400;
+	switch (pSeqHdr->frame_rate_code)
+	{
+	case 1: stm_info.video_info.framerate_numerator = 24000; stm_info.video_info.framerate_denominator = 1001; break;
+	case 2: stm_info.video_info.framerate_numerator = 24; stm_info.video_info.framerate_denominator = 1; break;
+	case 3: stm_info.video_info.framerate_numerator = 25; stm_info.video_info.framerate_denominator = 1; break;
+	case 4: stm_info.video_info.framerate_numerator = 30000; stm_info.video_info.framerate_denominator = 1001; break;
+	case 5: stm_info.video_info.framerate_numerator = 30; stm_info.video_info.framerate_denominator = 1; break;
+	case 6: stm_info.video_info.framerate_numerator = 50; stm_info.video_info.framerate_denominator = 1; break;
+	case 7: stm_info.video_info.framerate_numerator = 60000; stm_info.video_info.framerate_denominator = 1001; break;
+	case 8: stm_info.video_info.framerate_numerator = 60; stm_info.video_info.framerate_denominator = 1; break;
+	}
+
+	stm_info.video_info.framerate_numerator *= (pSeqExt->frame_rate_extension_n + 1);
+	stm_info.video_info.framerate_denominator *= (pSeqExt->frame_rate_extension_d + 1);
+
+	uint64_t c = gcd(stm_info.video_info.framerate_numerator, stm_info.video_info.framerate_denominator);
+
+	stm_info.video_info.framerate_numerator = (uint32_t)(stm_info.video_info.framerate_numerator / c);
+	stm_info.video_info.framerate_denominator = (uint32_t)(stm_info.video_info.framerate_denominator / c);
+
+	if (pSeqHdr->aspect_ratio_information == 1)
+	{
+		c = gcd(stm_info.video_info.video_width, stm_info.video_info.video_height);
+		stm_info.video_info.aspect_ratio_numerator = (uint32_t)(stm_info.video_info.video_width / c);
+		stm_info.video_info.aspect_ratio_denominator = (uint32_t)(stm_info.video_info.video_height / c);
+	}
+	else if (pSeqHdr->aspect_ratio_information == 2)
+	{
+		stm_info.video_info.aspect_ratio_numerator = 4;
+		stm_info.video_info.aspect_ratio_denominator = 3;
+	}
+	else if (pSeqHdr->aspect_ratio_information == 3)
+	{
+		stm_info.video_info.aspect_ratio_numerator = 16;
+		stm_info.video_info.aspect_ratio_denominator = 9;
+	}
+	else if (pSeqHdr->aspect_ratio_information == 4)
+	{
+		stm_info.video_info.aspect_ratio_numerator = 221;
+		stm_info.video_info.aspect_ratio_denominator = 100;
+	}
+
+	return RET_CODE_SUCCESS;
+}
+
+#define SHOW_MPV_AU				0x01
+#define SHOW_MPV_SUMMARY		0x02
+#define SHOW_MPV_UNIT_DETAIL	0x04
+/*
+	filters		{extension_id | start_code, ....}
+	for example, sequence header: (0x00<<8) | 0xB3 and so on
+
+	show option:
+		0x01	show the AU
+		0x02	print the rough information
+		0x04	print the object information
+*/
+int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
+{
+	IMPVContext* pMPVContext = nullptr;
+	uint8_t pBuf[2048] = { 0 };
+
+	const int read_unit_size = 2048;
+
+	FILE* rfp = NULL;
+	int iRet = RET_CODE_SUCCESS;
+	int64_t file_size = 0;
+
+	auto iter_srcfmt = g_params.find("srcfmt");
+	if (iter_srcfmt == g_params.end())
+		return RET_CODE_ERROR_NOTIMPL;
+
+	int top = -1;
+	auto iterTop = g_params.find("top");
+	if (iterTop != g_params.end())
+	{
+		int64_t top_records = -1;
+		ConvertToInt(iterTop->second, top_records);
+		if (top_records < 0 || top_records > INT32_MAX)
+			top = -1;
+	}
+
+	CMPEG2VideoParser MPVParser;
+	if (AMP_FAILED(MPVParser.GetMPVContext(&pMPVContext)))
+	{
+		printf("Failed to get the MPV context.\n");
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	pMPVContext->SetStartCodeFilters(filters);
+
+	class CMPVEnumerator : public IMPVEnumerator
+	{
+	public:
+		CMPVEnumerator(IMPVContext* pCtx, int options)
+			: m_pMPVContext(pCtx), m_show_options(options) {
+			memset(&m_prev_stm_info, 0, sizeof(m_prev_stm_info));
+		}
+
+		virtual ~CMPVEnumerator() {
+		}
+
+		RET_CODE EnumAUStart(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumSliceStart(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumSliceEnd(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumAUEnd(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumObject(IMPVContext* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+		{
+			if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
+				return RET_CODE_NOTHING_TODO;
+
+			AMBst bst = nullptr;
+			RET_CODE ret_code = RET_CODE_SUCCESS;
+			uint8_t mpv_start_code = pBufWithStartCode[3];
+			if (mpv_start_code == SEQUENCE_HEADER_CODE)
+			{
+				m_bHitSeqHdr = true;
+			}
+			else if (mpv_start_code == EXTENSION_START_CODE)
+			{
+				uint8_t extension_start_code_identifier = ((pBufWithStartCode[4] >> 4) & 0xFF);
+				if (m_pMPVContext->GetCurrentLevel() == 0)
+				{
+					if (extension_start_code_identifier == SEQUENCE_EXTENSION_ID)
+					{
+					}
+
+					if (extension_start_code_identifier == SEQUENCE_DISPLAY_EXTENSION_ID)
+					{
+						// Try to find sequence_display_extension()
+						if ((bst = AMBst_CreateFromBuffer(pBufWithStartCode, (int)cbBufWithStartCode)) == nullptr)
+						{
+							printf("Failed to create a bitstream object.\n");
+							return RET_CODE_ABORT;
+						}
+
+						try
+						{
+							AMBst_SkipBits(bst, 32);
+							int left_bits = 0;
+
+							BST::MPEG2Video::CSequenceDisplayExtension* pSeqDispExt =
+								new (std::nothrow) BST::MPEG2Video::CSequenceDisplayExtension;
+							if (pSeqDispExt == nullptr)
+							{
+								printf("Failed to create Sequence_Display_Extension.\n");
+								ret_code = RET_CODE_ABORT;
+								goto done;
+							}
+							if (AMP_FAILED(ret_code = pSeqDispExt->Map(bst)))
+							{
+								delete pSeqDispExt;
+								printf("Failed to parse the sequence_display_extension() {error code: %d}.\n", ret_code);
+								goto done;
+							}
+							m_sp_sequence_display_extension = std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>(pSeqDispExt);
+						}
+						catch (AMException& e)
+						{
+							ret_code = e.RetCode();
+						}
+					}
+				}
+			}
+			else if (mpv_start_code == PICTURE_START_CODE)
+			{
+				if (m_show_options&SHOW_MPV_SUMMARY)
+				{
+					if (m_bHitSeqHdr)
+					{
+						STREAM_INFO stm_info;
+						memset(&stm_info, 0, sizeof(stm_info));
+						if (AMP_SUCCEEDED(GetStreamInfoSeqHdrAndExt(m_pMPVContext->GetSeqHdr().get(),
+							m_pMPVContext->GetSeqExt().get(),
+							m_sp_sequence_display_extension.get(), stm_info)) && memcmp(&stm_info, &m_prev_stm_info, sizeof(stm_info)) != 0)
+						{
+							if (stm_info.video_info.profile != BST::MPEG2Video::PROFILE_UNKNOWN)
+								printf("\tMPEG2 Video Profile: %s\n", mpeg2_profile_names[stm_info.video_info.profile]);
+
+							if (stm_info.video_info.level != BST::MPEG2Video::LEVEL_UNKNOWN)
+								printf("\tMPEG2 Video Level: %s\n", mpeg2_level_names[stm_info.video_info.level]);
+
+							if (stm_info.video_info.video_width != 0 && stm_info.video_info.video_height != 0)
+								printf("\tVideo Resolution: %" PRIu32 "x%" PRIu32 "\n", stm_info.video_info.video_width, stm_info.video_info.video_height);
+
+							if (stm_info.video_info.aspect_ratio_numerator != 0 && stm_info.video_info.aspect_ratio_denominator != 0)
+								printf("\tVideo Aspect Ratio: %d:%d\n", stm_info.video_info.aspect_ratio_numerator, stm_info.video_info.aspect_ratio_denominator);
+
+							if (stm_info.video_info.chroma_format_idc >= 0 && stm_info.video_info.chroma_format_idc <= 3)
+								printf("\tVideo Chroma format: %s\n", chroma_format_idc_names[stm_info.video_info.chroma_format_idc]);
+
+							if (stm_info.video_info.colour_primaries > 0)
+								printf("\tColor Primaries: %s\n", vui_colour_primaries_names[stm_info.video_info.colour_primaries]);
+
+							if (stm_info.video_info.transfer_characteristics > 0)
+								printf("\tEOTF: %s\n", vui_transfer_characteristics_names[stm_info.video_info.transfer_characteristics]);
+
+							if (stm_info.video_info.framerate_denominator != 0 && stm_info.video_info.framerate_numerator != 0)
+								printf("\tFrame rate: %" PRIu32 "/%" PRIu32 " fps\n", stm_info.video_info.framerate_numerator, stm_info.video_info.framerate_denominator);
+
+							if (stm_info.video_info.bitrate != 0 && stm_info.video_info.bitrate != UINT32_MAX)
+							{
+								uint32_t k = 1000;
+								uint32_t m = k * k;
+								if (stm_info.video_info.bitrate >= m)
+									printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " Mbps.\n", stm_info.video_info.bitrate / m, (uint32_t)(((uint64_t)stm_info.video_info.bitrate * 1000) / m % 1000));
+								else if (stm_info.video_info.bitrate >= k)
+									printf("\tBitrate: %" PRIu32 ".%03" PRIu32 " Kbps.\n", stm_info.video_info.bitrate / k, stm_info.video_info.bitrate * 1000 / k % 1000);
+								else
+									printf("\tBitrate: %" PRIu32 " bps.\n", stm_info.video_info.bitrate);
+							}
+
+							m_prev_stm_info = stm_info;
+						}
+
+						m_bHitSeqHdr = false;
+					}
+				}
+			}
+
+		done:
+			if (bst != nullptr)
+				AMBst_Destroy(bst);
+			return ret_code;
+		}
+		RET_CODE EnumError(IMPVContext* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
+
+		IMPVContext*			m_pMPVContext;
+		int						m_show_options;
+		std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>
+								m_sp_sequence_display_extension;
+		STREAM_INFO				m_prev_stm_info;
+		bool					m_bHitSeqHdr = false;
+
+	} MPVEnumerator(pMPVContext, show_options);
+
+	MPVParser.SetEnumerator(&MPVEnumerator, MPV_ENUM_OPTION_OBJ | ((show_options&0x01)?MPV_ENUM_OPTION_AU:0));
+
+	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
+	if (errn != 0 || rfp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
+		goto done;
+	}
+
+	// Get file size
+	_fseeki64(rfp, 0, SEEK_END);
+	file_size = _ftelli64(rfp);
+	_fseeki64(rfp, 0, SEEK_SET);
+
+	do
+	{
+		int read_size = read_unit_size;
+		if ((read_size = (int)fread(pBuf, 1, read_unit_size, rfp)) <= 0)
+		{
+			iRet = RET_CODE_IO_READ_ERROR;
+			break;
+		}
+
+		iRet = MPVParser.ProcessInput(pBuf, read_size);
+		if (AMP_FAILED(iRet))
+			break;
+
+		iRet = MPVParser.ProcessOutput();
+		if (iRet == RET_CODE_ABORT)
+			break;
+
+	} while (!feof(rfp));
+
+	if (feof(rfp))
+		iRet = MPVParser.ProcessOutput(true);
+
+done:
+	if (rfp != nullptr)
+		fclose(rfp);
+
+	if (pMPVContext)
+	{
+		pMPVContext->Release();
+		pMPVContext = nullptr;
+	}
+
+	return iRet;
+}
+
+int	ShowMPVInfo()
+{
+	return ShowMPVUnit({}, SHOW_MPV_SUMMARY);
 }
 

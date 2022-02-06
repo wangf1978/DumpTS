@@ -206,7 +206,7 @@ RET_CODE CMPEG2VideoParser::ProcessOutput(bool bDrain)
 	{
 		if (m_cur_mpv_start_code != -1 && (pStartBuf = AM_LRB_GetReadPtr(m_rbRawBuf, &cbSize)) != NULL && cbSize > 0)
 		{
-			assert(cbSize < minimum_mpv_parse_buffer_size);
+			assert(cbSize <= minimum_mpv_parse_buffer_size);
 			uint8_t* pEndBuf = pStartBuf + cbSize;
 			pCurParseStartBuf = pBuf = pStartBuf;
 			if (pStartBuf < pBuf && AMP_FAILED(iRet = PushMPVUnitBuf(pStartBuf, pEndBuf)))

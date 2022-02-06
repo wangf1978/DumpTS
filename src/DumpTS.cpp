@@ -70,6 +70,7 @@ extern int	ShowVPS();
 extern int	ShowSPS();
 extern int	ShowPPS();
 extern int	ShowHRD();
+extern int	ShowMPVInfo();
 extern int	ShowNALInfo();
 extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
@@ -474,6 +475,8 @@ int PrepareParams()
 					g_params["srcfmt"] = "h265";
 				else if (_stricmp(file_name_ext.c_str(), ".h266") == 0 || _stricmp(file_name_ext.c_str(), ".vvc") == 0)
 					g_params["srcfmt"] = "h266";
+				else if (_stricmp(file_name_ext.c_str(), ".m2v") == 0 || _stricmp(file_name_ext.c_str(), ".mpv") == 0 || _stricmp(file_name_ext.c_str(), ".mp2v") == 0)
+					g_params["srcfmt"] = "mpv";
 				else if (_stricmp(file_name_ext.c_str(), ".adts") == 0)
 					g_params["srcfmt"] = "adts";
 				else if (_stricmp(file_name_ext.c_str(), ".loas") == 0)
@@ -538,6 +541,7 @@ int PrepareParams()
 			iter->second.compare(0, strlen("spectrum_huffman_codebook_"), "spectrum_huffman_codebook_") == 0 ||
 			iter->second.compare("aiff") == 0 ||
 			iter->second.compare("mmt") == 0 ||
+			iter->second.compare("mpv") == 0 ||
 			iter->second.compare("h264") == 0 ||
 			iter->second.compare("h265") == 0 || 
 			iter->second.compare("h266") == 0 ||
@@ -1033,6 +1037,11 @@ int main(int argc, char* argv[])
 					iter_srcfmt->second.compare("h265") == 0))
 				{
 					nDumpRet = ShowNALInfo();
+					goto done;
+				}
+				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mpv") == 0)
+				{
+					nDumpRet = ShowMPVInfo();
 					goto done;
 				}
 				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h266") == 0)

@@ -65,10 +65,10 @@ enum MPV_ENUM_OPTION
 class IMPVContext : public IUnknown
 {
 public:
-	virtual RET_CODE		SetStartCodeFilters(std::initializer_list<uint8_t> start_code_filters) = 0;
-	virtual RET_CODE		GetStartCodeFilters(std::vector<uint8_t>& start_code_filters) = 0;
-	virtual bool			IsStartCodeFiltered(uint8_t start_code) = 0;
-	virtual void			UpdateStartCode(uint8_t start_code) = 0;
+	virtual RET_CODE		SetStartCodeFilters(std::initializer_list<uint16_t> start_code_filters) = 0;
+	virtual RET_CODE		GetStartCodeFilters(std::vector<uint16_t>& start_code_filters) = 0;
+	virtual bool			IsStartCodeFiltered(uint16_t start_code) = 0;
+	virtual void			UpdateStartCode(uint16_t start_code) = 0;
 	// level: 0, sequence_header/sequence_extension/extension_and_user_data(0)
 	// level: 1, group_of_pictures_header/extension_and_user_data(1)
 	// level: 2, picture_header/picture_coding_extension/extension_and_user_data(2)/picture_data
