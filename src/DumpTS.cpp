@@ -250,8 +250,19 @@ void ParseCommandLine(int argc, char* argv[])
 			printf("Unsupported options \"%s\"\n", strArg.c_str());
 	}
 
+	if (g_params.find("verbose") != g_params.end())
+	{
+		if (g_params["verbose"].length() == 0)
+			g_verbose_level = 1;
+		else
+			g_verbose_level = (int)ConvertToLongLong(g_params["verbose"]);
+	}
+
 	if (g_verbose_level > 0)
 	{
+		for (int i = 0; i < argc; i++)
+			printf("%s\n", argv[i]);
+
 		unordered_map<std::string, std::string>::const_iterator iter = g_params.cbegin();
 		for (; iter != g_params.cend(); iter++)
 		{
@@ -579,14 +590,6 @@ int PrepareParams()
 	else
 		iRet = 0;
 
-	if (g_params.find("verbose") != g_params.end())
-	{
-		if (g_params["verbose"].length() == 0)
-			g_verbose_level = 1;
-		else
-			g_verbose_level = (int)ConvertToLongLong(g_params["verbose"]);
-	}
-
 done:
 	return iRet;
 }
@@ -810,8 +813,8 @@ int main(int argc, char* argv[])
 
 	memset(&g_dump_status, 0, sizeof(g_dump_status));
 
-	for (int i = 0; i < argc; i++)
-		printf("%s\n", argv[i]);
+	//for (int i = 0; i < argc; i++)
+	//	printf("%s\n", argv[i]);
 
 	if (argc < 2)
 	{

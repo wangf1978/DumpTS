@@ -47,6 +47,9 @@ using namespace std;
 #define DUMP_PAT							(1<<9)
 #define DUMP_CAT							(1<<10)
 
+// For all
+#define DUMP_STREAM_INFO_VIEW				(1<<16)
+
 // For Program Stream
 #define DUMP_VOB							(1<<7)
 #define DUMP_MPG							(1<<8)

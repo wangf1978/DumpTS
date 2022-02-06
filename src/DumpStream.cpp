@@ -2311,6 +2311,9 @@ int DumpOneStream()
 
 	if (g_params.find("showinfo") != g_params.end())
 	{
+		if (sPID > 0)
+			dumpopt |= DUMP_STREAM_INFO_VIEW;
+
 		dumpopt |= DUMP_MEDIA_INFO_VIEW;
 	}
 
@@ -2582,22 +2585,27 @@ int DumpOneStream()
 							{
 								int idxStm = 0;
 								size_t num_of_streams = stm_types.size();
-								if (num_of_streams > 0)
+
+								// only show the below information only for media info case
+								if (!(dumpopt & DUMP_STREAM_INFO_VIEW))
 								{
-									printf("Program(PID:0X%04X)\n", PID);
-									
-									for (auto iter = stm_types.cbegin(); iter != stm_types.cend(); iter++, idxStm++)
+									if (num_of_streams > 0)
 									{
-										if (num_of_streams < 10)
-											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
-										else if (num_of_streams < 100)
-											printf("\tStream#%02d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
-										else if (num_of_streams < 1000)
-											printf("\tStream#%03d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
-										else
-											printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+										printf("Program(PID:0X%04X)\n", PID);
+
+										for (auto iter = stm_types.cbegin(); iter != stm_types.cend(); iter++, idxStm++)
+										{
+											if (num_of_streams < 10)
+												printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+											else if (num_of_streams < 100)
+												printf("\tStream#%02d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+											else if (num_of_streams < 1000)
+												printf("\tStream#%03d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+											else
+												printf("\tStream#%d, PID: 0X%04X, stm_type: 0X%02X (%s)\n", idxStm, iter->first, iter->second, STREAM_TYPE_NAMEA(iter->second));
+										}
+										printf("\n");
 									}
-									printf("\n");
 								}
 
 								prev_PMT_stream_types[PID] = stm_types;
@@ -2609,13 +2617,16 @@ int DumpOneStream()
 						{
 							if (psi_process_ctx.bChanged)
 							{
-								for (auto iter = pPSIBufs.begin(); iter != pPSIBufs.end(); iter++)
+								if (!(dumpopt & DUMP_STREAM_INFO_VIEW))
 								{
-									if ((*iter).second->table_id == TID_TS_program_map_section)
+									for (auto iter = pPSIBufs.begin(); iter != pPSIBufs.end(); iter++)
 									{
-										CPMTBuf* pPMTBuf = (CPMTBuf*)((*iter).second);
-										unsigned short nPID = pPMTBuf->GetPID();
-										printf("Program Number: %d, %s: 0X%X(%d).\n", pPMTBuf->program_number, pPMTBuf->program_number == 0 ? "Network_PID" : "program_map_PID", nPID, nPID);
+										if ((*iter).second->table_id == TID_TS_program_map_section)
+										{
+											CPMTBuf* pPMTBuf = (CPMTBuf*)((*iter).second);
+											unsigned short nPID = pPMTBuf->GetPID();
+											printf("Program Number: %d, %s: 0X%X(%d).\n", pPMTBuf->program_number, pPMTBuf->program_number == 0 ? "Network_PID" : "program_map_PID", nPID, nPID);
+										}
 									}
 								}
 							}
