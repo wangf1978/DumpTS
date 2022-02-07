@@ -1078,9 +1078,6 @@ int ParseADTSFrame(unsigned short PID, int stream_type, unsigned long sync_code,
 			bst.GetBits(3, id_sync_ele);
 			if (id_sync_ele != ID_PCE)
 				return -1;
-
-
-
 		}
 		else
 		{
@@ -1431,7 +1428,10 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	}
 	else if (AAC_AUDIO_STREAM == stream_type)
 	{
+		// In the PES payload, the first byte of the ES payload may not be the start byte an AAC frame
 		unsigned short sync_code = p[0];
+		unsigned char additional_header_bytes = 0;
+		uint32_t crc_check = (uint32_t)-1;
 		while (cbLeft >= ADTS_HEADER_SIZE)
 		{
 			while (cbLeft >= 2 && ((sync_code = (sync_code << 8) | (*(p + 1))) & 0xFFF0) != (AAC_SYNCWORD << 4))
@@ -1449,7 +1449,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 
 			uint32_t ID = (u32Val >> 19) & 0x1;
 			uint32_t layer = (u32Val >> 17) & 03;
-			//uint32_t protection_absent = (u32Val >> 16) & 0x1;
+			uint32_t protection_absent = (u32Val >> 16) & 0x1;
 			uint32_t profile_ObjectType = (u32Val >> 14) & 0x03;
 			uint32_t sample_frequency_index = (u32Val >> 10) & 0x0F;
 			//uint32_t channel_configuration = (u32Val >> 6) & 0x07;
@@ -1459,6 +1459,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 				|| sample_frequency_index == 0x0D || sample_frequency_index == 0x0E // reserved
 				)
 			{
+				crc_check = (uint32_t)-1;
 				// It is not a real ADTS header, continue finding it
 				cbLeft--;
 				p++;
@@ -1467,12 +1468,49 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 
 			//unsigned short aac_frame_length = ((p[3] & 0x03) << 11) | (p[4] << 3) | ((p[5] >> 5) & 0x7);
 			unsigned char number_of_raw_data_blocks_in_frame = p[6] & 0x3;
-
-			if (cbLeft >= ADTS_HEADER_SIZE + 1 && number_of_raw_data_blocks_in_frame == 0)
+			if (number_of_raw_data_blocks_in_frame == 0)
 			{
-				uint8_t id_syn_ele = (p[7] >> 5) & 0x7;
+				// adts_error_check()
+				if (protection_absent == 0)
+				{
+					if (cbLeft >= ADTS_HEADER_SIZE + 2)
+					{
+						crc_check = (uint16_t)(((uint16_t)p[ADTS_HEADER_SIZE] << 8) | p[ADTS_HEADER_SIZE+1]);
+						additional_header_bytes = 2;
+					}
+					else
+					{
+						cbLeft--;
+						p++;
+						continue;
+					}
+				}
+			}
+			else
+			{
+				if (protection_absent == 0)
+				{
+					if (cbLeft >= ADTS_HEADER_SIZE + 2 + number_of_raw_data_blocks_in_frame)
+					{
+						crc_check = (uint16_t)(((uint16_t)p[ADTS_HEADER_SIZE + number_of_raw_data_blocks_in_frame] << 8) |
+							p[ADTS_HEADER_SIZE + number_of_raw_data_blocks_in_frame + 1]);
+						additional_header_bytes += 2 + number_of_raw_data_blocks_in_frame;
+					}
+					else
+					{
+						cbLeft--;
+						p++;
+						continue;
+					}
+				}
+			}
+
+			if (cbLeft >= ADTS_HEADER_SIZE + additional_header_bytes + 1 && number_of_raw_data_blocks_in_frame == 0)
+			{
+				uint8_t id_syn_ele = (p[ADTS_HEADER_SIZE + additional_header_bytes] >> 5) & 0x7;
 				if (id_syn_ele == 7)
 				{
+					crc_check = (uint32_t)-1;
 					// It is not a real ADTS header, continue finding it
 					cbLeft--;
 					p++;
