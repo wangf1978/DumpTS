@@ -37,6 +37,7 @@ SOFTWARE.
 #include "DataUtil.h"
 #include "mpeg2videoparser.h"
 #include "mpeg2video.h"
+#include "ISO14496_3.h"
 
 using namespace std;
 
@@ -1281,6 +1282,116 @@ int GetStreamInfoFromMPEG2AU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_i
 	return iRet;
 }
 
+int GetStreamInfoFromMP4AAU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_info)
+{
+	int iRet = RET_CODE_SUCCESS;
+	BST::AACAudio::IMP4AACContext* pCtxMP4AAC = nullptr;
+	BST::AACAudio::CLOASParser LOASParser;
+	if (AMP_FAILED(LOASParser.GetMP4AContext(&pCtxMP4AAC)))
+	{
+		printf("Failed to get the MPEG4 AAC context.\n");
+		return RET_CODE_ERROR;
+	}
+
+	uint32_t options = 0;
+
+	class CLOASEnumerator : public BST::AACAudio::ILOASEnumerator
+	{
+	public:
+		CLOASEnumerator(BST::AACAudio::IMP4AACContext* pCtxMP4AAC)
+			: m_pCtxMP4AAC(pCtxMP4AAC){
+			memset(audio_specific_config_sha1, 0, sizeof(audio_specific_config_sha1));
+		}
+
+		virtual ~CLOASEnumerator() {}
+		RET_CODE EnumLATMAUBegin(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf){
+			//printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
+			return RET_CODE_SUCCESS;
+		}
+		RET_CODE EnumSubFrameBegin(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload){return RET_CODE_SUCCESS;}
+		RET_CODE EnumSubFrameEnd(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload){return RET_CODE_SUCCESS;}
+		RET_CODE EnumLATMAUEnd(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf)
+		{
+			m_AUCount++;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE EnumError(BST::AACAudio::IMP4AACContext* pCtx, RET_CODE error_code)
+		{
+			printf("Hitting an error {code: %d}!\n", error_code);
+			return RET_CODE_SUCCESS;
+		}
+
+		BST::AACAudio::IMP4AACContext* m_pCtxMP4AAC = nullptr;
+		uint64_t m_AUCount = 0;
+		AMSHA1_RET audio_specific_config_sha1[16][8];
+	}LOASEnumerator(pCtxMP4AAC);
+
+	LOASParser.SetEnumerator((BST::AACAudio::ILOASEnumerator*)(&LOASEnumerator), options);
+
+	iRet = LOASParser.ProcessAU(pAUBuf, cbAUBuf);
+
+	auto mux_stream_config = pCtxMP4AAC->GetMuxStreamConfig();
+
+	// check whether the SHA1, and judge whether AudioSpecificConfig is changed
+	for (int prog = 0; prog < 16; prog++)
+	{
+		for (int lay = 0; lay < 8; lay++)
+		{
+			if (mux_stream_config->AudioSpecificConfig[prog][lay] == nullptr)
+				continue;
+
+			// Also show the audio frame duration
+			auto audio_specific_config = mux_stream_config->AudioSpecificConfig[prog][lay];
+			auto audio_object_type = audio_specific_config->GetAudioObjectType();
+
+			int frameLength = 0;	// Unknown
+			if (audio_object_type == BST::AACAudio::AAC_main ||
+				audio_object_type == BST::AACAudio::AAC_LC ||
+				audio_object_type == BST::AACAudio::AAC_SSR ||
+				audio_object_type == BST::AACAudio::AAC_LTP ||
+				audio_object_type == BST::AACAudio::AAC_Scalable ||
+				audio_object_type == BST::AACAudio::TwinVQ ||
+				audio_object_type == BST::AACAudio::ER_AAC_LC ||
+				audio_object_type == BST::AACAudio::ER_AAC_LTP ||
+				audio_object_type == BST::AACAudio::ER_AAC_scalable ||
+				audio_object_type == BST::AACAudio::ER_TwinVQ ||
+				audio_object_type == BST::AACAudio::ER_BSAC ||
+				audio_object_type == BST::AACAudio::ER_AAC_LD)
+			{
+				int nSamplingRates[] = { 96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350, -1, -1, -1 };
+
+				if (audio_specific_config->samplingFrequencyIndex == 0xF)
+					stm_info.audio_info.sample_frequency = audio_specific_config->samplingFrequency;
+				else
+					stm_info.audio_info.sample_frequency = nSamplingRates[audio_specific_config->samplingFrequencyIndex];
+
+				switch (audio_specific_config->channelConfiguration)
+				{
+				case 1: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_CENTER); break;
+				case 2: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT); break;
+				case 3: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER); break;
+				case 4: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_SURROUND); break;
+				case 5: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) |
+					CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS); break;
+				case 6: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) |
+					CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LFE); break;
+				case 7: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) |
+					CHANNEL_BITMASK(CH_LOC_LSS) | CHANNEL_BITMASK(CH_LOC_RSS) | CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS); break;
+				}
+
+				stm_info.audio_info.bits_per_sample = 16;
+			}
+
+			break;
+		}
+	}
+
+done:
+	AMP_SAFERELEASE(pCtxMP4AAC);
+	return iRet;
+}
+
 int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, int dumpopt)
 {
 	unsigned char* p = pBuf;
@@ -1522,6 +1633,15 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 		}
 
 		if (cbLeft >= ADTS_HEADER_SIZE && ParseADTSFrame(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
+		{
+			iParseRet = 0;
+		}
+	}
+	else if (MPEG4_AAC_AUDIO_STREAM == stream_type)
+	{
+		stm_info.stream_coding_type = stream_type;
+		// Check whether it is a LATM or LOAS packet
+		if (AMP_SUCCEEDED(GetStreamInfoFromMP4AAU(p, cbLeft, stm_info)))
 		{
 			iParseRet = 0;
 		}

@@ -768,6 +768,125 @@ namespace BST {
 			return iRet;
 		}
 
+		RET_CODE CLOASParser::ProcessAU(uint8_t* pBuf, size_t cbBuf)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			if (pBuf == nullptr)
+				return RET_CODE_NOTHING_TODO;
+			
+			// the ES payload which is an access unit is passed
+			if (cbBuf >= 2)
+			{
+				uint16_t sync_word = (((*pBuf) << 3) | ((*(pBuf + 1) >> 5) & 0x7));
+				if (sync_word == 0x2B7)
+				{
+					if (cbBuf >= 3)
+					{
+						uint16_t audioMuxLengthBytes = ((*(pBuf + 1) & 0x1F) << 8) | *(pBuf + 2);
+						if (cbBuf >= audioMuxLengthBytes + 3)
+						{
+							pBuf += 3;
+							cbBuf -= 3;
+						}
+						else
+							return RET_CODE_NEEDMOREINPUT;
+					}
+				}
+			}
+
+			if (cbBuf <= 1)
+				return RET_CODE_NOTHING_TODO;
+
+			if ((pBuf[0] & 0x80) == 0)	// useSameStreamMux = 0
+			{
+				AMBst in_bst = AMBst_CreateFromBuffer(pBuf, (int)cbBuf);
+				if (in_bst != nullptr)
+				{
+					try
+					{
+						CStreamMuxConfig* pStreamMuxConfig = new CStreamMuxConfig();
+						AMBst_SkipBits(in_bst, 1);
+						if (AMP_SUCCEEDED(pStreamMuxConfig->Map(in_bst)))
+						{
+							MP4AMuxStreamConfig spStreamConfig = std::shared_ptr<CStreamMuxConfig>(pStreamMuxConfig);
+
+							// generate the SHA1 for each AudioSpecificConfig
+							for (uint16_t prog = 0; prog < 16; prog++)
+							{
+								for (uint16_t lay = 0; lay < 8; lay++)
+								{
+									if (pStreamMuxConfig->AudioSpecificConfig[prog][lay] == nullptr)
+										continue;
+
+									assert(pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos > 0 &&
+										pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_end_pos > 0);
+
+									AMSHA1 handleSHA1 = AM_SHA1_Init();
+
+									int left_bits = pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_end_pos -
+										pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos;
+
+									AMBst_Seek(in_bst, pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos);
+									while (left_bits >= 64)
+									{
+										uint64_t u64Val = AMBst_GetBits(in_bst, 64);
+										AM_SHA1_Input(handleSHA1, (uint8_t*)(&u64Val), 8);
+										left_bits -= 64;
+									}
+
+									if (left_bits > 0)
+									{
+										uint64_t u64Val = AMBst_GetBits(in_bst, left_bits);
+										AM_SHA1_Input(handleSHA1, (uint8_t*)(&u64Val), 8);
+										left_bits = 0;
+									}
+
+									AM_SHA1_Finalize(handleSHA1);
+									AM_SHA1_GetHash(handleSHA1, pStreamMuxConfig->AudioSpecificConfig[prog][lay]->sha1_value);
+									AM_SHA1_Uninit(handleSHA1);
+
+									//auto h = pStreamMuxConfig->AudioSpecificConfig[prog][lay]->sha1_value;
+									//printf("start_bitpos: %d, end_bitpos: %d, SHA1 value: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n",
+									//	pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_pos,
+									//	pStreamMuxConfig->AudioSpecificConfig[prog][lay]->bit_end_pos, 
+									//	h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], h[9], h[10], h[11], h[12], h[13], h[14], h[15]);
+								}
+							}
+
+							m_pCtxMP4AAC->UpdateMuxStreamConfig(spStreamConfig);
+						}
+						else
+						{
+							delete pStreamMuxConfig;
+						}
+					}
+					catch (...)
+					{
+					}
+					AMBst_Destroy(in_bst);
+				}
+			}
+
+			if (m_loas_enum)
+			{
+				int iEnumRet = RET_CODE_SUCCESS;
+				if ((iEnumRet = m_loas_enum->EnumLATMAUBegin(m_pCtxMP4AAC, pBuf + 3, cbBuf)) == RET_CODE_ABORT)
+				{
+					iRet = iEnumRet;
+					goto done;
+				}
+
+				if ((iEnumRet = m_loas_enum->EnumLATMAUEnd(m_pCtxMP4AAC, pBuf + 3, cbBuf)) == RET_CODE_ABORT)
+				{
+					iRet = iEnumRet;
+					goto done;
+				}
+			}
+
+		done:
+			return iRet;
+		}
+
 		RET_CODE CLOASParser::GetMP4AContext(IMP4AACContext** ppCtx)
 		{
 			if (ppCtx == nullptr)

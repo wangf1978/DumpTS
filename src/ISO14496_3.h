@@ -5896,6 +5896,7 @@ namespace BST {
 			RET_CODE				SetEnumerator(ILOASEnumerator* pEnumerator, uint32_t options);
 			RET_CODE				ProcessInput(uint8_t* pBuf, size_t cbBuf);
 			RET_CODE				ProcessOutput(bool bDrain = false);
+			RET_CODE				ProcessAU(uint8_t* pBuf, size_t cbBuf);
 			RET_CODE				GetMP4AContext(IMP4AACContext** ppCtx);
 			RET_CODE				Reset();
 
