@@ -109,10 +109,14 @@ int	ShowNUs()
 	{
 	public:
 		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+			if (m_pNALContext)
+				m_pNALContext->AddRef();
 			m_coding = m_pNALContext->GetNALCoding();
 		}
 
-		~CNALEnumerator() {}
+		~CNALEnumerator() {
+			AMP_SAFERELEASE(m_pNALContext);
+		}
 
 		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
 		{
@@ -607,6 +611,8 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 	{
 	public:
 		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+			if (m_pNALContext)
+				m_pNALContext->AddRef();
 			m_coding = m_pNALContext->GetNALCoding();
 			if (m_coding == NAL_CODING_AVC)
 				m_pNALContext->QueryInterface(IID_INALAVCContext, (void**)&m_pNALAVCContext);
@@ -614,7 +620,11 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
 		}
 
-		~CNALEnumerator() {}
+		~CNALEnumerator() {
+			AMP_SAFERELEASE(m_pNALAVCContext);
+			AMP_SAFERELEASE(m_pNALHEVCContext);
+			AMP_SAFERELEASE(m_pNALContext);
+		}
 
 		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
 
@@ -763,6 +773,24 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 	int64_t cbLeft = (int64_t)cbAnnexBBuf;
 	INALAVCContext* pNALAVCContext = nullptr;
 	INALHEVCContext* pNALHEVCContext = nullptr;
+
+	if (coding == NAL_CODING_AVC)
+	{
+		if (FAILED(pNALContext->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCContext)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else if (coding == NAL_CODING_HEVC)
+	{
+		if (FAILED(pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCContext)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+
 	while (cbLeft > 0)
 	{
 		int64_t cbSubmit = AMP_MIN(cbLeft, 2048);
@@ -771,235 +799,229 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 			NALParser.ProcessOutput(cbLeft <= 2048 ? true : false);
 			if (coding == NAL_CODING_AVC)
 			{
-				if (SUCCEEDED(pNALContext->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCContext)))
+				int16_t sps_id = NALEnumerator.GetSPSID();
+				if (sps_id >= 0 && sps_id <= UINT8_MAX)
 				{
-					int16_t sps_id = NALEnumerator.GetSPSID();
-					if (sps_id >= 0 && sps_id <= UINT8_MAX)
+					auto sps_nu = pNALAVCContext->GetAVCSPS((uint8_t)sps_id);
+					if (sps_nu &&
+						sps_nu->ptr_seq_parameter_set_rbsp)
 					{
-						auto sps_nu = pNALAVCContext->GetAVCSPS((uint8_t)sps_id);
-						if (sps_nu &&
-							sps_nu->ptr_seq_parameter_set_rbsp)
+						auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data;
+
+						stm_info.video_info.profile = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.GetH264Profile();
+						stm_info.video_info.tier = -1;
+						stm_info.video_info.level = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.GetH264Level();
+
+						uint8_t SubWidthC = (sps_seq.chroma_format_idc == 1 || sps_seq.chroma_format_idc == 2) ? 2 : (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0 ? 1 : 0);
+						uint8_t SubHeightC = (sps_seq.chroma_format_idc == 2 || (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0)) ? 1 : (sps_seq.chroma_format_idc == 1 ? 2 : 0);
+
+						uint16_t PicWidthInMbs = sps_seq.pic_width_in_mbs_minus1 + 1;
+						uint32_t PicWidthInSamplesL = PicWidthInMbs * 16;
+						//uint32_t PicWidthInSamplesC = PicWidthInMbs * MbWidthC;
+						uint16_t PicHeightInMapUnits = sps_seq.pic_height_in_map_units_minus1 + 1;
+						uint32_t PicSizeInMapUnits = PicWidthInMbs * PicHeightInMapUnits;
+						uint16_t FrameHeightInMbs = (2 - sps_seq.frame_mbs_only_flag) * PicHeightInMapUnits;
+						uint8_t ChromaArrayType = sps_seq.separate_colour_plane_flag == 0 ? sps_seq.chroma_format_idc : 0;
+						uint8_t CropUnitX = ChromaArrayType == 0 ? 1 : SubWidthC;
+						uint8_t CropUnitY = ChromaArrayType == 0 ? (2 - sps_seq.frame_mbs_only_flag) : SubHeightC * (2 - sps_seq.frame_mbs_only_flag);
+
+						uint32_t frame_buffer_width = PicWidthInSamplesL, frame_buffer_height = FrameHeightInMbs * 16;
+						uint32_t display_width = frame_buffer_width, display_height = frame_buffer_height;
+
+						if (sps_seq.frame_cropping_flag)
 						{
-							auto& sps_seq = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data;
-
-							stm_info.video_info.profile = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.GetH264Profile();
-							stm_info.video_info.tier = -1;
-							stm_info.video_info.level = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.GetH264Level();
-
-							uint8_t SubWidthC = (sps_seq.chroma_format_idc == 1 || sps_seq.chroma_format_idc == 2) ? 2 : (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0 ? 1 : 0);
-							uint8_t SubHeightC = (sps_seq.chroma_format_idc == 2 || (sps_seq.chroma_format_idc == 3 && sps_seq.separate_colour_plane_flag == 0)) ? 1 : (sps_seq.chroma_format_idc == 1 ? 2 : 0);
-
-							uint16_t PicWidthInMbs = sps_seq.pic_width_in_mbs_minus1 + 1;
-							uint32_t PicWidthInSamplesL = PicWidthInMbs * 16;
-							//uint32_t PicWidthInSamplesC = PicWidthInMbs * MbWidthC;
-							uint16_t PicHeightInMapUnits = sps_seq.pic_height_in_map_units_minus1 + 1;
-							uint32_t PicSizeInMapUnits = PicWidthInMbs * PicHeightInMapUnits;
-							uint16_t FrameHeightInMbs = (2 - sps_seq.frame_mbs_only_flag) * PicHeightInMapUnits;
-							uint8_t ChromaArrayType = sps_seq.separate_colour_plane_flag == 0 ? sps_seq.chroma_format_idc : 0;
-							uint8_t CropUnitX = ChromaArrayType == 0 ? 1 : SubWidthC;
-							uint8_t CropUnitY = ChromaArrayType == 0 ? (2 - sps_seq.frame_mbs_only_flag) : SubHeightC * (2 - sps_seq.frame_mbs_only_flag);
-
-							uint32_t frame_buffer_width = PicWidthInSamplesL, frame_buffer_height = FrameHeightInMbs * 16;
-							uint32_t display_width = frame_buffer_width, display_height = frame_buffer_height;
-
-							if (sps_seq.frame_cropping_flag)
+							uint32_t crop_unit_x = 0, crop_unit_y = 0;
+							if (0 == sps_seq.chroma_format_idc)	// monochrome
 							{
-								uint32_t crop_unit_x = 0, crop_unit_y = 0;
-								if (0 == sps_seq.chroma_format_idc)	// monochrome
-								{
-									crop_unit_x = 1;
-									crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
-								}
-								else if (1 == sps_seq.chroma_format_idc)	// 4:2:0
-								{
-									crop_unit_x = 2;
-									crop_unit_y = 2 * (2 - sps_seq.frame_mbs_only_flag);
-								}
-								else if (2 == sps_seq.chroma_format_idc)	// 4:2:2
-								{
-									crop_unit_x = 2;
-									crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
-								}
-								else if (3 == sps_seq.chroma_format_idc)
-								{
-									crop_unit_x = 1;
-									crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
-								}
-
-								display_width -= crop_unit_x * (sps_seq.frame_crop_left_offset + sps_seq.frame_crop_right_offset);
-								display_height -= crop_unit_y * (sps_seq.frame_crop_top_offset + sps_seq.frame_crop_bottom_offset);
+								crop_unit_x = 1;
+								crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+							}
+							else if (1 == sps_seq.chroma_format_idc)	// 4:2:0
+							{
+								crop_unit_x = 2;
+								crop_unit_y = 2 * (2 - sps_seq.frame_mbs_only_flag);
+							}
+							else if (2 == sps_seq.chroma_format_idc)	// 4:2:2
+							{
+								crop_unit_x = 2;
+								crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
+							}
+							else if (3 == sps_seq.chroma_format_idc)
+							{
+								crop_unit_x = 1;
+								crop_unit_y = 2 - sps_seq.frame_mbs_only_flag;
 							}
 
-							stm_info.video_info.video_width = display_width;
-							stm_info.video_info.video_height = display_height;
-
-							if (sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters_present_flag &&
-								sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters)
-							{
-								auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
-								if (vui_parameters->nal_hrd_parameters_present_flag &&
-									vui_parameters->nal_hrd_parameters)
-								{
-									stm_info.video_info.bitrate = (vui_parameters->nal_hrd_parameters->bit_rate_value_minus1[0] + 1) << (vui_parameters->nal_hrd_parameters->bit_rate_scale + 6);
-								}
-								else if (vui_parameters->vcl_hrd_parameters_present_flag &&
-									vui_parameters->vcl_hrd_parameters)
-								{
-									stm_info.video_info.bitrate = (vui_parameters->vcl_hrd_parameters->bit_rate_value_minus1[0] + 1) << (vui_parameters->vcl_hrd_parameters->bit_rate_scale + 6);
-								}
-
-								if (vui_parameters->aspect_ratio_info_present_flag)
-								{
-									uint16_t SAR_N = 0, SAR_D = 0;
-									if (vui_parameters->aspect_ratio_idc == 0xFF)
-									{
-										SAR_N = vui_parameters->sar_width;
-										SAR_D = vui_parameters->sar_height;
-									}
-									else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < sizeof(sample_aspect_ratios) / sizeof(sample_aspect_ratios[0]))
-									{
-										SAR_N = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
-										SAR_D = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
-									}
-
-									if (SAR_N != 0 && SAR_D != 0)
-									{
-										float diff_4_3 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 4.0f / 3.0f);
-										float diff_16_9 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 16.0f / 9.0f);
-
-										stm_info.video_info.aspect_ratio_numerator = diff_4_3 < diff_16_9 ? 4 : 16;
-										stm_info.video_info.aspect_ratio_denominator = diff_4_3 < diff_16_9 ? 3 : 9;
-									}
-								}
-
-								if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
-								{
-									stm_info.video_info.transfer_characteristics = vui_parameters->transfer_characteristics;
-									stm_info.video_info.colour_primaries = vui_parameters->colour_primaries;
-								}
-
-								auto profile_idc = sps_seq.profile_idc;
-								if (profile_idc == 100 || profile_idc == 110 ||
-									profile_idc == 122 || profile_idc == 244 || profile_idc == 44 ||
-									profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
-									profile_idc == 128 || profile_idc == 138)
-									stm_info.video_info.chroma_format_idc = sps_seq.chroma_format_idc;
-
-								if (vui_parameters->timing_info_present_flag && vui_parameters->fixed_frame_rate_flag)
-								{
-									uint64_t GCD = gcd(vui_parameters->num_units_in_tick * 2, vui_parameters->time_scale);
-									stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->time_scale / GCD);
-									stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->num_units_in_tick * 2 / GCD);
-								}
-							}
-
-							iRet = RET_CODE_SUCCESS;
-							break;
+							display_width -= crop_unit_x * (sps_seq.frame_crop_left_offset + sps_seq.frame_crop_right_offset);
+							display_height -= crop_unit_y * (sps_seq.frame_crop_top_offset + sps_seq.frame_crop_bottom_offset);
 						}
+
+						stm_info.video_info.video_width = display_width;
+						stm_info.video_info.video_height = display_height;
+
+						if (sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters_present_flag &&
+							sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters)
+						{
+							auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
+							if (vui_parameters->nal_hrd_parameters_present_flag &&
+								vui_parameters->nal_hrd_parameters)
+							{
+								stm_info.video_info.bitrate = (vui_parameters->nal_hrd_parameters->bit_rate_value_minus1[0] + 1) << (vui_parameters->nal_hrd_parameters->bit_rate_scale + 6);
+							}
+							else if (vui_parameters->vcl_hrd_parameters_present_flag &&
+								vui_parameters->vcl_hrd_parameters)
+							{
+								stm_info.video_info.bitrate = (vui_parameters->vcl_hrd_parameters->bit_rate_value_minus1[0] + 1) << (vui_parameters->vcl_hrd_parameters->bit_rate_scale + 6);
+							}
+
+							if (vui_parameters->aspect_ratio_info_present_flag)
+							{
+								uint16_t SAR_N = 0, SAR_D = 0;
+								if (vui_parameters->aspect_ratio_idc == 0xFF)
+								{
+									SAR_N = vui_parameters->sar_width;
+									SAR_D = vui_parameters->sar_height;
+								}
+								else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < sizeof(sample_aspect_ratios) / sizeof(sample_aspect_ratios[0]))
+								{
+									SAR_N = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+									SAR_D = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+								}
+
+								if (SAR_N != 0 && SAR_D != 0)
+								{
+									float diff_4_3 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 4.0f / 3.0f);
+									float diff_16_9 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 16.0f / 9.0f);
+
+									stm_info.video_info.aspect_ratio_numerator = diff_4_3 < diff_16_9 ? 4 : 16;
+									stm_info.video_info.aspect_ratio_denominator = diff_4_3 < diff_16_9 ? 3 : 9;
+								}
+							}
+
+							if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
+							{
+								stm_info.video_info.transfer_characteristics = vui_parameters->transfer_characteristics;
+								stm_info.video_info.colour_primaries = vui_parameters->colour_primaries;
+							}
+
+							auto profile_idc = sps_seq.profile_idc;
+							if (profile_idc == 100 || profile_idc == 110 ||
+								profile_idc == 122 || profile_idc == 244 || profile_idc == 44 ||
+								profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
+								profile_idc == 128 || profile_idc == 138)
+								stm_info.video_info.chroma_format_idc = sps_seq.chroma_format_idc;
+
+							if (vui_parameters->timing_info_present_flag && vui_parameters->fixed_frame_rate_flag)
+							{
+								uint64_t GCD = gcd(vui_parameters->num_units_in_tick * 2, vui_parameters->time_scale);
+								stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->time_scale / GCD);
+								stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->num_units_in_tick * 2 / GCD);
+							}
+						}
+
+						iRet = RET_CODE_SUCCESS;
+						break;
 					}
 				}
 			}
 			else if (coding == NAL_CODING_HEVC)
 			{
-				if (SUCCEEDED(pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCContext)))
+				int16_t sps_id = NALEnumerator.GetSPSID();
+				if (sps_id >= 0 && sps_id <= UINT8_MAX)
 				{
-					int16_t sps_id = NALEnumerator.GetSPSID();
-					if (sps_id >= 0 && sps_id <= UINT8_MAX)
+					auto sps_nu = pNALHEVCContext->GetHEVCSPS((uint8_t)sps_id);
+					if (sps_nu &&
+						sps_nu->ptr_seq_parameter_set_rbsp)
 					{
-						auto sps_nu = pNALHEVCContext->GetHEVCSPS((uint8_t)sps_id);
-						if (sps_nu &&
-							sps_nu->ptr_seq_parameter_set_rbsp)
+						auto sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
+
+						stm_info.video_info.profile = BST::H265Video::HEVC_PROFILE_Unknown;
+						stm_info.video_info.tier = BST::H265Video::HEVC_TIER_Unknown;
+						if (sps_seq->profile_tier_level && sps_seq->profile_tier_level->general_profile_level.profile_present_flag)
 						{
-							auto sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
-
-							stm_info.video_info.profile = BST::H265Video::HEVC_PROFILE_Unknown;
-							stm_info.video_info.tier = BST::H265Video::HEVC_TIER_Unknown;
-							if (sps_seq->profile_tier_level && sps_seq->profile_tier_level->general_profile_level.profile_present_flag)
-							{
-								stm_info.video_info.profile = sps_seq->profile_tier_level->GetHEVCProfile();
-								stm_info.video_info.tier = sps_seq->profile_tier_level->general_profile_level.tier_flag;
-							}
-
-							stm_info.video_info.level = sps_seq->profile_tier_level->general_profile_level.level_idc;
-
-							uint32_t display_width = sps_seq->pic_width_in_luma_samples, display_height = sps_seq->pic_height_in_luma_samples;
-							if (sps_seq->conformance_window_flag)
-							{
-								uint32_t sub_width_c = ((1 == sps_seq->chroma_format_idc) || (2 == sps_seq->chroma_format_idc)) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
-								uint32_t sub_height_c = (1 == sps_seq->chroma_format_idc) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
-								display_width -= sub_width_c * (sps_seq->conf_win_left_offset + sps_seq->conf_win_right_offset);
-								display_height = sub_height_c * (sps_seq->conf_win_top_offset + sps_seq->conf_win_bottom_offset);
-							}
-
-							stm_info.video_info.video_width = display_width;
-							stm_info.video_info.video_height = display_height;
-
-							if (sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters_present_flag &&
-								sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters)
-							{
-								auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters;
-								if (vui_parameters->vui_hrd_parameters_present_flag &&
-									vui_parameters->hrd_parameters &&
-									vui_parameters->hrd_parameters->m_commonInfPresentFlag &&
-									vui_parameters->hrd_parameters->sub_layer_infos)
-								{
-									if (vui_parameters->hrd_parameters->nal_hrd_parameters_present_flag)
-									{
-										auto ptr_nal_sub_layer_hrd_parameters = vui_parameters->hrd_parameters->sub_layer_infos[0]->ptr_nal_sub_layer_hrd_parameters;
-										stm_info.video_info.bitrate = 
-											(ptr_nal_sub_layer_hrd_parameters->sub_layer_hrd_parameters[0]->bit_rate_value_minus1 + 1) << (vui_parameters->hrd_parameters->bit_rate_scale + 6);
-									}
-									else if (vui_parameters->hrd_parameters->vcl_hrd_parameters_present_flag)
-									{
-										auto ptr_vcl_sub_layer_hrd_parameters = vui_parameters->hrd_parameters->sub_layer_infos[0]->ptr_vcl_sub_layer_hrd_parameters;
-										stm_info.video_info.bitrate = 
-											(ptr_vcl_sub_layer_hrd_parameters->sub_layer_hrd_parameters[0]->bit_rate_value_minus1 + 1) << (vui_parameters->hrd_parameters->bit_rate_scale + 6);
-									}
-								}
-
-								if (vui_parameters->aspect_ratio_info_present_flag)
-								{
-									uint16_t SAR_N = 0, SAR_D = 0;
-									if (vui_parameters->aspect_ratio_idc == 0xFF)
-									{
-										SAR_N = vui_parameters->sar_width;
-										SAR_D = vui_parameters->sar_height;
-									}
-									else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < sizeof(sample_aspect_ratios) / sizeof(sample_aspect_ratios[0]))
-									{
-										SAR_N = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
-										SAR_D = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
-									}
-
-									if (SAR_N != 0 && SAR_D != 0)
-									{
-										float diff_4_3 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 4.0f / 3.0f);
-										float diff_16_9 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 16.0f / 9.0f);
-
-										stm_info.video_info.aspect_ratio_numerator = diff_4_3 < diff_16_9 ? 4 : 16;
-										stm_info.video_info.aspect_ratio_denominator = diff_4_3 < diff_16_9 ? 3 : 9;
-									}
-								}
-
-								if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
-								{
-									stm_info.video_info.transfer_characteristics = vui_parameters->transfer_characteristics;
-									stm_info.video_info.colour_primaries = vui_parameters->colour_primaries;
-								}
-
-								stm_info.video_info.chroma_format_idc = sps_seq->chroma_format_idc;
-
-								if (vui_parameters->vui_timing_info_present_flag)
-								{
-									uint64_t GCD = gcd(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag), vui_parameters->vui_time_scale);
-									stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->vui_time_scale / GCD);
-									stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag) / GCD);
-								}
-							}
-
-							iRet = RET_CODE_SUCCESS;
-							break;
+							stm_info.video_info.profile = sps_seq->profile_tier_level->GetHEVCProfile();
+							stm_info.video_info.tier = sps_seq->profile_tier_level->general_profile_level.tier_flag;
 						}
+
+						stm_info.video_info.level = sps_seq->profile_tier_level->general_profile_level.level_idc;
+
+						uint32_t display_width = sps_seq->pic_width_in_luma_samples, display_height = sps_seq->pic_height_in_luma_samples;
+						if (sps_seq->conformance_window_flag)
+						{
+							uint32_t sub_width_c = ((1 == sps_seq->chroma_format_idc) || (2 == sps_seq->chroma_format_idc)) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
+							uint32_t sub_height_c = (1 == sps_seq->chroma_format_idc) && (0 == sps_seq->separate_colour_plane_flag) ? 2 : 1;
+							display_width -= sub_width_c * (sps_seq->conf_win_left_offset + sps_seq->conf_win_right_offset);
+							display_height = sub_height_c * (sps_seq->conf_win_top_offset + sps_seq->conf_win_bottom_offset);
+						}
+
+						stm_info.video_info.video_width = display_width;
+						stm_info.video_info.video_height = display_height;
+
+						if (sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters_present_flag &&
+							sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters)
+						{
+							auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters;
+							if (vui_parameters->vui_hrd_parameters_present_flag &&
+								vui_parameters->hrd_parameters &&
+								vui_parameters->hrd_parameters->m_commonInfPresentFlag &&
+								vui_parameters->hrd_parameters->sub_layer_infos)
+							{
+								if (vui_parameters->hrd_parameters->nal_hrd_parameters_present_flag)
+								{
+									auto ptr_nal_sub_layer_hrd_parameters = vui_parameters->hrd_parameters->sub_layer_infos[0]->ptr_nal_sub_layer_hrd_parameters;
+									stm_info.video_info.bitrate = 
+										(ptr_nal_sub_layer_hrd_parameters->sub_layer_hrd_parameters[0]->bit_rate_value_minus1 + 1) << (vui_parameters->hrd_parameters->bit_rate_scale + 6);
+								}
+								else if (vui_parameters->hrd_parameters->vcl_hrd_parameters_present_flag)
+								{
+									auto ptr_vcl_sub_layer_hrd_parameters = vui_parameters->hrd_parameters->sub_layer_infos[0]->ptr_vcl_sub_layer_hrd_parameters;
+									stm_info.video_info.bitrate = 
+										(ptr_vcl_sub_layer_hrd_parameters->sub_layer_hrd_parameters[0]->bit_rate_value_minus1 + 1) << (vui_parameters->hrd_parameters->bit_rate_scale + 6);
+								}
+							}
+
+							if (vui_parameters->aspect_ratio_info_present_flag)
+							{
+								uint16_t SAR_N = 0, SAR_D = 0;
+								if (vui_parameters->aspect_ratio_idc == 0xFF)
+								{
+									SAR_N = vui_parameters->sar_width;
+									SAR_D = vui_parameters->sar_height;
+								}
+								else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < sizeof(sample_aspect_ratios) / sizeof(sample_aspect_ratios[0]))
+								{
+									SAR_N = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+									SAR_D = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+								}
+
+								if (SAR_N != 0 && SAR_D != 0)
+								{
+									float diff_4_3 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 4.0f / 3.0f);
+									float diff_16_9 = fabs(((float)SAR_N*display_width) / ((float)SAR_D*display_height) - 16.0f / 9.0f);
+
+									stm_info.video_info.aspect_ratio_numerator = diff_4_3 < diff_16_9 ? 4 : 16;
+									stm_info.video_info.aspect_ratio_denominator = diff_4_3 < diff_16_9 ? 3 : 9;
+								}
+							}
+
+							if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
+							{
+								stm_info.video_info.transfer_characteristics = vui_parameters->transfer_characteristics;
+								stm_info.video_info.colour_primaries = vui_parameters->colour_primaries;
+							}
+
+							stm_info.video_info.chroma_format_idc = sps_seq->chroma_format_idc;
+
+							if (vui_parameters->vui_timing_info_present_flag)
+							{
+								uint64_t GCD = gcd(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag), vui_parameters->vui_time_scale);
+								stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->vui_time_scale / GCD);
+								stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag) / GCD);
+							}
+						}
+
+						iRet = RET_CODE_SUCCESS;
+						break;
 					}
 				}
 			}
@@ -1011,6 +1033,7 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 			break;
 	}
 
+done:
 	if (pNALAVCContext)
 	{
 		pNALAVCContext->Release();
@@ -1121,13 +1144,19 @@ int ShowNALObj(int object_type)
 	public:
 		CNALEnumerator(INALContext* pNALCtx, int objType) : m_pNALContext(pNALCtx), object_type(objType) {
 			m_coding = m_pNALContext->GetNALCoding();
+			if (m_pNALContext)
+				m_pNALContext->AddRef();
 			if (m_coding == NAL_CODING_AVC)
 				m_pNALContext->QueryInterface(IID_INALAVCContext, (void**)&m_pNALAVCContext);
 			else if (m_coding == NAL_CODING_HEVC)
 				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
 		}
 
-		~CNALEnumerator() {}
+		~CNALEnumerator() {
+			AMP_SAFERELEASE(m_pNALAVCContext);
+			AMP_SAFERELEASE(m_pNALHEVCContext);
+			AMP_SAFERELEASE(m_pNALContext);
+		}
 
 		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
 

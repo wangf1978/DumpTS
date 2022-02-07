@@ -424,8 +424,6 @@ int CNALParser::LoadHEVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_
 	int8_t nal_unit_type = (*pStart >> 1) & 0x3F;
 	AMP_Assert(IS_HEVC_PARAMETERSET_NAL(nal_unit_type));
 
-	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
-
 	auto nal_unit = m_pNALHEVCCtx->CreateHEVCNU();
 
 	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
