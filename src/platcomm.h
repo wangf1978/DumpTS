@@ -131,7 +131,7 @@ SOFTWARE.
 #endif
 #define FSEEK64							_fseeki64
 #define FTELL64							_ftelli64
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__APPLE__)
 #define AMP_CUR_THREAD_ID()  			((unsigned long)pthread_self())
 #define STRCMP							strcmp
 #define STRNICMP						strncasecmp

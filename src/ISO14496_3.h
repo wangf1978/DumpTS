@@ -4915,13 +4915,13 @@ namespace BST {
 			uint8_t				numLayer[16] = { 0 };
 			uint8_t				progSIndx[16 * 8] = { 0 };
 			uint8_t				laySIndx[16 * 8] = { 0 };
-			int8_t				streamID[16][8] = { 0 };
-			bool				useSameConfig[16][8] = { 0 };
+			int8_t				streamID[16][8] = { {0} };
+			bool				useSameConfig[16][8] = { {0} };
 
-			uint32_t			ascLen[16][8] = { 0 };
+			uint32_t			ascLen[16][8] = { {0} };
 			std::shared_ptr<CAudioSpecificConfig>
 								AudioSpecificConfig[16][8];
-			AMBitArray			fillBits[16][8] = { 0 };
+			AMBitArray			fillBits[16][8];
 			uint8_t				frameLengthType[128] = { 0 };
 			union
 			{

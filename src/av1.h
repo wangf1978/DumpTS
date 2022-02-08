@@ -3433,7 +3433,7 @@ namespace BST
 									else
 									{
 										DeltaQVDc = DeltaQUDc;
-										DeltaQVAc = DeltaQVAc;
+										DeltaQVAc = DeltaQUAc;
 									}
 								}
 								else

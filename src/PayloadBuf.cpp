@@ -1,4 +1,4 @@
-/*
+ï»¿/*
 
 MIT License
 
@@ -131,7 +131,7 @@ std::unordered_map<unsigned short, std::string> g_Data_component_names = {
 	{0x0008, "ARIB-Subtitle& teletext coding"},
 	{0x0009, "ARIB-Data download"},
 	{0x000A, "G-guide (G-Guide Gold)"},
-	{0x000B, "BML for 110¡ãE CS"},
+	{0x000B, "BML for 110Â°E CS"},
 	{0x000C, "Multimedia coding for digital terrestrial broadcasting(A profile)"},
 	{0x000D, "Multimedia coding for digital terrestrial broadcasting(C profile)"},
 	{0x000E, "Multimedia coding for digital terrestrial broadcasting(P profile)"},

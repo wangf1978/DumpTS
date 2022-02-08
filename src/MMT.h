@@ -554,7 +554,7 @@ namespace MMT
 			}
 
 			MMTSIDescriptor::Print(fp, indent);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_resolution", video_resolution, video_resolution,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_resolution", (uint64_t)video_resolution, (uint64_t)video_resolution,
 				video_resolution == VID_RES_UNSPECIFIED?"Unspecified":(
 				video_resolution == VID_RES_180?"height: 180":(
 				video_resolution == VID_RES_240?"height: 240":(
@@ -563,14 +563,14 @@ namespace MMT
 				video_resolution == VID_RES_1080?"height: 1080/1125":(
 				video_resolution == VID_RES_2160?"height: 2160":(
 				video_resolution == VID_RES_4320?"height: 4320":""))))))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_aspect_ratio", video_aspect_ratio, video_aspect_ratio,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_aspect_ratio", (uint64_t)video_aspect_ratio, (uint64_t)video_aspect_ratio,
 				video_aspect_ratio == 0?"Unspecified":(
 				video_aspect_ratio == 1?"4:3":(
 				video_aspect_ratio == 2?"16:9 with pan vector":(
 				video_aspect_ratio == 3?"16:9 without pan vector":(
 				video_aspect_ratio == 4?"> 16:9":"")))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 ", %s\n", szIndent, "video_scan_flag", video_scan_flag, video_scan_flag ? "interlaced" : "progressive");
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_frame_rate", video_frame_rate, video_frame_rate,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 ", %s\n", szIndent, "video_scan_flag", (uint64_t)video_scan_flag, video_scan_flag ? "interlaced" : "progressive");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_frame_rate", (uint64_t)video_frame_rate, (uint64_t)video_frame_rate,
 				video_frame_rate == 0?"Unspecified":(
 				video_frame_rate == 1?"15 fps":(
 				video_frame_rate == 2?"24/1.001 fps":(
@@ -584,8 +584,8 @@ namespace MMT
 				video_frame_rate == 10?"100 fps":(
 				video_frame_rate == 11?"120/1.001 fps":(
 				video_frame_rate == 12?"120 fps":"")))))))))))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 ")\n", szIndent, "component_tag", component_tag, component_tag);
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "trans_characteristics", video_transfer_characteristics, video_transfer_characteristics,
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 ")\n", szIndent, "component_tag", (uint64_t)component_tag, (uint64_t)component_tag);
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "trans_characteristics", (uint64_t)video_transfer_characteristics, (uint64_t)video_transfer_characteristics,
 				video_transfer_characteristics == 0?"Unspecified":(
 				video_transfer_characteristics == 1?"Rec. ITU-R BT.709-5":(
 				video_transfer_characteristics == 2?"IEC 61966-2-4":(

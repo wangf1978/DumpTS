@@ -1210,7 +1210,7 @@ namespace BST {
 						if (i == 0)
 							return bNegative?-(st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->delta_poc_s0_minus1[i] + 1):(st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->delta_poc_s1_minus1[i] + 1);
 
-						return GetDeltaPocS(i - 1, RefRpsIdx, bNegative) + bNegative?-(st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->delta_poc_s0_minus1[i] + 1): (st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->delta_poc_s1_minus1[i] + 1);
+						return GetDeltaPocS(i - 1, RefRpsIdx, bNegative) + (bNegative?-(st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->delta_poc_s0_minus1[i] + 1): (st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->delta_poc_s1_minus1[i] + 1));
 					}
 
 					void SetDeltaPocS(uint8_t i, bool bNegative, int32_t dPoc) {

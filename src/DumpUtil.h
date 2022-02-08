@@ -645,9 +645,9 @@ SOFTWARE.
 
 #define NAV_WRITE_TAG_BEGIN4(Group_Name, formatstr, idx)\
 		if(szOutXml != 0 && cbLen > 0)\
-			cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s_"formatstr" Offset=\"%lld\">", Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL);\
+			cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s_" formatstr " Offset=\"%lld\">", Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL);\
 		else\
-			cbRequired += MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "<%s_"formatstr" Offset=\"%lld\">", Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL);\
+			cbRequired += MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "<%s_" formatstr " Offset=\"%lld\">", Group_Name, (unsigned long)(idx), bit_offset?*bit_offset:-1LL);\
 		if(bPrint)\
 			printf("<%s>\n", szTemp4);\
 
@@ -1283,9 +1283,9 @@ SOFTWARE.
 
 #define NAV_WRITE_TAG_END4(Group_Name, formatstr, idx)\
 	if(szOutXml != 0 && cbLen > 0)\
-		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "</%s_"formatstr">\n", Group_Name, (unsigned long)(idx));\
+		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "</%s_" formatstr ">\n", Group_Name, (unsigned long)(idx));\
 	else\
-		cbRequired += MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "</%s_"formatstr">\n", Group_Name, (unsigned long)(idx));\
+		cbRequired += MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "</%s_" formatstr ">\n", Group_Name, (unsigned long)(idx));\
 	if(bPrint)\
 		printf("</%s>\n", Group_Name);\
 

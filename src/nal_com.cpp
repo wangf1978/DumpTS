@@ -1,4 +1,4 @@
-/*
+Ôªø/*
 
 MIT License
 
@@ -177,7 +177,7 @@ const char* itu_t_t35_country_code_names[256] = {
 	"Saint Lucia",
 	"San Marino",
 	"Saint Thomas",
-	"Sao Tom®¶ and Principe",
+	"Sao Tom√© and Principe",
 	"Saint Vincent and the Grenadines",
 	"Saudi Arabia",
 	"Senegal",
