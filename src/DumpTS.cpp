@@ -39,6 +39,7 @@ SOFTWARE.
 #include "Matroska.h"
 #include "MMT.h"
 #include "nal_parser.h"
+#include "version.h"
 
 using namespace std;
 
@@ -868,6 +869,11 @@ int main(int argc, char* argv[])
 	else if (_stricmp(argv[1], "--help") == 0)
 	{
 		PrintHelp();
+		return 0;
+	}
+	else if (_stricmp(argv[1], "--version") == 0)
+	{
+		printf("version: %s\n", APP_VERSION);
 		return 0;
 	}
 

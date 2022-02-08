@@ -396,6 +396,7 @@
     <ClInclude Include="..\..\src\platcomm.h" />
     <ClInclude Include="..\..\src\Syncer.h" />
     <ClInclude Include="..\..\src\tinyxml2.h" />
+    <ClInclude Include="..\..\src\version.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt" />

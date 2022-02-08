@@ -341,6 +341,9 @@
     <ClInclude Include="..\..\src\av1_def.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\version.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt">
