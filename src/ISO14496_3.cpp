@@ -783,7 +783,7 @@ namespace BST {
 					if (cbBuf >= 3)
 					{
 						uint16_t audioMuxLengthBytes = ((*(pBuf + 1) & 0x1F) << 8) | *(pBuf + 2);
-						if (cbBuf >= audioMuxLengthBytes + 3)
+						if (cbBuf >= (size_t)audioMuxLengthBytes + 3)
 						{
 							pBuf += 3;
 							cbBuf -= 3;

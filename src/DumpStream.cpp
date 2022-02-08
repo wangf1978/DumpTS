@@ -1371,7 +1371,7 @@ int GetStreamInfoFromMP4AAU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_in
 				case 1: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_CENTER); break;
 				case 2: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT); break;
 				case 3: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER); break;
-				case 4: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_SURROUND); break;
+				case 4: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LS); break;
 				case 5: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) |
 					CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS); break;
 				case 6: stm_info.audio_info.channel_mapping = CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) |
@@ -1387,7 +1387,6 @@ int GetStreamInfoFromMP4AAU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_in
 		}
 	}
 
-done:
 	AMP_SAFERELEASE(pCtxMP4AAC);
 	return iRet;
 }
