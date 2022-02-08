@@ -189,6 +189,9 @@
     <ClCompile Include="..\..\src\mpeg2video.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\av1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
@@ -333,6 +336,9 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\mpeg2video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\av1_def.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

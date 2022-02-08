@@ -999,7 +999,7 @@ SOFTWARE.
 
 #define NAV_FIELD_PROP_2NUMBER_DESC_F(Field_Name, Field_Bits, Field_Value, Field_Desc, ...)\
 	MBCSPRINTF_S(szTemp2, TEMP2_SIZE, Field_Desc, ##__VA_ARGS__);\
-	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%lu(0X%X)", (unsigned long)(Field_Value), (unsigned long)(Field_Value));\
+	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%lu(0X%lX)", (unsigned long)(Field_Value), (unsigned long)(Field_Value));\
 	NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp3, szTemp2, bit_offset?*bit_offset:-1LL, "I");\
 	if (bit_offset)*bit_offset += Field_Bits;\
 

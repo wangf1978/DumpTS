@@ -3652,7 +3652,7 @@ namespace BST {
 	};
 
 	}	// namespace MPEG2Video
-}	// namespace AMPSDK
+}	// namespace BST
 
 #ifdef _WIN32
 #pragma pack(pop)

@@ -46,6 +46,7 @@ SOURCES := \
 	$(SOURCEDIR)/h264_video.cpp \
 	$(SOURCEDIR)/h265_video.cpp \
 	$(SOURCEDIR)/h266_video.cpp \
+	$(SOURCEDIR)/av1.cpp \
 	$(SOURCEDIR)/ESRepacker.cpp \
 	$(SOURCEDIR)/HuffmanTree.cpp \
 	$(SOURCEDIR)/IP.cpp \
