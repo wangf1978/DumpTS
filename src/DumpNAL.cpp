@@ -396,10 +396,40 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 			goto done;
 		}
 
-		printf("Picture Timing:\n");
+		printf("Picture Timing(payloadLength: %zu):\n", cbSEIPayload);
+		//print_mem(pSEIPayload, (int)cbSEIPayload, 4);
 		printf("\tcpb_removal_delay: %" PRIu32 "\n", pPicTiming->cpb_removal_delay);
 		printf("\tdpb_output_delay: %" PRIu32 "\n", pPicTiming->dpb_output_delay);
 		printf("\tpic_struct: %d (%s)\n", pPicTiming->pic_struct, PIC_STRUCT_MEANING(pPicTiming->pic_struct));
+
+		int NumClockTS = 0;
+		if (pPicTiming->pic_struct >= 0 && pPicTiming->pic_struct <= 2)
+			NumClockTS = 1;
+		else if (pPicTiming->pic_struct == 3 || pPicTiming->pic_struct == 4 || pPicTiming->pic_struct == 7)
+			NumClockTS = 2;
+		else if (pPicTiming->pic_struct == 5 || pPicTiming->pic_struct == 6 || pPicTiming->pic_struct == 8)
+			NumClockTS = 3;
+
+		for (int i = 0; i < NumClockTS; i++)
+		{
+			printf("\tClockTS#%d:\n", i);
+			printf("\t\tclock_timestamp_flag: %d\n", (int)pPicTiming->ClockTS[i].clock_timestamp_flag);
+			if (pPicTiming->ClockTS[i].clock_timestamp_flag)
+			{
+				printf("\t\tct_type: %d(%s)\n", (int)pPicTiming->ClockTS[i].ct_type, 
+					pPicTiming->ClockTS[i].ct_type == 0?"progressive":(
+					pPicTiming->ClockTS[i].ct_type == 1?"interlaced":(
+					pPicTiming->ClockTS[i].ct_type == 2?"unknown":"")));
+				printf("\t\tnuit_field_based_flag: %d\n", (int)pPicTiming->ClockTS[i].nuit_field_based_flag);
+				printf("\t\tcounting_type: %d\n", (int)pPicTiming->ClockTS[i].counting_type);
+				printf("\t\tfull_timestamp_flag: %d\n", (int)pPicTiming->ClockTS[i].full_timestamp_flag);
+				printf("\t\tdiscontinuity_flag: %d\n", (int)pPicTiming->ClockTS[i].discontinuity_flag);
+				printf("\t\tcnt_dropped_flag: %d\n", (int)pPicTiming->ClockTS[i].cnt_dropped_flag);
+				printf("\t\ttime code: %s\n", pPicTiming->ClockTS[i].GetTimeCode().c_str());
+				if (pPicTiming->ClockTS[i].time_offset_length > 0)
+					printf("\t\ttime offset: %" PRId64 "\n", pPicTiming->ClockTS[i].time_offset);
+			}
+		}
 	}
 	else
 	{

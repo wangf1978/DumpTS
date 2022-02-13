@@ -1830,7 +1830,7 @@ BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::PIC_TIMING_H264(int pa
 	, pic_struct(0xFF)
 	, payload_size(payloadSize)
 	, ptr_NAL_Context(pNALCtx){
-
+	memset(ClockTS, 0, sizeof(ClockTS));
 }
 
 int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
@@ -1909,6 +1909,76 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 		{
 			pic_struct = (uint8_t)AMBst_GetBits(in_bst, 4);
 			parsed_payload_bits += 4;
+
+			int NumClockTS = 0;
+			if (pic_struct >= 0 && pic_struct <= 2)
+				NumClockTS = 1;
+			else if (pic_struct == 3 || pic_struct == 4 || pic_struct == 7)
+				NumClockTS = 2;
+			else if (pic_struct == 5 || pic_struct == 6 || pic_struct == 8)
+				NumClockTS = 3;
+
+			if (NumClockTS > 0)
+			{
+				for (int i = 0; i < NumClockTS; i++)
+				{
+					ClockTS[i].clock_timestamp_flag = (uint16_t)AMBst_GetBits(in_bst, 1);
+					parsed_payload_bits++;
+					if (ClockTS[i].clock_timestamp_flag)
+					{
+						ClockTS[i].ct_type = (uint16_t)AMBst_GetBits(in_bst, 2);
+						ClockTS[i].nuit_field_based_flag = (uint16_t)AMBst_GetBits(in_bst, 1);
+						ClockTS[i].counting_type = (uint16_t)AMBst_GetBits(in_bst, 5);
+						ClockTS[i].full_timestamp_flag = (uint16_t)AMBst_GetBits(in_bst, 1);
+						ClockTS[i].discontinuity_flag = (uint16_t)AMBst_GetBits(in_bst, 1);
+						ClockTS[i].cnt_dropped_flag = (uint16_t)AMBst_GetBits(in_bst, 1);
+						ClockTS[i].n_frames = (uint16_t)AMBst_GetBits(in_bst, 8);
+						parsed_payload_bits += 19;
+
+						if (ClockTS[i].full_timestamp_flag)
+						{
+							ClockTS[i].seconds_value = (uint32_t)AMBst_GetBits(in_bst, 6);
+							ClockTS[i].minutes_value = (uint32_t)AMBst_GetBits(in_bst, 6);
+							ClockTS[i].hours_value = (uint32_t)AMBst_GetBits(in_bst, 5);
+							parsed_payload_bits += 17;
+						}
+						else
+						{
+							ClockTS[i].seconds_flag = (uint32_t)AMBst_GetBits(in_bst, 1);
+							parsed_payload_bits++;
+							if (ClockTS[i].seconds_flag)
+							{
+								ClockTS[i].seconds_value = (uint32_t)AMBst_GetBits(in_bst, 6);
+								ClockTS[i].minutes_flag = (uint32_t)AMBst_GetBits(in_bst, 1);
+								parsed_payload_bits += 7;
+								if (ClockTS[i].minutes_flag)
+								{
+									ClockTS[i].minutes_value = (uint32_t)AMBst_GetBits(in_bst, 6);
+									ClockTS[i].hours_flag = (uint32_t)AMBst_GetBits(in_bst, 1);
+									parsed_payload_bits += 7;
+									if (ClockTS[i].hours_flag)
+									{
+										ClockTS[i].hours_value = (uint32_t)AMBst_GetBits(in_bst, 5);
+										parsed_payload_bits += 5;
+									}
+								}
+							}
+						}
+
+						if (vui_parameters->nal_hrd_parameters_present_flag && vui_parameters->nal_hrd_parameters->time_offset_length > 0)
+							ClockTS[i].time_offset_length = vui_parameters->nal_hrd_parameters->time_offset_length;
+
+						else if (vui_parameters->vcl_hrd_parameters_present_flag && vui_parameters->vcl_hrd_parameters->time_offset_length > 0)
+							ClockTS[i].time_offset_length = vui_parameters->vcl_hrd_parameters->time_offset_length;
+
+						if (ClockTS[i].time_offset_length > 0)
+						{
+							parsed_payload_bits += ClockTS[i].time_offset_length;
+							ClockTS[i].time_offset = (int32_t)AMBst_GetTCLongLong(in_bst, ClockTS[i].time_offset_length);
+						}
+					}
+				}
+			}
 		}
 
 		// Don't parse the left bits, but skip them

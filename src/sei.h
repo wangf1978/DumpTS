@@ -253,25 +253,49 @@ namespace BST {
 				{
 					struct CLOCK_TIMESTAMP
 					{
-						uint16_t		clock_timestamp_flag : 1;
-						uint16_t		ct_type : 2;
-						uint16_t		nuit_field_based_flag : 1;
-						uint16_t		counting_type : 5;
-						uint16_t		full_timestamp_flag : 1;
-						uint16_t		discontinuity_flag : 1;
-						uint16_t		cnt_dropped_flag : 1;
-						uint16_t		reserved_0 : 4;
+						uint64_t		clock_timestamp_flag : 1;
+						uint64_t		ct_type : 2;
+						uint64_t		nuit_field_based_flag : 1;
+						uint64_t		counting_type : 5;
+						uint64_t		full_timestamp_flag : 1;
+						uint64_t		discontinuity_flag : 1;
+						uint64_t		cnt_dropped_flag : 1;
+						uint64_t		reserved_0 : 4;
 
-						uint32_t		n_frames;
-						uint32_t		seconds_flag : 1;
-						uint32_t		seconds_value : 6;
-						uint32_t		minutes_flag : 1;
-						uint32_t		minutes_value : 6;
-						uint32_t		hours_flag : 1;
-						uint32_t		hours_value : 5;
-						uint32_t		reserved_1 : 4;
+						uint64_t		n_frames : 8;
+						uint64_t		seconds_flag : 1;
+						uint64_t		seconds_value : 6;
+						uint64_t		minutes_flag : 1;
+						uint64_t		minutes_value : 6;
+						uint64_t		hours_flag : 1;
+						uint64_t		hours_value : 5;
+						uint64_t		time_offset_length : 5;
+						uint64_t		reserved_1 : 15;
 
-						int32_t			time_offset;
+						int64_t			time_offset;
+
+						std::string GetTimeCode() {
+							char szTimeCode[64] = { 0 };
+							if (full_timestamp_flag){
+								MBCSPRINTF_S(szTimeCode, 64, "%02dh:%02dm:%02ds.%d", (int)hours_value, (int)minutes_value, (int)seconds_value, (int)n_frames);
+							} else {
+								if (seconds_flag){
+									if (minutes_flag){
+										if (hours_flag){
+											MBCSPRINTF_S(szTimeCode, 64, "%02dh:%02dm:%02ds.%df", (int)hours_value, (int)minutes_value, (int)seconds_value, (int)n_frames);
+										} else {
+											MBCSPRINTF_S(szTimeCode, 64, "%02dm:%02ds.%df", (int)minutes_value, (int)seconds_value, (int)n_frames);
+										}
+									} else {
+										MBCSPRINTF_S(szTimeCode, 64, "%02ds.%df", (int)seconds_value, (int)n_frames);
+									}
+								} else {
+									MBCSPRINTF_S(szTimeCode, 64, "%df", (int)n_frames);
+								}
+							}
+
+							return szTimeCode;
+						}
 					}PACKED;
 
 					uint32_t		cpb_removal_delay;
