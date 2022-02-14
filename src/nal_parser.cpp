@@ -1660,72 +1660,85 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 	std::vector<uint8_t> sei_message_buf;
 	sei_message_buf.reserve(cbNUBuf - nalUnitHeaderBytes);
 
-	do
+	try
 	{
-		b_stop_one_bit = false;
-
-		uint8_t ff_byte;
-		uint32_t payloadType = 0, payloadSize = 0;
-		uint32_t payload_offset = nalUnitHeaderBytes;
-
-		sei_message_buf.clear();
-
-		while (AMBst_PeekBits(in_bst, 8) == 0xFF) {
-			ff_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
-			sei_message_buf.push_back(ff_byte);
-			payloadType += 255;
-		}
-
-		uint8_t last_payload_type_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
-		payloadType += last_payload_type_byte;
-		sei_message_buf.push_back(last_payload_type_byte);
-
-		while (AMBst_PeekBits(in_bst, 8) == 0xFF) {
-			ff_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
-			sei_message_buf.push_back(ff_byte);
-			payloadSize += 255;
-		}
-
-		uint8_t last_payload_size_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
-		payloadSize += last_payload_size_byte;
-		sei_message_buf.push_back(last_payload_size_byte);
-
-		size_t sei_payload_offset = sei_message_buf.size();
-
-		sei_message_buf.resize(sei_payload_offset + payloadSize);
-
-		AMBst_GetBytes(in_bst, &sei_message_buf[sei_payload_offset], payloadSize);
-
-		if (m_nal_enum != nullptr)
+		do
 		{
-			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_MSG) && AMP_FAILED(m_nal_enum->EnumNALSEIMessageBegin(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
-			{
-				iRet = RET_CODE_ABORT;
-				goto done;
+			b_stop_one_bit = false;
+
+			uint8_t ff_byte;
+			uint32_t payloadType = 0, payloadSize = 0;
+			uint32_t payload_offset = nalUnitHeaderBytes;
+			int left_bits_in_bst = 0;
+
+			sei_message_buf.clear();
+
+			// Avoid to trigger exception to cause bad performance
+			if (AMP_SUCCEEDED(AMBst_Tell(in_bst, &left_bits_in_bst)) && left_bits_in_bst < 16)
+				break;
+
+			while (AMBst_PeekBits(in_bst, 8) == 0xFF) {
+				ff_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
+				sei_message_buf.push_back(ff_byte);
+				payloadType += 255;
 			}
 
-			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_PAYLOAD) && AMP_FAILED(m_nal_enum->EnumNALSEIPayloadBegin(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
-			{
-				iRet = RET_CODE_ABORT;
-				goto done;
+			uint8_t last_payload_type_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
+			payloadType += last_payload_type_byte;
+			sei_message_buf.push_back(last_payload_type_byte);
+
+			while (AMBst_PeekBits(in_bst, 8) == 0xFF) {
+				ff_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
+				sei_message_buf.push_back(ff_byte);
+				payloadSize += 255;
 			}
 
-			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_PAYLOAD) && AMP_FAILED(m_nal_enum->EnumNALSEIPayloadEnd(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
+			uint8_t last_payload_size_byte = (uint8_t)AMBst_GetBits(in_bst, 8);
+			payloadSize += last_payload_size_byte;
+			sei_message_buf.push_back(last_payload_size_byte);
+
+			size_t sei_payload_offset = sei_message_buf.size();
+
+			sei_message_buf.resize(sei_payload_offset + payloadSize);
+
+			AMBst_GetBytes(in_bst, &sei_message_buf[sei_payload_offset], payloadSize);
+
+			if (m_nal_enum != nullptr)
 			{
-				iRet = RET_CODE_ABORT;
-				goto done;
+				if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_MSG) && AMP_FAILED(m_nal_enum->EnumNALSEIMessageBegin(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+
+				if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_PAYLOAD) && AMP_FAILED(m_nal_enum->EnumNALSEIPayloadBegin(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+
+				if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_PAYLOAD) && AMP_FAILED(m_nal_enum->EnumNALSEIPayloadEnd(m_pCtx, payloadType, sei_message_buf.data() + sei_payload_offset, payloadSize)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+
+				if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_MSG) && AMP_FAILED(m_nal_enum->EnumNALSEIMessageEnd(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
 			}
 
-			if ((m_nal_enum_options&NAL_ENUM_OPTION_SEI_MSG) && AMP_FAILED(m_nal_enum->EnumNALSEIMessageEnd(m_pCtx, sei_message_buf.data(), sei_message_buf.size())))
-			{
-				iRet = RET_CODE_ABORT;
-				goto done;
-			}
-		}
+			//b_stop_one_bit = AMBst_PeekBits(in_bst, 1) ? true : false;
 
-		b_stop_one_bit = AMBst_PeekBits(in_bst, 1) ? true : false;
+		} while (AMP_SUCCEEDED(iRet) && !b_stop_one_bit);
 
-	} while (AMP_SUCCEEDED(iRet) && !b_stop_one_bit);
+	}
+	catch (...)
+	{
+		goto done;
+	}
 
 done:
 	if (in_bst)

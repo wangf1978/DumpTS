@@ -319,14 +319,64 @@ namespace BST {
 						return RET_CODE_ERROR_NOTIMPL;
 					}
 
-					size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL);
+					size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL) {
+						return 0;
+					}
 
 				};
 
 				struct PIC_TIMING_H265 : public SYNTAX_BITSTREAM_MAP
 				{
+					struct DECODE_UNIT
+					{
+						uint64_t	num_nalus_in_du_minus1;
+						uint64_t	du_cpb_removal_delay_increment_minus1;
+					};
 
-				}PACKED;
+					union
+					{
+						struct
+						{
+							uint32_t		pic_struct : 4;
+							uint32_t		source_scan_type : 2;
+							uint32_t		duplicate_flag : 1;
+							uint32_t		du_common_cpb_removal_delay_flag : 1;
+							uint32_t		frame_field_info_present_flag : 1;
+							uint32_t		CpbDpbDelaysPresentFlag : 1;
+							uint32_t		sub_pic_hrd_params_present_flag : 1;
+							uint32_t		sub_pic_cpb_params_in_pic_timing_sei_flag : 1;
+							uint32_t		reserved_0 : 20;
+						};
+						uint32_t			u32_Value_0;
+					};
+
+					uint64_t		au_cpb_removal_delay_minus1;
+					uint64_t		pic_dpb_output_delay;
+					uint64_t		pic_dpb_output_du_delay;
+					uint64_t		num_decoding_units_minus1;
+					uint64_t		du_common_cpb_removal_delay_increment_minus1;
+					std::vector<DECODE_UNIT>
+									dus;
+
+					std::vector<uint8_t>
+									reserved_sei_message_payload_bytes;
+					int				payload_size;
+					INALContext*	ptr_NAL_Context;
+
+					PIC_TIMING_H265(int payloadSize, INALContext* pNALCtx);
+
+					int Map(AMBst in_bst);
+
+					int Unmap(AMBst out_bst)
+					{
+						UNREFERENCED_PARAMETER(out_bst);
+						return RET_CODE_ERROR_NOTIMPL;
+					}
+
+					size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL) {
+						return 0;
+					}
+				};
 
 				struct MASTERING_DISPLAY_COLOUR_VOLUME : public SYNTAX_BITSTREAM_MAP
 				{
@@ -419,7 +469,9 @@ namespace BST {
 					SEI_PAYLOAD*
 								ptr_sei_payload;
 
-					ACTIVE_PARAMETER_SETS(SEI_PAYLOAD* pSEIPayload): ptr_sei_payload(pSEIPayload){}
+					ACTIVE_PARAMETER_SETS(SEI_PAYLOAD* pSEIPayload)
+						: ptr_sei_payload(pSEIPayload){
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -439,7 +491,7 @@ namespace BST {
 							if (num_sps_ids_minus1 > 16)
 								return RET_CODE_BUFFER_NOT_COMPATIBLE;
 
-							for (int i = 0; i < num_sps_ids_minus1; i++) {
+							for (int i = 0; i <= num_sps_ids_minus1; i++) {
 								nal_read_ue(in_bst, active_seq_parameter_set_id[i], uint8_t);
 							}
 
@@ -447,6 +499,22 @@ namespace BST {
 
 							if (ptr_sei_payload->payload_size * 8 > total_read_bits) {
 								AMBst_SkipBits(in_bst, ptr_sei_payload->payload_size*8 - total_read_bits);
+							}
+
+							if (ptr_sei_payload != nullptr &&
+								ptr_sei_payload->ptr_sei_message != nullptr &&
+								ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp != nullptr)
+							{
+								auto pCtxNAL = ptr_sei_payload->ptr_sei_message->ptr_sei_rbsp->ctx_NAL;
+								if (pCtxNAL != nullptr)
+								{
+									INALHEVCContext* pNALHEVCCtx = nullptr;
+									if (SUCCEEDED(pCtxNAL->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+									{
+										assert(active_seq_parameter_set_id[0] >= 0 && active_seq_parameter_set_id[0] <= 15);
+										pNALHEVCCtx->ActivateSPS((int8_t)active_seq_parameter_set_id[0]);
+									}
+								}
 							}
 
 							MAP_BST_END();
@@ -473,9 +541,9 @@ namespace BST {
 					BST_FIELD_PROP_BOOL(no_parameter_set_update_flag, "indicates that there is no parameter set update in the CVS", "indicates that there may or may not be parameter set update in the CVS");
 
 					BST_FIELD_PROP_UE(num_sps_ids_minus1, "plus 1 shall be less than or equal to the number of SPSs that are referred to by the VCL NAL units of the access unit associated with the active parameter sets SEI message");
-					if (num_sps_ids_minus1 > 0) {
-						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i = 0; i &lt;= num_sps_ids_minus1; i++)", "");
-						for (int i = 0; i < num_sps_ids_minus1; i++) {
+					if (num_sps_ids_minus1 >= 0) {
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0; i&lt;=num_sps_ids_minus1;i++)", "");
+						for (int i = 0; i <= num_sps_ids_minus1; i++) {
 							BST_ARRAY_FIELD_PROP_UE(active_seq_parameter_set_id, i, "a value of the sps_seq_parameter_set_id of the SPS that may be referred to by any VCL NAL unit of the access unit associated with the SEI message");
 						}
 						NAV_WRITE_TAG_END("Tag0");

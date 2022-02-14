@@ -109,6 +109,21 @@ public:
 	virtual RET_CODE		UpdateHEVCSPS(H265_NU sps_nu) = 0;
 	virtual RET_CODE		UpdateHEVCPPS(H265_NU pps_nu) = 0;
 	virtual H265_NU			CreateHEVCNU() = 0;
+
+	virtual int8_t			GetActiveSPSID() = 0;
+	/*
+		When an SPS RBSP (with a particular value of sps_seq_parameter_set_id) is not already active for the base layer 
+		and it is referred to by activation of a PPS RBSP (in which pps_seq_parameter_set_id is equal to the sps_seq_parameter_set_id value) 
+		for the base layer or, when vps_base_layer_internal_flag is equal to 1 and vps_base_layer_available_flag is equal to 1, 
+		is referred to by an SEI NAL unit containing an active parameter sets SEI message (in which active_seq_parameter_set_id[0] is equal 
+		to the sps_seq_parameter_set_id value), it is activated for the base layer. 
+		This SPS RBSP is called the active SPS RBSP for the base layer until it is deactivated by the activation of another SPS RBSP for the base layer. 
+		An SPS RBSP, with that particular value of sps_seq_parameter_set_id, shall be available to the decoding process prior to its activation, 
+		included in at least one access unit with TemporalId equal to 0 or provided through external means, and the SPS NAL unit containing 
+		the SPS RBSP shall have nuh_layer_id equal to 0. An activated SPS RBSP for the base layer shall remain active for the entire coded video sequence (CVS).
+	*/
+	virtual	RET_CODE		ActivateSPS(int8_t sps_id) = 0;
+	virtual RET_CODE		DetactivateSPS() = 0;
 };
 
 extern RET_CODE CreateAVCNALContext(INALAVCContext** ppNALCtx);

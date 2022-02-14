@@ -274,6 +274,68 @@ int PrintHRDFromAVCSPS(H264_NU sps_nu)
 		}
 	}
 
+	return RET_CODE_SUCCESS;
+}
+
+int PrintHRDFromHEVCSPS(H265_NU sps_nu)
+{
+	if (!sps_nu || sps_nu->ptr_seq_parameter_set_rbsp == nullptr)
+		return RET_CODE_INVALID_PARAMETER;
+
+	uint64_t BitRates[32] = { 0 };
+	uint64_t CpbSize[32] = { 0 };
+	bool bUseConcludedValues[2] = { true, true };
+	if (sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->vui_hrd_parameters_present_flag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->m_commonInfPresentFlag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->vcl_hrd_parameters_present_flag)
+	{
+		printf("Type-I HRD:\n");
+		auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters;
+		for (uint8_t i = 0; i <= hrd_parameters->m_maxNumSubLayersMinus1; i++)
+		{
+			printf("\tSublayer#%d:\n", i);
+			auto sub_layer_hrd_parameters = hrd_parameters->sub_layer_infos[i]->ptr_vcl_sub_layer_hrd_parameters;
+			for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->sub_layer_infos[i]->cpb_cnt_minus1; SchedSelIdx++)
+			{
+				printf("\t\tSchedSelIdx#%d:\n", SchedSelIdx);
+				BitRates[SchedSelIdx] = ((uint64_t)sub_layer_hrd_parameters->sub_layer_hrd_parameters[SchedSelIdx]->bit_rate_value_minus1 + 1) << (6 + hrd_parameters->bit_rate_scale);
+				CpbSize[SchedSelIdx] = ((uint64_t)sub_layer_hrd_parameters->sub_layer_hrd_parameters[SchedSelIdx]->cpb_size_value_minus1 + 1) << (4 + hrd_parameters->cpb_size_scale);
+				printf("\t\t\tthe maximum input bit rate for the CPB: %" PRIu64 "bps/%sbps \n",
+					BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
+				printf("\t\t\tthe CPB size: %" PRIu64 "b/%sb \n",
+					CpbSize[SchedSelIdx], GetHumanReadNumber(CpbSize[SchedSelIdx]).c_str());
+				printf("\t\t\t%s mode\n", sub_layer_hrd_parameters->sub_layer_hrd_parameters[SchedSelIdx]->cbr_flag ? "CBR" : "VBR");
+			}
+		}
+	}
+
+	if (sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->vui_hrd_parameters_present_flag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->m_commonInfPresentFlag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->nal_hrd_parameters_present_flag)
+	{
+		printf("Type-II HRD:\n");
+		auto hrd_parameters = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters;
+		for (uint8_t i = 0; i <= hrd_parameters->m_maxNumSubLayersMinus1; i++)
+		{
+			printf("\tSublayer#%d:\n", i);
+			auto sub_layer_hrd_parameters = hrd_parameters->sub_layer_infos[i]->ptr_nal_sub_layer_hrd_parameters;
+			for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->sub_layer_infos[i]->cpb_cnt_minus1; SchedSelIdx++)
+			{
+				printf("\t\tSchedSelIdx#%d:\n", SchedSelIdx);
+				BitRates[SchedSelIdx] = ((uint64_t)sub_layer_hrd_parameters->sub_layer_hrd_parameters[SchedSelIdx]->bit_rate_value_minus1 + 1) << (6 + hrd_parameters->bit_rate_scale);
+				CpbSize[SchedSelIdx] = ((uint64_t)sub_layer_hrd_parameters->sub_layer_hrd_parameters[SchedSelIdx]->cpb_size_value_minus1 + 1) << (4 + hrd_parameters->cpb_size_scale);
+				printf("\t\t\tthe maximum input bit rate for the CPB: %" PRIu64 "bps/%sbps \n",
+					BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
+				printf("\t\t\tthe CPB size: %" PRIu64 "b/%sb \n",
+					CpbSize[SchedSelIdx], GetHumanReadNumber(CpbSize[SchedSelIdx]).c_str());
+				printf("\t\t\t%s mode\n", sub_layer_hrd_parameters->sub_layer_hrd_parameters[SchedSelIdx]->cbr_flag ? "CBR" : "VBR");
+			}
+		}
+	}
 
 	return RET_CODE_SUCCESS;
 }
@@ -379,6 +441,7 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 	bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
 
 	BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264* pPicTiming = nullptr;
+	BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265* pPicTimingH265 = nullptr;
 
 	if (bst == nullptr)
 	{
@@ -386,18 +449,19 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 		goto done;
 	}
 
+	printf("Picture Timing(payloadLength: %zu):\n", cbSEIPayload);
+	//print_mem(pSEIPayload, (int)cbSEIPayload, 4);
+
 	if (coding == NAL_CODING_AVC)
 	{
 		pPicTiming = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pCtx);
 
 		if (AMP_FAILED(iRet = pPicTiming->Map(bst)))
 		{
-			printf("Failed to unpack the SEI payload: buffering period.\n");
+			printf("Failed to unpack the SEI payload: pic_timing.\n");
 			goto done;
 		}
 
-		printf("Picture Timing(payloadLength: %zu):\n", cbSEIPayload);
-		//print_mem(pSEIPayload, (int)cbSEIPayload, 4);
 		printf("\tcpb_removal_delay: %" PRIu32 "\n", pPicTiming->cpb_removal_delay);
 		printf("\tdpb_output_delay: %" PRIu32 "\n", pPicTiming->dpb_output_delay);
 		printf("\tpic_struct: %d (%s)\n", pPicTiming->pic_struct, PIC_STRUCT_MEANING(pPicTiming->pic_struct));
@@ -431,6 +495,56 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 			}
 		}
 	}
+	else if (coding == NAL_CODING_HEVC)
+	{
+		pPicTimingH265 = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265((int)cbSEIPayload, pCtx);
+
+		if (AMP_FAILED(iRet = pPicTimingH265->Map(bst)))
+		{
+			printf("Failed to unpack the SEI payload: pic_timing.\n");
+			goto done;
+		}
+
+		if (pPicTimingH265->frame_field_info_present_flag)
+		{
+			printf("\tpic_struct: %d (%s)\n", pPicTimingH265->pic_struct, pic_struct_names[pPicTimingH265->pic_struct]);
+			printf("\tsource_scan_type: %d (%s)\n", pPicTimingH265->source_scan_type, 
+				pPicTimingH265->source_scan_type == 0 ? "Interlaced":(
+				pPicTimingH265->source_scan_type == 1 ? "Progressive" : (
+				pPicTimingH265->source_scan_type == 2 ? "Unspecified" : "")));
+			printf("\tduplicate_flag: %d\n", pPicTimingH265->duplicate_flag);
+		}
+
+		if (pPicTimingH265->CpbDpbDelaysPresentFlag)
+		{
+			printf("\tau_cpb_removal_delay: %" PRIu64 "\n", pPicTimingH265->au_cpb_removal_delay_minus1 + 1);
+			printf("\tpic_dpb_output_delay: %" PRIu64 "\n", pPicTimingH265->pic_dpb_output_delay);
+			if (pPicTimingH265->sub_pic_hrd_params_present_flag)
+			{
+				printf("\tpic_dpb_output_du_delay: %" PRIu64 "\n", pPicTimingH265->pic_dpb_output_du_delay);
+				if (pPicTimingH265->sub_pic_cpb_params_in_pic_timing_sei_flag)
+				{
+					printf("\tnum_decoding_units: %" PRIu64 "\n", pPicTimingH265->num_decoding_units_minus1 + 1);
+					printf("\tdu_common_cpb_removal_delay_flag: %d\n", (int)pPicTimingH265->du_common_cpb_removal_delay_flag);
+
+					if (pPicTimingH265->du_common_cpb_removal_delay_flag)
+					{
+						printf("\tdu_common_cpb_removal_delay_increment: %" PRIu64 "\n", pPicTimingH265->du_common_cpb_removal_delay_increment_minus1 + 1);
+					}
+
+					for (uint64_t i = 0; i <= pPicTimingH265->num_decoding_units_minus1; i++)
+					{
+						printf("\tdu#%" PRIu64 ":\n", i);
+						printf("\t\tnum_nalus_in_du: %" PRIu64 "\n", pPicTimingH265->dus[i].num_nalus_in_du_minus1 + 1);
+						if (!pPicTimingH265->du_common_cpb_removal_delay_flag && i < pPicTimingH265->num_decoding_units_minus1)
+						{
+							printf("\t\tdu_cpb_removal_delay_increment: %" PRIu64 "\n", pPicTimingH265->dus[i].du_cpb_removal_delay_increment_minus1 + 1);
+						}
+					}
+				}
+			}
+		}
+	}
 	else
 	{
 		// TODO...
@@ -441,6 +555,7 @@ done:
 		AMBst_Destroy(bst);
 
 	AMP_SAFEDEL(pPicTiming);
+	AMP_SAFEDEL(pPicTimingH265);
 
 	return iRet;
 }
@@ -1290,6 +1405,8 @@ int ShowNALObj(int object_type)
 							PrintMediaObject(nu);
 						else if (object_type == 82)
 							PrintHEVCSPSRoughInfo(nu);
+						else if (object_type == 12)
+							PrintHRDFromHEVCSPS(nu);
 					}
 					else if (nal_unit_type == BST::H265Video::PPS_NUT)
 					{
@@ -1324,6 +1441,30 @@ int ShowNALObj(int object_type)
 			{
 				if (object_type == 12)
 					PrintHRDFromSEIPayloadPicTiming(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf);
+			}
+			else if (payload_type == SEI_PAYLOAD_ACTIVE_PARAMETER_SETS && m_coding == NAL_CODING_HEVC && m_pNALHEVCContext)
+			{
+				if (object_type == 12 && cbRBSPPayloadBuf > 0)
+				{
+					AMBst bst = AMBst_CreateFromBuffer(pRBSPSEIPayloadBuf, (int)cbRBSPPayloadBuf);
+					try
+					{
+						AMBst_SkipBits(bst, 6);
+						uint64_t num_sps_ids_minus1 = AMBst_Get_ue(bst);
+						uint64_t active_seq_parameter_set_id0 = AMBst_Get_ue(bst);
+
+						if (active_seq_parameter_set_id0 >= 0 && active_seq_parameter_set_id0 <= 15)
+						{
+							m_pNALHEVCContext->ActivateSPS((int8_t)active_seq_parameter_set_id0);
+						}
+					}
+					catch (...)
+					{
+
+					}
+					
+					AMBst_Destroy(bst);
+				}
 			}
 			return RET_CODE_SUCCESS;
 		}

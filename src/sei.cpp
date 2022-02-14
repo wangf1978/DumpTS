@@ -1998,3 +1998,147 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 	return RET_CODE_SUCCESS;
 }
 
+BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265::PIC_TIMING_H265(int payloadSize, INALContext* pNALCtx)
+	: u32_Value_0(0)
+	, au_cpb_removal_delay_minus1(0)
+	, pic_dpb_output_delay(0)
+	, pic_dpb_output_du_delay(0)
+	, num_decoding_units_minus1(0)
+	, du_common_cpb_removal_delay_increment_minus1(0)
+	, ptr_NAL_Context(pNALCtx)
+{
+
+}
+
+int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265::Map(AMBst in_bst)
+{
+	int iRet = RET_CODE_SUCCESS;
+	SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+	// If there is no active SPS, skip all bytes in this payload
+	INALHEVCContext* pHEVCCtx = NULL;
+	uint8_t du_cpb_removal_delay_increment_length_minus1 = 0;
+	uint8_t dpb_output_delay_du_length_minus1 = 0;
+	uint8_t initial_cpb_removal_delay_length_minus1 = 23;
+	uint8_t au_cpb_removal_delay_length_minus1 = 23;
+	uint8_t dpb_output_delay_length_minus1 = 23;
+	if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALHEVCContext, (void**)&pHEVCCtx)))
+	{
+		int8_t sps_id = pHEVCCtx->GetActiveSPSID();
+		if (sps_id >= 0)
+		{
+			auto active_sps = pHEVCCtx->GetHEVCSPS((uint8_t)sps_id);
+			if (active_sps &&
+				active_sps->ptr_seq_parameter_set_rbsp &&
+				active_sps->ptr_seq_parameter_set_rbsp->vui_parameters_present_flag &&
+				active_sps->ptr_seq_parameter_set_rbsp->vui_parameters)
+			{
+				auto vui_parameters = active_sps->ptr_seq_parameter_set_rbsp->vui_parameters;
+				frame_field_info_present_flag = vui_parameters->frame_field_info_present_flag;
+
+				if (vui_parameters->vui_hrd_parameters_present_flag && vui_parameters->hrd_parameters)
+				{
+					if (vui_parameters->hrd_parameters->vcl_hrd_parameters_present_flag ||
+						vui_parameters->hrd_parameters->nal_hrd_parameters_present_flag)
+					{
+						CpbDpbDelaysPresentFlag = true;
+
+						if (vui_parameters->hrd_parameters->sub_pic_hrd_params_present_flag)
+						{
+							sub_pic_hrd_params_present_flag = true;
+							du_cpb_removal_delay_increment_length_minus1 =
+								vui_parameters->hrd_parameters->du_cpb_removal_delay_increment_length_minus1;
+							sub_pic_cpb_params_in_pic_timing_sei_flag =
+								vui_parameters->hrd_parameters->sub_pic_cpb_params_in_pic_timing_sei_flag;
+							dpb_output_delay_du_length_minus1 =
+								vui_parameters->hrd_parameters->dpb_output_delay_du_length_minus1;
+						}
+
+						initial_cpb_removal_delay_length_minus1 = vui_parameters->hrd_parameters->initial_cpb_removal_delay_length_minus1;
+						au_cpb_removal_delay_length_minus1 = vui_parameters->hrd_parameters->au_cpb_removal_delay_length_minus1;
+						dpb_output_delay_length_minus1 = vui_parameters->hrd_parameters->dpb_output_delay_length_minus1;
+					}
+				}
+			}
+		}
+
+		pHEVCCtx->Release();
+		pHEVCCtx = nullptr;
+	}
+
+	try
+	{
+		MAP_BST_BEGIN(0);
+
+		size_t parsed_payload_bits = 0;
+
+		if (frame_field_info_present_flag)
+		{
+			pic_struct = AMBst_GetBits(in_bst, 4);
+			source_scan_type = AMBst_GetBits(in_bst, 2);
+			duplicate_flag = AMBst_GetBits(in_bst, 1);
+			parsed_payload_bits += 7;
+		}
+
+		if (CpbDpbDelaysPresentFlag)
+		{
+			au_cpb_removal_delay_minus1 = (uint64_t)AMBst_GetBits(in_bst, au_cpb_removal_delay_length_minus1 + 1);
+			parsed_payload_bits += au_cpb_removal_delay_length_minus1 + 1;
+			pic_dpb_output_delay = (uint64_t)AMBst_GetBits(in_bst, dpb_output_delay_length_minus1 + 1);
+			parsed_payload_bits += dpb_output_delay_length_minus1 + 1;
+
+			if (sub_pic_hrd_params_present_flag)
+			{
+				pic_dpb_output_du_delay = (uint64_t)AMBst_GetBits(in_bst, dpb_output_delay_du_length_minus1 + 1);
+				parsed_payload_bits += dpb_output_delay_du_length_minus1 + 1;
+
+				if (sub_pic_cpb_params_in_pic_timing_sei_flag)
+				{
+					num_decoding_units_minus1 = AMBst_Get_ue(in_bst);
+					parsed_payload_bits += quick64_log2(num_decoding_units_minus1 + 1) * 2 + 1;
+
+					du_common_cpb_removal_delay_flag = (uint8_t)AMBst_GetBits(in_bst, 1);
+					parsed_payload_bits++;
+
+					if (du_common_cpb_removal_delay_flag)
+					{
+						du_common_cpb_removal_delay_increment_minus1 = (uint64_t)AMBst_GetBits(in_bst, du_cpb_removal_delay_increment_length_minus1 + 1);
+						parsed_payload_bits += du_cpb_removal_delay_increment_length_minus1 + 1;
+					}
+
+					for (uint64_t i = 0; i <= num_decoding_units_minus1; i++)
+					{
+						DECODE_UNIT du;
+						du.num_nalus_in_du_minus1 = AMBst_Get_ue(in_bst);
+						parsed_payload_bits += quick64_log2(du.num_nalus_in_du_minus1 + 1) * 2 + 1;
+
+						if (!du_common_cpb_removal_delay_flag && i < num_decoding_units_minus1)
+						{
+							du.du_cpb_removal_delay_increment_minus1 = AMBst_GetBits(in_bst, du_cpb_removal_delay_increment_length_minus1 + 1);
+							parsed_payload_bits += du_cpb_removal_delay_increment_length_minus1 + 1;
+						}
+						else
+							du.du_cpb_removal_delay_increment_minus1 = 0;
+
+						dus.push_back(du);
+					}
+				}
+			}
+		}
+
+		// Don't parse the left bits, but skip them
+		if (parsed_payload_bits < ((size_t)payload_size << 3))
+		{
+			size_t unparsed_bits = ((size_t)payload_size << 3) - parsed_payload_bits;
+			AMBst_SkipBits(in_bst, (int)unparsed_bits);
+		}
+
+		MAP_BST_END();
+	}
+	catch (AMException e)
+	{
+		return e.RetCode();
+	}
+
+	return iRet;
+}

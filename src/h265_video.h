@@ -199,18 +199,22 @@ namespace BST {
 				return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
 			}
 
-			NAL_CODING		GetNALCoding() { return NAL_CODING_HEVC; }
-			RET_CODE		SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
-			RET_CODE		GetNUFilters(std::vector<uint8_t>& NU_type_filters);
-			bool			IsNUFiltered(uint8_t nal_unit_type);
-			void			Reset();
-			H265_NU			GetHEVCVPS(uint8_t vps_id);
-			H265_NU			GetHEVCSPS(uint8_t sps_id);
-			H265_NU			GetHEVCPPS(uint8_t pps_id);
-			RET_CODE		UpdateHEVCVPS(H265_NU vps_nu);
-			RET_CODE		UpdateHEVCSPS(H265_NU sps_nu);
-			RET_CODE		UpdateHEVCPPS(H265_NU pps_nu);
-			H265_NU			CreateHEVCNU();
+			NAL_CODING					GetNALCoding() { return NAL_CODING_HEVC; }
+			RET_CODE					SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
+			RET_CODE					GetNUFilters(std::vector<uint8_t>& NU_type_filters);
+			bool						IsNUFiltered(uint8_t nal_unit_type);
+			void						Reset();
+			H265_NU						GetHEVCVPS(uint8_t vps_id);
+			H265_NU						GetHEVCSPS(uint8_t sps_id);
+			H265_NU						GetHEVCPPS(uint8_t pps_id);
+			RET_CODE					UpdateHEVCVPS(H265_NU vps_nu);
+			RET_CODE					UpdateHEVCSPS(H265_NU sps_nu);
+			RET_CODE					UpdateHEVCPPS(H265_NU pps_nu);
+			H265_NU						CreateHEVCNU();
+
+			int8_t						GetActiveSPSID();
+			RET_CODE					ActivateSPS(int8_t sps_id);
+			RET_CODE					DetactivateSPS();
 
 		public:
 			std::vector<uint8_t>		nal_unit_type_filters;
@@ -218,14 +222,11 @@ namespace BST {
 			std::unordered_map<uint8_t, int8_t>
 										sps_seq_parameter_set_id;
 			int8_t						prev_vps_video_parameter_set_id;
-			std::map<uint8_t, std::shared_ptr<NAL_UNIT>>
-										sp_h265_vpses;		// the smart pointers of VPS for the current h265 bitstream
-			std::map<uint8_t, std::shared_ptr<NAL_UNIT>>
-										sp_h265_spses;		// the smart pointers of SPS for the current h265 bitstream
-			std::map<uint8_t, std::shared_ptr<NAL_UNIT>>
-										sp_h265_ppses;		// the smart pointers of PPS for the current h265 bitstream
-			std::shared_ptr<NAL_UNIT>
-										sp_prev_nal_unit;
+			std::map<uint8_t, H265_NU>	sp_h265_vpses;		// the smart pointers of VPS for the current h265 bitstream
+			std::map<uint8_t, H265_NU>	sp_h265_spses;		// the smart pointers of SPS for the current h265 bitstream
+			std::map<uint8_t, H265_NU>	sp_h265_ppses;		// the smart pointers of PPS for the current h265 bitstream
+			H265_NU						sp_prev_nal_unit;
+			int8_t						m_active_sps_id = -1;
 		};
 		
 		struct NAL_UNIT : public SYNTAX_BITSTREAM_MAP
@@ -4373,8 +4374,7 @@ namespace BST {
 					std::vector<uint8_t>
 								slice_segment_header_extension_data_byte;
 
-					std::shared_ptr<NAL_UNIT>
-								sp_pps;
+					H265_NU		sp_pps;
 					NAL_UNIT*	ptr_nal_unit = NULL;
 					uint8_t		CurrRpsIdx;
 					uint8_t		NumPicTotalCurr;
@@ -4434,6 +4434,9 @@ namespace BST {
 							auto ptr_pps = sp_pps->ptr_pic_parameter_set_rbsp;
 							num_ref_idx_l0_active_minus1 = ptr_pps->num_ref_idx_l0_default_active_minus1;
 							num_ref_idx_l1_active_minus1 = ptr_pps->num_ref_idx_l1_default_active_minus1;
+
+							assert(ptr_pps->pps_seq_parameter_set_id >= 0 && ptr_pps->pps_seq_parameter_set_id <= 15);
+							ptr_nal_unit->ptr_ctx_video_bst->ActivateSPS((int8_t)ptr_pps->pps_seq_parameter_set_id);
 
 							auto sp_sps = ptr_nal_unit->ptr_ctx_video_bst->GetHEVCSPS(ptr_pps->pps_seq_parameter_set_id);
 							if (!sp_sps || sp_sps->ptr_seq_parameter_set_rbsp == nullptr)

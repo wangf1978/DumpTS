@@ -468,6 +468,23 @@ namespace BST {
 			return std::shared_ptr<NAL_UNIT>(ptr_HEVC_NU);
 		}
 
+		int8_t VideoBitstreamCtx::GetActiveSPSID() 
+		{
+			return m_active_sps_id;
+		}
+
+		RET_CODE VideoBitstreamCtx::ActivateSPS(int8_t sps_id)
+		{
+			m_active_sps_id = sps_id;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::DetactivateSPS()
+		{
+			m_active_sps_id = -1;
+			return RET_CODE_SUCCESS;
+		}
+
 	}	// namespace H265Video
 }	// namespace BST
 

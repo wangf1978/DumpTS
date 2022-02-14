@@ -401,6 +401,14 @@ inline uint8_t quick_log2(uint32_t v)
 	return 0;
 }
 
+inline uint8_t quick64_log2(uint64_t v)
+{
+	for (int i = 63; i >= 0; i--)
+		if ((v&((uint64_t)1 << i)))
+			return i;
+	return 0;
+}
+
 template<typename T,
 	typename std::enable_if<std::numeric_limits<T>::is_integer>::type* = nullptr>
 	inline uint8_t ceiling_quick_log2(T v)
