@@ -123,6 +123,7 @@ struct CAMRingUnits
 };
 
 typedef void* AMLinearRingBuffer;
+typedef void(*PTR_FUNC_LRBRWPOINTERRESET)(unsigned int, void*);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Linear Ring Buffer Interface
@@ -132,13 +133,21 @@ created as a ring buffer. Each write is toward a linear i.e. physically continuo
 case where the write pointer plus a requested write size exceeds the physical end of the buffer, the write
 will be directed to the beginning of the buffer
 */
-AMLinearRingBuffer	AM_LRB_Create(int buffer_size);
+AMLinearRingBuffer	AM_LRB_Create(int buffer_size, int aligned_size=1, PTR_FUNC_LRBRWPOINTERRESET func=NULL, void* context=NULL);
 
 /* The below functions are not thread-safe, please DONT use it under multi-thread scenario. */
 unsigned char*		AM_LRB_GetReadPtr(AMLinearRingBuffer ring_buffer, int* ret_read_buffer_len = NULL);
 unsigned char*		AM_LRB_GetWritePtr(AMLinearRingBuffer ring_buffer, int* ret_write_buffer_len = NULL);
 int					AM_LRB_SkipReadPtr(AMLinearRingBuffer ring_buffer, unsigned int skip_count);
 int					AM_LRB_SkipWritePtr(AMLinearRingBuffer ring_buffer, unsigned int skip_count);
+/*!	@brief Write the data into the ring buffer.
+	@retval RET_CODE_SUCCESS Successfully write the data into the ring buffer
+	@retval RET_CODE_OUT_OF_RANGE The buffer size is not enough to hold new written data, and 
+								  the enlarged buffer size also hit the upper limitation specified by max_lrb_buf_size
+	@retval RET_CODE_OUTOFMEMORY No enough memory
+	@remarks When the ring buffer does not have enough space to hold the written data, enlarge it automatically
+			 But if the enlarged size is greater than max_lrb_buf_size, this function also return failure. */
+int					AM_LRB_Write(AMLinearRingBuffer ring_buffer, uint8_t* chunk_buf, int chunk_size, int max_lrb_buf_size);
 
 /* The below functions are thread-safe, but usage is a little complex. */
 unsigned char*		AM_LRB_LockReadPtr(AMLinearRingBuffer ring_buffer, int* ret_read_buffer_len = NULL);

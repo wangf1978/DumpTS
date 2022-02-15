@@ -29,9 +29,8 @@ SOFTWARE.
 #include "AMRingBuffer.h"
 
 #include "NAL.h"
-#include "AMSHA1.h"
 #include "DataUtil.h"
-#include "nal_parser.h"
+#include "nal_com.h"
 
 const char* hevc_profile_name[36] = {
 	"Monochrome",

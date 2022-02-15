@@ -36,17 +36,23 @@ struct AM_Linear_Ring_Buffer
 	unsigned int		buffer_size;
 	unsigned int		read_pos;
 	unsigned int		write_pos;
+	unsigned int		aligned_size;
+	PTR_FUNC_LRBRWPOINTERRESET
+						func_lrb_rwptr_reset;
+	void*				context;
 };
 
-AMLinearRingBuffer AM_LRB_Create(int buffer_size)
+AMLinearRingBuffer AM_LRB_Create(int buffer_size, int aligned_size, PTR_FUNC_LRBRWPOINTERRESET func, void* context)
 {
-	if (buffer_size <= 0)
+	if (buffer_size <= 0 || aligned_size <= 0)
 		return NULL;
 
 	AM_Linear_Ring_Buffer* ptr_ring_buffer = new AM_Linear_Ring_Buffer;
 	if (ptr_ring_buffer == NULL)
 		return NULL;
 
+	// Adjust the buffer size
+	buffer_size = (buffer_size + aligned_size - 1) / aligned_size * aligned_size;
 	ptr_ring_buffer->buffer = new unsigned char[buffer_size];
 	if (ptr_ring_buffer->buffer == NULL)
 	{
@@ -56,6 +62,10 @@ AMLinearRingBuffer AM_LRB_Create(int buffer_size)
 
 	ptr_ring_buffer->buffer_size = buffer_size;
 	ptr_ring_buffer->read_pos = ptr_ring_buffer->write_pos = 0;
+
+	ptr_ring_buffer->aligned_size = aligned_size;
+	ptr_ring_buffer->func_lrb_rwptr_reset = func;
+	ptr_ring_buffer->context = context;
 
 	return (AMLinearRingBuffer)ptr_ring_buffer;
 }
@@ -74,6 +84,7 @@ int AM_LRB_Resize(AMLinearRingBuffer ring_buffer, int buffer_size)
 	if (buffer_size < 0 || buffer_size < (int)ptr_ring_buffer->buffer_size)
 		return RET_CODE_INVALID_PARAMETER;
 
+	buffer_size = (buffer_size + ptr_ring_buffer->aligned_size - 1) / ptr_ring_buffer->aligned_size*ptr_ring_buffer->aligned_size;
 	unsigned char* pExpandedBuf = new unsigned char[buffer_size];
 	if (pExpandedBuf == NULL)
 		return RET_CODE_OUTOFMEMORY;
@@ -164,6 +175,46 @@ int AM_LRB_SkipWritePtr(AMLinearRingBuffer ring_buffer, unsigned int skip_count)
 	return actual_skip_count;
 }
 
+int AM_LRB_Write(AMLinearRingBuffer ring_buffer, uint8_t* chunk_buf, int chunk_size, int max_lrb_buf_size)
+{
+	int nRet = RET_CODE_SUCCESS;
+	int nWriteBufLen = 0;
+	uint8_t* pWriteBuf = AM_LRB_GetWritePtr(ring_buffer, &nWriteBufLen);
+	if (nWriteBufLen <= 0 || pWriteBuf == nullptr || nWriteBufLen < chunk_size)
+	{
+		// Try to reform and enlarge the buffer.
+		AM_LRB_Reform(ring_buffer);
+		pWriteBuf = AM_LRB_GetWritePtr(ring_buffer, &nWriteBufLen);
+		if (nWriteBufLen == 0 || pWriteBuf == nullptr || nWriteBufLen < chunk_size)
+		{
+			// Enlarge the ring buffer size
+			AM_Linear_Ring_Buffer* ptr_ring_buffer = (AM_Linear_Ring_Buffer*)ring_buffer;
+			int nCurSize = AM_LRB_GetSize(ring_buffer);
+			int nExpandSize = (chunk_size + ptr_ring_buffer->aligned_size - 1) / ptr_ring_buffer->aligned_size * ptr_ring_buffer->aligned_size;
+			if (nCurSize + nExpandSize > max_lrb_buf_size)
+			{
+				printf("The input buffer is too huge(size: %d, max: %d), can't be supported now.\n", nCurSize + nExpandSize, max_lrb_buf_size);
+				return RET_CODE_OUT_OF_RANGE;
+			}
+
+			nCurSize += nExpandSize;
+
+			printf("Try to resize the linear ring buffer size to %d bytes.\n", nCurSize);
+			if (AMP_FAILED(nRet = AM_LRB_Resize(ring_buffer, nCurSize)))
+				return nRet;
+
+			pWriteBuf = AM_LRB_GetWritePtr(ring_buffer, &nWriteBufLen);
+			if (nWriteBufLen == 0 || pWriteBuf == nullptr)
+				return RET_CODE_OUTOFMEMORY;
+		}
+	}
+
+	memcpy(pWriteBuf, chunk_buf, chunk_size);
+	AM_LRB_SkipWritePtr(ring_buffer, chunk_size);
+
+	return RET_CODE_SUCCESS;
+}
+
 unsigned char* AM_LRB_LockReadPtr(AMLinearRingBuffer ring_buffer, int* ret_read_buffer_len)
 {
 	UNREFERENCED_PARAMETER(ring_buffer);
@@ -202,8 +253,13 @@ int AM_LRB_Reform(AMLinearRingBuffer ring_buffer)
 	if (mem_move_count > 0)
 		memmove(ptr_ring_buffer->buffer, ptr_ring_buffer->buffer + ptr_ring_buffer->read_pos, mem_move_count);
 
+	unsigned int offset = ptr_ring_buffer->read_pos;
+
 	ptr_ring_buffer->read_pos = 0;
 	ptr_ring_buffer->write_pos = mem_move_count;
+
+	if (ptr_ring_buffer->func_lrb_rwptr_reset != NULL)
+		ptr_ring_buffer->func_lrb_rwptr_reset(offset, ptr_ring_buffer->context);
 
 	return RET_CODE_SUCCESS;
 }
