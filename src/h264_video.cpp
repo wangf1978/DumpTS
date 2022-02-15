@@ -341,7 +341,7 @@ namespace BST
 			sp_h264_spses.clear(); 
 			sp_h264_ppses.clear(); 
 			sp_prev_nal_unit = nullptr;
-			sp_active_h264_pps = nullptr;
+			m_active_sps_id = -1;
 		}
 		
 		H264_NU VideoBitstreamCtx::GetAVCSPS(uint8_t sps_id)
@@ -387,20 +387,20 @@ namespace BST
 			return std::shared_ptr<NAL_UNIT>(ptr_AVC_NU);
 		}
 
-		H264_NU VideoBitstreamCtx::GetCurrentAUPPS()
+		int8_t VideoBitstreamCtx::GetActiveSPSID()
 		{
-			return sp_active_h264_pps;
+			return m_active_sps_id;
 		}
 
-		RET_CODE VideoBitstreamCtx::UpdateCurrentAUPPS(H264_NU pps_nu)
+		RET_CODE VideoBitstreamCtx::ActivateSPS(int8_t sps_id)
 		{
-			sp_active_h264_pps = pps_nu;
+			m_active_sps_id = sps_id;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE VideoBitstreamCtx::ResetCurrentAUPPS()
+		RET_CODE VideoBitstreamCtx::DetactivateSPS()
 		{
-			sp_active_h264_pps = nullptr;
+			m_active_sps_id = -1;
 			return RET_CODE_SUCCESS;
 		}
 

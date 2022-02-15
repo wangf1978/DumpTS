@@ -175,38 +175,28 @@ namespace BST {
 				return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
 			}
 
-			NAL_CODING		GetNALCoding() { return NAL_CODING_AVC; }
-			RET_CODE		SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
-			RET_CODE		GetNUFilters(std::vector<uint8_t>& NU_type_filters);
-			bool			IsNUFiltered(uint8_t nal_unit_type);
-			void			Reset();
-			H264_NU			GetAVCSPS(uint8_t sps_id);
-			H264_NU			GetAVCPPS(uint8_t pps_id);
-			RET_CODE		UpdateAVCSPS(H264_NU sps_nu);
-			RET_CODE		UpdateAVCPPS(H264_NU pps_nu);
-			H264_NU			CreateAVCNU();
-			H264_NU			GetCurrentAUPPS();
-			RET_CODE		UpdateCurrentAUPPS(H264_NU pps_nu);
-			RET_CODE		ResetCurrentAUPPS();
+			NAL_CODING					GetNALCoding() { return NAL_CODING_AVC; }
+			RET_CODE					SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
+			RET_CODE					GetNUFilters(std::vector<uint8_t>& NU_type_filters);
+			bool						IsNUFiltered(uint8_t nal_unit_type);
+			void						Reset();
+			H264_NU						GetAVCSPS(uint8_t sps_id);
+			H264_NU						GetAVCPPS(uint8_t pps_id);
+			RET_CODE					UpdateAVCSPS(H264_NU sps_nu);
+			RET_CODE					UpdateAVCPPS(H264_NU pps_nu);
+			H264_NU						CreateAVCNU();
+			int8_t						GetActiveSPSID();
+			RET_CODE					ActivateSPS(int8_t sps_id);
+			RET_CODE					DetactivateSPS();
 
 		public:
 			std::vector<uint8_t>		nal_unit_type_filters;
 			int8_t						in_scanning;
 			int8_t						prev_seq_parameter_set_id;
-			std::map<uint8_t, std::shared_ptr<NAL_UNIT>>
-										sp_h264_spses;		// the smart pointers of SPS for the current h264 bitstream
-			std::map<uint8_t, std::shared_ptr<NAL_UNIT>>
-										sp_h264_ppses;		// the smart pointers of PPS for the current h264 bitstream
-			std::shared_ptr<NAL_UNIT>
-										sp_prev_nal_unit;
-			/*
-				According to the H.264 spec, the pps should be the same  for a coded picture
-				7.4.3 Slice header semantics
-				When present, the value of the slice header syntax elements pic_parameter_set_id, frame_num, field_pic_flag, 
-				bottom_field_flag, idr_pic_id, pic_order_cnt_lsb, delta_pic_order_cnt_bottom, delta_pic_order_cnt[ 0 ], 
-				delta_pic_order_cnt[ 1 ], sp_for_switch_flag, and slice_group_change_cycle shall be the same in all slice headers of a coded picture.
-			*/
-			std::shared_ptr<NAL_UNIT>	sp_active_h264_pps;
+			std::map<uint8_t, H264_NU>	sp_h264_spses;		// the smart pointers of SPS for the current h264 bitstream
+			std::map<uint8_t, H264_NU>	sp_h264_ppses;		// the smart pointers of PPS for the current h264 bitstream
+			H264_NU						sp_prev_nal_unit;
+			int8_t						m_active_sps_id = -1;
 
 			VideoBitstreamCtx(): in_scanning(0), prev_seq_parameter_set_id(-1) {
 			}

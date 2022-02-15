@@ -1488,6 +1488,9 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 			if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx)))
 			{
 				cur_h264_sps = pAVCCtx->GetAVCSPS(bp_seq_parameter_set_id);
+
+				pAVCCtx->ActivateSPS(bp_seq_parameter_set_id);
+
 				pAVCCtx->Release();
 			}
 		}
@@ -1848,11 +1851,10 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 	INALAVCContext* pAVCCtx = NULL;
 	if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx)))
 	{
-		auto active_pps = pAVCCtx->GetCurrentAUPPS();
-		if (active_pps && active_pps->ptr_pic_parameter_set_rbsp != NULL)
-		{
-			cur_h264_sps = pAVCCtx->GetAVCSPS(active_pps->ptr_pic_parameter_set_rbsp->seq_parameter_set_id);
-		}
+		int8_t sps_id = pAVCCtx->GetActiveSPSID();
+		if (sps_id >= 0 && sps_id <= 31)
+			cur_h264_sps = pAVCCtx->GetAVCSPS((uint8_t)sps_id);
+		
 		pAVCCtx->Release();
 		pAVCCtx = NULL;
 	}

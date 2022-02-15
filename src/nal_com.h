@@ -94,9 +94,18 @@ public:
 	virtual RET_CODE		UpdateAVCPPS(H264_NU pps_nu) = 0;
 	virtual H264_NU			CreateAVCNU() = 0;
 
-	virtual H264_NU			GetCurrentAUPPS() = 0;
-	virtual	RET_CODE		UpdateCurrentAUPPS(H264_NU pps_nu) = 0;
-	virtual RET_CODE		ResetCurrentAUPPS() = 0;
+	virtual int8_t			GetActiveSPSID() = 0;
+	/*
+		When a sequence parameter set RBSP (with a particular value of seq_parameter_set_id) is not already active 
+		and it is referred to by activation of a picture parameter set RBSP (using that value of seq_parameter_set_id) 
+		or is referred to by an SEI NAL unit containing a buffering period SEI message (using that value of seq_parameter_set_id), 
+		it is activated. This sequence parameter set RBSP is called the active sequence parameter set RBSP until it is deactivated 
+		by the activation of another sequence parameter set RBSP. A sequence parameter set RBSP, with that particular value of 
+		seq_parameter_set_id, shall be available to the decoding process prior to its activation. An activated sequence parameter 
+		set RBSP shall remain active for the entire coded video sequence.
+	*/
+	virtual	RET_CODE		ActivateSPS(int8_t sps_id) = 0;
+	virtual RET_CODE		DetactivateSPS() = 0;
 };
 
 class INALHEVCContext : public INALContext
