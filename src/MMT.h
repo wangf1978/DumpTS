@@ -3198,7 +3198,7 @@ namespace MMT
 			void PrintListItem(FILE* fp = nullptr, int indent = 0)
 			{
 				static int PktIndex = 0;
-				char szLog[1024] = { 0 };
+				char szLog[2048] = { 0 };
 				size_t ccLog = sizeof(szLog) / sizeof(szLog[0]);
 
 				FILE* out = fp ? fp : stdout;
