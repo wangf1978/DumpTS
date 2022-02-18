@@ -190,7 +190,7 @@ namespace MPEG4System
 
 			AMP_Assert(unpack_bits % 8 == 0);
 
-			if (sizeOfInstance + header_size  > ((unpack_bits) >> 3))
+			if ((uint64_t)sizeOfInstance + header_size  > ((unpack_bits) >> 3))
 				return (uint32_t)(sizeOfInstance + header_size - ((unpack_bits) >> 3));
 
 			return 0;
@@ -285,10 +285,10 @@ namespace MPEG4System
 
 	struct SupplementaryContentIdentificationDescriptor : public BaseDescriptor
 	{
-		uint8_t					languageCode[3];
-		uint8_t					supplContentIdentifierTitleLength;
+		uint8_t					languageCode[3] = { 0 };
+		uint8_t					supplContentIdentifierTitleLength = 0;
 		std::vector<uint8_t>	supplContentIdentifierTitle;
-		uint8_t					supplContentIdentifierValueLength;
+		uint8_t					supplContentIdentifierValueLength = 0;
 		std::vector<uint8_t>	supplContentIdentifierValue;
 
 		virtual int Unpack(CBitstream& bs)
@@ -348,7 +348,7 @@ namespace MPEG4System
 
 	struct LanguageDescriptor : public OCI_Descriptor
 	{
-		uint8_t				languageCode[3];
+		uint8_t				languageCode[3] = { 0 };
 
 		virtual int Unpack(CBitstream& bs)
 		{

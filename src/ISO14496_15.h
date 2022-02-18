@@ -135,10 +135,10 @@ namespace ISOBMFF
 				{
 					Descrs.push_back(ptr_descr);
 
-					if (left_bytes < ptr_descr->header_size + ptr_descr->sizeOfInstance)
+					if (left_bytes < (uint64_t)ptr_descr->header_size + ptr_descr->sizeOfInstance)
 						break;
 
-					left_bytes -= ptr_descr->header_size + ptr_descr->sizeOfInstance;
+					left_bytes -= (uint64_t)ptr_descr->header_size + ptr_descr->sizeOfInstance;
 				}
 			}
 			catch (...)
@@ -212,7 +212,7 @@ namespace ISOBMFF
 						return RET_CODE_BOX_TOO_SMALL;
 
 					sequenceParameterSetNALUnits.push_back(new NALUnitSegment(bs));
-					left_bytes -= 2 + sequenceParameterSetNALUnits.back()->nalUnitLength;
+					left_bytes -= (uint64_t)sequenceParameterSetNALUnits.back()->nalUnitLength + 2;
 				}
 
 				if (left_bytes < 1)
@@ -228,7 +228,7 @@ namespace ISOBMFF
 						return RET_CODE_BOX_TOO_SMALL;
 
 					pictureParameterSetNALUnits.push_back(new NALUnitSegment(bs));
-					left_bytes -= 2 + pictureParameterSetNALUnits.back()->nalUnitLength;
+					left_bytes -= (uint64_t)pictureParameterSetNALUnits.back()->nalUnitLength + 2;
 				}
 
 				if (left_bytes > 0 && (AVCProfileIndication == 100 || AVCProfileIndication == 110 || AVCProfileIndication == 122 || AVCProfileIndication == 144))
@@ -253,7 +253,7 @@ namespace ISOBMFF
 							return RET_CODE_BOX_TOO_SMALL;
 
 						sequenceParameterSetExtNALUnits.push_back(new NALUnitSegment(bs));
-						left_bytes -= 2 + sequenceParameterSetExtNALUnits.back()->nalUnitLength;
+						left_bytes -= (uint64_t)sequenceParameterSetExtNALUnits.back()->nalUnitLength + 2;
 					}
 				}
 			}
@@ -870,6 +870,7 @@ namespace ISOBMFF
 			@param NumBytesInNalUnit the number of bytes of NAL unit buffer 
 			@param bAUCommitted An Access Unit hit or not */
 		virtual int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit, const PROCESS_DATA_INFO* NAL_Unit_DataInfo = nullptr, bool* bAUCommitted = nullptr) = 0;
+		/*!	@brief Discard all data*/
 		virtual int Flush() = 0;
 		virtual int SetNextAUPTSDTS(TM_90KHZ pts, TM_90KHZ dts) = 0;
 		virtual int SetAUStartPointCallback(CB_AU_STARTPOINT cbAUStartPoint, void* ptr_context) = 0;

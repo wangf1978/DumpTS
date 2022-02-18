@@ -241,7 +241,7 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 		int8_t forbidden_zero_bit = (pBuf[nal_unit_prefix_start_code_length] >> 7) & 0x01;
 
 		int8_t nal_unit_type = -1, nuh_layer_id = -1, nuh_temporal_id_plus1 = -1, nal_ref_idc = -1;
-		uint64_t file_offset = m_cur_scan_pos + (size_t)(pBuf + nal_unit_prefix_start_code_length - pStartBuf);
+		uint64_t file_offset = m_cur_scan_pos + (int64_t)(pBuf - pStartBuf) + nal_unit_prefix_start_code_length;
 
 		pCurParseStartBuf = pBuf/* + nal_unit_prefix_start_code_length*/;
 
@@ -383,8 +383,8 @@ int CNALParser::PushESBP(uint8_t* pStart, uint8_t* pEnd)
 			// Try to enlarge the ring buffer of EBSP
 			int rb_size = AM_LRB_GetSize(m_rbNALUnitEBSP);
 			int64_t new_rb_size = (int64_t)rb_size << 1;
-			if (new_rb_size < rb_size + (pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0))
-				new_rb_size = rb_size + (pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0);
+			if (new_rb_size < (int64_t)rb_size + (int64_t)(pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0))
+				new_rb_size = (int64_t)rb_size + (int64_t)(pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0);
 
 			if (new_rb_size >= INT32_MAX || AM_LRB_Resize(m_rbNALUnitEBSP, (int)new_rb_size) < 0)
 			{
@@ -1218,7 +1218,7 @@ int CNALParser::CommitHEVCPicture(
 	nal_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] = true;
 
 	if (hevc_time_scale != 0 && hevc_presentation_time_code >= 0)
-		hevc_presentation_time_code += hevc_num_units_in_tick * 10000000LL * (1 + hevc_units_field_based_flag) / hevc_time_scale;
+		hevc_presentation_time_code += (int64_t)hevc_num_units_in_tick * 10000000LL * ((int64_t)hevc_units_field_based_flag + 1) / hevc_time_scale;
 	else
 		hevc_presentation_time_code = -1LL;
 
@@ -1518,7 +1518,7 @@ int CNALParser::CommitAVCPicture(
 		nal_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] = true;
 
 	if (avc_time_scale != 0 && avc_presentation_time_code >= 0)
-		avc_presentation_time_code += avc_num_units_in_tick * 10000000LL * (1 + avc_nuit_field_based_flag) / avc_time_scale;
+		avc_presentation_time_code += (int64_t)avc_num_units_in_tick * 10000000LL * ((int64_t)avc_nuit_field_based_flag + 1) / avc_time_scale;
 	else
 		avc_presentation_time_code = -1LL;
 
@@ -1658,7 +1658,7 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 	bool b_stop_one_bit = false;
 
 	std::vector<uint8_t> sei_message_buf;
-	sei_message_buf.reserve(cbNUBuf - nalUnitHeaderBytes);
+	sei_message_buf.reserve((size_t)cbNUBuf - nalUnitHeaderBytes);
 
 	try
 	{

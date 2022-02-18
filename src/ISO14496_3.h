@@ -2268,7 +2268,7 @@ namespace BST {
 
 				SAC_EXTENSION_DATA(int cntBytes) {
 					if (cntBytes > 1)
-						ancDataSegmentBytes.resize(cntBytes - 1);
+						ancDataSegmentBytes.resize((size_t)cntBytes - 1);
 				}
 
 				int Unpack(CBitstream& bs)
@@ -4291,7 +4291,7 @@ namespace BST {
 			uint8_t		data_byte_align_flag : 1;
 			uint8_t		reserved_0 : 3;
 
-			uint8_t		count;
+			uint8_t		count = 0;
 			uint8_t		esc_count = 0;
 			std::vector<uint8_t>
 						data_stream_bytes;
@@ -5134,7 +5134,7 @@ namespace BST {
 				{
 					return e.RetCode();
 				}
-				catch (std::out_of_range& )
+				catch (std::out_of_range&)
 				{
 					return RET_CODE_NO_MORE_DATA;
 				}
@@ -5673,7 +5673,7 @@ namespace BST {
 		struct CAudioSyncStreamFrame : public SYNTAX_BITSTREAM_MAP
 		{
 			uint16_t				syncword;
-			uint16_t				audioMuxLengthBytes;
+			uint16_t				audioMuxLengthBytes = 0;
 			CAudioMuxElement*		AudioMuxElement = NULL;
 
 			~CAudioSyncStreamFrame() {

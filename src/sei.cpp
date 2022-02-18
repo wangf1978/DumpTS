@@ -1538,9 +1538,9 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 				{
 					uint8_t initial_cpb_removal_delay_length_minus1 =
 						cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters->initial_cpb_removal_delay_length_minus1;
-					int CpbCnt = cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters->cpb_cnt_minus1;
+					size_t CpbCnt = cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->nal_hrd_parameters->cpb_cnt_minus1;
 					nal_initial_cpb_removal_info.resize(CpbCnt + 1);
-					for (int i = 0; i <= CpbCnt; i++)
+					for (size_t i = 0; i <= CpbCnt; i++)
 					{
 						nal_read_u(in_bst, nal_initial_cpb_removal_info[i].initial_cpb_removal_delay, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
 						nal_read_u(in_bst, nal_initial_cpb_removal_info[i].initial_cpb_removal_offset, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
@@ -1551,9 +1551,9 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 				{
 					uint8_t initial_cpb_removal_delay_length_minus1 =
 						cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters->initial_cpb_removal_delay_length_minus1;
-					int CpbCnt = cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters->cpb_cnt_minus1;
+					size_t CpbCnt = cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters->vcl_hrd_parameters->cpb_cnt_minus1;
 					vcl_initial_cpb_removal_info.resize(CpbCnt + 1);
-					for (int i = 0; i <= CpbCnt; i++)
+					for (size_t i = 0; i <= CpbCnt; i++)
 					{
 						nal_read_u(in_bst, vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
 						nal_read_u(in_bst, vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
@@ -1616,9 +1616,9 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 				if (NalHrdBpPresentFlag)
 				{
 					auto pSubLayer0Info = cur_h265_sps->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->sub_layer_infos[0];
-					int CpbCnt = pSubLayer0Info != NULL?pSubLayer0Info->cpb_cnt_minus1:0;
+					size_t CpbCnt = pSubLayer0Info != NULL?pSubLayer0Info->cpb_cnt_minus1:0;
 					nal_initial_cpb_removal_info.resize(CpbCnt + 1);
-					for (int i = 0; i <= CpbCnt; i++)
+					for (size_t i = 0; i <= CpbCnt; i++)
 					{
 						nal_read_u(in_bst, nal_initial_cpb_removal_info[i].initial_cpb_removal_delay, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
 						nal_read_u(in_bst, nal_initial_cpb_removal_info[i].initial_cpb_removal_offset, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
@@ -1633,9 +1633,9 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::Map(AMBst in_bst)
 				if (VclHrdBpPresentFlag)
 				{
 					auto pSubLayer0Info = cur_h265_sps->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->sub_layer_infos[0];
-					int CpbCnt = pSubLayer0Info != NULL ? pSubLayer0Info->cpb_cnt_minus1 : 0;
+					size_t CpbCnt = pSubLayer0Info != NULL ? pSubLayer0Info->cpb_cnt_minus1 : 0;
 					vcl_initial_cpb_removal_info.resize(CpbCnt + 1);
-					for (int i = 0; i <= CpbCnt; i++)
+					for (size_t i = 0; i <= CpbCnt; i++)
 					{
 						nal_read_u(in_bst, vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
 						nal_read_u(in_bst, vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset, initial_cpb_removal_delay_length_minus1 + 1, uint32_t);
@@ -1711,8 +1711,8 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				for (i = 0; i <= CpbCnt; i++)
 				{
 					NAV_WRITE_TAG_ARRAY_BEGIN0("nal_initial_cpb_removal", i, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_delay", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_offset", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
 					NAV_WRITE_TAG_END("nal_initial_cpb_removal");
 				}
 				NAV_WRITE_TAG_END("Tag0");
@@ -1727,8 +1727,8 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				for (i = 0; i <= CpbCnt; i++)
 				{
 					NAV_WRITE_TAG_ARRAY_BEGIN0("vcl_initial_cpb_removal", i, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_delay", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_offset", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
 					NAV_WRITE_TAG_END("vcl_initial_cpb_removal");
 				}
 				NAV_WRITE_TAG_END("Tag1");
@@ -1767,12 +1767,12 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 			}
 
 			if (irap_cpb_params_present_flag) {
-				BST_FIELD_PROP_2NUMBER1(cpb_delay_offset, au_cpb_removal_delay_length_minus1 + 1, "");
-				BST_FIELD_PROP_2NUMBER1(dpb_delay_offset, dpb_output_delay_length_minus1 + 1, "");
+				BST_FIELD_PROP_2NUMBER1(cpb_delay_offset, (long long)au_cpb_removal_delay_length_minus1 + 1, "");
+				BST_FIELD_PROP_2NUMBER1(dpb_delay_offset, (long long)dpb_output_delay_length_minus1 + 1, "");
 			}
 
 			BST_FIELD_PROP_BOOL(concatenation_flag, "", "");
-			BST_FIELD_PROP_2NUMBER1(au_cpb_removal_delay_delta_minus1, au_cpb_removal_delay_length_minus1 + 1, "");
+			BST_FIELD_PROP_2NUMBER1(au_cpb_removal_delay_delta_minus1, (long long)au_cpb_removal_delay_length_minus1 + 1, "");
 
 			if (NalHrdBpPresentFlag)
 			{
@@ -1782,12 +1782,12 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				for (i = 0; i <= CpbCnt; i++)
 				{
 					NAV_WRITE_TAG_BEGIN3_1("nal_initial_cpb_removal", i, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_delay", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_cpb_removal_offset", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
 					if (sub_pic_hrd_params_present_flag || irap_cpb_params_present_flag)
 					{
-						BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_alt_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_alt_cpb_removal_delay, "");
-						BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_alt_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_alt_cpb_removal_offset, "");
+						BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_alt_cpb_removal_delay", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_alt_cpb_removal_delay, "");
+						BST_ARRAY_FIELD_PROP_NUMBER("nal_initial_alt_cpb_removal_offset", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, nal_initial_cpb_removal_info[i].initial_alt_cpb_removal_offset, "");
 					}
 					NAV_WRITE_TAG_END3("nal_initial_cpb_removal", i);
 				}
@@ -1802,12 +1802,12 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 				for (i = 0; i <= CpbCnt; i++)
 				{
 					NAV_WRITE_TAG_BEGIN3_1("vcl_initial_cpb_removal", i, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
-					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_delay", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay, "");
+					BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_cpb_removal_offset", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset, "");
 					if (sub_pic_hrd_params_present_flag || irap_cpb_params_present_flag)
 					{
-						BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_alt_cpb_removal_delay", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_alt_cpb_removal_delay, "");
-						BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_alt_cpb_removal_offset", i, initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_alt_cpb_removal_offset, "");
+						BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_alt_cpb_removal_delay", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_alt_cpb_removal_delay, "");
+						BST_ARRAY_FIELD_PROP_NUMBER("vcl_initial_alt_cpb_removal_offset", i, (long long)initial_cpb_removal_delay_length_minus1 + 1, vcl_initial_cpb_removal_info[i].initial_alt_cpb_removal_offset, "");
 					}
 					NAV_WRITE_TAG_END3("vcl_initial_cpb_removal", i);
 				}
@@ -1819,7 +1819,7 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 	if (reserved_sei_message_payload_bytes.size() > 0)
 	{
 		NAV_FIELD_PROP_FIXSIZE_BINSTR("reserved_sei_message_payload_byte",
-			(uint32_t)(8 * reserved_sei_message_payload_bytes.size()),
+			(uint32_t)(8ULL * reserved_sei_message_payload_bytes.size()),
 			reserved_sei_message_payload_bytes.data(),
 			(uint32_t)reserved_sei_message_payload_bytes.size(), "");
 	}
@@ -1903,8 +1903,8 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 			cpb_removal_delay = (uint32_t)AMBst_GetBits(in_bst, cpb_removal_delay_length_minus1 + 1);
 			dpb_output_delay = (uint32_t)AMBst_GetBits(in_bst, dpb_output_delay_length_minus1 + 1);
 
-			parsed_payload_bits += cpb_removal_delay_length_minus1 + 1;
-			parsed_payload_bits += dpb_output_delay_length_minus1 + 1;
+			parsed_payload_bits += (size_t)cpb_removal_delay_length_minus1 + 1;
+			parsed_payload_bits += (size_t)dpb_output_delay_length_minus1 + 1;
 		}
 
 		if (vui_parameters && vui_parameters->pic_struct_present_flag)
@@ -1967,15 +1967,19 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 							}
 						}
 
-						if (vui_parameters->nal_hrd_parameters_present_flag && vui_parameters->nal_hrd_parameters->time_offset_length > 0)
+						if (vui_parameters->nal_hrd_parameters_present_flag && 
+							vui_parameters->nal_hrd_parameters && 
+							vui_parameters->nal_hrd_parameters->time_offset_length > 0)
 							ClockTS[i].time_offset_length = vui_parameters->nal_hrd_parameters->time_offset_length;
 
-						else if (vui_parameters->vcl_hrd_parameters_present_flag && vui_parameters->vcl_hrd_parameters->time_offset_length > 0)
+						else if (vui_parameters->vcl_hrd_parameters_present_flag && 
+							vui_parameters->vcl_hrd_parameters &&
+							vui_parameters->vcl_hrd_parameters->time_offset_length > 0)
 							ClockTS[i].time_offset_length = vui_parameters->vcl_hrd_parameters->time_offset_length;
 
 						if (ClockTS[i].time_offset_length > 0)
 						{
-							parsed_payload_bits += ClockTS[i].time_offset_length;
+							parsed_payload_bits += (size_t)ClockTS[i].time_offset_length;
 							ClockTS[i].time_offset = (int32_t)AMBst_GetTCLongLong(in_bst, ClockTS[i].time_offset_length);
 						}
 					}
@@ -2085,19 +2089,19 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265::Map(AMBst in_bst)
 		if (CpbDpbDelaysPresentFlag)
 		{
 			au_cpb_removal_delay_minus1 = (uint64_t)AMBst_GetBits(in_bst, au_cpb_removal_delay_length_minus1 + 1);
-			parsed_payload_bits += au_cpb_removal_delay_length_minus1 + 1;
+			parsed_payload_bits += (size_t)au_cpb_removal_delay_length_minus1 + 1;
 			pic_dpb_output_delay = (uint64_t)AMBst_GetBits(in_bst, dpb_output_delay_length_minus1 + 1);
-			parsed_payload_bits += dpb_output_delay_length_minus1 + 1;
+			parsed_payload_bits += (size_t)dpb_output_delay_length_minus1 + 1;
 
 			if (sub_pic_hrd_params_present_flag)
 			{
 				pic_dpb_output_du_delay = (uint64_t)AMBst_GetBits(in_bst, dpb_output_delay_du_length_minus1 + 1);
-				parsed_payload_bits += dpb_output_delay_du_length_minus1 + 1;
+				parsed_payload_bits += (size_t)dpb_output_delay_du_length_minus1 + 1;
 
 				if (sub_pic_cpb_params_in_pic_timing_sei_flag)
 				{
 					num_decoding_units_minus1 = AMBst_Get_ue(in_bst);
-					parsed_payload_bits += quick64_log2(num_decoding_units_minus1 + 1) * 2 + 1;
+					parsed_payload_bits += (size_t)quick64_log2(num_decoding_units_minus1 + 1) * 2 + 1;
 
 					du_common_cpb_removal_delay_flag = (uint8_t)AMBst_GetBits(in_bst, 1);
 					parsed_payload_bits++;
@@ -2105,19 +2109,19 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265::Map(AMBst in_bst)
 					if (du_common_cpb_removal_delay_flag)
 					{
 						du_common_cpb_removal_delay_increment_minus1 = (uint64_t)AMBst_GetBits(in_bst, du_cpb_removal_delay_increment_length_minus1 + 1);
-						parsed_payload_bits += du_cpb_removal_delay_increment_length_minus1 + 1;
+						parsed_payload_bits += (size_t)du_cpb_removal_delay_increment_length_minus1 + 1;
 					}
 
 					for (uint64_t i = 0; i <= num_decoding_units_minus1; i++)
 					{
 						DECODE_UNIT du;
 						du.num_nalus_in_du_minus1 = AMBst_Get_ue(in_bst);
-						parsed_payload_bits += quick64_log2(du.num_nalus_in_du_minus1 + 1) * 2 + 1;
+						parsed_payload_bits += (size_t)quick64_log2(du.num_nalus_in_du_minus1 + 1) * 2 + 1;
 
 						if (!du_common_cpb_removal_delay_flag && i < num_decoding_units_minus1)
 						{
 							du.du_cpb_removal_delay_increment_minus1 = AMBst_GetBits(in_bst, du_cpb_removal_delay_increment_length_minus1 + 1);
-							parsed_payload_bits += du_cpb_removal_delay_increment_length_minus1 + 1;
+							parsed_payload_bits += (size_t)du_cpb_removal_delay_increment_length_minus1 + 1;
 						}
 						else
 							du.du_cpb_removal_delay_increment_minus1 = 0;

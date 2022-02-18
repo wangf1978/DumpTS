@@ -156,7 +156,7 @@ namespace MMT
 
 	struct TLVPacket
 	{
-		uint64_t			start_bitpos;
+		uint64_t			start_bitpos = 0ULL;
 		uint8_t				upper_2bits : 2;
 		uint8_t				upper_6bits : 6;
 		uint8_t				Packet_type;
@@ -187,7 +187,7 @@ namespace MMT
 
 			if (cur_bitpos > start_bitpos)
 			{
-				uint64_t whole_packet_bits_size = ((uint64_t)(Data_length + 4)) << 3;
+				uint64_t whole_packet_bits_size = ((uint64_t)Data_length + 4) << 3;
 				if (whole_packet_bits_size > cur_bitpos - start_bitpos)
 				{
 					uint64_t left_bits = whole_packet_bits_size - (cur_bitpos - start_bitpos);
@@ -261,7 +261,7 @@ namespace MMT
 
 			if (cur_bitpos > start_bitpos)
 			{
-				uint64_t whole_packet_bits_size = ((uint64_t)(Data_length + 4)) << 3;
+				uint64_t whole_packet_bits_size = (((uint64_t)Data_length + 4)) << 3;
 				if (whole_packet_bits_size > cur_bitpos - start_bitpos)
 				{
 					uint64_t left_bits = whole_packet_bits_size - (cur_bitpos - start_bitpos);
@@ -406,7 +406,7 @@ namespace MMT
 
 			if (cur_bitpos > start_bitpos)
 			{
-				uint64_t whole_packet_bits_size = ((uint64_t)(descriptor_length + 3)) << 3;
+				uint64_t whole_packet_bits_size = (((uint64_t)descriptor_length + 3)) << 3;
 				if (whole_packet_bits_size > cur_bitpos - start_bitpos)
 				{
 					uint64_t left_bits = whole_packet_bits_size - (cur_bitpos - start_bitpos);
@@ -678,6 +678,8 @@ namespace MMT
 
 				mpu_decoding_time_offset = bs.GetWord();
 				num_of_au = bs.GetByte();
+
+				offsets.reserve(num_of_au);
 
 				for (size_t j = 0; j < num_of_au; j++)
 				{
@@ -1402,8 +1404,7 @@ namespace MMT
 
 		std::string GetLocDesc()
 		{
-			char szLocInfo[512];
-			memset(szLocInfo, 0, sizeof(szLocInfo));
+			char szLocInfo[512] = { 0 };
 			switch (location_type)
 			{
 			case 0: sprintf_s(szLocInfo, _countof(szLocInfo), "packet_id: 0X%X(%d)", packet_id, packet_id); break;
@@ -1816,7 +1817,7 @@ namespace MMT
 
 			if (cur_bitpos > start_bitpos)
 			{
-				uint64_t whole_packet_bits_size = ((uint64_t)(length + 4)) << 3;
+				uint64_t whole_packet_bits_size = (((uint64_t)length + 4)) << 3;
 				if (whole_packet_bits_size > cur_bitpos - start_bitpos)
 				{
 					uint64_t left_bits = whole_packet_bits_size - (cur_bitpos - start_bitpos);
@@ -2347,10 +2348,10 @@ namespace MMT
 					{
 						pDescr->Print(fp, indent + 4);
 
-						if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+						if (left_descs_bytes < (size_t)pDescr->descriptor_length + 3UL)
 							break;
 
-						left_descs_bytes -= pDescr->descriptor_length + 3UL;
+						left_descs_bytes -= (size_t)pDescr->descriptor_length + 3UL;
 
 						delete pDescr;
 					}
@@ -2383,13 +2384,13 @@ namespace MMT
 		uint8_t					reserved : 6;
 		uint8_t					MPT_mode : 2;
 
-		uint8_t					MMT_package_id_length;
-		uint64_t				MMT_package_id;
+		uint8_t					MMT_package_id_length = 0;
+		uint64_t				MMT_package_id = 0;
 		
-		uint16_t				MPT_descriptors_length;
+		uint16_t				MPT_descriptors_length = 0;
 		std::vector<uint8_t>	MPT_descriptors_bytes;
 
-		uint8_t					number_of_assets;
+		uint8_t					number_of_assets = 0;
 		std::vector<Asset*>		assets;
 
 		virtual ~MMTPackageTable()
@@ -2667,7 +2668,7 @@ namespace MMT
 
 			if (cur_bitpos > start_bitpos)
 			{
-				uint64_t whole_packet_bits_size = ((uint64_t)(length + 7)) << 3;
+				uint64_t whole_packet_bits_size = (((uint64_t)length + 7)) << 3;
 				if (whole_packet_bits_size > cur_bitpos - start_bitpos)
 				{
 					uint64_t left_bits = whole_packet_bits_size - (cur_bitpos - start_bitpos);
@@ -4303,7 +4304,7 @@ namespace MMT
 				uint8_t descriptor_tag = bs.GetByte();
 				uint8_t descriptor_length = bs.GetByte();
 
-				uint8_t* pDes = new uint8_t[2 + descriptor_length];
+				uint8_t* pDes = new uint8_t[(size_t)descriptor_length + 2];
 				pDes[0] = descriptor_tag;
 				pDes[1] = descriptor_length;
 				if (descriptor_length > 0)
@@ -4335,7 +4336,7 @@ namespace MMT
 					uint8_t descriptor_tag = bs.GetByte();
 					uint8_t descriptor_length = bs.GetByte();
 
-					uint8_t* pDes = new uint8_t[2 + descriptor_length];
+					uint8_t* pDes = new uint8_t[(size_t)descriptor_length + 2];
 					pDes[0] = descriptor_tag;
 					pDes[1] = descriptor_length;
 					if (descriptor_length > 0)

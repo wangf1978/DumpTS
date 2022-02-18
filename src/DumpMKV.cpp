@@ -42,10 +42,10 @@ extern DUMP_STATUS g_dump_status;
 
 void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 {
-	if (ptr_element == nullptr)
+	if (ptr_element == nullptr || level < 0)
 		return;
 
-	size_t line_chars = level * 5 + 160;
+	size_t line_chars = (size_t)level * 5 + 160;
 	char* szLine = new char[line_chars];
 	memset(szLine, ' ', line_chars);
 
@@ -56,14 +56,14 @@ void PrintTree(Matroska::EBMLElement* ptr_element, int level)
 	if (level >= 1)
 	{
 		Matroska::EBMLElement* ptr_parent = ptr_element->container;
-		memcpy(szLine + indent + (level - 1)*level_span, "|--", 3);
+		memcpy(szLine + indent + ((ptrdiff_t)level - 1)*level_span, "|--", 3);
 		for (int i = level - 2; i >= 0 && ptr_parent != nullptr; i--)
 		{
 			if (ptr_parent->next_sibling != nullptr)
-				memcpy(szLine + indent + i*level_span, "|", 1);
+				memcpy(szLine + indent + (ptrdiff_t)i*level_span, "|", 1);
 			ptr_parent = ptr_parent->container;
 		}
-		szText = szLine + indent + 3 + (level - 1)*level_span;
+		szText = szLine + indent + 3 + ((ptrdiff_t)level - 1)*level_span;
 	}
 	else
 		szText = szLine + indent;

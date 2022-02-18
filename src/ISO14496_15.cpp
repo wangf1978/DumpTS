@@ -118,7 +118,7 @@ namespace ISOBMFF
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			if (fread(buf, 1, m_AVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc) != m_AVCConfigRecord->lengthSizeMinusOne + 1UL)
+			if (fread(buf, 1, (size_t)m_AVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc) != (size_t)m_AVCConfigRecord->lengthSizeMinusOne + 1UL)
 				break;
 
 			for (int i = 0; i < m_AVCConfigRecord->lengthSizeMinusOne + 1; i++)
@@ -175,13 +175,13 @@ namespace ISOBMFF
 					break;
 
 				if (m_fpDst != NULL)
-					fwrite(buf, 1, nCpyCnt + first_leading_read_pos, m_fpDst);
+					fwrite(buf, 1, (size_t)nCpyCnt + first_leading_read_pos, m_fpDst);
 
 				cbLeftNALUnit -= nCpyCnt;
 				first_leading_read_pos = 0;
 			}
 
-			cbLeft -= m_AVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength;
+			cbLeft -= (int64_t)m_AVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength;
 			bFirstNALUnit = false;
 		}
 
@@ -254,13 +254,13 @@ namespace ISOBMFF
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			if (fread(buf, 1, m_HEVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc) != m_HEVCConfigRecord->lengthSizeMinusOne + 1UL)
+			if (fread(buf, 1, (size_t)m_HEVCConfigRecord->lengthSizeMinusOne + 1, m_fpSrc) != (size_t)m_HEVCConfigRecord->lengthSizeMinusOne + 1UL)
 				break;
 
 			for (int i = 0; i < m_HEVCConfigRecord->lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
-			bool bLastNALUnit = cbLeft <= (m_HEVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
+			bool bLastNALUnit = cbLeft <= ((int64_t)m_HEVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
 
 			uint8_t first_leading_read_pos = 0;
 			if (keyframe == FLAG_SET && next_nal_unit_type != -1)
@@ -318,13 +318,13 @@ namespace ISOBMFF
 					break;
 
 				if (m_fpDst != NULL)
-					fwrite(buf, 1, nCpyCnt + first_leading_read_pos, m_fpDst);
+					fwrite(buf, 1, (size_t)nCpyCnt + first_leading_read_pos, m_fpDst);
 
 				cbLeftNALUnit -= nCpyCnt;
 				first_leading_read_pos = 0;
 			}
 
-			cbLeft -= m_HEVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength;
+			cbLeft -= (int64_t)m_HEVCConfigRecord->lengthSizeMinusOne + 1 + NALUnitLength;
 			bFirstNALUnit = false;
 		}
 

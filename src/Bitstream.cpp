@@ -241,20 +241,20 @@ uint64_t CBitstream::Tell(uint64_t* left_bits_in_bst)
 	if (left_bits_in_bst != NULL)
 		*left_bits_in_bst = nAllLeftBits;
 
-	return (uint64_t)(8 * (cursor.p_end - cursor.p_start - cursor.start_offset) - nAllLeftBits);
+	return ((uint64_t)(cursor.p_end - cursor.p_start) - cursor.start_offset) * 8 - nAllLeftBits;
 }
 
 int CBitstream::Seek(uint64_t bit_pos)
 {
-	if (bit_pos > (uint64_t)(cursor.p_end - cursor.p_start - cursor.start_offset) * 8)
+	if (bit_pos > ((uint64_t)(cursor.p_end - cursor.p_start) - cursor.start_offset) * 8)
 		return -1;
 
 	if (bit_pos == (uint64_t)-1LL)
-		bit_pos = (uint64_t)(cursor.p_end - cursor.p_start - cursor.start_offset) * 8;
+		bit_pos = ((uint64_t)(cursor.p_end - cursor.p_start) - cursor.start_offset) * 8;
 
-	uint8_t* ptr_dest = cursor.p_start + (bit_pos + cursor.start_offset * 8) / (sizeof(CURBITS_TYPE) * 8) * sizeof(CURBITS_TYPE);
+	uint8_t* ptr_dest = cursor.p_start + (bit_pos + (int64_t)cursor.start_offset * 8) / (sizeof(CURBITS_TYPE) * 8) * sizeof(CURBITS_TYPE);
 	size_t bytes_left = (size_t)(cursor.p_end - cursor.p);
-	size_t bits_left = AMP_MIN(bytes_left, sizeof(CURBITS_TYPE)) * 8 - (bit_pos + cursor.start_offset * 8) % (sizeof(CURBITS_TYPE) * 8);
+	size_t bits_left = AMP_MIN(bytes_left, sizeof(CURBITS_TYPE)) * 8 - (bit_pos + (int64_t)cursor.start_offset * 8) % (sizeof(CURBITS_TYPE) * 8);
 
 	cursor.p = ptr_dest;
 	_UpdateCurBits();
@@ -346,7 +346,7 @@ int CBitstream::Realign(BITSTREAM_ALIGNMENT bstAlign)
 	}
 
 	int skip_bits = 0, align_bits = 0;
-	size_t nPos = (8 * (cursor.p - cursor.p_start) + (sizeof(cursor.curbits) * 8) - cursor.bits_left - cursor.start_offset * 8);
+	size_t nPos = (8 * (cursor.p - cursor.p_start) + (sizeof(cursor.curbits) * 8) - cursor.bits_left - (int64_t)cursor.start_offset * 8);
 	switch (bstAlign)
 	{
 	case BYTE_ALIGNMENT: align_bits = 8; break;
@@ -380,7 +380,7 @@ bool CBitstream::IsAlign(BITSTREAM_ALIGNMENT bstAlign)
 		return cursor.p == cursor.p_end && cursor.bits_left == 0 ? true : false;
 
 	int align_bits = 0;
-	size_t nPos = (8 * (cursor.p - cursor.p_start) + (sizeof(cursor.curbits) * 8) - cursor.bits_left - cursor.start_offset * 8);
+	size_t nPos = (8 * (cursor.p - cursor.p_start) + (sizeof(cursor.curbits) * 8) - cursor.bits_left - (int64_t)cursor.start_offset * 8);
 	switch (bstAlign)
 	{
 	case BYTE_ALIGNMENT: align_bits = 8; break;
@@ -469,7 +469,7 @@ int64_t CFileBitstream::SkipBits(int64_t skip_bits)
 	// Check whether the current skip_bits does not exceed the cache buffer
 	int nAllLeftBits = GetAllLeftBits();
 	ptrdiff_t cache_buf_size = cursor.p_end - cursor.p_start;
-	int64_t bitpos_in_cache_buffer = (int64_t)((cache_buf_size<<3) - nAllLeftBits);
+	int64_t bitpos_in_cache_buffer = (((int64_t)cache_buf_size<<3) - nAllLeftBits);
 	int64_t skippos_in_cache_buffer = bitpos_in_cache_buffer + skip_bits;
 
 	if (skippos_in_cache_buffer < 0 || skippos_in_cache_buffer >= ((int64_t)(cursor.p_end - cursor.p_start) << 3))
@@ -514,7 +514,7 @@ uint64_t CFileBitstream::Tell(uint64_t* left_bits_in_bst)
 
 	int nAllLeftBits = GetAllLeftBits();
 	ptrdiff_t cache_buf_size = cursor.p_end - cursor.p_start;
-	uint64_t bitpos_in_cache_buffer = (uint64_t)((cache_buf_size<<3) - nAllLeftBits);
+	uint64_t bitpos_in_cache_buffer = (((uint64_t)cache_buf_size<<3) - nAllLeftBits);
 
 	AMP_SAFEASSIGN(left_bits_in_bst, nAllLeftBits + ((m_filesize - (m_filemappos + cache_buf_size)) << 3));
 
@@ -618,7 +618,7 @@ int CFileBitstream::Peek(uint8_t* buffer, int cbSize)
 	if (m_filemappos < 0)
 		throw std::out_of_range("invalid file position");
 
-	uint64_t bitpos_in_cache_buffer = (uint64_t)((cache_buf_size << 3) - nAllLeftBits);
+	uint64_t bitpos_in_cache_buffer = (((uint64_t)cache_buf_size << 3) - nAllLeftBits);
 
 	long long fpos = _ftelli64(m_fp);
 

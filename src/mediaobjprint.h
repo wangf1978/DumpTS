@@ -16,8 +16,8 @@ int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
 		goto done;
 	}
 
-	szXmlOutput = new char[xml_buffer_size + 1];
-	if ((xml_buffer_size = (int)pNavFieldProp->ProduceDesc(szXmlOutput, xml_buffer_size + 1)) <= 0)
+	szXmlOutput = new char[(size_t)xml_buffer_size + 1];
+	if ((xml_buffer_size = (int)pNavFieldProp->ProduceDesc(szXmlOutput, (size_t)xml_buffer_size + 1)) <= 0)
 	{
 		AMP_SAFEDELA(szXmlOutput);
 		printf("Failed to generate the Xml from the NAL Object.\n");

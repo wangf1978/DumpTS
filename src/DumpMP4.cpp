@@ -220,8 +220,8 @@ int FlushBoxSlice(BoxSlice& box_slice, FILE* fp, FILE* fw, uint64_t nMDATShift)
 
 		if (entry_count > 0)
 		{
-			uint8_t *chunk_offsets = new uint8_t[entry_count*entry_size];
-			if ((actual_read_size = fread(chunk_offsets, 1, entry_count*entry_size, fp)) != entry_count*entry_size)
+			uint8_t *chunk_offsets = new uint8_t[(size_t)entry_count*entry_size];
+			if ((actual_read_size = fread(chunk_offsets, 1, (size_t)entry_count*entry_size, fp)) != (size_t)entry_count*entry_size)
 			{
 				delete[] chunk_offsets;
 				printf("[MP4] Failed to read %" PRIu32 " bytes for 'stco' and 'co64' box.\n", entry_count*entry_size);
@@ -276,7 +276,7 @@ int FlushBoxSlice(BoxSlice& box_slice, FILE* fp, FILE* fw, uint64_t nMDATShift)
 				}
 			}
 
-			if (fwrite(chunk_offsets, 1, entry_count*entry_size, fw) != entry_count*entry_size)
+			if (fwrite(chunk_offsets, 1, (size_t)entry_count*entry_size, fw) != (size_t)entry_count*entry_size)
 			{
 				delete[] chunk_offsets;
 				return RET_CODE_ERROR;
@@ -783,10 +783,10 @@ done:
 
 void PrintTree(Box* ptr_box, int level)
 {
-	if (ptr_box == nullptr)
+	if (ptr_box == nullptr || level < 0)
 		return;
 
-	size_t line_chars = level * 5 + 128;
+	size_t line_chars = (size_t)level * 5 + 128;
 	char* szLine = new char[line_chars];
 	memset(szLine, ' ', line_chars);
 	
@@ -797,14 +797,14 @@ void PrintTree(Box* ptr_box, int level)
 	if (level >= 1)
 	{
 		Box* ptr_parent = ptr_box->container;
-		memcpy(szLine + indent + (level - 1)*level_span, "|--", 3);
+		memcpy(szLine + indent + ((ptrdiff_t)level - 1)*level_span, "|--", 3);
 		for (int i = level - 2; i >= 0 && ptr_parent != nullptr; i--)
 		{
 			if (ptr_parent->next_sibling != nullptr)
-				memcpy(szLine + indent + i*level_span, "|", 1);
+				memcpy(szLine + indent + (ptrdiff_t)i*level_span, "|", 1);
 			ptr_parent = ptr_parent->container;
 		}
-		szText = szLine + indent + 3 + (level - 1)*level_span;
+		szText = szLine + indent + 3 + ((ptrdiff_t)level - 1)*level_span;
 	}
 	else
 		szText = szLine + indent;
@@ -1415,13 +1415,13 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			if (fread(buf, 1, lengthSizeMinusOne + 1UL, fp) != lengthSizeMinusOne + 1UL)
+			if (fread(buf, 1, (size_t)lengthSizeMinusOne + 1UL, fp) != (size_t)lengthSizeMinusOne + 1UL)
 				break;
 
 			for (int i = 0; i < lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
-			bool bLastNALUnit = cbLeft <= (lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
+			bool bLastNALUnit = cbLeft <= ((int64_t)lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
 
 			uint8_t first_leading_read_pos = 0;
 			if (key_sample && next_nal_unit_type != -1)
@@ -1480,13 +1480,13 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 					break;
 
 				if (fw != NULL)
-					fwrite(buf, 1, nCpyCnt + first_leading_read_pos, fw);
+					fwrite(buf, 1, (size_t)nCpyCnt + first_leading_read_pos, fw);
 
 				cbLeftNALUnit -= nCpyCnt;
 				first_leading_read_pos = 0;
 			}
 
-			cbLeft -= lengthSizeMinusOne + 1 + NALUnitLength;
+			cbLeft -= (int64_t)lengthSizeMinusOne + 1 + NALUnitLength;
 			bFirstNALUnit = false;
 		}
 
@@ -1551,13 +1551,13 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 		while (cbLeft > 0)
 		{
 			uint32_t NALUnitLength = 0;
-			if (fread(buf, 1, lengthSizeMinusOne + 1UL, fp) != lengthSizeMinusOne + 1ULL)
+			if (fread(buf, 1, (size_t)lengthSizeMinusOne + 1UL, fp) != (size_t)lengthSizeMinusOne + 1ULL)
 				break;
 
 			for (int i = 0; i < lengthSizeMinusOne + 1; i++)
 				NALUnitLength = (NALUnitLength << 8) | buf[i];
 
-			bool bLastNALUnit = cbLeft <= (lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
+			bool bLastNALUnit = cbLeft <= ((int64_t)lengthSizeMinusOne + 1 + NALUnitLength) ? true : false;
 			DBG_UNREFERENCED_LOCAL_VARIABLE(bLastNALUnit);
 
 			uint8_t first_leading_read_pos = 0;
@@ -1610,13 +1610,13 @@ int DumpMP4Sample(MovieBox::TrackBox::MediaBox::MediaInformationBox::SampleTable
 					break;
 
 				if (fw != NULL)
-					fwrite(buf, 1, nCpyCnt + first_leading_read_pos, fw);
+					fwrite(buf, 1, (size_t)nCpyCnt + first_leading_read_pos, fw);
 
 				cbLeftNALUnit -= nCpyCnt;
 				first_leading_read_pos = 0;
 			}
 
-			cbLeft -= lengthSizeMinusOne + 1 + NALUnitLength;
+			cbLeft -= (int64_t)lengthSizeMinusOne + 1 + NALUnitLength;
 			bFirstNALUnit = false;
 		}
 

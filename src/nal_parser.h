@@ -106,7 +106,7 @@ struct NAL_SEQUENCE
 
 	// 100 nano-second
 	int64_t GetFrameDuration() {
-		return time_scale == 0 ? 0 : (int32_t)(num_units_in_tick * 10000000LL * (units_field_based_flag + 1) / time_scale);
+		return time_scale == 0 ? 0 : (int32_t)((long long)num_units_in_tick * 10000000LL * ((long long)units_field_based_flag + 1) / time_scale);
 	}
 };
 

@@ -815,7 +815,7 @@ namespace ISOBMFF
 			entry_count = bs.GetDWord();
 			left_bytes -= sizeof(uint32_t);
 
-			if (left_bytes < sizeof(Entry)*entry_count)
+			if (left_bytes < (uint64_t)sizeof(Entry)*entry_count)
 				printf("The 'sbgp' box size is too small {size: %" PRIu64 ", entry_count: %" PRIu32 "}.\n", size, entry_count);
 
 			while (left_bytes >= sizeof(Entry) && entries.size() < entry_count)
@@ -1140,7 +1140,7 @@ namespace ISOBMFF
 					uint16_t j = 0;
 					for (; j < entry.subsample_count; j++)
 					{
-						if (left_bytes < (version == 1 ? sizeof(uint32_t) : sizeof(uint16_t)) + 6)
+						if (left_bytes < (version == 1 ? sizeof(uint32_t) : (uint64_t)sizeof(uint16_t)) + 6)
 							break;
 
 						Entry::SubSample subsample;
@@ -1151,7 +1151,7 @@ namespace ISOBMFF
 
 						entry.subsamples.push_back(subsample);
 
-						left_bytes -= (version == 1 ? sizeof(uint32_t) : sizeof(uint16_t)) + 6;
+						left_bytes -= (version == 1 ? sizeof(uint32_t) : (uint64_t)sizeof(uint16_t)) + 6;
 					}
 					if (j < entry.subsample_count)
 						break;
@@ -2044,7 +2044,7 @@ namespace ISOBMFF
 		*/
 		struct ItemProtectionBox : public FullBox
 		{
-			uint16_t		protection_count; 
+			uint16_t		protection_count = 0; 
 			std::vector<ProtectionSchemeInfoBox*>
 							protection_informations;
 
@@ -2155,7 +2155,7 @@ namespace ISOBMFF
 					ItemInfoEntryv0*	item_info_entry_v0;
 					ItemInfoEntryv1*	item_info_entry_v1;
 					ItemInfoEntryv2*	item_info_entry_v2;
-					void*				item_info_data;
+					void*				item_info_data = nullptr;
 				}PACKED;
 
 				ItemInfoEntry(): item_info_data(0){
@@ -2225,7 +2225,7 @@ namespace ISOBMFF
 						ReadString(bs, entry->content_type);
 						ReadString(bs, entry->content_encoding);
 
-						left_bytes -= sizeof(entry->item_ID) + sizeof(entry->item_protection_index) +
+						left_bytes -= (uint64_t)sizeof(entry->item_ID) + sizeof(entry->item_protection_index) +
 							entry->item_name.length() + entry->content_type.length() + entry->content_encoding.length();
 					}
 
@@ -2302,14 +2302,14 @@ namespace ISOBMFF
 
 						ReadString(bs, item_info_entry_v2->item_name);
 
-						left_bytes -= (version >= 3?sizeof(uint32_t):sizeof(uint16_t)) + sizeof(uint16_t) + sizeof(uint32_t) + item_info_entry_v2->item_name.length();
+						left_bytes -= (version >= 3?sizeof(uint32_t):(uint64_t)sizeof(uint16_t)) + sizeof(uint16_t) + sizeof(uint32_t) + item_info_entry_v2->item_name.length();
 
 						if (item_info_entry_v2->item_type == 'mime')
 						{
 							ReadString(bs, item_info_entry_v2->content_type);
 							ReadString(bs, item_info_entry_v2->content_encoding);
 
-							left_bytes -= item_info_entry_v2->content_type.length() +
+							left_bytes -= (uint64_t)item_info_entry_v2->content_type.length() +
 								item_info_entry_v2->content_encoding.length();
 						}
 						else if (item_info_entry_v2->item_type == 'uri ')
@@ -2326,8 +2326,8 @@ namespace ISOBMFF
 				}
 			}PACKED;
 
-			uint16_t		entry_count;
-			uint32_t		last_entry_idx;
+			uint16_t		entry_count = 0;
+			uint32_t		last_entry_idx = 0;
 			std::vector<ItemInfoEntry>
 							item_info_entries;
 
@@ -2474,7 +2474,7 @@ namespace ISOBMFF
 				*/
 				struct FECReservoirBox : public FullBox
 				{
-					uint16_t		entry_count;
+					uint16_t		entry_count = 0;
 					std::vector<std::tuple<uint16_t/*item_ID*/, uint32_t/*symbol_count*/>>
 									entries;
 
@@ -2515,7 +2515,7 @@ namespace ISOBMFF
 				*/
 				struct FileReservoirBox : public FullBox
 				{
-					uint32_t		entry_count;
+					uint32_t		entry_count = 0;
 					std::unordered_map<uint16_t, uint32_t>
 									entries;
 
@@ -2616,13 +2616,13 @@ namespace ISOBMFF
 			{
 				struct SessionGroup
 				{
-					uint8_t					entry_count;
+					uint8_t					entry_count = 0;
 					std::vector<uint32_t>	group_IDs;
-					uint16_t				num_channels_in_session_group;
+					uint16_t				num_channels_in_session_group = 0;
 					std::vector<uint32_t>	hint_track_ids;
 				};
 
-				uint16_t					num_session_groups;
+				uint16_t					num_session_groups = 0;
 				std::vector<SessionGroup>	session_groups;
 
 				virtual int Unpack(CBitstream& bs)
@@ -2651,7 +2651,7 @@ namespace ISOBMFF
 						entry_count = bs.GetByte();
 						left_bytes -= sizeof(entry_count);
 
-						if (left_bytes < entry_count * sizeof(uint32_t))
+						if (left_bytes < (uint64_t)entry_count * sizeof(uint32_t))
 							break;
 
 						session_groups.emplace_back();
@@ -2659,7 +2659,7 @@ namespace ISOBMFF
 						for (uint8_t i = 0; i < entry_count; i++)
 							back.group_IDs.push_back(bs.GetDWord());
 
-						left_bytes -= entry_count * sizeof(uint32_t);
+						left_bytes -= (uint64_t)entry_count * sizeof(uint32_t);
 
 						if (left_bytes < sizeof(uint16_t))
 						{
@@ -2691,7 +2691,7 @@ namespace ISOBMFF
 			*/
 			struct GroupIdToNameBox : public FullBox
 			{
-				uint16_t		entry_count;
+				uint16_t		entry_count = 0;
 				std::unordered_map<uint32_t, std::string>	
 								entries;
 
@@ -2721,7 +2721,7 @@ namespace ISOBMFF
 
 			}; // GroupIdToNameBox
 
-			uint16_t						entry_count;
+			uint16_t						entry_count = 0;
 			std::vector<PartitionEntry*>	partition_entries;
 			FDSessionGroupBox*				session_info; //optional
 			GroupIdToNameBox*				group_id_to_name; //optional
@@ -3160,11 +3160,11 @@ namespace ISOBMFF
 				uint32_t		range_size : 24;
 			}PACKED;
 
-			uint32_t			ranges_count;
+			uint32_t			ranges_count = 0;
 			std::vector<Range>	ranges;
 		};
 
-		uint32_t				segment_count;
+		uint32_t				segment_count = 0;
 		std::vector<Segment>	segments;
 
 		virtual int Unpack(CBitstream& bs)
@@ -3279,13 +3279,13 @@ namespace ISOBMFF
 				}PACKED v0;
 			}PACKED;
 
-			int32_t		rate;
-			int16_t		volume;
-			uint16_t	reserved_0;
-			uint32_t	reserved_1[2];
-			int32_t		matrix[9];
-			uint32_t	pre_defined[6];
-			uint32_t	next_track_ID;
+			int32_t		rate = 0x00010000;
+			int16_t		volume = 0x0100;
+			uint16_t	reserved_0 = 0;
+			uint32_t	reserved_1[2] = { 0 };
+			int32_t		matrix[9] = { 0x00010000,0,0,0,0x00010000,0,0,0,0x40000000 };
+			uint32_t	pre_defined[6] = { 0 };
+			uint32_t	next_track_ID = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -3550,7 +3550,7 @@ namespace ISOBMFF
 						int16_t		media_rate_fraction;
 					}PACKED;
 
-					uint32_t			entry_count;
+					uint32_t			entry_count = 0;
 					std::vector<Entry>	entries;
 
 					virtual int Unpack(CBitstream& bs)
@@ -3590,7 +3590,7 @@ namespace ISOBMFF
 					}
 				};
 
-				EditListBox* edit_list_box;
+				EditListBox* edit_list_box = nullptr;
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -4851,7 +4851,7 @@ namespace ISOBMFF
 								sample_count = bs.GetDWord();
 
 								assert(field_size == 4 || field_size == 8 || field_size == 16);
-								if (LeftBytes(bs) < sample_count * field_size)
+								if (LeftBytes(bs) < (uint64_t)sample_count * field_size)
 								{
 									for (uint32_t i = 0; i < sample_count; i++)
 										entry_size.push_back((uint16_t)bs.GetBits(field_size));
@@ -4961,7 +4961,7 @@ namespace ISOBMFF
 								entry_count = bs.GetDWord();
 								uint64_t left_bytes = LeftBytes(bs);
 
-								if (left_bytes < sizeof(uint32_t)*entry_count)
+								if (left_bytes < (uint64_t)sizeof(uint32_t)*entry_count)
 									printf("The 'stco' box size is too small {size: %" PRIu64 ", entry_count: %" PRIu32 "}.\n", size, entry_count);
 
 								uint32_t actual_entry_count = left_bytes / sizeof(uint32_t) < (uint64_t)entry_count ? (uint32_t)(left_bytes / sizeof(uint32_t)) : entry_count;
@@ -4975,7 +4975,7 @@ namespace ISOBMFF
 
 						struct ChunkLargeOffsetBox : public FullBox
 						{
-							uint32_t				entry_count;
+							uint32_t				entry_count = 0;
 							std::vector<uint64_t>	chunk_offset;
 
 							virtual int Unpack(CBitstream& bs)
@@ -4994,7 +4994,7 @@ namespace ISOBMFF
 								entry_count = bs.GetDWord();
 								uint64_t left_bytes = LeftBytes(bs);
 
-								if (left_bytes < sizeof(uint32_t)*entry_count)
+								if (left_bytes < (uint64_t)sizeof(uint32_t)*entry_count)
 									printf("The 'stco' box size is too small {size: %" PRIu64 ", entry_count: %" PRIu32 "}.\n", size, entry_count);
 
 								uint32_t actual_entry_count = left_bytes / sizeof(uint32_t) < (uint64_t)entry_count ? (uint32_t)(left_bytes / sizeof(uint32_t)) : entry_count;
@@ -5207,25 +5207,25 @@ namespace ISOBMFF
 							}
 						};
 
-						SampleDescriptionBox*		sample_description_box;
-						TimeToSampleBox*			time_to_sample_box;
-						CompositionOffsetBox*		composition_offset_box;
-						CompositionToDecodeBox*		composition_to_decode_box;
-						SampleToChunkBox*			sample_to_chunk_box;
-						SampleSizeBox*				sample_size_box;
-						CompactSampleSizeBox*		compact_sample_size_box;
-						ChunkOffsetBox*				chunk_offset_box;
-						ChunkLargeOffsetBox*		chunk_large_offset_box;
-						SyncSampleBox*				sync_sample_box;
-						ShadowSyncSampleBox*		shadow_sync_sample_box;
-						PaddingBitsBox*				padding_bits_box;
-						DegradationPriorityBox*		degradation_priority_box;
-						SampleDependencyTypeBox*	sample_dependency_type_box;
+						SampleDescriptionBox*		sample_description_box = nullptr;
+						TimeToSampleBox*			time_to_sample_box = nullptr;
+						CompositionOffsetBox*		composition_offset_box = nullptr;
+						CompositionToDecodeBox*		composition_to_decode_box = nullptr;
+						SampleToChunkBox*			sample_to_chunk_box = nullptr;
+						SampleSizeBox*				sample_size_box = nullptr;
+						CompactSampleSizeBox*		compact_sample_size_box = nullptr;
+						ChunkOffsetBox*				chunk_offset_box = nullptr;
+						ChunkLargeOffsetBox*		chunk_large_offset_box = nullptr;
+						SyncSampleBox*				sync_sample_box = nullptr;
+						ShadowSyncSampleBox*		shadow_sync_sample_box = nullptr;
+						PaddingBitsBox*				padding_bits_box = nullptr;
+						DegradationPriorityBox*		degradation_priority_box = nullptr;
+						SampleDependencyTypeBox*	sample_dependency_type_box = nullptr;
 						std::vector<SampleToGroupBox*>
 													sample_to_group_boxes;
 						std::vector<SampleGroupDescriptionBox*>
 													sample_group_description_boxes;
-						SubSampleInformationBox*	subsample_information_box;
+						SubSampleInformationBox*	subsample_information_box = nullptr;
 						std::vector<SampleAuxiliaryInformationSizesBox*>
 													sample_aux_information_size_boxes;
 						std::vector<SampleAuxiliaryInformationOffsetsBox*>
@@ -5309,12 +5309,12 @@ namespace ISOBMFF
 
 					};
 
-					VideoMediaHeaderBox*		video_media_header_box;
-					SoundMediaHeaderBox*		sound_media_header_box;
-					HintMediaHeaderBox*			hint_media_header_box;
-					NullMediaHeaderBox*			null_media_header_box;
-					DataInformationBox*			data_information_box;
-					SampleTableBox*				sample_table_box;
+					VideoMediaHeaderBox*		video_media_header_box = nullptr;
+					SoundMediaHeaderBox*		sound_media_header_box = nullptr;
+					HintMediaHeaderBox*			hint_media_header_box = nullptr;
+					NullMediaHeaderBox*			null_media_header_box = nullptr;
+					DataInformationBox*			data_information_box = nullptr;
+					SampleTableBox*				sample_table_box = nullptr;
 
 					virtual int Unpack(CBitstream& bs)
 					{
@@ -5358,10 +5358,10 @@ namespace ISOBMFF
 
 				}PACKED;
 
-				MediaHeaderBox*		media_header_box;
-				HandlerBox*			handler_box;
+				MediaHeaderBox*		media_header_box = nullptr;
+				HandlerBox*			handler_box = nullptr;
 				MediaInformationBox*
-									media_information_box;
+									media_information_box = nullptr;
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -5395,12 +5395,12 @@ namespace ISOBMFF
 				}
 			}PACKED;
 
-			TrackHeaderBox*			track_header_box;
-			TrackReferenceBox*		track_reference_box;
-			TrackGroupBox*			track_group_box;
-			EditBox*				edit_box;
-			MediaBox*				media_box;
-			UserDataBox*			user_data_box;
+			TrackHeaderBox*			track_header_box = nullptr;
+			TrackReferenceBox*		track_reference_box = nullptr;
+			TrackGroupBox*			track_group_box = nullptr;
+			EditBox*				edit_box = nullptr;
+			MediaBox*				media_box = nullptr;
+			UserDataBox*			user_data_box = nullptr;
 
 			virtual int Unpack(CBitstream& bs)
 			{

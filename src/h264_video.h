@@ -59,6 +59,18 @@ extern const char* h264_primary_pic_type_names[8];
 extern const char* get_h264_profile_name(int profile);
 extern const char* get_h264_level_name(int level);
 
+struct AVC_LEVEL_LIMIT
+{
+	uint32_t	MaxMBPS;
+	uint32_t	MaxFS;
+	uint32_t	MaxDpbMbs;
+	uint32_t	MaxBR;
+	uint32_t	MaxCPB;
+	uint16_t	MaxVmvR;
+	uint8_t		MinCR;
+	uint8_t		MaxMvsPer2Mb;
+};
+
 #define MEMORY_MANAGEMENT_CONTROL_OPERATION_DESC(v)	(\
 	(v) == 0 ? "End memory_management_control_operation syntax element loop" : (\
 	(v) == 1 ? "Mark a short-term reference picture as &quot;unused for reference&quot;" : (\
@@ -78,6 +90,8 @@ extern const char* get_h264_level_name(int level);
 	(s) == 6? "bottom-field-bottom fields":(\
 	(s) == 7? "frame doubling":(\
 	(s) == 8? "frame tripling":"unknown")))))))))
+
+extern const std::map<int, AVC_LEVEL_LIMIT> avc_level_limits;
 
 namespace BST {
 
@@ -106,53 +120,57 @@ namespace BST {
 			SL_EXT_DVIEW	= 21,	// Coded slice extension for depth view components
 		};
 
-		enum H264_PROFILE
+		enum AVC_PROFILE
 		{
-			UNKNOWN_PROFILE = -1,
-			BASELINE_PROFILE = 66,
-			CONSTRAINED_BASELINE_PROFILE,
-			MAIN_PROFILE = 77,
-			EXTENDED_PROFILE = 88,
-			HIGH_PROFILE = 100,
-			PROGRESSIVE_HIGH_PROFILE,
-			CONSTRAINED_HIGH_PROFILE,
-			HIGH_10_PROFILE = 110,
-			HIGH_10_INTRA_PROFILE,
-			HIGH_422_PROFILE = 122,
-			HIGH_422_INTRA_PROFILE,
-			HIGH_444_PREDICTIVE_PROFILE = 244,
-			HIGH_444_INTRA_PROFILE,
-			CAVLC_444_INTRA_PROFIILE = 44,
-			MULTIVIEW_HIGH_PROFILE = 118,
-			STEREO_HIGH_PROFILE = 128,
-			SCALABLE_BASELINE_PROFILE = 83,
-			SCALABLE_CONSTRAINED_BASELINE_PROFILE,
-			SCALABLE_HIGH_PROFILE = 86,
-			SCALABLE_CONSTRAINED_HIGH_PROFILE,
-			SCALABLE_HIGH_INTRA_PROFILE = 89,
-			MULTIVIEW_DEPTH_HIGH_PROFILE = 138,
+			AVC_PROFILE_UNKNOWN = -1,
+			AVC_PROFILE_BASELINE = 66,
+			AVC_PROFILE_CONSTRAINED_BASELINE,
+			AVC_PROFILE_MAIN = 77,
+			AVC_PROFILE_EXTENDED = 88,
+			AVC_PROFILE_HIGH = 100,
+			AVC_PROFILE_PROGRESSIVE_HIGH,
+			AVC_PROFILE_CONSTRAINED_HIGH,
+			AVC_PROFILE_HIGH_10 = 110,
+			AVC_PROFILE_HIGH_10_INTRA,
+			AVC_PROFILE_PROGRESSIVE_HIGH_10,
+			AVC_PROFILE_HIGH_422 = 122,
+			AVC_PROFILE_HIGH_422_INTRA,
+			AVC_PROFILE_HIGH_444_PREDICTIVE = 244,
+			AVC_PROFILE_HIGH_444_INTRA,
+			AVC_PROFILE_CAVLC_444_INTRA_PROFIILE = 44,
+			AVC_PROFILE_MULTIVIEW_HIGH = 118,
+			AVC_PROFILE_STEREO_HIGH = 128,
+			AVC_PROFILE_SCALABLE_BASELINE = 83,
+			AVC_PROFILE_SCALABLE_CONSTRAINED_BASELINE,
+			AVC_PROFILE_SCALABLE_HIGH = 86,
+			AVC_PROFILE_SCALABLE_CONSTRAINED_HIGH,
+			AVC_PROFILE_SCALABLE_HIGH_INTRA = 89,
+			AVC_PROFILE_MULTIVIEW_DEPTH_HIGH = 138,
 		};
 
-		enum H264_LEVEL
+		enum AVC_LEVEL
 		{
-			LEVEL_UNKNOWN = -1,
-			LEVEL_1 = 100,
-			LEVEL_1b,
-			LEVEL_1_1 = 110,
-			LEVEL_1_2 = 120,
-			LEVEL_1_3 = 130,
-			LEVEL_2 = 200,
-			LEVEL_2_1 = 210,
-			LEVEL_2_2 = 220,
-			LEVEL_3 = 300,
-			LEVEL_3_1 = 310,
-			LEVEL_3_2 = 320,
-			LEVEL_4 = 400,
-			LEVEL_4_1 = 410,
-			LEVEL_4_2 = 420,
-			LEVEL_5 = 500,
-			LEVEL_5_1 = 510,
-			LEVEL_5_2 = 520
+			AVC_LEVEL_UNKNOWN = -1,
+			AVC_LEVEL_1 = 100,
+			AVC_LEVEL_1b,
+			AVC_LEVEL_1_1 = 110,
+			AVC_LEVEL_1_2 = 120,
+			AVC_LEVEL_1_3 = 130,
+			AVC_LEVEL_2 = 200,
+			AVC_LEVEL_2_1 = 210,
+			AVC_LEVEL_2_2 = 220,
+			AVC_LEVEL_3 = 300,
+			AVC_LEVEL_3_1 = 310,
+			AVC_LEVEL_3_2 = 320,
+			AVC_LEVEL_4 = 400,
+			AVC_LEVEL_4_1 = 410,
+			AVC_LEVEL_4_2 = 420,
+			AVC_LEVEL_5 = 500,
+			AVC_LEVEL_5_1 = 510,
+			AVC_LEVEL_5_2 = 520,
+			AVC_LEVEL_6 = 600,
+			AVC_LEVEL_6_1 = 610,
+			AVC_LEVEL_6_2 = 620,
 		};
 
 		struct NAL_UNIT;
@@ -475,8 +493,8 @@ namespace BST {
 						nal_read_u(in_bst, bit_rate_scale, 4, uint8_t);
 						nal_read_u(in_bst, cpb_size_scale, 4, uint8_t);
 
-						bit_rate_value_minus1.resize(cpb_cnt_minus1 + 1);
-						cpb_size_value_minus1.resize(cpb_cnt_minus1 + 1);
+						bit_rate_value_minus1.resize((size_t)cpb_cnt_minus1 + 1);
+						cpb_size_value_minus1.resize((size_t)cpb_cnt_minus1 + 1);
 
 						for (int i = 0; i <= cpb_cnt_minus1; i++) {
 							nal_read_ue(in_bst, bit_rate_value_minus1[i], uint32_t);
@@ -766,8 +784,8 @@ namespace BST {
 						: "specifies that chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field are not present");
 					if (chroma_loc_info_present_flag)
 					{
-						BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_top_field, quick_log2(chroma_sample_loc_type_top_field + 1) * 2 + 1, "");
-						BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_bottom_field, quick_log2(chroma_sample_loc_type_bottom_field + 1) * 2 + 1, "");
+						BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_top_field, (long long)quick_log2(chroma_sample_loc_type_top_field + 1) * 2 + 1, "");
+						BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_bottom_field, (long long)quick_log2(chroma_sample_loc_type_bottom_field + 1) * 2 + 1, "");
 					}
 
 					BST_FIELD_PROP_NUMBER1(timing_info_present_flag, 1, timing_info_present_flag ? "specifies that vui_num_units_in_tick, vui_time_scale, vui_poc_proportional_to_timing_flag and vui_hrd_parameters_present_flag are present"
@@ -884,109 +902,112 @@ namespace BST {
 					ptr_ctx_video_bst = ctx;
 				}
 
-				H264_PROFILE GetH264Profile() {
+				AVC_PROFILE GetH264Profile() {
 					if (profile_idc == 66) {
 						if (constraint_set1_flag)
-							return CONSTRAINED_BASELINE_PROFILE;
+							return AVC_PROFILE_CONSTRAINED_BASELINE;
 
-						return BASELINE_PROFILE;
+						return AVC_PROFILE_BASELINE;
 					}
 					else if (profile_idc == 77)
 					{
-						return MAIN_PROFILE;
+						return AVC_PROFILE_MAIN;
 					}
 					else if (profile_idc == 88)
 					{
-						return EXTENDED_PROFILE;
+						return AVC_PROFILE_EXTENDED;
 					}
 					else if (profile_idc == 100)
 					{
 						if (constraint_set4_flag && constraint_set5_flag)
-							return CONSTRAINED_HIGH_PROFILE;
+							return AVC_PROFILE_CONSTRAINED_HIGH;
 						if (constraint_set4_flag)
-							return PROGRESSIVE_HIGH_PROFILE;
+							return AVC_PROFILE_PROGRESSIVE_HIGH;
 
-						return HIGH_PROFILE;
+						return AVC_PROFILE_HIGH;
 					}
 					else if (profile_idc == 110)
 					{
 						if (constraint_set3_flag)
-							return HIGH_10_INTRA_PROFILE;
+							return AVC_PROFILE_HIGH_10_INTRA;
+						else if (constraint_set4_flag)
+							return AVC_PROFILE_PROGRESSIVE_HIGH_10;
 
-						return HIGH_10_PROFILE;
+						return AVC_PROFILE_HIGH_10;
 					}
 					else if (profile_idc == 122)
 					{
 						if (constraint_set3_flag)
-							return HIGH_422_INTRA_PROFILE;
-						return HIGH_422_PROFILE;
+							return AVC_PROFILE_HIGH_422_INTRA;
+						return AVC_PROFILE_HIGH_422;
 					}
 					else if (profile_idc == 244)
 					{
 						if (constraint_set3_flag)
-							return HIGH_444_INTRA_PROFILE;
-						return HIGH_444_PREDICTIVE_PROFILE;
+							return AVC_PROFILE_HIGH_444_INTRA;
+						return AVC_PROFILE_HIGH_444_PREDICTIVE;
 					}
 					else if (profile_idc == 44)
 					{
-						return CAVLC_444_INTRA_PROFIILE;
+						return AVC_PROFILE_CAVLC_444_INTRA_PROFIILE;
 					}
 					else if (profile_idc == 118)
 					{
-						return MULTIVIEW_HIGH_PROFILE;
+						return AVC_PROFILE_MULTIVIEW_HIGH;
 					}
 					else if (profile_idc == 128)
 					{
-						return STEREO_HIGH_PROFILE;
+						return AVC_PROFILE_STEREO_HIGH;
 					}
 					else if (profile_idc == 83)
 					{
 						if (constraint_set5_flag)
-							return SCALABLE_CONSTRAINED_BASELINE_PROFILE;
+							return AVC_PROFILE_SCALABLE_CONSTRAINED_BASELINE;
 
-						return SCALABLE_BASELINE_PROFILE;
+						return AVC_PROFILE_SCALABLE_BASELINE;
 					}
 					else if (profile_idc == 86)
 					{
 						if (constraint_set5_flag)
-							return SCALABLE_CONSTRAINED_HIGH_PROFILE;
+							return AVC_PROFILE_SCALABLE_CONSTRAINED_HIGH;
 						else if (constraint_set3_flag)
-							return SCALABLE_HIGH_INTRA_PROFILE;
-						return SCALABLE_HIGH_PROFILE;
+							return AVC_PROFILE_SCALABLE_HIGH_INTRA;
+						return AVC_PROFILE_SCALABLE_HIGH;
 					}
 					else if (profile_idc == 138)
-						return MULTIVIEW_DEPTH_HIGH_PROFILE;
+						return AVC_PROFILE_MULTIVIEW_DEPTH_HIGH;
 
-					return UNKNOWN_PROFILE;
+					return AVC_PROFILE_UNKNOWN;
 				}
 
-				H264_LEVEL GetH264Level()
+				AVC_LEVEL GetH264Level()
 				{
-					H264_PROFILE profile = GetH264Profile();
-					if (profile == BASELINE_PROFILE || profile == CONSTRAINED_BASELINE_PROFILE ||
-						profile == MAIN_PROFILE || profile == EXTENDED_PROFILE)
+					AVC_PROFILE profile = GetH264Profile();
+					if (profile == AVC_PROFILE_BASELINE || profile == AVC_PROFILE_CONSTRAINED_BASELINE ||
+						profile == AVC_PROFILE_MAIN || profile == AVC_PROFILE_EXTENDED)
 					{
 						if (level_idc == 11 && constraint_set3_flag)
-							return LEVEL_1b;
+							return AVC_LEVEL_1b;
 						else
-							return (H264_LEVEL)(level_idc * 10);
+							return (AVC_LEVEL)(level_idc * 10);
 					}
-					else if (profile == HIGH_PROFILE || profile == PROGRESSIVE_HIGH_PROFILE || profile == CONSTRAINED_HIGH_PROFILE ||
-						profile == HIGH_10_PROFILE || profile == HIGH_10_INTRA_PROFILE ||
-						profile == HIGH_422_PROFILE || profile == HIGH_422_INTRA_PROFILE ||
-						profile == HIGH_444_PREDICTIVE_PROFILE || profile == HIGH_444_INTRA_PROFILE ||
-						profile == CAVLC_444_INTRA_PROFIILE ||
-						profile == MULTIVIEW_HIGH_PROFILE || profile == STEREO_HIGH_PROFILE ||
-						profile == SCALABLE_BASELINE_PROFILE || profile == SCALABLE_CONSTRAINED_BASELINE_PROFILE || profile == SCALABLE_HIGH_PROFILE || profile == SCALABLE_CONSTRAINED_HIGH_PROFILE || profile == SCALABLE_HIGH_INTRA_PROFILE ||
-						profile == MULTIVIEW_DEPTH_HIGH_PROFILE)
+					else if (profile == AVC_PROFILE_HIGH || profile == AVC_PROFILE_PROGRESSIVE_HIGH || profile == AVC_PROFILE_CONSTRAINED_HIGH ||
+						profile == AVC_PROFILE_HIGH_10 || profile == AVC_PROFILE_HIGH_10_INTRA || profile == AVC_PROFILE_PROGRESSIVE_HIGH_10 ||
+						profile == AVC_PROFILE_HIGH_422 || profile == AVC_PROFILE_HIGH_422_INTRA ||
+						profile == AVC_PROFILE_HIGH_444_PREDICTIVE || profile == AVC_PROFILE_HIGH_444_INTRA ||
+						profile == AVC_PROFILE_CAVLC_444_INTRA_PROFIILE ||
+						profile == AVC_PROFILE_MULTIVIEW_HIGH || profile == AVC_PROFILE_STEREO_HIGH ||
+						profile == AVC_PROFILE_SCALABLE_BASELINE || profile == AVC_PROFILE_SCALABLE_CONSTRAINED_BASELINE || 
+						profile == AVC_PROFILE_SCALABLE_HIGH || profile == AVC_PROFILE_SCALABLE_CONSTRAINED_HIGH || profile == AVC_PROFILE_SCALABLE_HIGH_INTRA ||
+						profile == AVC_PROFILE_MULTIVIEW_DEPTH_HIGH)
 					{
 						if (level_idc == 9)
-							return LEVEL_1b;
+							return AVC_LEVEL_1b;
 						else
-							return (H264_LEVEL)(level_idc * 10);
+							return (AVC_LEVEL)(level_idc * 10);
 					}
 
-					return LEVEL_UNKNOWN;
+					return AVC_LEVEL_UNKNOWN;
 				}
 
 				int Map(AMBst in_bst)
@@ -1526,7 +1547,7 @@ namespace BST {
 					{
 						MAP_BST_BEGIN(0);
 						nal_read_ue(in_bst, vui_ext_num_entries_minus1, uint16_t);
-						vui_ext_entries.resize(vui_ext_num_entries_minus1 + 1);
+						vui_ext_entries.resize((size_t)vui_ext_num_entries_minus1 + 1);
 						for (int i = 0; i <= vui_ext_num_entries_minus1; i++) {
 							nal_read_u(in_bst, vui_ext_entries[i].vui_ext_dependency_id, 3, uint16_t);
 							nal_read_u(in_bst, vui_ext_entries[i].vui_ext_quality_id, 4, uint16_t);
@@ -1691,19 +1712,19 @@ namespace BST {
 					{
 						MAP_BST_BEGIN(0);
 						nal_read_ue(in_bst, num_views_minus1, uint16_t);
-						AMP_NEW0(view_id, uint16_t, num_views_minus1 + 1);
+						AMP_NEW0(view_id, uint16_t, (size_t)num_views_minus1 + 1);
 						for (int i = 0; i <= num_views_minus1; i++) {
 							nal_read_ue(in_bst, view_id[i], uint16_t);
 						}
 
-						AMP_NEW0(num_anchor_refs_l0, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l0, uint16_t*, num_views_minus1 + 1);
-						AMP_NEW0(num_anchor_refs_l1, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l1, uint16_t*, num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l0, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l0, uint16_t*, num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l1, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l1, uint16_t*, num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
 						for (int i = 1; i <= num_views_minus1; i++)
 						{
 							nal_read_ue(in_bst, num_anchor_refs_l0[i], uint8_t);
@@ -1736,28 +1757,28 @@ namespace BST {
 
 						nal_read_ue(in_bst, num_level_values_signalled_minus1, uint8_t);
 
-						AMP_NEW0(level_idc, uint8_t, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(num_applicable_ops_minus1, uint16_t, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_temporal_id, uint8_t*, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_target_views_minus1, uint16_t*, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_target_view_id, uint16_t**, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_views_minus1, uint16_t*, (num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(level_idc, uint8_t, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(num_applicable_ops_minus1, uint16_t, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_temporal_id, uint8_t*, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_target_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_target_view_id, uint16_t**, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
 
 						for (int i = 0; i <= num_level_values_signalled_minus1; i++)
 						{
 							nal_read_u(in_bst, level_idc[i], 8, uint8_t);
 							nal_read_ue(in_bst, num_applicable_ops_minus1[i], uint16_t);
 
-							AMP_NEW0(applicable_op_temporal_id[i], uint8_t, (num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_target_views_minus1[i], uint16_t, (num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_target_view_id[i], uint16_t*, (num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_views_minus1[i], uint16_t, (num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_temporal_id[i], uint8_t, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_target_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_target_view_id[i], uint16_t*, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
 
 							for (int j = 0; j <= num_applicable_ops_minus1[i]; j++) {
 								nal_read_u(in_bst, applicable_op_temporal_id[i][j], 3, uint8_t);
 								nal_read_ue(in_bst, applicable_op_num_target_views_minus1[i][j], uint16_t);
 
-								AMP_NEW0(applicable_op_target_view_id[i][j], uint16_t, (applicable_op_num_target_views_minus1[i][j] + 1));
+								AMP_NEW0(applicable_op_target_view_id[i][j], uint16_t, ((size_t)applicable_op_num_target_views_minus1[i][j] + 1));
 								for (int k = 0; k <= applicable_op_num_target_views_minus1[i][j]; k++) {
 									nal_read_ue(in_bst, applicable_op_target_view_id[i][j][k], uint16_t);
 								}
@@ -1898,7 +1919,7 @@ namespace BST {
 							nal_read_u(in_bst, vui_mvc_temporal_id, 3, uint16_t);
 							nal_read_ue(in_bst, vui_mvc_num_target_output_views_minus1, uint16_t);
 
-							vui_mvc_view_id.resize(vui_mvc_num_target_output_views_minus1 + 1);
+							vui_mvc_view_id.resize((size_t)vui_mvc_num_target_output_views_minus1 + 1);
 							for (int i = 0; i <= vui_mvc_num_target_output_views_minus1; i++) {
 								nal_read_ue(in_bst, vui_mvc_view_id[i], uint16_t);
 							}
@@ -1995,7 +2016,7 @@ namespace BST {
 					{
 						MAP_BST_BEGIN(0);
 						nal_read_ue(in_bst, vui_mvc_num_ops_minus1, uint16_t);
-						vui_mvc_ops.resize(vui_mvc_num_ops_minus1 + 1);
+						vui_mvc_ops.resize((size_t)vui_mvc_num_ops_minus1 + 1);
 						for (int i = 0; i <= vui_mvc_num_ops_minus1; i++) {
 							nal_read_obj(in_bst, vui_mvc_ops[i]);
 						}
@@ -2074,7 +2095,7 @@ namespace BST {
 							nal_read_u(in_bst, vui_mvcd_temporal_id, 3, uint16_t);
 							nal_read_ue(in_bst, vui_mvcd_num_target_output_views_minus1, uint16_t);
 
-							vui_mvcd_view_id.resize(vui_mvcd_num_target_output_views_minus1 + 1);
+							vui_mvcd_view_id.resize((size_t)vui_mvcd_num_target_output_views_minus1 + 1);
 							for (int i = 0; i <= vui_mvcd_num_target_output_views_minus1; i++) {
 								nal_read_ue(in_bst, vui_mvcd_view_id[i], uint16_t);
 
@@ -2174,7 +2195,7 @@ namespace BST {
 					{
 						MAP_BST_BEGIN(0);
 						nal_read_ue(in_bst, vui_mvcd_num_ops_minus1, uint16_t);
-						vui_mvcd_ops.resize(vui_mvcd_num_ops_minus1 + 1);
+						vui_mvcd_ops.resize((size_t)vui_mvcd_num_ops_minus1 + 1);
 						for (int i = 0; i <= vui_mvcd_num_ops_minus1; i++) {
 							nal_read_obj(in_bst, vui_mvcd_ops[i]);
 						}
@@ -2305,21 +2326,21 @@ namespace BST {
 					{
 						MAP_BST_BEGIN(0);
 						nal_read_ue(in_bst, num_views_minus1, uint16_t);
-						AMP_NEW0(view_id, uint16_t, num_views_minus1 + 1);
+						AMP_NEW0(view_id, uint16_t, (size_t)num_views_minus1 + 1);
 						for (int i = 0; i <= num_views_minus1; i++) {
 							nal_read_ue(in_bst, view_id[i], uint16_t);
 							nal_read_bitarray(in_bst, depth_view_present_flag, i);
 							nal_read_bitarray(in_bst, texture_view_present_flag, i);
 						}
 
-						AMP_NEW0(num_anchor_refs_l0, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l0, uint16_t*, num_views_minus1 + 1);
-						AMP_NEW0(num_anchor_refs_l1, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l1, uint16_t*, num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l0, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l0, uint16_t*, num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l1, uint8_t, num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l1, uint16_t*, num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
 						for (int i = 1; i <= num_views_minus1; i++)
 						{
 							if (!depth_view_present_flag[i])
@@ -2356,30 +2377,30 @@ namespace BST {
 
 						nal_read_ue(in_bst, num_level_values_signalled_minus1, uint8_t);
 
-						AMP_NEW0(level_idc, uint8_t, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(num_applicable_ops_minus1, uint16_t, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_temporal_id, uint8_t*, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_target_views_minus1, uint16_t*, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_target_view, APPLICABLE_OP_TARGET_VIEW**, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_texture_views_minus1, uint16_t*, (num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_depth_views, uint16_t*, (num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(level_idc, uint8_t, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(num_applicable_ops_minus1, uint16_t, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_temporal_id, uint8_t*, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_target_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_target_view, APPLICABLE_OP_TARGET_VIEW**, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_texture_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_depth_views, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
 
 						for (int i = 0; i <= num_level_values_signalled_minus1; i++)
 						{
 							nal_read_u(in_bst, level_idc[i], 8, uint8_t);
 							nal_read_ue(in_bst, num_applicable_ops_minus1[i], uint16_t);
 
-							AMP_NEW0(applicable_op_temporal_id[i], uint8_t, (num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_target_views_minus1[i], uint16_t, (num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_target_view[i], APPLICABLE_OP_TARGET_VIEW*, (num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_texture_views_minus1[i], uint16_t, (num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_depth_views[i], uint16_t, (num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_temporal_id[i], uint8_t, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_target_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_target_view[i], APPLICABLE_OP_TARGET_VIEW*, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_texture_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_depth_views[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
 
 							for (int j = 0; j <= num_applicable_ops_minus1[i]; j++) {
 								nal_read_u(in_bst, applicable_op_temporal_id[i][j], 3, uint8_t);
 								nal_read_ue(in_bst, applicable_op_num_target_views_minus1[i][j], uint16_t);
 
-								AMP_NEW0(applicable_op_target_view[i][j], APPLICABLE_OP_TARGET_VIEW, (applicable_op_num_target_views_minus1[i][j] + 1));
+								AMP_NEW0(applicable_op_target_view[i][j], APPLICABLE_OP_TARGET_VIEW, ((size_t)applicable_op_num_target_views_minus1[i][j] + 1));
 								for (int k = 0; k <= applicable_op_num_target_views_minus1[i][j]; k++) {
 									nal_read_ue(in_bst, applicable_op_target_view[i][j][k].applicable_op_target_view_id, uint16_t);
 									nal_read_u(in_bst, applicable_op_target_view[i][j][k].applicable_op_depth_flag, 1, uint16_t);
@@ -2908,7 +2929,10 @@ namespace BST {
 								nal_read_u(in_bst, ref_pic_list_modification_flag[0], 1, int8_t);
 								if (ref_pic_list_modification_flag[0])
 								{
-									AMP_NEW(modification_of_pic_num[0], MODIFICATION_OF_PIC_NUM, ptr_slice_header->num_ref_idx_l0_active_minus1 + 2);
+									AMP_NEW(modification_of_pic_num[0], MODIFICATION_OF_PIC_NUM, (size_t)ptr_slice_header->num_ref_idx_l0_active_minus1 + 2);
+									if (modification_of_pic_num[0] == NULL)
+										return RET_CODE_OUTOFMEMORY;
+
 									int val, i = 0;
 									do
 									{
@@ -2934,7 +2958,10 @@ namespace BST {
 								nal_read_u(in_bst, ref_pic_list_modification_flag[1], 1, int8_t);
 								if (ref_pic_list_modification_flag[1])
 								{
-									AMP_NEW(modification_of_pic_num[1], MODIFICATION_OF_PIC_NUM, ptr_slice_header->num_ref_idx_l1_active_minus1 + 2);
+									AMP_NEW(modification_of_pic_num[1], MODIFICATION_OF_PIC_NUM, (size_t)ptr_slice_header->num_ref_idx_l1_active_minus1 + 2);
+									if (modification_of_pic_num[1] == NULL)
+										return RET_CODE_OUTOFMEMORY;
+
 									int val, i = 0;
 									do
 									{
@@ -3067,7 +3094,10 @@ namespace BST {
 								nal_read_u(in_bst, ref_pic_list_modification_flag[0], 1, int8_t);
 								if (ref_pic_list_modification_flag[0])
 								{
-									AMP_NEW(modification_of_pic_num[0], MODIFICATION_OF_PIC_NUM, ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
+									AMP_NEW(modification_of_pic_num[0], MODIFICATION_OF_PIC_NUM, (size_t)ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
+									if (modification_of_pic_num[0] == NULL)
+										return RET_CODE_OUTOFMEMORY;
+
 									int32_t val, i = 0;
 									do
 									{
@@ -3104,7 +3134,10 @@ namespace BST {
 								nal_read_u(in_bst, ref_pic_list_modification_flag[1], 1, int8_t);
 								if (ref_pic_list_modification_flag[1])
 								{
-									AMP_NEW(modification_of_pic_num[1], MODIFICATION_OF_PIC_NUM, ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
+									AMP_NEW(modification_of_pic_num[1], MODIFICATION_OF_PIC_NUM, (size_t)ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
+									if (modification_of_pic_num[1] == NULL)
+										return RET_CODE_OUTOFMEMORY;
+
 									int val, i = 0;
 									do
 									{
@@ -3265,7 +3298,10 @@ namespace BST {
 								nal_read_ue(in_bst, chroma_log2_weight_denom, uint8_t);
 							}
 
-							AMP_NEW(weight_factors[0], WEIGHTING_FACTORS, ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
+							AMP_NEW(weight_factors[0], WEIGHTING_FACTORS, (size_t)ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
+							if (weight_factors[0] == NULL)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (uint16_t i = 0; i <= ptr_slice_header->num_ref_idx_l0_active_minus1; i++)
 							{
 								nal_read_u(in_bst, weight_factors[0][i].luma_weight_flag, 1, uint8_t);
@@ -3300,7 +3336,10 @@ namespace BST {
 
 							if (ptr_slice_header->slice_type % 5 == 1)
 							{
-								AMP_NEW(weight_factors[1], WEIGHTING_FACTORS, ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
+								AMP_NEW(weight_factors[1], WEIGHTING_FACTORS, (size_t)ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
+								if (weight_factors[1] == NULL)
+									return RET_CODE_OUTOFMEMORY;
+
 								for (uint16_t i = 0; i <= ptr_slice_header->num_ref_idx_l1_active_minus1; i++)
 								{
 									nal_read_u(in_bst, weight_factors[1][i].luma_weight_flag, 1, uint8_t);
@@ -3368,12 +3407,12 @@ namespace BST {
 						{
 							MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "luma_weight_l0[%u]", ref_idx);
 							BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-								quick_log2((weight_factors[0][ref_idx].luma_weight >= 0 ? weight_factors[0][ref_idx].luma_weight : ((-weight_factors[0][ref_idx].luma_weight) + 1)) + 1) * 2 + 1,
+								(long long)quick_log2((weight_factors[0][ref_idx].luma_weight >= 0 ? weight_factors[0][ref_idx].luma_weight : ((-weight_factors[0][ref_idx].luma_weight) + 1)) + 1) * 2 + 1,
 								weight_factors[0][ref_idx].luma_weight,
 								"the weighting factor applied to the luma prediction value for list 0 prediction using RefPicList0[i]");
 							MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "luma_offset_l0[%u]", ref_idx);
 							BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-								quick_log2((weight_factors[0][ref_idx].luma_offset >= 0 ? weight_factors[0][ref_idx].luma_offset : ((-weight_factors[0][ref_idx].luma_offset) + 1)) + 1) * 2 + 1,
+								(long long)quick_log2((weight_factors[0][ref_idx].luma_offset >= 0 ? weight_factors[0][ref_idx].luma_offset : ((-weight_factors[0][ref_idx].luma_offset) + 1)) + 1) * 2 + 1,
 								weight_factors[0][ref_idx].luma_offset,
 								"the additive offset applied to the luma prediction value for list 0 prediction using RefPicList0[i]");
 						}
@@ -3392,13 +3431,13 @@ namespace BST {
 								{
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "chroma_weight_l0[%u][%u]", ref_idx, j);
 									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-										quick_log2((weight_factors[0][ref_idx].chroma_weight[j] >= 0 ? weight_factors[0][ref_idx].chroma_weight[j] : ((-weight_factors[0][ref_idx].chroma_weight[j]) + 1)) + 1) * 2 + 1,
+										(long long)quick_log2((weight_factors[0][ref_idx].chroma_weight[j] >= 0 ? weight_factors[0][ref_idx].chroma_weight[j] : ((-weight_factors[0][ref_idx].chroma_weight[j]) + 1)) + 1) * 2 + 1,
 										weight_factors[0][ref_idx].chroma_weight[j], j == 0 ?
 										"the weighting factor applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cb" :
 										"the weighting factor applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cr");
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "chroma_offset_l0[%u][%u]", ref_idx, j);
 									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-										quick_log2((weight_factors[0][ref_idx].chroma_offset[j] >= 0 ? weight_factors[0][ref_idx].chroma_offset[j] : ((-weight_factors[0][ref_idx].chroma_offset[j]) + 1)) + 1) * 2 + 1,
+										(long long)quick_log2((weight_factors[0][ref_idx].chroma_offset[j] >= 0 ? weight_factors[0][ref_idx].chroma_offset[j] : ((-weight_factors[0][ref_idx].chroma_offset[j]) + 1)) + 1) * 2 + 1,
 										weight_factors[0][ref_idx].chroma_offset[j], j == 0 ?
 										"the additive offset applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cb" :
 										"the additive offset applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cr");
@@ -3423,12 +3462,12 @@ namespace BST {
 							{
 								MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "luma_weight_l1[%u]", ref_idx);
 								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-									quick_log2((weight_factors[1][ref_idx].luma_weight >= 0 ? weight_factors[1][ref_idx].luma_weight : ((-weight_factors[1][ref_idx].luma_weight) + 1)) + 1) * 2 + 1,
+									(long long)quick_log2((weight_factors[1][ref_idx].luma_weight >= 0 ? weight_factors[1][ref_idx].luma_weight : ((-weight_factors[1][ref_idx].luma_weight) + 1)) + 1) * 2 + 1,
 									weight_factors[1][ref_idx].luma_weight,
 									"the weighting factor applied to the luma prediction value for list 1 prediction using RefPicList0[i]");
 								MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "luma_offset_l1[%u]", ref_idx);
 								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-									quick_log2((weight_factors[1][ref_idx].luma_offset >= 0 ? weight_factors[1][ref_idx].luma_offset : ((-weight_factors[1][ref_idx].luma_offset) + 1)) + 1) * 2 + 1,
+									(long long)quick_log2((weight_factors[1][ref_idx].luma_offset >= 0 ? weight_factors[1][ref_idx].luma_offset : ((-weight_factors[1][ref_idx].luma_offset) + 1)) + 1) * 2 + 1,
 									weight_factors[1][ref_idx].luma_offset,
 									"the additive offset applied to the luma prediction value for list 1 prediction using RefPicList0[i]");
 							}
@@ -3447,13 +3486,13 @@ namespace BST {
 									{
 										MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "chroma_weight_l1[%u][%u]", ref_idx, j);
 										BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-											quick_log2((weight_factors[1][ref_idx].chroma_weight[j] >= 0 ? weight_factors[1][ref_idx].chroma_weight[j] : ((-weight_factors[1][ref_idx].chroma_weight[j]) + 1)) + 1) * 2 + 1,
+											(long long)quick_log2((weight_factors[1][ref_idx].chroma_weight[j] >= 0 ? weight_factors[1][ref_idx].chroma_weight[j] : ((-weight_factors[1][ref_idx].chroma_weight[j]) + 1)) + 1) * 2 + 1,
 											weight_factors[1][ref_idx].chroma_weight[j], j == 0 ?
 											"the weighting factor applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cb" :
 											"the weighting factor applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cr");
 										MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "chroma_offset_l1[%u][%u]", ref_idx, j);
 										BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-											quick_log2((weight_factors[1][ref_idx].chroma_offset[j] >= 0 ? weight_factors[1][ref_idx].chroma_offset[j] : ((-weight_factors[1][ref_idx].chroma_offset[j]) + 1)) + 1) * 2 + 1,
+											(long long)quick_log2((weight_factors[1][ref_idx].chroma_offset[j] >= 0 ? weight_factors[1][ref_idx].chroma_offset[j] : ((-weight_factors[1][ref_idx].chroma_offset[j]) + 1)) + 1) * 2 + 1,
 											weight_factors[1][ref_idx].chroma_offset[j], j == 0 ?
 											"the additive offset applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cb" :
 											"the additive offset applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cr");
@@ -3609,14 +3648,14 @@ namespace BST {
 							{
 								NAV_WRITE_TAG_ARRAY_BEGIN("mode", i, MEMORY_MANAGEMENT_CONTROL_OPERATION_DESC(pMarking->memory_management_control_operation));
 								MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "memory_management_control_operation[%d]", i);
-								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, quick_log2(pMarking->memory_management_control_operation + 1) * 2 + 1,
+								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, (long long)quick_log2(pMarking->memory_management_control_operation + 1) * 2 + 1,
 									pMarking->memory_management_control_operation, "specifies a control operation to be applied to affect the reference picture marking");
 
 								if (pMarking->memory_management_control_operation == 1 ||
 									pMarking->memory_management_control_operation == 3)
 								{
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "difference_of_pic_nums_minus1[%d]", i);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, quick_log2(pMarking->difference_of_pic_nums_minus1 + 1) * 2 + 1,
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, (long long)quick_log2(pMarking->difference_of_pic_nums_minus1 + 1) * 2 + 1,
 										pMarking->difference_of_pic_nums_minus1,
 										"assign a long-term frame index to a short-term reference picture or to mark a short-term reference picture as &quot;unused for reference&quot;, the resulting picture number derived from difference_of_pic_nums_minus1 shall be a picture number assigned to one of the reference pictures marked as &quot;used for reference&quot; and not previously assigned to a long-term frame index");
 								}
@@ -3624,7 +3663,7 @@ namespace BST {
 								if (pMarking->memory_management_control_operation == 2)
 								{
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "long_term_pic_num[%d]", i);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, quick_log2(pMarking->long_term_pic_num + 1) * 2 + 1,
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, (long long)quick_log2(pMarking->long_term_pic_num + 1) * 2 + 1,
 										pMarking->long_term_pic_num,
 										"mark a long-term reference picture as &quot;unused for reference&quot;, a long - term picture number assigned to one of the reference pictures that is currently marked as &quot; used for long - term reference&quot; ");
 								}
@@ -3633,7 +3672,7 @@ namespace BST {
 									pMarking->memory_management_control_operation == 6)
 								{
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "long_term_frame_idx[%d]", i);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, quick_log2(pMarking->long_term_frame_idx + 1) * 2 + 1,
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, (long long)quick_log2(pMarking->long_term_frame_idx + 1) * 2 + 1,
 										pMarking->long_term_frame_idx,
 										"assign a long-term frame index to a picture");
 								}
@@ -3641,7 +3680,7 @@ namespace BST {
 								if (pMarking->memory_management_control_operation == 4)
 								{
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "max_long_term_frame_idx_plus1[%d]", i);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, quick_log2(pMarking->max_long_term_frame_idx_plus1 + 1) * 2 + 1,
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, (long long)quick_log2(pMarking->max_long_term_frame_idx_plus1 + 1) * 2 + 1,
 										pMarking->max_long_term_frame_idx_plus1,
 										"minus 1 specifies the maximum value of long-term frame index allowed for long-term reference pictures (until receipt of another value of max_long_term_frame_idx_plus1)");
 								}
@@ -3919,7 +3958,7 @@ namespace BST {
 					BST_FIELD_PROP_2NUMBER1(colour_plane_id, 2, szTemp2);
 				}
 
-				BST_FIELD_PROP_2NUMBER1(frame_num, sps->seq_parameter_set_data.log2_max_frame_num_minus4 + 4, "used as an identifier for pictures");
+				BST_FIELD_PROP_2NUMBER1(frame_num, (long long)sps->seq_parameter_set_data.log2_max_frame_num_minus4 + 4, "used as an identifier for pictures");
 
 				if (!sps->seq_parameter_set_data.frame_mbs_only_flag)
 				{
@@ -3944,7 +3983,7 @@ namespace BST {
 
 				if (sps->seq_parameter_set_data.pic_order_cnt_type == 0)
 				{
-					BST_FIELD_PROP_2NUMBER1(pic_order_cnt_lsb, sps->seq_parameter_set_data.log2_max_pic_order_cnt_lsb_minus4 + 4, "specifies the picture order count modulo MaxPicOrderCntLsb for the top field of a coded frame or for a coded field");
+					BST_FIELD_PROP_2NUMBER1(pic_order_cnt_lsb, (long long)sps->seq_parameter_set_data.log2_max_pic_order_cnt_lsb_minus4 + 4, "specifies the picture order count modulo MaxPicOrderCntLsb for the top field of a coded frame or for a coded field");
 					if (sp_pps->ptr_pic_parameter_set_rbsp->bottom_field_pic_order_in_frame_present_flag && !field_pic_flag)
 					{
 						BST_FIELD_PROP_SE(delta_pic_order_cnt_bottom, "specifies the picture order count difference between the bottom field and the top field of a coded frame");
@@ -4976,8 +5015,8 @@ namespace BST {
 						if (std::find(ctx_video_bst.nal_unit_type_filters.begin(), ctx_video_bst.nal_unit_type_filters.end(), nal_unit_type) ==
 							ctx_video_bst.nal_unit_type_filters.end())
 						{
-							cbSize -= 2 + cbNALLengthDelimiterSize;
-							pBuf += 2 + cbNALLengthDelimiterSize;
+							cbSize -= cbNALLengthDelimiterSize + 2;
+							pBuf += (ptrdiff_t)cbNALLengthDelimiterSize + 2;
 							continue;
 						}
 					}
@@ -4999,7 +5038,7 @@ namespace BST {
 					}
 
 					cbSize -= cbNALLengthDelimiterSize + nal_length;
-					pBuf += cbNALLengthDelimiterSize + nal_length;
+					pBuf += (ptrdiff_t)cbNALLengthDelimiterSize + nal_length;
 				}
 				AMBst_Destroy(bst);
 

@@ -31,8 +31,13 @@ SOFTWARE.
 
 void print_mem(uint8_t* pBuf, int cbSize, int indent)
 {
+	if (indent < 0)
+		return;
+
 	// At first calculate the total size of dumped memory size.
-	size_t ccBufLen = (80 + indent) * 2 + ((size_t)cbSize + 15) / 16 * (80 + 20 + indent);
+	size_t num_of_lines = ((size_t)cbSize + 15) / 16;
+	size_t ccTitleBufLen = (size_t)indent + 80;
+	size_t ccBufLen = (size_t)(ccTitleBufLen * 2 + num_of_lines * (80ULL + 20ULL + indent));
 	char szIndent[256] = { 0 };
 	memset(szIndent, ' ', indent > 255 ? 255 : indent);
 
@@ -54,7 +59,7 @@ void print_mem(uint8_t* pBuf, int cbSize, int indent)
 			ccBufLen -= ccWritten; szWriteBuf += ccWritten; if (ccBufLen < 0)break;
 		}
 
-		ccWritten = snprintf(szWriteBuf, ccBufLen, "%02X%s", pBuf[idx], (idx+1)%16 == 0?"":"  "); assert(ccWritten > 0);
+		ccWritten = snprintf(szWriteBuf, ccBufLen, "%02X%s", pBuf[idx], (idx + 1) % 16 == 0 ? "" : "  "); assert(ccWritten > 0);
 		ccBufLen -= ccWritten; szWriteBuf += ccWritten; if (ccBufLen < 0)break;
 
 		if ((idx + 1) % 16 == 0 || idx + 1 == cbSize)

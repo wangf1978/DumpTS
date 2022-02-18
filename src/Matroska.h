@@ -124,8 +124,8 @@ namespace Matroska
 
 	struct EBMLElement : public CComUnknown, public IEBMLElement
 	{
-		uint32_t		ID;
-		uint64_t		Size;
+		uint32_t		ID = 0;
+		uint64_t		Size = 0;
 
 		EBMLElement*	next_sibling = nullptr;
 		EBMLElement*	first_child = nullptr;
@@ -479,7 +479,11 @@ namespace Matroska
 
 	struct UTF8StringElement : public EBMLElement
 	{
-		char*	szUTF8;
+		char*	szUTF8 = nullptr;
+
+		~UTF8StringElement() {
+			AMP_SAFEDELA(szUTF8);
+		}
 
 		virtual int Unpack(CBitstream& bs)
 		{

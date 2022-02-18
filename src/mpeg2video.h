@@ -2505,7 +2505,7 @@ namespace BST {
 			CTemporalScalableExtension*	ptr_picture_temporal_scalable_extension;
 			CCameraParametersExtension*	ptr_camera_parameter_extension;
 			CITUTExtension*				ptr_ITU_T_extension;
-			void*						ptr_extension_data;
+			void*						ptr_extension_data = nullptr;
 		}PACKED;
 
 		CExtensionDataItem() 
@@ -2834,7 +2834,7 @@ namespace BST {
 
 	struct CUnknownUnit : public SYNTAX_BITSTREAM_MAP
 	{
-		uint8_t						start_code[4];
+		uint8_t						start_code[4] = { 0 };
 		std::vector<uint8_t>		unit_bytes;
 
 		CUnknownUnit(){}
@@ -2869,7 +2869,7 @@ namespace BST {
 
 	struct CSequenceEnd : public SYNTAX_BITSTREAM_MAP
 	{
-		uint8_t		sequence_end_code[4];
+		uint8_t		sequence_end_code[4] = { 0 };
 
 		int Map(AMBst in_bst)
 		{
@@ -2996,7 +2996,9 @@ namespace BST {
 				, ptr_extension_and_user_data_1(NULL)
 				, ptr_picture_header(NULL)
 				, ptr_picture_coding_extension(NULL)
-				, ptr_extension_and_user_data_2(NULL){}
+				, ptr_extension_and_user_data_2(NULL)
+				, ptr_buf(NULL)
+				, buf_size(0){}
 
 			virtual ~CPicturePayload(){
 				AMP_SAFEDEL(ptr_group_of_pictures_header);
@@ -3261,7 +3263,7 @@ namespace BST {
 		{
 			CPictureHeader*		ptr_picture_header;				// picture_start_code		00
 			CSlice*				ptr_slice;						// slice_start_code			01 through AF
-			CUnknownUnit*		ptr_unknown_unit;				// reserved					B0
+			CUnknownUnit*		ptr_unknown_unit =  nullptr;	// reserved					B0
 																// reserved					B1
 																// sequence_error_code		B4
 																// reserved					B6

@@ -42,6 +42,7 @@ STDClockSyncer::STDClockSyncer(int clock_precision)
 	, m_clock_state(CLOCK_SYNCER_STATE_INIT)
 	, m_init_clock_value(0)
 	, m_ref_clock_start(std::chrono::high_resolution_clock::now())
+	, m_last_clock_value(0)
 	, m_last_ref_clock(std::chrono::high_resolution_clock::now())
 	, m_clock_discontinuity_threshold_ms(CLOCK_DISCONTINUITY_THRESHOLD_DEFAULT)
 {
@@ -385,7 +386,7 @@ uint64_t STDClockSyncer::GetDiffHns(uint64_t clock_val1, uint64_t clock_val2)
 				if (clock_val1_ext >= clock_val2_ext)
 					diff += clock_val1_ext - clock_val2_ext;
 				else
-					diff += 300 + clock_val1_ext - clock_val2_ext;
+					diff += 300ULL + clock_val1_ext - clock_val2_ext;
 
 				return diff * 10 / 27;
 			}

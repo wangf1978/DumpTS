@@ -444,7 +444,7 @@ int ShowPCR(int option)
 		if (program_clock_reference_extension >= prev_PCR_ext)
 			base_diff += program_clock_reference_extension - prev_PCR_ext;
 		else
-			base_diff += 300 + program_clock_reference_extension - prev_PCR_ext;
+			base_diff += 300ULL + program_clock_reference_extension - prev_PCR_ext;
 
 		if (prev_ATC != UINT32_MAX && prev_PCR != UINT64_MAX)
 		{
@@ -1036,7 +1036,7 @@ int DiffATCDTS()
 		if (adaptation_field_control == 2 || adaptation_field_control == 3)
 		{
 			adaptation_field_length = buf[8];
-			data_start += 1 + adaptation_field_length;
+			data_start += (ptrdiff_t)adaptation_field_length + 1;
 		}
 
 		if (previous_arrive_time != UINT32_MAX)

@@ -307,8 +307,8 @@ int CMPEG2VideoParser::PushMPVUnitBuf(uint8_t* pStart, uint8_t* pEnd)
 			// Try to enlarge the ring buffer of EBSP
 			int rb_size = AM_LRB_GetSize(m_rbMPVUnit);
 			int64_t new_rb_size = (int64_t)rb_size << 1;
-			if (new_rb_size < rb_size + (pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0))
-				new_rb_size = rb_size + (pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0);
+			if (new_rb_size < (int64_t)rb_size + (int64_t)(pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0))
+				new_rb_size = (int64_t)rb_size + (int64_t)(pEnd - pStart) - (pEBSPWriteBuf != NULL ? cbLeftOfEBSP : 0);
 
 			if (new_rb_size >= INT32_MAX || AM_LRB_Resize(m_rbMPVUnit, (int)new_rb_size) < 0)
 			{

@@ -245,8 +245,8 @@ int PrintHRDFromAVCSPS(H264_NU sps_nu)
 		for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
 		{
 			printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
-			BitRates[SchedSelIdx] = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL<<(6 + hrd_parameters->bit_rate_scale);
-			CpbSize[SchedSelIdx] = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+			BitRates[SchedSelIdx] = ((uint64_t)hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL<<(6 + hrd_parameters->bit_rate_scale);
+			CpbSize[SchedSelIdx] = ((uint64_t)hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
 			printf("\t\tthe maximum input bit rate for the CPB: %" PRIu64 "bps/%sbps \n", 
 				BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
 			printf("\t\tthe CPB size: %" PRIu64 "b/%sb \n",
@@ -264,8 +264,8 @@ int PrintHRDFromAVCSPS(H264_NU sps_nu)
 		for (uint8_t SchedSelIdx = 0; SchedSelIdx <= hrd_parameters->cpb_cnt_minus1; SchedSelIdx++)
 		{
 			printf("\tSchedSelIdx#%d:\n", SchedSelIdx);
-			BitRates[SchedSelIdx] = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
-			CpbSize[SchedSelIdx] = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+			BitRates[SchedSelIdx] = ((uint64_t)hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
+			CpbSize[SchedSelIdx] = ((uint64_t)hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
 			printf("\t\tthe maximum input bit rate for the CPB: %" PRIu64 "bps/%sbps \n",
 				BitRates[SchedSelIdx], GetHumanReadNumber(BitRates[SchedSelIdx]).c_str());
 			printf("\t\tthe CPB size: %" PRIu64 "b/%sb \n",
@@ -532,9 +532,9 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 						printf("\tdu_common_cpb_removal_delay_increment: %" PRIu64 "\n", pPicTimingH265->du_common_cpb_removal_delay_increment_minus1 + 1);
 					}
 
-					for (uint64_t i = 0; i <= pPicTimingH265->num_decoding_units_minus1; i++)
+					for (size_t i = 0; i <= (size_t)pPicTimingH265->num_decoding_units_minus1; i++)
 					{
-						printf("\tdu#%" PRIu64 ":\n", i);
+						printf("\tdu#%zu:\n", i);
 						printf("\t\tnum_nalus_in_du: %" PRIu64 "\n", pPicTimingH265->dus[i].num_nalus_in_du_minus1 + 1);
 						if (!pPicTimingH265->du_common_cpb_removal_delay_flag && i < pPicTimingH265->num_decoding_units_minus1)
 						{
@@ -1058,9 +1058,9 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 
 							if (vui_parameters->timing_info_present_flag && vui_parameters->fixed_frame_rate_flag)
 							{
-								uint64_t GCD = gcd(vui_parameters->num_units_in_tick * 2, vui_parameters->time_scale);
+								uint64_t GCD = gcd((uint64_t)vui_parameters->num_units_in_tick * 2, vui_parameters->time_scale);
 								stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->time_scale / GCD);
-								stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->num_units_in_tick * 2 / GCD);
+								stm_info.video_info.framerate_denominator = (uint32_t)((uint64_t)vui_parameters->num_units_in_tick * 2 / GCD);
 							}
 						}
 
@@ -1082,13 +1082,16 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 
 						stm_info.video_info.profile = BST::H265Video::HEVC_PROFILE_Unknown;
 						stm_info.video_info.tier = BST::H265Video::HEVC_TIER_Unknown;
-						if (sps_seq->profile_tier_level && sps_seq->profile_tier_level->general_profile_level.profile_present_flag)
+						if (sps_seq->profile_tier_level)
 						{
-							stm_info.video_info.profile = sps_seq->profile_tier_level->GetHEVCProfile();
-							stm_info.video_info.tier = sps_seq->profile_tier_level->general_profile_level.tier_flag;
-						}
+							if (sps_seq->profile_tier_level->general_profile_level.profile_present_flag)
+							{
+								stm_info.video_info.profile = sps_seq->profile_tier_level->GetHEVCProfile();
+								stm_info.video_info.tier = sps_seq->profile_tier_level->general_profile_level.tier_flag;
+							}
 
-						stm_info.video_info.level = sps_seq->profile_tier_level->general_profile_level.level_idc;
+							stm_info.video_info.level = sps_seq->profile_tier_level->general_profile_level.level_idc;
+						}
 
 						uint32_t display_width = sps_seq->pic_width_in_luma_samples, display_height = sps_seq->pic_height_in_luma_samples;
 						if (sps_seq->conformance_window_flag)
@@ -1159,9 +1162,9 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 
 							if (vui_parameters->vui_timing_info_present_flag)
 							{
-								uint64_t GCD = gcd(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag), vui_parameters->vui_time_scale);
+								uint64_t GCD = gcd((uint64_t)vui_parameters->vui_num_units_in_tick * (1ULL + vui_parameters->field_seq_flag), vui_parameters->vui_time_scale);
 								stm_info.video_info.framerate_numerator = (uint32_t)(vui_parameters->vui_time_scale / GCD);
-								stm_info.video_info.framerate_denominator = (uint32_t)(vui_parameters->vui_num_units_in_tick * (1 + vui_parameters->field_seq_flag) / GCD);
+								stm_info.video_info.framerate_denominator = (uint32_t)((uint64_t)vui_parameters->vui_num_units_in_tick * (1ULL + vui_parameters->field_seq_flag) / GCD);
 							}
 						}
 
@@ -1786,7 +1789,7 @@ int RunH264HRD()
 					/*
 						Otherwise (cbr_flag[ SchedSelIdx ] is equal to 0), the initial arrival time for access unit n is derived by	
 					*/
-					assert(HRD_AU_t_r.size() == HRD_AU_n + 1);
+					assert(HRD_AU_t_r.size() == (uint64_t)HRD_AU_n + 1);
 					if (HRD_AU_n_of_buffering_period == 0)
 					{
 						
@@ -1797,8 +1800,8 @@ int RunH264HRD()
 					}
 					else
 					{
-						if (HRD_AU_t_r.back() > (active_initial_cpb_removal_delay + active_initial_cpb_removal_delay_offset))
-							t_ai_earliest = HRD_AU_t_r.back() - (active_initial_cpb_removal_delay + active_initial_cpb_removal_delay_offset);
+						if (HRD_AU_t_r.back() > ((uint64_t)active_initial_cpb_removal_delay + active_initial_cpb_removal_delay_offset))
+							t_ai_earliest = HRD_AU_t_r.back() - ((uint64_t)active_initial_cpb_removal_delay + active_initial_cpb_removal_delay_offset);
 						else
 							t_ai_earliest = 0;
 					}
@@ -1909,8 +1912,8 @@ int RunH264HRD()
 								sel_initial_cpb_removal_delay = pBufPeriod->vcl_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_delay;
 								sel_initial_cpb_removal_delay_offset = pBufPeriod->vcl_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_offset;
 								active_cbr_flag = hrd_parameters->cbr_flag[SchedSelIdx];
-								active_bitrate = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
-								active_cpb_size = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+								active_bitrate = ((uint64_t)hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
+								active_cpb_size = ((uint64_t)hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
 								break;
 							}
 						}
@@ -1926,8 +1929,8 @@ int RunH264HRD()
 								sel_initial_cpb_removal_delay = pBufPeriod->nal_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_delay;
 								sel_initial_cpb_removal_delay_offset = pBufPeriod->nal_initial_cpb_removal_info[SchedSelIdx].initial_cpb_removal_offset;
 								active_cbr_flag = hrd_parameters->cbr_flag[SchedSelIdx];
-								active_bitrate = (hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
-								active_cpb_size = (hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
+								active_bitrate = ((uint64_t)hrd_parameters->bit_rate_value_minus1[SchedSelIdx] + 1) * (uint64_t)1ULL << (6 + hrd_parameters->bit_rate_scale);
+								active_cpb_size = ((uint64_t)hrd_parameters->cpb_size_value_minus1[SchedSelIdx] + 1)*(uint64_t)1ULL << (4 + hrd_parameters->cpb_size_scale);
 								break;
 							}
 						}

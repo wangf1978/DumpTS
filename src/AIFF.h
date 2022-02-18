@@ -54,8 +54,8 @@ namespace AIFF
 	struct AIFF_CHUNK
 	{
 		uint64_t		start_bitpos = 0;
-		uint32_t        ckID;
-		uint32_t        ckDataSize;
+		uint32_t        ckID = 0;
+		uint32_t        ckDataSize = 0;
 
 		AIFF_CHUNK() {}
 
@@ -166,11 +166,11 @@ namespace AIFF
 
 	struct CommonChunk : public AIFF_CHUNK
 	{
-		uint16_t        numChannels;
-		uint32_t        numSampleFrames;
-		int16_t         sampleSize;
-		uint8_t         sampleRateBytes[10];
-		uint32_t		compressionType;
+		uint16_t        numChannels = 0;
+		uint32_t        numSampleFrames = 0;
+		int16_t         sampleSize = 0;
+		uint8_t         sampleRateBytes[10] = { 0 };
+		uint32_t		compressionType = 0;
 		uint8_t			count_byte = 0;
 		std::string		compressionName;
 
@@ -203,11 +203,11 @@ namespace AIFF
 			count_byte = bs.GetByte();
 			left_bits -= (1ULL << 3);
 
-			pstring_bytecount = count_byte + ((count_byte % 2 == 0) ? 1 : 0);
+			pstring_bytecount = (uint64_t)count_byte + ((count_byte % 2 == 0) ? 1 : 0);
 			if (left_bits < (pstring_bytecount << 3))
 				goto done;
 
-			compressionName.reserve(count_byte + 1);
+			compressionName.reserve((size_t)count_byte + 1);
 			compressionName.resize(count_byte);
 			bs.Read((uint8_t*)(&compressionName[0]), count_byte);
 
@@ -254,8 +254,8 @@ namespace AIFF
 
 	struct SoundDataChunk : public AIFF_CHUNK
 	{
-		uint32_t        offset;
-		uint32_t        blocksize;
+		uint32_t        offset = 0;
+		uint32_t        blocksize = 0;
 
 		int Unpack(CBitstream& bs)
 		{
@@ -303,7 +303,7 @@ namespace AIFF
 			std::string		markerName;
 		};
 
-		uint16_t		numMarkers;
+		uint16_t		numMarkers = 0;
 		std::vector<Marker>
 						Markers;
 
@@ -334,11 +334,11 @@ namespace AIFF
 					left_bits -= (7ULL << 3);
 
 					auto markerName_bytecount = Markers.back().markerName_bytecount;
-					uint64_t pstring_bytecount = markerName_bytecount + ((markerName_bytecount % 2 == 0) ? 1 : 0);
+					uint64_t pstring_bytecount = (uint64_t)markerName_bytecount + ((markerName_bytecount % 2 == 0) ? 1 : 0);
 					if (left_bits < (pstring_bytecount << 3))
 						break;
 
-					Markers.back().markerName.reserve(markerName_bytecount + 1);
+					Markers.back().markerName.reserve((size_t)markerName_bytecount + 1);
 					Markers.back().markerName.resize(markerName_bytecount);
 					bs.Read((uint8_t*)(&Markers.back().markerName[0]), markerName_bytecount);
 
@@ -382,13 +382,13 @@ namespace AIFF
 	{
 		struct MarkerComment
 		{
-			uint32_t		timeStamp;
-			MarkerId		marker;
-			uint16_t		count;
+			uint32_t		timeStamp = 0;
+			MarkerId		marker = 0;
+			uint16_t		count = 0;
 			std::string		text;
 		};
 
-		uint16_t		numComments;
+		uint16_t		numComments = 0;
 		std::vector<MarkerComment>
 						comments;
 
@@ -419,13 +419,13 @@ namespace AIFF
 					left_bits -= (8ULL << 3);
 
 					auto count = comments.back().count;
-					uint64_t text_bytecount = count + ((count % 2 == 0) ? 0 : 1);
+					uint64_t text_bytecount = (uint64_t)count + ((count % 2 == 0) ? 0 : 1);
 					if (left_bits < (text_bytecount << 3))
 						break;
 
 					if (count > 0)
 					{
-						comments.back().text.reserve(count + 1);
+						comments.back().text.reserve((size_t)count + 1);
 						comments.back().text.resize(count);
 						bs.Read((uint8_t*)(&comments.back().text[0]), count);
 
@@ -663,7 +663,7 @@ namespace AIFF
 				if ((nRet = ptr_chunk->Unpack(bs)) < 0)
 					goto done;
 
-				uint64_t ckTotalBits = ((uint64_t)(ptr_chunk->ckDataSize + 8)) << 3;
+				uint64_t ckTotalBits = (((uint64_t)ptr_chunk->ckDataSize + 8)) << 3;
 
 				if (left_bits < ckTotalBits)
 					goto done;

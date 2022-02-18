@@ -524,14 +524,14 @@ int UpdateMPUTMTrees(uint16_t CID, MMT::MMTPackageTable* pMPT, MPUTMTrees* ptr_M
 
 			if (pDescr->Unpack(descs_bs) >= 0)
 			{
-				if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+				if (left_descs_bytes < (size_t)pDescr->descriptor_length + 3UL)
 				{
 					AMP_SAFEDEL(pMPUTmDesc);
 					AMP_SAFEDEL(pMPUTmExtDesc);
 					break;
 				}
 
-				left_descs_bytes -= pDescr->descriptor_length + 3UL;
+				left_descs_bytes -= (size_t)pDescr->descriptor_length + 3UL;
 
 				if (pMPUTmDesc != nullptr)
 				{
@@ -876,10 +876,10 @@ int ProcessPAMessage(
 						{
 							pDescr->Print(stdout, 16);
 
-							if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+							if (left_descs_bytes < (size_t)pDescr->descriptor_length + 3UL)
 								break;
 
-							left_descs_bytes -= pDescr->descriptor_length + 3UL;
+							left_descs_bytes -= (size_t)pDescr->descriptor_length + 3UL;
 
 							delete pDescr;
 						}
@@ -984,10 +984,10 @@ int ProcessPAMessage(
 									pDescr->Print(stdout, 28);
 							}
 
-							if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+							if (left_descs_bytes < (size_t)pDescr->descriptor_length + 3UL)
 								break;
 
-							left_descs_bytes -= pDescr->descriptor_length + 3UL;
+							left_descs_bytes -= (size_t)pDescr->descriptor_length + 3UL;
 
 							delete pDescr;
 						}
@@ -1583,10 +1583,10 @@ int ShowMMTPackageInfo()
 								if (peek_desc_tag == 0x8010 || peek_desc_tag == 0x8014 || peek_desc_tag == 0x8020)
 									pDescr->Print(stdout, plt ? 40 : 32);
 
-								if (left_descs_bytes < pDescr->descriptor_length + 3UL)
+								if (left_descs_bytes < (size_t)pDescr->descriptor_length + 3UL)
 									break;
 
-								left_descs_bytes -= pDescr->descriptor_length + 3UL;
+								left_descs_bytes -= (size_t)pDescr->descriptor_length + 3UL;
 
 								delete pDescr;
 							}

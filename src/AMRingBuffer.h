@@ -58,13 +58,13 @@ struct CAMRingUnits
 
 	INLINE void write(uint8_t b) {
 		units[write_pos] = b;
-		write_pos = (write_pos + 1) % _countof(units);
+		write_pos = (int)(((size_t)write_pos + 1) % _countof(units));
 		len++;
 	}
 
 	INLINE T read() {
 		T ret = units[read_pos];
-		read_pos = (read_pos + 1) % _countof(units);
+		read_pos = (int)(((size_t)read_pos + 1) % _countof(units));
 		len--;
 		return ret;
 	}
@@ -73,7 +73,7 @@ struct CAMRingUnits
 		int skip_unit = AMP_MIN(n, len);
 		if (skip_unit != 0)
 		{
-			read_pos = (read_pos + skip_unit) % _countof(units);
+			read_pos = (int)(((size_t)read_pos + skip_unit) % _countof(units));
 			len -= skip_unit;
 		}
 		return skip_unit;
@@ -100,10 +100,10 @@ struct CAMRingUnits
 #ifdef _DEBUG
 		assert(len >= sizeof(uint32_t));
 #endif
-		return (units[read_pos] << 24 |
-			units[(read_pos + 1) % _countof(units)] << 16 |
-			units[(read_pos + 2) % _countof(units)] << 8 |
-			units[(read_pos + 3) % _countof(units)]);
+		return (units[(size_t)read_pos] << 24 |
+			units[((size_t)read_pos + 1) % _countof(units)] << 16 |
+			units[((size_t)read_pos + 2) % _countof(units)] << 8 |
+			units[((size_t)read_pos + 3) % _countof(units)]);
 	}
 
 	INLINE uint64_t peeku64()

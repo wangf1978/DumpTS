@@ -191,7 +191,7 @@ namespace BST {
 
 					DECLARE_FIELDPROP_BEGIN()
 					NAV_FIELD_PROP_FIXSIZE_BINSTR("reserved_sei_message_payload_byte",
-						(uint32_t)(8 * reserved_sei_message_payload_bytes.size()), 
+						(uint32_t)(8ULL * reserved_sei_message_payload_bytes.size()), 
 						&reserved_sei_message_payload_bytes[0], 
 						(uint32_t)reserved_sei_message_payload_bytes.size(), "");
 					DECLARE_FIELDPROP_END()
@@ -834,7 +834,7 @@ namespace BST {
 							int start_num_of_fields = map_status.number_of_fields;
 							while (map_status.number_of_fields < ptr_sei_payload->payload_size) {
 								itu_t_t35_payload_byte.reserve(1);
-								nal_read_b(in_bst, itu_t_t35_payload_byte[map_status.number_of_fields - start_num_of_fields], 8, uint8_t);
+								nal_read_b(in_bst, itu_t_t35_payload_byte[(size_t)map_status.number_of_fields - start_num_of_fields], 8, uint8_t);
 							}
 
 							// For UHDBD dynamic HDR metadata
@@ -1104,7 +1104,7 @@ namespace BST {
 					}
 
 					if (bit_offset != NULL)
-						*bit_offset = orig_bit_pos + 8 * (itu_t_t35_payload_byte.size() + 1 + (itu_t_t35_country_code == 0xFF ? 1 : 0));
+						*bit_offset = orig_bit_pos + 8ULL * ((uint64_t)itu_t_t35_payload_byte.size() + 1 + (itu_t_t35_country_code == 0xFF ? 1 : 0));
 
 					DECLARE_FIELDPROP_END()
 
@@ -1381,12 +1381,12 @@ namespace BST {
 								nal_read_u(in_bst, reserved_for_future_use_3, 15, uint16_t);
 
 								if (number_of_offset_sequences > 0 && number_of_displayed_frames_in_GOP > 0)
-									plane_offsets.reserve(number_of_offset_sequences*number_of_displayed_frames_in_GOP);
+									plane_offsets.reserve((size_t)number_of_offset_sequences*number_of_displayed_frames_in_GOP);
 
-								for (int i = 0; i < number_of_offset_sequences; i++)
-									for (int j = 0; j < number_of_displayed_frames_in_GOP; j++) {
-										nal_read_u(in_bst, plane_offsets[i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag, 1, uint8_t);
-										nal_read_u(in_bst, plane_offsets[i*number_of_displayed_frames_in_GOP + j].Plane_offset_value, 7, uint8_t);
+								for (uint16_t i = 0; i < number_of_offset_sequences; i++)
+									for (uint16_t j = 0; j < number_of_displayed_frames_in_GOP; j++) {
+										nal_read_u(in_bst, plane_offsets[(size_t)i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag, 1, uint8_t);
+										nal_read_u(in_bst, plane_offsets[(size_t)i*number_of_displayed_frames_in_GOP + j].Plane_offset_value, 7, uint8_t);
 									}
 								MAP_BST_END();
 							}
@@ -1439,10 +1439,10 @@ namespace BST {
 							{
 								NAV_WRITE_TAG_ARRAY_BEGIN0("offset_sequence", i, "");
 								for (int j = 0; j < number_of_displayed_frames_in_GOP; j++) {
-									BST_ARRAY_FIELD_PROP_NUMBER("Tag00", j, 1, plane_offsets[i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag,
-										plane_offsets[i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag ? "The associated Graphics plane appears further away from the viewer" :
+									BST_ARRAY_FIELD_PROP_NUMBER("Tag00", j, 1, plane_offsets[(size_t)i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag,
+										plane_offsets[(size_t)i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag ? "The associated Graphics plane appears further away from the viewer" :
 										"The associated Graphics plane appears closer to the viewer");
-									BST_ARRAY_FIELD_PROP_NUMBER("Tag01", j, 7, plane_offsets[i*number_of_displayed_frames_in_GOP + j].Plane_offset_value, "indicates amount of the pixels for horizontally shifting the associated Graphics Plane");
+									BST_ARRAY_FIELD_PROP_NUMBER("Tag01", j, 7, plane_offsets[(size_t)i*number_of_displayed_frames_in_GOP + j].Plane_offset_value, "indicates amount of the pixels for horizontally shifting the associated Graphics Plane");
 								}
 								NAV_WRITE_TAG_END("offset_sequence");
 							}
@@ -1508,14 +1508,14 @@ namespace BST {
 								}
 								else if (ptr_sei_payload->payload_size > 20)
 								{
-									user_data_payload_byte.reserve(ptr_sei_payload->payload_size - 20);
+									user_data_payload_byte.reserve((size_t)ptr_sei_payload->payload_size - 20);
 									for (int i = 0; i < ptr_sei_payload->payload_size - 20; i++) {
 										nal_read_b(in_bst, user_data_payload_byte[i], 8, uint8_t);
 									}
 								}
 							}
 							else if (ptr_sei_payload->payload_size > 16) {
-								user_data_payload_byte.reserve(ptr_sei_payload->payload_size - 16);
+								user_data_payload_byte.reserve((size_t)ptr_sei_payload->payload_size - 16);
 								for (int i = 0; i < ptr_sei_payload->payload_size - 16; i++) {
 									nal_read_b(in_bst, user_data_payload_byte[i], 8, uint8_t);
 								}
@@ -1819,14 +1819,14 @@ namespace BST {
 									if (comp_model_info[c].comp_model_present_flag) {
 										nal_read_u(in_bst, comp_model_info[c].num_intensity_intervals_minus1, 8, uint8_t);
 										nal_read_u(in_bst, comp_model_info[c].num_model_values_minus1, 3, uint8_t);
-										comp_model_info[c].intensity_interval_lower_bound.reserve(comp_model_info[c].num_intensity_intervals_minus1 + 1);
-										comp_model_info[c].intensity_interval_upper_bound.reserve(comp_model_info[c].num_intensity_intervals_minus1 + 1);
-										comp_model_info[c].comp_model_value.reserve((comp_model_info[c].num_intensity_intervals_minus1 + 1)*(comp_model_info[c].num_model_values_minus1 + 1));
+										comp_model_info[c].intensity_interval_lower_bound.reserve((size_t)comp_model_info[c].num_intensity_intervals_minus1 + 1);
+										comp_model_info[c].intensity_interval_upper_bound.reserve((size_t)comp_model_info[c].num_intensity_intervals_minus1 + 1);
+										comp_model_info[c].comp_model_value.reserve(((size_t)comp_model_info[c].num_intensity_intervals_minus1 + 1)*((size_t)comp_model_info[c].num_model_values_minus1 + 1));
 										for (int i = 0; i <= comp_model_info[c].num_intensity_intervals_minus1; i++) {
 											nal_read_u(in_bst, comp_model_info[c].intensity_interval_lower_bound[i], 8, uint8_t);
 											nal_read_u(in_bst, comp_model_info[c].intensity_interval_upper_bound[i], 8, uint8_t);
 											for (int j = 0; j <= comp_model_info[c].num_model_values_minus1; j++) {
-												nal_read_se(in_bst, comp_model_info[c].comp_model_value[i*(comp_model_info[c].num_model_values_minus1 + 1) + j], int32_t);
+												nal_read_se(in_bst, comp_model_info[c].comp_model_value[(size_t)i*((size_t)comp_model_info[c].num_model_values_minus1 + 1) + j], int32_t);
 											}
 										}
 									}
@@ -1887,8 +1887,8 @@ namespace BST {
 								BST_2ARRAY_FIELD_PROP_NUMBER("intensity_interval_upper_bound", c, i, 8, comp_model_info[c].intensity_interval_upper_bound[i], "the upper bound of the interval i of intensity levels for which the set of model values applies");
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag100", "for(j=0;j&lt;=num_model_values_minus1[c];j++)", "");
 								for (int j = 0; j <= comp_model_info[c].num_model_values_minus1; j++) {
-									int32_t	comp_model_value = comp_model_info[c].comp_model_value[i*(comp_model_info[c].num_model_values_minus1 + 1) + j];
-									BST_3ARRAY_FIELD_PROP_NUMBER("num_model_values_minus1", c, i, j, quick_log2((comp_model_value >= 0 ? comp_model_value : ((-comp_model_value) + 1)) + 1) * 2 + 1, comp_model_value, 
+									int32_t	comp_model_value = comp_model_info[c].comp_model_value[(size_t)i*((size_t)comp_model_info[c].num_model_values_minus1 + 1) + j];
+									BST_3ARRAY_FIELD_PROP_NUMBER("num_model_values_minus1", c, i, j, (long long)quick_log2((comp_model_value >= 0 ? comp_model_value : ((-comp_model_value) + 1)) + 1) * 2 + 1, comp_model_value, 
 										"represents each one of the model values present for the colour component c and the intensity interval i");
 								}
 								NAV_WRITE_TAG_END("Tag100");
@@ -2323,7 +2323,7 @@ namespace BST {
 							nal_read_ue(in_bst, sop_seq_parameter_set_id, uint16_t);
 							nal_read_ue(in_bst, num_entries_in_sop_minus1, uint16_t);
 
-							sop_entries.reserve(num_entries_in_sop_minus1 + 1);
+							sop_entries.reserve((size_t)num_entries_in_sop_minus1 + 1);
 							for (int i = 0; i <= num_entries_in_sop_minus1; i++) {
 								nal_read_u(in_bst, sop_entries[i].sop_vcl_nut, 6, uint8_t);
 								nal_read_u(in_bst, sop_entries[i].sop_temporal_id, 3, uint8_t);
@@ -2479,8 +2479,8 @@ namespace BST {
 								for (int c = 0; c < 3; c++) {
 									nal_read_u(in_bst, pre_lut_num_val_minus1[c], 8, uint8_t);
 									if (pre_lut_num_val_minus1[c] > 0){
-										pre_lut_coded_value[c].reserve(pre_lut_num_val_minus1[c] + 1);
-										pre_lut_target_value[c].reserve(pre_lut_num_val_minus1[c] + 1);
+										pre_lut_coded_value[c].reserve((size_t)pre_lut_num_val_minus1[c] + 1);
+										pre_lut_target_value[c].reserve((size_t)pre_lut_num_val_minus1[c] + 1);
 										for (int i = 0; i <= pre_lut_num_val_minus1[c]; i++) {
 											nal_read_u(in_bst, pre_lut_coded_value[c][i], coded_v, uint32_t);
 											nal_read_u(in_bst, pre_lut_target_value[c][i], coded_v, uint32_t);
@@ -2501,8 +2501,8 @@ namespace BST {
 								for (int c = 0; c < 3; c++) {
 									nal_read_u(in_bst, post_lut_num_val_minus1[c], 8, uint8_t);
 									if (post_lut_num_val_minus1[c] > 0) {
-										post_lut_coded_value[c].reserve(post_lut_num_val_minus1[c] + 1);
-										post_lut_target_value[c].reserve(post_lut_num_val_minus1[c] + 1);
+										post_lut_coded_value[c].reserve((size_t)post_lut_num_val_minus1[c] + 1);
+										post_lut_target_value[c].reserve((size_t)post_lut_num_val_minus1[c] + 1);
 										for (int i = 0; i <= pre_lut_num_val_minus1[c]; i++) {
 											nal_read_u(in_bst, post_lut_coded_value[c][i], coded_v, uint32_t);
 											nal_read_u(in_bst, post_lut_target_value[c][i], coded_v, uint32_t);
@@ -2574,7 +2574,8 @@ namespace BST {
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag10", "for(i = 0; i &lt; 3; i++)", "");
 								for (int i = 0; i < 3; i++) {
 									int16_t crc_val = colour_remap_coeffs[c][i];
-									BST_2ARRAY_FIELD_PROP_NUMBER("colour_remap_coeffs", c, i, quick_log2((crc_val >= 0 ? crc_val : ((-crc_val) + 1)) + 1) * 2 + 1, crc_val, "the value of the three-by-three colour remapping matrix coefficients");
+									long long field_bits = (long long)quick_log2((crc_val >= 0 ? crc_val : ((-crc_val) + 1)) + 1) * 2 + 1;
+									BST_2ARRAY_FIELD_PROP_NUMBER("colour_remap_coeffs", c, i, field_bits, crc_val, "the value of the three-by-three colour remapping matrix coefficients");
 								}
 								NAV_WRITE_TAG_END("Tag10");
 							}
@@ -2640,7 +2641,7 @@ namespace BST {
 				uint8_t		nal_unit_type;
 
 				union {
-					RESERVED_SEI_MESSAGE*				reserved_sei_message;
+					RESERVED_SEI_MESSAGE*				reserved_sei_message = nullptr;
 					BUFFERING_PERIOD*					buffering_period;
 					MASTERING_DISPLAY_COLOUR_VOLUME*	mastering_display_colour_volume;
 					ACTIVE_PARAMETER_SETS*				active_parameter_sets;
@@ -3568,9 +3569,9 @@ namespace BST {
 			};
 
 			std::vector<uint8_t>		type_ff_bytes;
-			uint8_t						last_payload_type_byte;
+			uint8_t						last_payload_type_byte = 0;
 			std::vector<uint8_t>		size_ff_bytes;
-			uint8_t						last_payload_size_byte;
+			uint8_t						last_payload_size_byte = 0;
 			SEI_PAYLOAD*				sei_payload;
 			uint8_t						nal_unit_type;
 			SEI_RBSP*					ptr_sei_rbsp;
@@ -3654,13 +3655,13 @@ namespace BST {
 			NAV_WRITE_TAG_BEGIN2_1("sei_message", szSEIMsgName);				
 
 			if (type_ff_bytes.size() > 0) {
-				NAV_FIELD_PROP_FIXSIZE_BINSTR("ff_bytes", (unsigned long)(type_ff_bytes.size() * 8), type_ff_bytes.data(), (unsigned long)type_ff_bytes.size(), "");
+				NAV_FIELD_PROP_FIXSIZE_BINSTR("ff_bytes", ((long long)type_ff_bytes.size() * 8), type_ff_bytes.data(), (unsigned long)type_ff_bytes.size(), "");
 			}
 
 			NAV_FIELD_PROP_2NUMBER1(last_payload_type_byte, 8, "");
 
 			if (size_ff_bytes.size() > 0) {
-				NAV_FIELD_PROP_FIXSIZE_BINSTR("ff_bytes", (unsigned long)(size_ff_bytes.size() * 8), size_ff_bytes.data(), (unsigned long)size_ff_bytes.size(), "");
+				NAV_FIELD_PROP_FIXSIZE_BINSTR("ff_bytes", ((long long)size_ff_bytes.size() * 8), size_ff_bytes.data(), (unsigned long)size_ff_bytes.size(), "");
 				payloadSize += 255 * (int)size_ff_bytes.size();
 				field_prop_idx += (int)size_ff_bytes.size();
 			}

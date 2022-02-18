@@ -134,28 +134,29 @@ const char* get_h264_profile_name(int profile)
 {
 	switch (profile)
 	{
-		case BST::H264Video::BASELINE_PROFILE: return "Baseline Profile";
-		case BST::H264Video::CONSTRAINED_BASELINE_PROFILE: return "Constrained Baseline Profile";
-		case BST::H264Video::MAIN_PROFILE: return "Main Profile";
-		case BST::H264Video::EXTENDED_PROFILE: return "Extended Profile";
-		case BST::H264Video::HIGH_PROFILE: return "High Profile";
-		case BST::H264Video::PROGRESSIVE_HIGH_PROFILE: return "Progressive High Profile";
-		case BST::H264Video::CONSTRAINED_HIGH_PROFILE: return "Constrained High Profile";
-		case BST::H264Video::HIGH_10_PROFILE: return "High 10 Profile";
-		case BST::H264Video::HIGH_10_INTRA_PROFILE: return "High 10 Intra Profile";
-		case BST::H264Video::HIGH_422_PROFILE: return "High 422 Profile";
-		case BST::H264Video::HIGH_422_INTRA_PROFILE: return "High 422 Intra Profile";
-		case BST::H264Video::HIGH_444_PREDICTIVE_PROFILE: return "High 444 Predictive Profile";
-		case BST::H264Video::HIGH_444_INTRA_PROFILE: return "High 444 Intra Profile";
-		case BST::H264Video::CAVLC_444_INTRA_PROFIILE: return "CAVLC 444 Intra Profile";
-		case BST::H264Video::MULTIVIEW_HIGH_PROFILE: return "MultiView High Profile";
-		case BST::H264Video::STEREO_HIGH_PROFILE: return "Stereo High Profile";
-		case BST::H264Video::SCALABLE_BASELINE_PROFILE: return "Scalable Baseline Profile";
-		case BST::H264Video::SCALABLE_CONSTRAINED_BASELINE_PROFILE: return "Scalable Constrained Baseline Profile";
-		case BST::H264Video::SCALABLE_HIGH_PROFILE: return "Scalable High Profile";
-		case BST::H264Video::SCALABLE_CONSTRAINED_HIGH_PROFILE: return "Scalable Constrained High Profile";
-		case BST::H264Video::SCALABLE_HIGH_INTRA_PROFILE: return "Scalable High Intra Profile";
-		case BST::H264Video::MULTIVIEW_DEPTH_HIGH_PROFILE: return "MultiView Depth High Profile";
+		case BST::H264Video::AVC_PROFILE_BASELINE : return "Baseline Profile";
+		case BST::H264Video::AVC_PROFILE_CONSTRAINED_BASELINE : return "Constrained Baseline Profile";
+		case BST::H264Video::AVC_PROFILE_MAIN : return "Main Profile";
+		case BST::H264Video::AVC_PROFILE_EXTENDED : return "Extended Profile";
+		case BST::H264Video::AVC_PROFILE_HIGH : return "High Profile";
+		case BST::H264Video::AVC_PROFILE_PROGRESSIVE_HIGH : return "Progressive High Profile";
+		case BST::H264Video::AVC_PROFILE_CONSTRAINED_HIGH : return "Constrained High Profile";
+		case BST::H264Video::AVC_PROFILE_HIGH_10 : return "High 10 Profile";
+		case BST::H264Video::AVC_PROFILE_HIGH_10_INTRA : return "High 10 Intra Profile";
+		case BST::H264Video::AVC_PROFILE_PROGRESSIVE_HIGH_10: return "Progressive High 10 Profile";
+		case BST::H264Video::AVC_PROFILE_HIGH_422 : return "High 422 Profile";
+		case BST::H264Video::AVC_PROFILE_HIGH_422_INTRA : return "High 422 Intra Profile";
+		case BST::H264Video::AVC_PROFILE_HIGH_444_PREDICTIVE : return "High 444 Predictive Profile";
+		case BST::H264Video::AVC_PROFILE_HIGH_444_INTRA : return "High 444 Intra Profile";
+		case BST::H264Video::AVC_PROFILE_CAVLC_444_INTRA_PROFIILE: return "CAVLC 444 Intra Profile";
+		case BST::H264Video::AVC_PROFILE_MULTIVIEW_HIGH : return "MultiView High Profile";
+		case BST::H264Video::AVC_PROFILE_STEREO_HIGH : return "Stereo High Profile";
+		case BST::H264Video::AVC_PROFILE_SCALABLE_BASELINE : return "Scalable Baseline Profile";
+		case BST::H264Video::AVC_PROFILE_SCALABLE_CONSTRAINED_BASELINE : return "Scalable Constrained Baseline Profile";
+		case BST::H264Video::AVC_PROFILE_SCALABLE_HIGH : return "Scalable High Profile";
+		case BST::H264Video::AVC_PROFILE_SCALABLE_CONSTRAINED_HIGH : return "Scalable Constrained High Profile";
+		case BST::H264Video::AVC_PROFILE_SCALABLE_HIGH_INTRA : return "Scalable High Intra Profile";
+		case BST::H264Video::AVC_PROFILE_MULTIVIEW_DEPTH_HIGH : return "MultiView Depth High Profile";
 	}
 
 	return "Unknown Profile";
@@ -165,26 +166,53 @@ const char* get_h264_level_name(int level)
 {
 	switch (level)
 	{
-		case BST::H264Video::LEVEL_1: return "1";
-		case BST::H264Video::LEVEL_1b: return "1b";
-		case BST::H264Video::LEVEL_1_1: return "1.1";
-		case BST::H264Video::LEVEL_1_2: return "1.2";
-		case BST::H264Video::LEVEL_1_3: return "1.3";
-		case BST::H264Video::LEVEL_2: return "2";
-		case BST::H264Video::LEVEL_2_1: return "2.1";
-		case BST::H264Video::LEVEL_2_2: return "2.2";
-		case BST::H264Video::LEVEL_3: return "3";
-		case BST::H264Video::LEVEL_3_1: return "3.1";
-		case BST::H264Video::LEVEL_3_2: return "3.2";
-		case BST::H264Video::LEVEL_4: return "4";
-		case BST::H264Video::LEVEL_4_1: return "4.1";
-		case BST::H264Video::LEVEL_4_2: return "4.2";
-		case BST::H264Video::LEVEL_5: return "5";
-		case BST::H264Video::LEVEL_5_1: return "5.1";
-		case BST::H264Video::LEVEL_5_2:return "5.2";
+		case BST::H264Video::AVC_LEVEL_1: return "1";
+		case BST::H264Video::AVC_LEVEL_1b: return "1b";
+		case BST::H264Video::AVC_LEVEL_1_1: return "1.1";
+		case BST::H264Video::AVC_LEVEL_1_2: return "1.2";
+		case BST::H264Video::AVC_LEVEL_1_3: return "1.3";
+		case BST::H264Video::AVC_LEVEL_2: return "2";
+		case BST::H264Video::AVC_LEVEL_2_1: return "2.1";
+		case BST::H264Video::AVC_LEVEL_2_2: return "2.2";
+		case BST::H264Video::AVC_LEVEL_3: return "3";
+		case BST::H264Video::AVC_LEVEL_3_1: return "3.1";
+		case BST::H264Video::AVC_LEVEL_3_2: return "3.2";
+		case BST::H264Video::AVC_LEVEL_4: return "4";
+		case BST::H264Video::AVC_LEVEL_4_1: return "4.1";
+		case BST::H264Video::AVC_LEVEL_4_2: return "4.2";
+		case BST::H264Video::AVC_LEVEL_5: return "5";
+		case BST::H264Video::AVC_LEVEL_5_1: return "5.1";
+		case BST::H264Video::AVC_LEVEL_5_2:return "5.2";
+		case BST::H264Video::AVC_LEVEL_6: return "6";
+		case BST::H264Video::AVC_LEVEL_6_1: return "6.1";
+		case BST::H264Video::AVC_LEVEL_6_2: return "6.2";
 	}
 	return "Unknown";
 }
+
+const std::map<int, AVC_LEVEL_LIMIT> avc_level_limits =
+{
+	/*1	*/	{BST::H264Video::AVC_LEVEL_1,	{ 1485		,	99		, 396		, 64		,175		, 64	, 2, UINT8_MAX }},
+	/*1b*/	{BST::H264Video::AVC_LEVEL_1b,	{ 1485		,	99		, 396		, 128		,350		, 64	, 2, UINT8_MAX }},
+	/*1.1*/	{BST::H264Video::AVC_LEVEL_1_1, { 3000		,	396		, 900		, 192		,500		, 128	, 2, UINT8_MAX }},
+	/*1.2*/	{BST::H264Video::AVC_LEVEL_1_2, { 6000		,	396		, 2376		, 384		,1000		, 128	, 2, UINT8_MAX }},
+	/*1.3*/	{BST::H264Video::AVC_LEVEL_1_3, { 11880		,	396		, 2376		, 768		,2000		, 128	, 2, UINT8_MAX }},
+	/*2	*/	{BST::H264Video::AVC_LEVEL_2,	{ 11880		,	396		, 2376		, 2000		,2000		, 128	, 2, UINT8_MAX }},
+	/*2.1*/	{BST::H264Video::AVC_LEVEL_2_1, { 19800		,	792		, 4752		, 4000		,4000		, 256	, 2, UINT8_MAX }},
+	/*2.2*/	{BST::H264Video::AVC_LEVEL_2_2, { 20250		,	1620	, 8100		, 4000		,4000		, 256	, 2, UINT8_MAX }},
+	/*3	*/	{BST::H264Video::AVC_LEVEL_3,	{ 40500		,	1620	, 8100		, 10000		,10000		, 256	, 2, 32		   }},
+	/*3.1*/	{BST::H264Video::AVC_LEVEL_3_1, { 108000	,	3600	, 18000		, 14000		,14000		, 512	, 4, 16		   }},
+	/*3.2*/	{BST::H264Video::AVC_LEVEL_3_2, { 216000	,	5120	, 20480		, 20000		,20000		, 512	, 4, 16		   }},
+	/*4	*/	{BST::H264Video::AVC_LEVEL_4,	{ 245760	,	8192	, 32768		, 20000		,25000		, 512	, 4, 16		   }},
+	/*4.1*/	{BST::H264Video::AVC_LEVEL_4_1, { 245760	,	8192	, 32768		, 50000		,62500		, 512	, 2, 16		   }},
+	/*4.2*/	{BST::H264Video::AVC_LEVEL_4_2, { 522240	,	8704	, 34816		, 50000		,62500		, 512	, 2, 16		   }},
+	/*5	*/	{BST::H264Video::AVC_LEVEL_5,	{ 589824	,	22080	, 110400	, 135000	,135000		, 512	, 2, 16		   }},
+	/*5.1*/	{BST::H264Video::AVC_LEVEL_5_1, { 983040	,	36864	, 184320	, 240000	,240000		, 512	, 2, 16		   }},
+	/*5.2*/	{BST::H264Video::AVC_LEVEL_5_2, { 2073600	,	36864	, 184320	, 240000	,240000		, 512	, 2, 16		   }},
+	/*6	*/	{BST::H264Video::AVC_LEVEL_6,	{ 4177920	,	139264	, 696320	, 240000	,240000		, 8192	, 2, 16		   }},
+	/*6.1*/	{BST::H264Video::AVC_LEVEL_6_1, { 8355840	,	139264	, 696320	, 480000	,480000		, 8192	, 2, 16		   }},
+	/*6.2*/	{BST::H264Video::AVC_LEVEL_6_2, { 16711680	,	139264	, 696320	, 800000	,800000		, 8192	, 2, 16		   }},
+};
 
 RET_CODE CreateAVCNALContext(INALAVCContext** ppNALCtx)
 {
@@ -220,7 +248,7 @@ namespace BST
 					nal_read_ue(in_bst, slice_group_map_type, uint8_t);
 					if (slice_group_map_type == 0)
 					{
-						run_length_minus1.reserve(num_slice_groups_minus1 + 1);
+						run_length_minus1.reserve((size_t)num_slice_groups_minus1 + 1);
 						for (int iGroup = 0; iGroup <= num_slice_groups_minus1; iGroup++)
 						{
 							nal_read_ue(in_bst, run_length_minus1[iGroup], uint16_t);
@@ -228,8 +256,8 @@ namespace BST
 					}
 					else if (slice_group_map_type == 2)
 					{
-						top_left.reserve(num_slice_groups_minus1 + 1);
-						bottom_right.reserve(num_slice_groups_minus1 + 1);
+						top_left.reserve((size_t)num_slice_groups_minus1 + 1);
+						bottom_right.reserve((size_t)num_slice_groups_minus1 + 1);
 						for (int iGroup = 0; iGroup <= num_slice_groups_minus1; iGroup++)
 						{
 							nal_read_ue(in_bst, top_left[iGroup], uint16_t);
@@ -244,7 +272,7 @@ namespace BST
 					else if (slice_group_map_type == 6)
 					{
 						nal_read_ue(in_bst, pic_size_in_map_units_minus1, uint16_t);
-						slice_group_id.reserve(pic_size_in_map_units_minus1 + 1);
+						slice_group_id.reserve((size_t)pic_size_in_map_units_minus1 + 1);
 						uint8_t v = quick_ceil_log2(num_slice_groups_minus1 + 1);
 						for (int i = 0; i <= pic_size_in_map_units_minus1; i++)
 						{

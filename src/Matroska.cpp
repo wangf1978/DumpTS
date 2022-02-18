@@ -1289,7 +1289,10 @@ namespace Matroska
 
 	void PrintEBMLTree(EBMLIDTree* ptr_element, int level, int column_widths[])
 	{
-		size_t line_chars = level * 5 + 160;
+		if (level < 0)
+			return;
+
+		size_t line_chars = (size_t)level * 5 + 160;
 		char* szLine = new char[line_chars];
 		memset(szLine, ' ', line_chars);
 
@@ -1300,14 +1303,14 @@ namespace Matroska
 		if (level >= 1)
 		{
 			Matroska::EBMLIDTree* ptr_parent = ptr_element->parent;
-			memcpy(szLine + indent + (level - 1)*level_span, "|--", 3);
+			memcpy(szLine + indent + ((ptrdiff_t)level - 1)*level_span, "|--", 3);
 			for (int i = level - 2; i >= 0 && ptr_parent != nullptr; i--)
 			{
 				if (ptr_parent->next_sibling != nullptr)
-					memcpy(szLine + indent + i*level_span, "|", 1);
+					memcpy(szLine + indent + (ptrdiff_t)i*level_span, "|", 1);
 				ptr_parent = ptr_parent->parent;
 			}
-			szText = szLine + indent + 3 + (level - 1)*level_span;
+			szText = szLine + indent + 3 + ((ptrdiff_t)level - 1)*level_span;
 		}
 		else
 			szText = szLine + indent;
@@ -1412,7 +1415,7 @@ namespace Matroska
 		for (size_t i = 0; i < _countof(column_widths); i++)
 			table_width += column_widths[i] + 1;
 
-		char* szLine = new char[table_width + 2];
+		char* szLine = new char[(size_t)table_width + 2];
 		memset(szLine, '-', table_width);
 		szLine[0] = szLine[1] = ' ';
 		szLine[table_width] = '\n';

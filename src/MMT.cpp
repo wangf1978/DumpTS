@@ -92,7 +92,7 @@ const char* MMT::Table::MMT_SI_table_desc[256] = {
 	"Reserved for broadcasters","Reserved for broadcasters","Reserved for broadcasters","Reserved for broadcasters","Reserved for broadcasters","Reserved for broadcasters","Reserved for broadcasters","Reserved for broadcasters",
 };
 
-const std::unordered_map<uint16_t, std::tuple<const char*, const char*>> MMT::MMT_SI_Descriptor_Descs = 
+const std::unordered_map<uint16_t, std::tuple<const char*, const char*>> MMT::MMT_SI_Descriptor_Descs =
 {
 	{0x0000, {"CRI Descriptor", ""}},
 	{0x0001, {"MPU Time stamp Descriptor", ""}},

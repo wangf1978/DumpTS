@@ -928,22 +928,22 @@ SOFTWARE.
 		field_prop_idx++;}\
 
 #define BST_ARRAY_FIELD_PROP_SE(Field_Name, Idx, Field_Desc)\
-	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, quick_log2((Field_Name[Idx]>=0?Field_Name[Idx]:((-Field_Name[Idx]) + 1)) + 1)*2 + 1, Field_Name[Idx], Field_Desc)
+	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2((Field_Name[Idx]>=0?Field_Name[Idx]:((-Field_Name[Idx]) + 1)) + 1)*2 + 1, Field_Name[Idx], Field_Desc)
 
 #define BST_ARRAY_FIELD_PROP_UE(Field_Name, Idx, Field_Desc)\
-	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, quick_log2(Field_Name[Idx] + 1)*2 + 1, Field_Name[Idx], Field_Desc)
+	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2(Field_Name[Idx] + 1)*2 + 1, Field_Name[Idx], Field_Desc)
 
 #define BST_ARRAY_FIELD_PROP_SE1(Object, Field_Name, Idx, Field_Desc)\
-	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, quick_log2((Object[Idx].Field_Name>=0?Object[Idx].Field_Name:((-Object[Idx].Field_Name) + 1)) + 1)*2 + 1, Object[Idx].Field_Name, Field_Desc)
+	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2((Object[Idx].Field_Name>=0?Object[Idx].Field_Name:((-Object[Idx].Field_Name) + 1)) + 1)*2 + 1, Object[Idx].Field_Name, Field_Desc)
 
 #define BST_ARRAY_FIELD_PROP_UE1(Object, Field_Name, Idx, Field_Desc)\
-	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, quick_log2(Object[Idx].Field_Name + 1)*2 + 1, Object[Idx].Field_Name, Field_Desc)
+	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2(Object[Idx].Field_Name + 1)*2 + 1, Object[Idx].Field_Name, Field_Desc)
 
 #define BST_ARRAY_FIELD_PROP_UE2(Field_Name, Idx, Field_Value, Field_Desc)\
-	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, quick_log2(Field_Value + 1)*2 + 1, Field_Value, Field_Desc)
+	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2(Field_Value + 1)*2 + 1, Field_Value, Field_Desc)
 
 #define BST_ARRAY_ARRAY_FIELD_PROP_SE(Field_Name, Sub_Field_Name, Idx, Field_Value, Field_Desc)\
-	BST_ARRAY_ARRAY_FIELD_PROP_NUMBER(#Field_Name, #Sub_Field_Name, Idx, quick_log2((Field_Value>=0?Field_Value:((-Field_Value) + 1)) + 1)*2 + 1, Field_Value, Field_Desc)
+	BST_ARRAY_ARRAY_FIELD_PROP_NUMBER(#Field_Name, #Sub_Field_Name, Idx, (long long)quick_log2((Field_Value>=0?Field_Value:((-Field_Value) + 1)) + 1)*2 + 1, Field_Value, Field_Desc)
 
 #define BST_2ARRAY_FIELD_PROP_NUMBER_(Field_Name, Prefix_Idx1, Idx1, Prefix_Idx2, Idx2, Field_Bits, Field_Value, Field_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
@@ -969,7 +969,7 @@ SOFTWARE.
 
 #define BST_2ARRAY_FIELD_PROP_UE(Field_Name, Idx1, Idx2, Field_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
-		NAV_2ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx1, Idx2, quick_log2(Field_Name[Idx1][Idx2] + 1)*2 + 1, Field_Name[Idx1][Idx2], Field_Desc)\
+		NAV_2ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx1, Idx2, (long long)quick_log2(Field_Name[Idx1][Idx2] + 1)*2 + 1, Field_Name[Idx1][Idx2], Field_Desc)\
 		field_prop_idx++;}\
 
 #define BST_3ARRAY_FIELD_PROP_NUMBER(Field_Name, Idx1, Idx2, Idx3, Field_Bits, Field_Value, Field_Desc)\
@@ -979,12 +979,12 @@ SOFTWARE.
 
 #define BST_3ARRAY_FIELD_UE(Field_Name, Idx1, Idx2, Idx3, Field_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
-		NAV_3ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx1, Idx2, Idx3, quick_log2(Field_Name[Idx1][Idx2][Idx3] + 1)*2 + 1, Field_Name[Idx1][Idx2][Idx3], Field_Desc)\
+		NAV_3ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx1, Idx2, Idx3, (long long)quick_log2(Field_Name[Idx1][Idx2][Idx3] + 1)*2 + 1, Field_Name[Idx1][Idx2][Idx3], Field_Desc)\
 		field_prop_idx++;}\
 
 #define BST_3ARRAY_FIELD_UE1(Object, Field_Name, Idx1, Idx2, Idx3, Field_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
-		NAV_3ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx1, Idx2, Idx3, quick_log2(Object[Idx1][Idx2][Idx3].Field_Name + 1)*2 + 1, Object[Idx1][Idx2][Idx3].Field_Name, Field_Desc)\
+		NAV_3ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx1, Idx2, Idx3, (long long)quick_log2(Object[Idx1][Idx2][Idx3].Field_Name + 1)*2 + 1, Object[Idx1][Idx2][Idx3].Field_Name, Field_Desc)\
 		field_prop_idx++;}\
 
 #define BST_3ARRAY_FIELD_BOOL1(Object, Field_Name, Idx1, Idx2, Idx3, TRUE_Desc, FALSE_Desc)\
@@ -1080,9 +1080,9 @@ SOFTWARE.
 	{MBCSPRINTF_S(szTemp2, TEMP2_SIZE, Field_Desc, ##__VA_ARGS__); \
 	BST_FIELD_PROP_2NUMBER1(Field_Name, Field_Bits, szTemp2);}\
 
-#define BST_FIELD_PROP_UE(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
-#define BST_FIELD_PROP_SE(Field_Name, Field_Desc)						BST_FIELD_PROP_SIGNNUMBER(#Field_Name, quick_log2((Field_Name>=0?Field_Name:((-Field_Name) + 1)) + 1)*2 + 1, Field_Name, Field_Desc)
-#define BST_FIELD_PROP_UVLC(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
+#define BST_FIELD_PROP_UE(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
+#define BST_FIELD_PROP_SE(Field_Name, Field_Desc)						BST_FIELD_PROP_SIGNNUMBER(#Field_Name, (long long)quick_log2((Field_Name>=0?Field_Name:((-Field_Name) + 1)) + 1)*2 + 1, Field_Name, Field_Desc)
+#define BST_FIELD_PROP_UVLC(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
 
 #define NAV_FIELD_PROP_NUMBER_PRINTF(Field_Name, Field_Bits, Field_Desc, Field_Value_Format, ...)	\
 	MBCSPRINTF_S(szTemp4, TEMP4_SIZE, Field_Value_Format, ##__VA_ARGS__);\

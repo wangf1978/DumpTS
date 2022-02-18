@@ -201,13 +201,13 @@ void PrintDescriptor(int level, unsigned char* p)
 	uint8_t descriptor_length = *p++;
 	char szIndent[128] = { 0 };
 	if (level > 0)
-		memset(szIndent, ' ', 4 * level);
+		memset(szIndent, ' ', (size_t)level * 4);
 
 	auto iter = g_SIT_descriptors.find(descriptor_tag);
 	printf("%sdescriptor_tag/descriptor_length: 0X%02X/% 3d - %s\n", szIndent, 
 		descriptor_tag, descriptor_length, iter == g_SIT_descriptors.cend() ? "Unsupported descriptor" : iter->second.c_str());
 
-	memset(szIndent, ' ', 4 * (level + 1));
+	memset(szIndent, ' ', ((size_t)level + 1) * 4);
 
 	switch (descriptor_tag)
 	{
@@ -368,9 +368,9 @@ void PrintDescriptor(int level, unsigned char* p)
 		printf("%scomponent_type: 0x%X\n", szIndent, component_type);
 		printf("%scomponent_tag: %d\n", szIndent, component_tag);
 		printf("%sISO_639_language_code: %c%c%c\n", szIndent, ISO_639_language_code[0], ISO_639_language_code[1], ISO_639_language_code[2]);
-		if (descriptor_length + 2 > (p - p0))
+		if ((ptrdiff_t)descriptor_length + 2 > (p - p0))
 		{
-			print_mem(p, (int)(descriptor_length + 2 - (p - p0)), level * 4);
+			print_mem(p, (int)((ptrdiff_t)descriptor_length + 2 - (p - p0)), (int)((int64_t)level * 4));
 		}
 
 		break;
@@ -412,12 +412,12 @@ void PrintDescriptor(int level, unsigned char* p)
 			uint32_t maximum_overall_smoothing_buffer = (((*(p)) << 8) | (*(p + 1))) & 0x3FFF;
 			p += 2;
 
-			printf("%speak_rate: %d(%" PRIu32 "bps/%sbps)\n", szIndent, peak_rate, peak_rate * 400, GetHumanReadNumber(peak_rate * 400).c_str());
+			printf("%speak_rate: %" PRIu32 "(%" PRIu64 "bps/%sbps)\n", szIndent, peak_rate, (uint64_t)peak_rate * 400, GetHumanReadNumber((uint64_t)peak_rate * 400).c_str());
 			if (minimum_overall_smoothing_rate == 0x3FFFFF)
 				printf("%sminimum_overall_smoothing_rate: undefined\n", szIndent);
 			else
-				printf("%sminimum_overall_smoothing_rate: %d(%" PRIu32 "bps/%sbps)\n", szIndent, 
-					minimum_overall_smoothing_rate, minimum_overall_smoothing_rate * 400, GetHumanReadNumber(minimum_overall_smoothing_rate * 400).c_str());
+				printf("%sminimum_overall_smoothing_rate: %" PRIu32 "(%" PRIu64 "bps/%sbps)\n", szIndent, 
+					minimum_overall_smoothing_rate, (uint64_t)minimum_overall_smoothing_rate * 400, GetHumanReadNumber((uint64_t)minimum_overall_smoothing_rate * 400).c_str());
 
 			if (maximum_overall_smoothing_buffer == 0x3FFF)
 				printf("%smaximum_overall_smoothing_buffer: undefined\n", szIndent);
@@ -642,6 +642,8 @@ CPayloadBuf::CPayloadBuf(FILE* fw, uint8_t nTSPackSize)
 	: buffer_len(0)
 	, m_fw(fw)
 	, m_ts_pack_size(nTSPackSize)
+	, m_PID(0x1FFF)
+	, m_PCR_PID(0x1FFF)
 {
 	buffer_alloc_size = 20 * 1024 * 1024;
 	buffer = new (std::nothrow) unsigned char[buffer_alloc_size];
@@ -654,6 +656,7 @@ CPayloadBuf::CPayloadBuf(uint16_t PID)
 	, m_fw(NULL)
 	, m_ts_pack_size(0)
 	, m_PID(PID)
+	, m_PCR_PID(0x1FFF)
 {
 }
 
@@ -685,7 +688,7 @@ int CPayloadBuf::PushTSBuf(uint32_t idxTSPack, uint8_t* pBuf, uint8_t offStart, 
 	// check whether the buffer exceeds the next buffer length
 	if (buffer_alloc_size < buffer_len + (offEnd - offStart))
 	{
-		unsigned char* new_buffer = new (std::nothrow) unsigned char[buffer_alloc_size * 2];
+		unsigned char* new_buffer = new (std::nothrow) unsigned char[(size_t)buffer_alloc_size * 2];
 		if (new_buffer == NULL)
 		{
 			printf("Failed to allocate the buffer with the size: %" PRIu32 " (bytes).\n", buffer_alloc_size << 1);
@@ -864,7 +867,7 @@ int CPayloadBuf::WriteBack(unsigned int off, unsigned char* pBuf, unsigned long 
 				// Record the backup position of file
 				long long backup_pos = _ftelli64(m_fw);
 
-				_fseeki64(m_fw, iter->ts_packet_idx*m_ts_pack_size + iter->start_off + off - cbRead, SEEK_SET);
+				_fseeki64(m_fw, (long long)iter->ts_packet_idx*m_ts_pack_size + iter->start_off + off - cbRead, SEEK_SET);
 				if (fwrite(pBuf, 1, cbWritten, m_fw) != cbWritten)
 				{
 					printf("Failed to write back the bytes into destination file.\n");
@@ -896,6 +899,8 @@ done:
 CPSIBuf::CPSIBuf(PSI_PROCESS_CONTEXT* CtxPSIProcess, unsigned short PID)
 	: CPayloadBuf(PID)
 	, version_number(0xFF)
+	, section_number(0)
+	, last_section_number(0)
 	, ctx_psi_process(CtxPSIProcess)
 {
 
@@ -955,7 +960,7 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 
 	if (section_syntax_indicator) {
 		F_CRC_InicializaTable();
-		if (F_CRC_CalculaCheckSum(pBuf + ulMappedSize, 3 + section_length) != 0) {
+		if (F_CRC_CalculaCheckSum(pBuf + ulMappedSize, (size_t)section_length + 3) != 0) {
 			printf("[13818-1] current PSI section failed do check-sum.\n");
 			return -2;
 		}
@@ -1065,7 +1070,7 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 			if ((dumpOptions&DUMP_PMT) && ctx_psi_process->bChanged)
 				PrintDescriptor(1, p);
 
-			p += 2 + descriptor_length;
+			p += (ptrdiff_t)descriptor_length + 2;
 			if (program_info_length >= 2 + descriptor_length)
 				program_info_length -= 2 + descriptor_length;
 			else
@@ -1101,7 +1106,7 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 				if ((dumpOptions&DUMP_PMT) && ctx_psi_process->bChanged)
 					PrintDescriptor(3, p);
 
-				p += 2 + descriptor_length;
+				p += (ptrdiff_t)descriptor_length + 2;
 				if (ES_info_length >= 2 + descriptor_length)
 					ES_info_length -= 2 + descriptor_length;
 				else
@@ -1130,7 +1135,7 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 			if (dumpOptions&DUMP_DTV_SIT)
 				PrintDescriptor(1, p);
 
-			p += 2 + descriptor_length;
+			p += (ptrdiff_t)descriptor_length + 2;
 			if (Transmissioninfo_loop_length >= 2 + descriptor_length)
 				Transmissioninfo_loop_length -= 2 + descriptor_length;
 			else
@@ -1165,7 +1170,7 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 				if (dumpOptions&DUMP_DTV_SIT)
 					PrintDescriptor(3, p);
 
-				p += 2 + descriptor_length;
+				p += (ptrdiff_t)descriptor_length + 2;
 				if (service_loop_length >= 2 + descriptor_length)
 					service_loop_length -= 2 + descriptor_length;
 				else

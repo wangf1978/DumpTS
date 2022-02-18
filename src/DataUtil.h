@@ -152,32 +152,32 @@ inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL
 		if (literal_fmt == FMT_HEX)	// hex value
 		{
 			if (*ps >= '0' && *ps <= '9')
-				ret_val = (ret_val << 4) | (*ps - '0');
+				ret_val = (ret_val << 4) | ((int64_t)*ps - '0');
 			else if (*ps >= 'a' && *ps <= 'f')
-				ret_val = (ret_val << 4) | (*ps - 'a' + 10);
+				ret_val = (ret_val << 4) | ((int64_t)*ps - 'a' + 10);
 			else if (*ps >= 'A' && *ps <= 'F')
-				ret_val = (ret_val << 4) | (*ps - 'A' + 10);
+				ret_val = (ret_val << 4) | ((int64_t)*ps - 'A' + 10);
 			else
 				return false;
 		}
 		else if (literal_fmt == FMT_OCT)	// octal value
 		{
 			if (*ps >= '0' && *ps <= '7')
-				ret_val = (ret_val << 3) | (*ps - '0');
+				ret_val = (ret_val << 3) | ((int64_t)*ps - '0');
 			else
 				return false;
 		}
 		else if (literal_fmt == FMT_DEC)		// decimal value
 		{
 			if (*ps >= '0' && *ps <= '9')
-				ret_val = (ret_val * 10) + (*ps - '0');
+				ret_val = (ret_val * 10) + ((int64_t)*ps - '0');
 			else
 				return false;
 		}
 		else if (literal_fmt == FMT_BIN)
 		{
 			if (*ps >= '0' && *ps <= '1')
-				ret_val = (ret_val << 1) | (*ps - '0');
+				ret_val = (ret_val << 1) | ((int64_t)*ps - '0');
 			else
 				return false;
 		}
@@ -242,7 +242,7 @@ inline std::string DateTimeStr(uint64_t elapse_seconds_since_baseyear, int32_t b
 	}
 
 	int day = 1 + (int)(elapse_seconds / (24 * 3600));
-	elapse_seconds -= (day - 1) * 24 * 3600;
+	elapse_seconds -= ((uint64_t)day - 1) * 24 * 3600;
 
 	int hour = (int)(elapse_seconds / 3600);
 	int minute = (int)(elapse_seconds / 60 % 60);
@@ -333,7 +333,7 @@ inline std::string GetReadableNum(uint64_t n)
 		int nGroup = (ccWritten + 2) / 3;
 		int nReminder = ccWritten % 3;
 		
-		strRet.reserve(ccWritten + (nGroup - 1) * 3 + 1);
+		strRet.reserve((size_t)ccWritten + ((size_t)nGroup - 1) * 3 + 1);
 		const char* p = szTmp;
 		for (int i = 0; i < nGroup; i++)
 		{
@@ -411,16 +411,16 @@ inline std::string GetHumanReadNumber(uint64_t n, bool base10241K = false, uint8
 	uint64_t decimal = 0, fraction = 0;
 	const char* unit_names[2][4] = { { "G", "M", "K", "" }, { "Gi", "Mi", "Ki", "" } };
 	const char* unit_sel = "";
-	if (n >= base * base*base)
+	if (n >= (uint64_t)base * base*base)
 	{
-		decimal = n / (base*base*base);
-		fraction = n * fraction_scaler / (base*base*base) % fraction_scaler;
+		decimal = n / ((uint64_t)base*base*base);
+		fraction = n * fraction_scaler / ((uint64_t)base*base*base) % fraction_scaler;
 		unit_sel = unit_names[base10241K ? 1 : 0][0];
 	}
-	else if (n >= base * base)
+	else if (n >= (uint64_t)base * base)
 	{
-		decimal = n / (base*base);
-		fraction = n * fraction_scaler / (base*base) % fraction_scaler;
+		decimal = n / ((uint64_t)base*base);
+		fraction = n * fraction_scaler / ((uint64_t)base*base) % fraction_scaler;
 		unit_sel = unit_names[base10241K ? 1 : 0][1];
 	}
 	else if (n >= base)

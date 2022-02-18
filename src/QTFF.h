@@ -91,11 +91,11 @@ namespace QTFF
 				Entry(CBitstream& bs)
 					: Key_size(bs.GetLong()), Key_namespace(bs.GetLong()) {
 					if (Key_size > 8)
-						Key_value.resize(Key_size - 8);
+						Key_value.resize((size_t)Key_size - 8);
 				}
 			};
 
-			uint32_t			Entry_count;
+			uint32_t			Entry_count = 0;
 			std::vector<Entry>	Entries;
 
 			virtual int Unpack(CBitstream& bs)
@@ -137,7 +137,6 @@ namespace QTFF
 				SkipLeftBits(bs);
 				return iRet;
 			}
-
 		};
 
 		struct MetaDataItemListAtom : public ISOBMFF::Box
@@ -257,8 +256,8 @@ namespace QTFF
 					}
 				};
 
-				ItemInformationAtom*		item_information_atom;
-				NameAtom*					name_atom;
+				ItemInformationAtom*		item_information_atom = nullptr;
+				NameAtom*					name_atom =  nullptr;
 				std::vector<ValueAtom*>		value_atoms;
 
 				virtual int Unpack(CBitstream& bs)
@@ -376,7 +375,7 @@ namespace QTFF
 				}
 			};
 
-			uint32_t			Entry_count;
+			uint32_t			Entry_count = 0;
 			std::vector<Entry>	Entries;
 
 			virtual int Unpack(CBitstream& bs)
@@ -429,7 +428,7 @@ namespace QTFF
 				}
 			};
 
-			uint32_t			Entry_count;
+			uint32_t			Entry_count = 0;
 			std::vector<Entry>	Entries;
 
 			virtual int Unpack(CBitstream& bs)
@@ -466,10 +465,9 @@ namespace QTFF
 				SkipLeftBits(bs);
 				return iRet;
 			}
-
 		};
 
-		ISOBMFF::HandlerBox*	handler_atom = nullptr;
+		ISOBMFF::HandlerBox*		handler_atom = nullptr;
 		MetaDataHeaderAtom*			header_atom = nullptr;
 		MetaDataItemKeysAtom*		item_keys_atom = nullptr;
 		MetaDataItemListAtom*		item_list_atom = nullptr;

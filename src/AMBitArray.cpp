@@ -202,7 +202,7 @@ int AM_BitSetValue(AMBitArray bit_array, int array_idx, uint64_t val)
 	uint8_t* pBitByte = REAL_ARRAY_BIT_BUFFER(pBitArray);
 	while (bits_left > 0)
 	{
-		uint8_t u8Val = (val >> (bits_left - bits_left_in_byte))&((1 << bits_left_in_byte) - 1);
+		uint8_t u8Val = (val >> (bits_left - bits_left_in_byte))&((1ULL << bits_left_in_byte) - 1);
 		u8Val <<= bits_suffix;
 		pBitByte[byte_idx] &= ~(((1 << bits_left_in_byte) - 1) << bits_suffix);
 		pBitByte[byte_idx] |= u8Val;
@@ -389,7 +389,7 @@ int AM_ResizeBitArray(AMBitArray& bit_array, int new_array_size, BIT_OPERATION b
 		
 		// Copy the original bits into new bit-array
 		memcpy(new_bit_array_ptr->ptr_bit_bytes, old_bit_array_ptr->ptr_bit_bytes, orig_num_of_bytes);
-		memset(new_bit_array_ptr->ptr_bit_bytes + orig_num_of_bytes, bAllExpandedBitOp==BIT_SET?0xFF:0, new_num_of_bytes - orig_num_of_bytes);
+		memset(new_bit_array_ptr->ptr_bit_bytes + orig_num_of_bytes, bAllExpandedBitOp==BIT_SET?0xFF:0, (size_t)new_num_of_bytes - orig_num_of_bytes);
 		end_bit_pos = (new_array_size*(old_bit_array_ptr->bit_array_unit_size_minus_1 + 1) - 1) % 8 + 1;
 	}
 

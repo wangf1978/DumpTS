@@ -331,7 +331,7 @@ struct HCOD_TREE
 
 	void Print(FILE* fp=stdout)
 	{
-		size_t line_chars = length * 5 + 2048;
+		size_t line_chars = (size_t)length * 5 + 2048;
 		char* szLine = new char[line_chars];
 		memset(szLine, ' ', line_chars);
 
@@ -342,14 +342,14 @@ struct HCOD_TREE
 		if (length >= 1)
 		{
 			HCOD_TREE* ptr_parent = parent;
-			memcpy(szLine + indent + (length - 1)*level_span, "|--", 3);
+			memcpy(szLine + indent + ((ptrdiff_t)length - 1)*level_span, "|--", 3);
 			for (int i = length - 2; i >= 0 && ptr_parent != nullptr; i--)
 			{
 				if ((ptr_parent->codeword&0x1) == 0)
-					memcpy(szLine + indent + i*level_span, "|", 1);
+					memcpy(szLine + indent + (ptrdiff_t)i*level_span, "|", 1);
 				ptr_parent = ptr_parent->parent;
 			}
-			szText = szLine + indent + 3 + (length - 1)*level_span;
+			szText = szLine + indent + 3 + ((ptrdiff_t)length - 1)*level_span;
 		}
 		else
 			szText = szLine + indent;

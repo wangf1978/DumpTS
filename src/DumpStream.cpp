@@ -313,16 +313,16 @@ int ParseEAC3Frame(unsigned short PID, int stream_type, unsigned char* pBuf, int
 		}
 		else if (strmtyp == 1 && g_cur_ddp_program_id >= 0 && g_cur_ddp_program_id <= 7)
 		{
-			if (g_ddp_program_stream_infos[g_cur_ddp_program_id].size() != substreamid + 1UL)
+			if (g_ddp_program_stream_infos[g_cur_ddp_program_id].size() != (size_t)substreamid + 1UL)
 			{
 				g_ddp_program_stream_infos[g_cur_ddp_program_id].clear();
 				goto done;
 			}
 
-			g_ddp_program_stream_infos[g_cur_ddp_program_id].resize(substreamid + 2);
+			g_ddp_program_stream_infos[g_cur_ddp_program_id].resize((size_t)substreamid + 2);
 
 			// analyze the audio info
-			auto ptr_stm_info = &g_ddp_program_stream_infos[g_cur_ddp_program_id][substreamid + 1];
+			auto ptr_stm_info = &g_ddp_program_stream_infos[g_cur_ddp_program_id][(size_t)substreamid + 1];
 			ptr_stm_info->stream_coding_type = stream_type;
 			ptr_stm_info->audio_info.bits_per_sample = 16;
 			ptr_stm_info->audio_info.sample_frequency = getfs(fscod, fscod2);
@@ -1781,7 +1781,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 			else
 			{
 				if (g_stream_infos[PID].size() <= audio_program_id)
-					g_stream_infos[PID].resize(audio_program_id + 1);
+					g_stream_infos[PID].resize((size_t)audio_program_id + 1);
 				g_stream_infos[PID][audio_program_id] = stm_info;
 				if (g_stream_infos[PID].size() > 1)
 					printf("%s Stream information#%d:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
@@ -2816,7 +2816,7 @@ int DumpOneStream()
 
 		if (PID == sPID && (payload_unit_start || (!payload_unit_start && pes_buffer_len > 0)))
 		{
-			memcpy(pes_buffer + pes_buffer_len, buf + index, g_ts_fmtinfo.packet_size - index);
+			memcpy(pes_buffer + pes_buffer_len, buf + index, (size_t)g_ts_fmtinfo.packet_size - index);
 			pes_buffer_len += g_ts_fmtinfo.packet_size - index;
 		}
 

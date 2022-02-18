@@ -740,8 +740,8 @@ namespace BST {
 							}
 						}
 
-						pBuf += 3 + audioMuxLengthBytes;
-						cbSize -= 3 + audioMuxLengthBytes;
+						pBuf += (ptrdiff_t)audioMuxLengthBytes + 3;
+						cbSize -= (ptrdiff_t)audioMuxLengthBytes + 3;
 					}
 					else
 					{

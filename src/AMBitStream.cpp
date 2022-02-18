@@ -129,7 +129,12 @@ struct AM_BST_DATA{
 	AM_BST_CURSOR		cursor;							// the current cursor information.
 	AM_BST_CURSOR		save_point;						// the save-point cursor information which is mainly used for peek restore
 
-	AM_BST_DATA() : rbsp_type(BST_RBSP_SEQUENCE){
+	AM_BST_DATA(AM_BST_TYPE bst_type, int bst_access_mode)
+		: type(bst_type)
+		, access_mode(bst_access_mode)
+		, func_ptr_fillbuffer(nullptr)
+		, user_data(nullptr)
+		, rbsp_type(BST_RBSP_SEQUENCE){
 	}
 
 	void CleanSavePoint() {
@@ -147,9 +152,11 @@ INLINE int GetAllLeftBits(AM_BST_DATA* bst_data)
 	}
 	else if(bst_data->rbsp_type == BST_RBSP_SEQUENCE)
 	{
-		return bits_left <= bst_data->cursor.exclude_bits ? 0
-			: (bits_left < (int)(sizeof(CURBITS_TYPE)<<3) ? (bst_data->cursor.bits_left - bst_data->cursor.exclude_bits) 
-													 : (bits_left - (sizeof(CURBITS_TYPE)<<3) + bst_data->cursor.bits_left - bst_data->cursor.exclude_bits));
+		return bits_left <= bst_data->cursor.exclude_bits 
+			? 0
+			: (bits_left < (int)(sizeof(CURBITS_TYPE)<<3) 
+				? (bst_data->cursor.bits_left - (int)bst_data->cursor.exclude_bits) 
+				: (bits_left - (int)(sizeof(CURBITS_TYPE)<<3) + bst_data->cursor.bits_left - bst_data->cursor.exclude_bits));
 	}
 
 	return -1;
@@ -174,11 +181,9 @@ AMBst AMBst_CreateFromBuffer(uint8_t* pBuffer, int cbSize, int access_mode)
 	if (pBuffer == NULL || cbSize <= 0)
 		return NULL;
 
-	AM_BST_DATA* bst_data = new AM_BST_DATA;
+	AM_BST_DATA* bst_data = new AM_BST_DATA(BST_TYPE_EXTERNAL_BUF, access_mode);
 	if (bst_data == NULL)
 		return NULL;
-
-	bst_data->type = BST_TYPE_EXTERNAL_BUF;
 
 	bst_data->rchunk = NULL;
 	bst_data->func_ptr_fillbuffer = NULL;
@@ -188,7 +193,6 @@ AMBst AMBst_CreateFromBuffer(uint8_t* pBuffer, int cbSize, int access_mode)
 	bst_data->cursor.p = bst_data->cursor.p_start = (uint8_t*)pBuffer - bst_data->cursor.start_offset;
 	bst_data->cursor.p_end = pBuffer + cbSize;
 	bst_data->cursor.bits_left = (int)((CURBITS_BYTECOUNT(bst_data->cursor) - bst_data->cursor.start_offset) << 3);
-	bst_data->access_mode = access_mode;
 
 	if (bst_data->cursor.p + sizeof(CURBITS_TYPE) <= bst_data->cursor.p_end)
 	{
@@ -210,11 +214,9 @@ AMBst AMBst_CreateFromBuffer(uint8_t* pBuffer, int cbSize, int access_mode)
 
 AMBst AMBst_Create()
 {
-	AM_BST_DATA* bst_data = new AM_BST_DATA;
+	AM_BST_DATA* bst_data = new AM_BST_DATA(BST_TYPE_EXTERNAL_BUF, 0);
 	if (bst_data == NULL)
 		return NULL;
-
-	bst_data->type = BST_TYPE_EXTERNAL_BUF;
 
 	bst_data->rchunk = NULL;
 	bst_data->func_ptr_fillbuffer = NULL;
@@ -224,7 +226,6 @@ AMBst AMBst_Create()
 	bst_data->cursor.p = bst_data->cursor.p_start = NULL;
 	bst_data->cursor.p_end = NULL;
 	bst_data->cursor.bits_left = 0;
-	bst_data->access_mode = 0;
 
 	bst_data->cursor.curbits = 0;
 	bst_data->cursor.modbits = 0;
@@ -288,11 +289,9 @@ AMBst AMBst_CreateFromCallback(AMBstFillBuffer funptrFillBuffer, void* pUserData
 		return NULL;
 	}
 
-	AM_BST_DATA* bst_data = new AM_BST_DATA;
+	AM_BST_DATA* bst_data = new AM_BST_DATA(BST_TYPE_INNER_BUF, access_mode);
 	if (bst_data == NULL)
 		return NULL;
-
-	bst_data->type = BST_TYPE_INNER_BUF;
 
 	bst_data->rchunk = NULL;
 	bst_data->func_ptr_fillbuffer = funptrFillBuffer;
@@ -319,8 +318,6 @@ AMBst AMBst_CreateFromCallback(AMBstFillBuffer funptrFillBuffer, void* pUserData
 	bst_data->cursor.buf_size = cbUnderlyingBufSize;
 	bst_data->cursor.curbits = bst_data->cursor.modbits = 0;
 	
-	bst_data->access_mode = access_mode;
-
 	return (AMBst)bst_data;
 }
 
@@ -336,11 +333,9 @@ AMBst AMBst_CreateFromRingBuffer(AMRingChunk pRingChunk, int access_mode)
 		return NULL;
 	}
 
-	AM_BST_DATA* bst_data = new AM_BST_DATA;
+	AM_BST_DATA* bst_data = new AM_BST_DATA(BST_TYPE_RING_CHUNK, access_mode);
 	if (bst_data == NULL)
 		return NULL;
-
-	bst_data->type = BST_TYPE_RING_CHUNK;
 
 	bst_data->rchunk = pRingChunk;
 
@@ -353,7 +348,6 @@ AMBst AMBst_CreateFromRingBuffer(AMRingChunk pRingChunk, int access_mode)
 		return NULL;
 	}
 
-	bst_data->access_mode = access_mode;
 	bst_data->cursor.curbits = bst_data->cursor.modbits = 0;
 
 	return (AMBst)bst_data;
@@ -370,15 +364,12 @@ AMBst AMBst_Subset(AMBst bst, int nBits)
 	if (bst_data->type != BST_TYPE_EXTERNAL_BUF && bst_data->rbsp_type != BST_RBSP_SEQUENCE)
 		return NULL;
 
-	AM_BST_DATA* sub_bst_data = new AM_BST_DATA;
+	AM_BST_DATA* sub_bst_data = new AM_BST_DATA(bst_data->type, bst_data->access_mode);
 	if (bst_data->type == BST_TYPE_EXTERNAL_BUF)
 	{
 		if (nBits > GetAllLeftBits(bst_data))
 			throw AMException(RET_CODE_INVALID_PARAMETER, _T("nBits parameter exceed the all left bits in current bitstream"));
 
-		sub_bst_data->type = bst_data->type;
-		sub_bst_data->access_mode = bst_data->access_mode;
-		
 		sub_bst_data->rchunk = NULL;
 		sub_bst_data->func_ptr_fillbuffer = NULL;
 		sub_bst_data->user_data = NULL;
@@ -623,7 +614,7 @@ inline void _UpdateCurBitsForUnreadChunk(AM_BST_DATA* bst_data, bool bEos = fals
 			bst_data->cursor.curbits = 0;
 			for (int i = 0; i < bst_data->cursor.chunk_unread_bytes.length();i++){
 				bst_data->cursor.curbits <<= 8;
-				bst_data->cursor.curbits |= bst_data->cursor.chunk_unread_bytes.units[(bst_data->cursor.chunk_unread_bytes.read_pos + i) % _countof(bst_data->cursor.chunk_unread_bytes.units)];
+				bst_data->cursor.curbits |= bst_data->cursor.chunk_unread_bytes.units[((size_t)bst_data->cursor.chunk_unread_bytes.read_pos + i) % _countof(bst_data->cursor.chunk_unread_bytes.units)];
 				bst_data->cursor.bits_left += 8;
 			}
 		}
@@ -1478,9 +1469,9 @@ int AMBst_Seek(AMBst bst, int bit_pos)
 	if (bit_pos == -1)
 		bit_pos = (int)(bst_data->cursor.p_end - bst_data->cursor.p_start - bst_data->cursor.start_offset)*8;
 
-	uint8_t* ptr_dest  = bst_data->cursor.p_start + (bit_pos + bst_data->cursor.start_offset*8)/(sizeof(CURBITS_TYPE)*8)*sizeof(CURBITS_TYPE);
+	uint8_t* ptr_dest  = bst_data->cursor.p_start + (bit_pos + (int64_t)bst_data->cursor.start_offset*8)/(sizeof(CURBITS_TYPE)*8)*sizeof(CURBITS_TYPE);
  	int bytes_left = (int)(bst_data->cursor.p_end - bst_data->cursor.p);
-	int bits_left = AMP_MIN(bytes_left, (int)sizeof(CURBITS_TYPE))*8 - (bit_pos + bst_data->cursor.start_offset*8)%(sizeof(CURBITS_TYPE)*8);
+	int bits_left = AMP_MIN(bytes_left, (int)sizeof(CURBITS_TYPE))*8 - (bit_pos + (int64_t)bst_data->cursor.start_offset*8)%(sizeof(CURBITS_TYPE)*8);
 
 	if (ptr_dest != bst_data->cursor.p){
 		if((bst_data->access_mode&BST_MODE_WRITE) && bst_data->cursor.modbits != bst_data->cursor.curbits)
@@ -1524,7 +1515,7 @@ int AMBst_Realign(AMBst bst, AMBstAlign bstAlign, AMBstBitFillMode bitFillMode)
 	}
 
 	int skip_bits = 0, align_bits = 0;
-	size_t nPos = ( 8 * (bst_data->cursor.p - bst_data->cursor.p_start) + (sizeof(bst_data->cursor.curbits)*8) - bst_data->cursor.bits_left - bst_data->cursor.start_offset*8);
+	size_t nPos = ( 8 * (bst_data->cursor.p - bst_data->cursor.p_start) + (sizeof(bst_data->cursor.curbits)*8) - bst_data->cursor.bits_left - (int64_t)bst_data->cursor.start_offset*8);
 	switch(bstAlign)
 	{
 	case BST_ALIGN_BYTE: align_bits =  8; break;
@@ -1577,7 +1568,7 @@ BOOL AMBst_IsAligned(AMBst bst, AMBstAlign bstAlign)
 	}
 
 	int align_bits = 0;
-	size_t nPos = ( 8 * (bst_data->cursor.p - bst_data->cursor.p_start) + (sizeof(bst_data->cursor.curbits)*8) - bst_data->cursor.bits_left - bst_data->cursor.start_offset*8);
+	size_t nPos = ( 8 * (bst_data->cursor.p - bst_data->cursor.p_start) + (sizeof(bst_data->cursor.curbits)*8) - bst_data->cursor.bits_left - (int64_t)bst_data->cursor.start_offset*8);
 	switch(bstAlign)
 	{
 	case BST_ALIGN_BYTE: align_bits =  8; break;

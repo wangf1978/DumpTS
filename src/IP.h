@@ -126,8 +126,15 @@ namespace IP
 		*/
 		struct NTPShortFormat
 		{
-			uint16_t		Seconds;
-			uint16_t		Fraction;
+			union
+			{
+				struct
+				{
+					uint16_t		Seconds;
+					uint16_t		Fraction;
+				};
+				uint32_t			Value;
+			};
 
 			int Unpack(CBitstream& bs)
 			{
@@ -160,8 +167,15 @@ namespace IP
 		*/
 		struct NTPTimestampFormat
 		{
-			uint32_t		Seconds;
-			uint32_t		Fraction;
+			union
+			{
+				struct
+				{
+					uint32_t		Seconds;
+					uint32_t		Fraction;
+				};
+				uint64_t			Value;
+			};
 
 			int Unpack(CBitstream& bs)
 			{
@@ -779,7 +793,7 @@ namespace IP
 				if (Header_length < 5)
 					return RET_CODE_BUFFER_NOT_COMPATIBLE;
 
-				if (left_bits + (20ULL << 3) < Header_length * 32)
+				if (left_bits + (20ULL << 3) < (uint64_t)Header_length * 32)
 					return RET_CODE_BOX_TOO_SMALL;
 
 				if (Header_length > 5)
@@ -1148,36 +1162,38 @@ namespace IP
 				bool bHaveDoubleColon = false;
 				int nConsecutiveZero = 0;
 				char szIP[40];
-				for (int i = 0; i < 8; i++)
+				for (size_t i = 0; i < 8; i++)
 				{
 					parts[i] = (address_bytes[2 * i] << 8) | address_bytes[i * 2 + 1];
 					if (parts[i] == 0)
 					{
 						if (!bHaveDoubleColon)
 							nConsecutiveZero++;
-						else
-							cbWritten += sprintf_s(szIP + cbWritten, 40 - cbWritten, "0%s", i>=7?"":":");
+						else if((int64_t)_countof(szIP) > (int64_t)cbWritten)
+							cbWritten += sprintf_s(szIP + cbWritten, _countof(szIP) - cbWritten, "0%s", i>=7?"":":");
 					}
-					else
+					else if ((int64_t)_countof(szIP) > (int64_t)cbWritten)
 					{
 						if (nConsecutiveZero > 1)
 						{
-							cbWritten += sprintf_s(szIP + cbWritten, 40 - cbWritten, ":");
+							cbWritten += sprintf_s(szIP + cbWritten, _countof(szIP) - cbWritten, ":");
 							nConsecutiveZero = 0;
 							bHaveDoubleColon = true;
 						}
 						else if (nConsecutiveZero == 1)
 						{
-							cbWritten += sprintf_s(szIP + cbWritten, 40 - cbWritten, "0:");
+							cbWritten += sprintf_s(szIP + cbWritten, _countof(szIP) - cbWritten, "0:");
 							nConsecutiveZero = 0;
 						}
 
-						cbWritten += sprintf_s(szIP + cbWritten, 40 - cbWritten, "%x%s", parts[i], i >= 7 ? "" : ":");
+						if ((int64_t)_countof(szIP) > (int64_t)cbWritten) {
+							cbWritten += sprintf_s(szIP + cbWritten, _countof(szIP) - cbWritten, "%x%s", parts[i], i >= 7 ? "" : ":");
+						}
 					}
 				}
 
-				if (bHaveDoubleColon == false && nConsecutiveZero > 0)
-					cbWritten += sprintf_s(szIP + cbWritten, 40 - cbWritten, "%s", nConsecutiveZero>1?"::":"0");
+				if (bHaveDoubleColon == false && nConsecutiveZero > 0 && (int64_t)_countof(szIP) > (int64_t)cbWritten)
+					cbWritten += sprintf_s(szIP + cbWritten, _countof(szIP) - cbWritten, "%s", nConsecutiveZero>1?"::":"0");
 
 				return std::string(szIP);
 			}

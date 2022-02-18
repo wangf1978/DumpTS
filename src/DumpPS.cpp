@@ -317,7 +317,7 @@ int DumpOneStreamFromPS()
 	{
 		if (pes_buf_pos + cbSize < pes_buf_size)
 		{
-			size_t new_pes_buf_size = pes_buf_pos + cbSize;
+			size_t new_pes_buf_size = (size_t)pes_buf_pos + cbSize;
 			unsigned char* new_pes_buffer = new(std::nothrow) unsigned char[new_pes_buf_size];
 			if (new_pes_buffer == NULL)
 			{

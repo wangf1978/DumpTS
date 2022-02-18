@@ -206,7 +206,7 @@ namespace BST
 			
 			for (; i < cbAvailLeb128ExtractBytes; i++)
 			{
-				value |= ((p[i] & 0x7f) << (i * 7));
+				value |= (((uint64_t)p[i] & 0x7f) << ((uint64_t)i * 7));
 				Leb128Bytes++;
 				if (!(p[i] & 0x80))
 					break;
@@ -1526,8 +1526,8 @@ namespace BST
 
 						BST_FIELD_PROP_2NUMBER1(frame_width_bits_minus_1, 4, "the number of bits minus 1 used for transmitting the frame width syntax elements");
 						BST_FIELD_PROP_2NUMBER1(frame_height_bits_minus_1, 4, "the number of bits minus 1 used for transmitting the frame height syntax elements");
-						BST_FIELD_PROP_2NUMBER1(max_frame_width_minus_1, frame_width_bits_minus_1 + 1, "the maximum frame width minus 1 for the frames represented by this sequence header");
-						BST_FIELD_PROP_2NUMBER1(max_frame_height_minus_1, frame_height_bits_minus_1 + 1, "the maximum frame height minus 1 for the frames represented by this sequence header");
+						BST_FIELD_PROP_2NUMBER1(max_frame_width_minus_1, (long long)frame_width_bits_minus_1 + 1, "the maximum frame width minus 1 for the frames represented by this sequence header");
+						BST_FIELD_PROP_2NUMBER1(max_frame_height_minus_1, (long long)frame_height_bits_minus_1 + 1, "the maximum frame height minus 1 for the frames represented by this sequence header");
 
 						if (reduced_still_picture_header)
 						{
@@ -2283,7 +2283,7 @@ namespace BST
 					{
 						MAP_BST_BEGIN(0);
 						av1_read_leb128_1(in_bst, metadata_type, metadata_type_leb128_bytes);
-						ptr_OBU->ctx_video_bst->num_payload_bits -= AMBst_Tell(in_bst) - bit_pos;
+						ptr_OBU->ctx_video_bst->num_payload_bits -= (int64_t)AMBst_Tell(in_bst) - bit_pos;
 						if (metadata_type == METADATA_TYPE_ITUT_T35)
 						{
 							av1_read_ref(in_bst, ptr_metadata_itut_t35, METADATA_ITUT_T35, ptr_OBU->ctx_video_bst);
@@ -2325,7 +2325,7 @@ namespace BST
 				}
 
 				DECLARE_FIELDPROP_BEGIN()
-				BST_FIELD_PROP_2NUMBER1(metadata_type, metadata_type_leb128_bytes<<3, METADATA_TYPE_NAME(metadata_type));
+				BST_FIELD_PROP_2NUMBER1(metadata_type, (long long)metadata_type_leb128_bytes<<3, METADATA_TYPE_NAME(metadata_type));
 				if (metadata_type == METADATA_TYPE_ITUT_T35)
 				{
 					BST_FIELD_PROP_REF2_1(ptr_metadata_itut_t35, "metadata_itut_t35", "");
@@ -2426,7 +2426,7 @@ namespace BST
 							bsrb1(in_bst, anchor_tile_col, 8);
 
 							bsrb1(in_bst, tile_data_size_minus_1, 16);
-							coded_tile_data.resize(tile_data_size_minus_1 + 1);
+							coded_tile_data.resize((size_t)tile_data_size_minus_1 + 1);
 
 							for (size_t i = 0; i < coded_tile_data.size(); i++) {
 								bsrb1(in_bst, coded_tile_data[i], 8);
@@ -2479,7 +2479,7 @@ namespace BST
 						bsrb1(in_bst, output_frame_width_in_tiles_minus_1, 8);
 						bsrb1(in_bst, output_frame_height_in_tiles_minus_1, 8);
 						bsrb1(in_bst, tile_count_minus_1, 16);
-						tile_list_entries.resize(tile_count_minus_1 + 1);
+						tile_list_entries.resize((size_t)tile_count_minus_1 + 1);
 						for (size_t i = 0; i < tile_list_entries.size(); i++)
 						{
 							av1_read_obj(in_bst, tile_list_entries[i]);
@@ -3057,7 +3057,7 @@ namespace BST
 
 									uint16_t tileWidthSb = (sbCols + (1 << TileColsLog2) - 1) >> TileColsLog2;
 									uint16_t i = 0;
-									MiColStarts.resize(sbCols + 1);
+									MiColStarts.resize((size_t)sbCols + 1);
 									for (uint16_t startSb = 0; startSb < sbCols; startSb += tileWidthSb) {
 										MiColStarts[i] = startSb << sbShift;
 										i++;
@@ -3081,7 +3081,7 @@ namespace BST
 
 									uint16_t tileHeightSb = (sbRows + (1 << TileRowsLog2) - 1) >> TileRowsLog2;
 									i = 0;
-									MiRowStarts.resize(sbRows + 1);
+									MiRowStarts.resize((size_t)sbRows + 1);
 									for (uint16_t startSb = 0; startSb < sbRows; startSb += tileHeightSb) {
 										MiRowStarts[i] = startSb << sbShift;
 										i++;
@@ -3301,7 +3301,7 @@ namespace BST
 
 							if (TileColsLog2 > 0 || TileRowsLog2 > 0)
 							{
-								BST_FIELD_PROP_2NUMBER1(context_update_tile_id, TileRowsLog2 + TileColsLog2, "specifies which tile to use for the CDF update");
+								BST_FIELD_PROP_2NUMBER1(context_update_tile_id, (long long)TileRowsLog2 + TileColsLog2, "specifies which tile to use for the CDF update");
 								BST_FIELD_PROP_2NUMBER1(tile_size_bytes_minus_1, 2, "plus 1 specifies the number of bytes needed to code each tile size");
 							}
 							else
@@ -3707,7 +3707,7 @@ namespace BST
 
 											if (Segmentation_Feature_Signed[j] == 1)
 											{
-												BST_FIELD_PROP_2NUMBER("feature_value", 1 + bitsToRead, feature_value[i][j], "the feature data for a segment feature");
+												BST_FIELD_PROP_2NUMBER("feature_value", 1LL + bitsToRead, feature_value[i][j], "the feature data for a segment feature");
 												clippedValue = AV1_Clip3(-limit, limit, feature_value[i][j]);
 												NAV_WRITE_TAG_WITH_NUMBER_VALUE1(clippedValue, "Clip3(-limit, limit, feature_value)");
 											}
@@ -5217,6 +5217,9 @@ namespace BST
 						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(ref=LAST_FRAME;ref&lt;=ALTREF_FRAME;ref++)", "");
 						for (int ref = LAST_FRAME; ref <= ALTREF_FRAME; ref++)
 						{
+							if (ptr_ref_gm_params[ref] == nullptr)
+								continue;
+
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag00", "[ref#%d]", "", ref);
 							if (!FrameIsIntra)
 							{
@@ -5930,7 +5933,7 @@ namespace BST
 								bsrb1(in_bst, buffer_removal_time_present_flag, 1);
 								if (buffer_removal_time_present_flag)
 								{
-									buffer_removal_time.resize(ptr_sequence_header_obu->operating_points_cnt_minus_1 + 1);
+									buffer_removal_time.resize((size_t)ptr_sequence_header_obu->operating_points_cnt_minus_1 + 1);
 									for (int opNum = 0; opNum <= ptr_sequence_header_obu->operating_points_cnt_minus_1; opNum++)
 									{
 										if (ptr_sequence_header_obu->operating_points[opNum].decoder_model_present_for_this_op)
@@ -6425,13 +6428,19 @@ namespace BST
 					uint8_t idLen = 0;
 					BOOL FrameIsIntra = FALSE;
 					auto ctx_video_bst = ptr_frame_header_OBU->ptr_OBU->ctx_video_bst;
-					if (ptr_sequence_header_obu && ptr_sequence_header_obu->frame_id_numbers_present_flag)
+					uint32_t allFrames = (1 << NUM_REF_FRAMES) - 1;
+
+					if (ptr_sequence_header_obu == nullptr)
+					{
+						goto done;
+					}
+
+					if (ptr_sequence_header_obu->frame_id_numbers_present_flag)
 					{
 						idLen = ptr_sequence_header_obu->additional_frame_id_length_minus_1 + ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 3;
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE("idLen", idLen, "idLen = (additional_frame_id_length_minus_1 + delta_frame_id_length_minus_2 + 3)");
 					}
 
-					uint32_t allFrames = (1 << NUM_REF_FRAMES) - 1;
 					NAV_WRITE_TAG_WITH_NUMBER_VALUE("allFrames", allFrames, "allFrames = (1&lt;&lt;NUM_REF_FRAMES)-1");
 					if (ptr_sequence_header_obu->reduced_still_picture_header)
 					{
@@ -6462,7 +6471,7 @@ namespace BST
 							}
 
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE_DESC_F("frame_type", frame_type, "%s, frame_type = RefFrameType[frame_to_show_map_idx]", AV1_FRAME_TYPE_NAMEA(frame_type));
-							
+
 							if (frame_type == KEY_FRAME) {
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, "refresh_frame_flags = allFrames");
 							}
@@ -6509,392 +6518,392 @@ namespace BST
 						{
 							BST_FIELD_PROP_BOOL(error_resilient_mode, "indicates that error resilient mode is enabled", "indicates that error resilient mode is disabled");
 						}
+					}
 
-						if (frame_type == SWITCH_FRAME && show_frame)
+					if (frame_type == SWITCH_FRAME && show_frame)
+					{
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0; i&lt;NUM_REF_FRAMES; i++)", "");
+						for (int i = 0; i < NUM_REF_FRAMES; i++)
 						{
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0; i&lt;NUM_REF_FRAMES; i++)", "");
-							for (int i = 0; i < NUM_REF_FRAMES; i++)
-							{
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("RefValid", "RefValid[%d]", 0, "", i);
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("RefOrderHint", "RefOrderHint[%d]", 0, "", i);
-							}
-							NAV_WRITE_TAG_END("Tag0");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("RefValid", "RefValid[%d]", 0, "", i);
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("RefOrderHint", "RefOrderHint[%d]", 0, "", i);
+						}
+						NAV_WRITE_TAG_END("Tag0");
 
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "for(i=0; i&lt;REFS_PER_FRAME; i++ )", "");
-							for (int i = 0; i < REFS_PER_FRAME; i++)
-							{
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("OrderHints", "OrderHints[%d]", 0, "", i);
-							}
-							NAV_WRITE_TAG_END("Tag1");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "for(i=0; i&lt;REFS_PER_FRAME; i++ )", "");
+						for (int i = 0; i < REFS_PER_FRAME; i++)
+						{
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("OrderHints", "OrderHints[%d]", 0, "", i);
+						}
+						NAV_WRITE_TAG_END("Tag1");
+					}
+
+					BST_FIELD_PROP_NUMBER1(disable_cdf_update, 1, "specifies whether the CDF update in the symbol decoding process should be disabled");
+
+					if (ptr_sequence_header_obu->seq_force_screen_content_tools != SELECT_SCREEN_CONTENT_TOOLS ||
+						map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields))
+					{
+						if (ptr_sequence_header_obu->seq_force_screen_content_tools != SELECT_SCREEN_CONTENT_TOOLS)
+						{
+							NAV_WRITE_TAG_WITH_1NUMBER_VALUE_BEGIN("allow_screen_content_tools", "", allow_screen_content_tools, "");
+						}
+						else
+						{
+
+							MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%d", (int)allow_screen_content_tools);
+							NAV_FIELD_PROP_BEGIN("allow_screen_content_tools", 1, szTemp3,
+								allow_screen_content_tools ? "indicates that intra blocks may use palette encoding" : "indicates that palette encoding is never used",
+								bit_offset ? *bit_offset : -1LL, "I");
+							if (bit_offset)*bit_offset += 1;
+							field_prop_idx++;
 						}
 
-						BST_FIELD_PROP_NUMBER1(disable_cdf_update, 1, "specifies whether the CDF update in the symbol decoding process should be disabled");
 
-						if (ptr_sequence_header_obu->seq_force_screen_content_tools != SELECT_SCREEN_CONTENT_TOOLS ||
-							map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields))
+						//if (ptr_sequence_header_obu->seq_force_screen_content_tools == SELECT_SCREEN_CONTENT_TOOLS)
+						//{
+						//	BST_FIELD_PROP_BOOL(allow_screen_content_tools, "indicates that intra blocks may use palette encoding", "indicates that palette encoding is never used");
+						//}
+						//else
+						//{
+						//	NAV_WRITE_TAG_WITH_NUMBER_VALUE1(allow_screen_content_tools, "allow_screen_content_tools = seq_force_screen_content_tools");
+						//}
+
+						if (allow_screen_content_tools)
 						{
-							if (ptr_sequence_header_obu->seq_force_screen_content_tools != SELECT_SCREEN_CONTENT_TOOLS)
-							{
-								NAV_WRITE_TAG_WITH_1NUMBER_VALUE_BEGIN("allow_screen_content_tools", "", allow_screen_content_tools, "");
+							if (ptr_sequence_header_obu->seq_force_integer_mv == SELECT_INTEGER_MV) {
+								BST_FIELD_PROP_BOOL(force_integer_mv, "specifies that motion vectors will always be integers", "specifies that motion vectors can contain fractional bits");
 							}
 							else
 							{
-
-								MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%d", (int)allow_screen_content_tools);
-								NAV_FIELD_PROP_BEGIN("allow_screen_content_tools", 1, szTemp3,
-									allow_screen_content_tools ? "indicates that intra blocks may use palette encoding" : "indicates that palette encoding is never used",
-									bit_offset ? *bit_offset : -1LL, "I");
-								if (bit_offset)*bit_offset += 1;
-								field_prop_idx++;
+								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(force_integer_mv, "force_integer_mv = seq_force_integer_mv");
 							}
+						}
+						else
+						{
+							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(force_integer_mv, "");
+						}
 
+						NAV_WRITE_TAG_END("allow_screen_content_tools");
+					}
 
-							//if (ptr_sequence_header_obu->seq_force_screen_content_tools == SELECT_SCREEN_CONTENT_TOOLS)
-							//{
-							//	BST_FIELD_PROP_BOOL(allow_screen_content_tools, "indicates that intra blocks may use palette encoding", "indicates that palette encoding is never used");
-							//}
-							//else
-							//{
-							//	NAV_WRITE_TAG_WITH_NUMBER_VALUE1(allow_screen_content_tools, "allow_screen_content_tools = seq_force_screen_content_tools");
-							//}
+					if (FrameIsIntra)
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(force_integer_mv, "Should be 1 since the current frame is intra");
+					}
 
-							if (allow_screen_content_tools)
+					if (ptr_sequence_header_obu->frame_id_numbers_present_flag)
+					{
+						BST_FIELD_PROP_2NUMBER1(current_frame_id, idLen, "specifies the frame id number for the current frame");
+
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("mark_ref_frames", "mark_ref_frames()", "");
+							uint8_t diffLen = ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
+							NAV_WRITE_TAG_WITH_NUMBER_VALUE("diffLen", diffLen, "diffLen=delta_frame_id_length_minus_2+2");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("mark_ref_frames_tag0", "for(i=0;i&lt;NUM_REF_FRAMES;i++ )", "");
+							for (i = 0; i < NUM_REF_FRAMES; i++)
 							{
-								if (ptr_sequence_header_obu->seq_force_integer_mv == SELECT_INTEGER_MV) {
-									BST_FIELD_PROP_BOOL(force_integer_mv, "specifies that motion vectors will always be integers", "specifies that motion vectors can contain fractional bits");
+								if (current_frame_id > (1UL << diffLen))
+								{
+									if (RefFrameId[i] > current_frame_id ||
+										RefFrameId[i] < (current_frame_id + (1 << diffLen)))
+									{
+										NAV_WRITE_TAG_WITH_ALIAS_F("mark_ref_frames_tag1", "RefValid[%d] = 0", "", i);
+									}
 								}
 								else
 								{
-									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(force_integer_mv, "force_integer_mv = seq_force_integer_mv");
-								}
-							}
-							else
-							{
-								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(force_integer_mv, "");
-							}
-
-							NAV_WRITE_TAG_END("allow_screen_content_tools");
-						}
-
-						if (FrameIsIntra)
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(force_integer_mv, "Should be 1 since the current frame is intra");
-						}
-
-						if (ptr_sequence_header_obu->frame_id_numbers_present_flag)
-						{
-							BST_FIELD_PROP_2NUMBER1(current_frame_id, idLen, "specifies the frame id number for the current frame");
-
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("mark_ref_frames", "mark_ref_frames()", "");
-								uint8_t diffLen = ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
-								NAV_WRITE_TAG_WITH_NUMBER_VALUE("diffLen", diffLen, "diffLen=delta_frame_id_length_minus_2+2");
-								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("mark_ref_frames_tag0", "for(i=0;i&lt;NUM_REF_FRAMES;i++ )", "");
-								for (i = 0; i < NUM_REF_FRAMES; i++)
-								{
-									if (current_frame_id > (1UL << diffLen))
+									if (RefFrameId[i] > current_frame_id &&
+										RefFrameId[i] < ((1 << idLen) + current_frame_id - (1 << diffLen)))
 									{
-										if (RefFrameId[i] > current_frame_id ||
-											RefFrameId[i] < (current_frame_id + (1 << diffLen)))
-										{
-											NAV_WRITE_TAG_WITH_ALIAS_F("mark_ref_frames_tag1", "RefValid[%d] = 0", "", i);
-										}
-									}
-									else
-									{
-										if (RefFrameId[i] > current_frame_id &&
-											RefFrameId[i] < ((1 << idLen) + current_frame_id - (1 << diffLen)))
-										{
-											NAV_WRITE_TAG_WITH_ALIAS_F("mark_ref_frames_tag1", "RefValid[%d] = 0", "", i);
-										}
+										NAV_WRITE_TAG_WITH_ALIAS_F("mark_ref_frames_tag1", "RefValid[%d] = 0", "", i);
 									}
 								}
-								NAV_WRITE_TAG_END("mark_ref_frames_tag0");
+							}
+							NAV_WRITE_TAG_END("mark_ref_frames_tag0");
 
-							NAV_WRITE_TAG_END("mark_ref_frames");
-						}
-						else
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(current_frame_id, "Should be 0");
-						}
+						NAV_WRITE_TAG_END("mark_ref_frames");
+					}
+					else
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(current_frame_id, "Should be 0");
+					}
 
-						if (frame_type == SWITCH_FRAME)
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(frame_size_override_flag, "Should be 1");
-						}
-						else if (ptr_sequence_header_obu->reduced_still_picture_header)
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(frame_size_override_flag, "Should be 0");
-						}
-						else
-						{
-							BST_FIELD_PROP_BOOL(frame_size_override_flag, 
-								"specifies that the frame size will either be specified as the size of one of the reference frames, or computed from the frame_width_minus_1 and frame_height_minus_1 syntax elements", 
-								"specifies that the frame size is equal to the size in the sequence header");
-						}
+					if (frame_type == SWITCH_FRAME)
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(frame_size_override_flag, "Should be 1");
+					}
+					else if (ptr_sequence_header_obu->reduced_still_picture_header)
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(frame_size_override_flag, "Should be 0");
+					}
+					else
+					{
+						BST_FIELD_PROP_BOOL(frame_size_override_flag, 
+							"specifies that the frame size will either be specified as the size of one of the reference frames, or computed from the frame_width_minus_1 and frame_height_minus_1 syntax elements", 
+							"specifies that the frame size is equal to the size in the sequence header");
+					}
 
-						BST_FIELD_PROP_2NUMBER1(order_hint, ptr_sequence_header_obu->OrderHintBits, "is used to compute OrderHint");
-						NAV_WRITE_TAG_WITH_NUMBER_VALUE("OrderHint", order_hint, "specifies OrderHintBits least significant bits of the expected output order for this frame");
+					BST_FIELD_PROP_2NUMBER1(order_hint, ptr_sequence_header_obu->OrderHintBits, "is used to compute OrderHint");
+					NAV_WRITE_TAG_WITH_NUMBER_VALUE("OrderHint", order_hint, "specifies OrderHintBits least significant bits of the expected output order for this frame");
 
-						if (FrameIsIntra || error_resilient_mode)
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(primary_ref_frame, "primary_ref_frame = PRIMARY_REF_NONE");
-						}
-						else
-						{
-							BST_FIELD_PROP_2NUMBER1(primary_ref_frame, 3, "specifies which reference frame contains the CDF values and other state that should be loaded at the start of the frame");
-						}
+					if (FrameIsIntra || error_resilient_mode)
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(primary_ref_frame, "primary_ref_frame = PRIMARY_REF_NONE");
+					}
+					else
+					{
+						BST_FIELD_PROP_2NUMBER1(primary_ref_frame, 3, "specifies which reference frame contains the CDF values and other state that should be loaded at the start of the frame");
+					}
 
-						if (ptr_sequence_header_obu->decoder_model_info_present_flag)
+					if (ptr_sequence_header_obu->decoder_model_info_present_flag)
+					{
+						BST_FIELD_PROP_BOOL_BEGIN(buffer_removal_time_present_flag, "specifies that buffer_removal_time is present", "specifies that buffer_removal_time is not present");
+						if (buffer_removal_time_present_flag)
 						{
-							BST_FIELD_PROP_BOOL_BEGIN(buffer_removal_time_present_flag, "specifies that buffer_removal_time is present", "specifies that buffer_removal_time is not present");
-							if (buffer_removal_time_present_flag)
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag2", "for(opNum=0;opNum&lt;=operating_points_cnt_minus_1;opNum++ )", "buffer_removal_time information");
+							for (int opNum = 0; opNum <= ptr_sequence_header_obu->operating_points_cnt_minus_1; opNum++)
 							{
-								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag2", "for(opNum=0;opNum&lt;=operating_points_cnt_minus_1;opNum++ )", "buffer_removal_time information");
-								for (int opNum = 0; opNum <= ptr_sequence_header_obu->operating_points_cnt_minus_1; opNum++)
+								if (ptr_sequence_header_obu->operating_points[opNum].decoder_model_present_for_this_op)
 								{
-									if (ptr_sequence_header_obu->operating_points[opNum].decoder_model_present_for_this_op)
-									{
-										uint32_t opPtIdc = ptr_sequence_header_obu->operating_points[opNum].operating_point_idc;
-										uint8_t temporal_id = ptr_frame_header_OBU->ptr_OBU->obu_header.obu_extension_header.temporal_id;
-										uint8_t spatial_id = ptr_frame_header_OBU->ptr_OBU->obu_header.obu_extension_header.spatial_id;
-										uint32_t inTemporalLayer = (opPtIdc >> temporal_id) & 1;
-										uint32_t inSpatialLayer = (opPtIdc >> (spatial_id + 8)) & 1;
-										NAV_WRITE_TAG_WITH_NUMBER_VALUE("opPtIdc", opPtIdc, "opPtIdc = operating_point_idc[opNum]");
-										NAV_WRITE_TAG_WITH_NUMBER_VALUE("inTemporalLayer", inTemporalLayer, "inTemporalLayer = (opPtIdc&gt;&gt;temporal_id) &amp; 1");
-										NAV_WRITE_TAG_WITH_NUMBER_VALUE("inSpatialLayer", inSpatialLayer, "inSpatialLayer = (opPtIdc &gt;&gt; (spatial_id + 8)) &amp; 1");
-										if (opPtIdc == 0 || (inTemporalLayer && inSpatialLayer)) {
-											uint8_t n = (uint8_t)(ptr_sequence_header_obu->ptr_decoder_model_info->buffer_removal_time_length_minus_1 + 1);
-											NAV_WRITE_TAG_WITH_NUMBER_VALUE("n", n, "n = buffer_removal_time_length_minus_1 + 1");
-											BST_ARRAY_FIELD_PROP_NUMBER("buffer_removal_time", opNum, n, buffer_removal_time[opNum], "specifies the frame removal time in units of DecCT clock ticks counted from the removal time of the last random access point for operating point opNum. buffer_removal_time is signaled as a fixed length unsigned integer with a length in bits given by buffer_removal_time_length_minus_1 + 1")
-										}
+									uint32_t opPtIdc = ptr_sequence_header_obu->operating_points[opNum].operating_point_idc;
+									uint8_t temporal_id = ptr_frame_header_OBU->ptr_OBU->obu_header.obu_extension_header.temporal_id;
+									uint8_t spatial_id = ptr_frame_header_OBU->ptr_OBU->obu_header.obu_extension_header.spatial_id;
+									uint32_t inTemporalLayer = (opPtIdc >> temporal_id) & 1;
+									uint32_t inSpatialLayer = (opPtIdc >> (spatial_id + 8)) & 1;
+									NAV_WRITE_TAG_WITH_NUMBER_VALUE("opPtIdc", opPtIdc, "opPtIdc = operating_point_idc[opNum]");
+									NAV_WRITE_TAG_WITH_NUMBER_VALUE("inTemporalLayer", inTemporalLayer, "inTemporalLayer = (opPtIdc&gt;&gt;temporal_id) &amp; 1");
+									NAV_WRITE_TAG_WITH_NUMBER_VALUE("inSpatialLayer", inSpatialLayer, "inSpatialLayer = (opPtIdc &gt;&gt; (spatial_id + 8)) &amp; 1");
+									if (opPtIdc == 0 || (inTemporalLayer && inSpatialLayer)) {
+										uint8_t n = (uint8_t)(ptr_sequence_header_obu->ptr_decoder_model_info->buffer_removal_time_length_minus_1 + 1);
+										NAV_WRITE_TAG_WITH_NUMBER_VALUE("n", n, "n = buffer_removal_time_length_minus_1 + 1");
+										BST_ARRAY_FIELD_PROP_NUMBER("buffer_removal_time", opNum, n, buffer_removal_time[opNum], "specifies the frame removal time in units of DecCT clock ticks counted from the removal time of the last random access point for operating point opNum. buffer_removal_time is signaled as a fixed length unsigned integer with a length in bits given by buffer_removal_time_length_minus_1 + 1")
 									}
 								}
-								NAV_WRITE_TAG_END("Tag2");
 							}
-							BST_FIELD_PROP_BOOL_END("buffer_removal_time_present_flag");
+							NAV_WRITE_TAG_END("Tag2");
 						}
+						BST_FIELD_PROP_BOOL_END("buffer_removal_time_present_flag");
+					}
 
-						NAV_WRITE_TAG_WITH_ALIAS("allow_high_precision_mv", "allow_high_precision_mv = 0", "initialize its value to 0, specifies that motion vectors are specified to quarter pel precision");
-						NAV_WRITE_TAG_WITH_ALIAS("use_ref_frame_mvs", "use_ref_frame_mvs = 0", "initialize its value to 0, specifies that this information will not be used");
-						NAV_WRITE_TAG_WITH_ALIAS("allow_intrabc", "allow_intrabc = 0", "initialize its value to 0, indicates that intra block copy is not allowed in this frame");
+					NAV_WRITE_TAG_WITH_ALIAS("allow_high_precision_mv", "allow_high_precision_mv = 0", "initialize its value to 0, specifies that motion vectors are specified to quarter pel precision");
+					NAV_WRITE_TAG_WITH_ALIAS("use_ref_frame_mvs", "use_ref_frame_mvs = 0", "initialize its value to 0, specifies that this information will not be used");
+					NAV_WRITE_TAG_WITH_ALIAS("allow_intrabc", "allow_intrabc = 0", "initialize its value to 0, indicates that intra block copy is not allowed in this frame");
 
-						if (frame_type == SWITCH_FRAME || (frame_type == KEY_FRAME && show_frame))
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, "contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
-						}
-						else
-						{
-							BST_FIELD_PROP_2NUMBER1(refresh_frame_flags, 8, "contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
-						}
+					if (frame_type == SWITCH_FRAME || (frame_type == KEY_FRAME && show_frame))
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, "contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
+					}
+					else
+					{
+						BST_FIELD_PROP_2NUMBER1(refresh_frame_flags, 8, "contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
+					}
 
-						if (!FrameIsIntra || refresh_frame_flags != allFrames)
+					if (!FrameIsIntra || refresh_frame_flags != allFrames)
+					{
+						if (error_resilient_mode && ptr_sequence_header_obu->enable_order_hint)
 						{
-							if (error_resilient_mode && ptr_sequence_header_obu->enable_order_hint)
+							for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
 							{
-								for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
-								{
-									BST_ARRAY_FIELD_PROP_NUMBER1(ref_order_hint, i, ptr_sequence_header_obu->OrderHintBits, "specifies the expected output order hint for each reference frame");
-									//if (ref_order_hint[i] != RefOrderHint[i]) {
-									//	RefValid[i] = 0;
-									//}
-								}
+								BST_ARRAY_FIELD_PROP_NUMBER1(ref_order_hint, i, ptr_sequence_header_obu->OrderHintBits, "specifies the expected output order hint for each reference frame");
+								//if (ref_order_hint[i] != RefOrderHint[i]) {
+								//	RefValid[i] = 0;
+								//}
 							}
 						}
+					}
 
-						if (frame_type == KEY_FRAME)
+					if (frame_type == KEY_FRAME)
+					{
+						BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
+						BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
+						if (allow_screen_content_tools && ptr_frame_size->ptr_superres_params->UpscaledWidth == ptr_frame_size->FrameWidth) {
+							BST_FIELD_PROP_BOOL(allow_intrabc, 
+								"indicates that intra block copy may be used in this frame", 
+								"indicates that intra block copy is not allowed in this frame");
+						}
+					}
+					else
+					{
+						if (frame_type == INTRA_ONLY_FRAME)
 						{
 							BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
 							BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
 							if (allow_screen_content_tools && ptr_frame_size->ptr_superres_params->UpscaledWidth == ptr_frame_size->FrameWidth) {
-								BST_FIELD_PROP_BOOL(allow_intrabc, 
-									"indicates that intra block copy may be used in this frame", 
+								BST_FIELD_PROP_BOOL(allow_intrabc,
+									"indicates that intra block copy may be used in this frame",
 									"indicates that intra block copy is not allowed in this frame");
 							}
 						}
 						else
 						{
-							if (frame_type == INTRA_ONLY_FRAME)
+							if (!ptr_sequence_header_obu->enable_order_hint) 
 							{
-								BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
-								BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
-								if (allow_screen_content_tools && ptr_frame_size->ptr_superres_params->UpscaledWidth == ptr_frame_size->FrameWidth) {
-									BST_FIELD_PROP_BOOL(allow_intrabc,
-										"indicates that intra block copy may be used in this frame",
-										"indicates that intra block copy is not allowed in this frame");
-								}
+								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(frame_refs_short_signaling, "Should be 0, indicates that all reference frames are explicitly signaled");
 							}
 							else
 							{
-								if (!ptr_sequence_header_obu->enable_order_hint) 
-								{
-									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(frame_refs_short_signaling, "Should be 0, indicates that all reference frames are explicitly signaled");
-								}
-								else
-								{
-									BST_FIELD_PROP_BOOL_BEGIN(frame_refs_short_signaling, 
-										"indicates that only two reference frames are explicitly signaled", 
-										"indicates that all reference frames are explicitly signaled");
-										BST_FIELD_PROP_2NUMBER1(last_frame_idx, 3, "specifies the reference frame to use for LAST_FRAME");
-										BST_FIELD_PROP_2NUMBER1(gold_frame_idx, 3, "specifies the reference frame to use for GOLDEN_FRAME");
-										// set_frame_refs()
-									BST_FIELD_PROP_BOOL_END("frame_refs_short_signaling");
-								}
-
-								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "ref_frame_idx and expectedFrameId");
-								for (int i = 0; i < REFS_PER_FRAME; i++)
-								{
-									if (!frame_refs_short_signaling)
-									{
-										BST_ARRAY_FIELD_PROP_NUMBER("ref_frame_idx", i, 3, ref_frame_idx[i], 
-											"specifies which reference frames are used by inter frames."
-											"It is a requirement of bitstream conformance"
-											"that RefValid[ref_frame_idx[i]] is equal to 1, and that the selected reference frames match the current frame in bit depth,"
-											"profile, chroma subsampling, and color space");
-									}
-
-									if (ptr_sequence_header_obu->frame_id_numbers_present_flag) {
-										uint8_t n = ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
-										BST_ARRAY_FIELD_PROP_NUMBER1(delta_frame_id_minus_1, i, n, "plus 1 specifies the distance to the frame id for the reference frame");
-										NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("expectedFrameId", "expectedFrameId[%d]", "%" PRIu32 "(0X%" PRIX32 ")", expectedFrameId[i],
-											"specifies the frame id for each frame used for reference. It is a requirement of bitstream"
-											"conformance that whenever expectedFrameId[i] is calculated, the value matches RefFrameId[ref_frame_idx[i]]"
-											"(this contains the value of current_frame_id at the time that the frame indexed by ref_frame_idx was stored)", i);
-									}
-								}
-								NAV_WRITE_TAG_END("Tag3");
-
-								if (frame_size_override_flag && !error_resilient_mode)
-								{
-									BST_FIELD_PROP_REF2_1(ptr_frame_size_with_refs, "frame_size_with_refs", "For inter frames, the frame size is either set equal to the size of a reference frame, or can be sent explicitly");
-								}
-								else
-								{
-									BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
-									BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
-								}
-
-								if (force_integer_mv)
-								{
-									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(allow_high_precision_mv, allow_high_precision_mv
-										? "specifies that motion vectors are specified to eighth pel precision"
-										: "specifies that motion vectors are specified to quarter pel precision");
-								}
-								else
-								{
-									BST_FIELD_PROP_BOOL(allow_high_precision_mv, "specifies that motion vectors are specified to eighth pel precision", "specifies that motion vectors are specified to quarter pel precision");
-								}
-
-								BST_FIELD_PROP_REF2_1(ptr_read_interpolation_filter, "read_interpolation_filter", "");
-								BST_FIELD_PROP_BOOL(is_motion_mode_switchable, "", "specifies that only the SIMPLE motion mode will be used");
-								if (error_resilient_mode || !ptr_sequence_header_obu->enable_ref_frame_mvs)
-								{
-									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(use_ref_frame_mvs, "Should be 0");
-								}
-								else
-								{
-									BST_FIELD_PROP_BOOL(use_ref_frame_mvs, 
-										"specifies that motion vector information from a previous frame can be used when decoding the current frame", 
-										"specifies that motion vector information from a previous frame will not be used");
-								}
+								BST_FIELD_PROP_BOOL_BEGIN(frame_refs_short_signaling, 
+									"indicates that only two reference frames are explicitly signaled", 
+									"indicates that all reference frames are explicitly signaled");
+									BST_FIELD_PROP_2NUMBER1(last_frame_idx, 3, "specifies the reference frame to use for LAST_FRAME");
+									BST_FIELD_PROP_2NUMBER1(gold_frame_idx, 3, "specifies the reference frame to use for GOLDEN_FRAME");
+									// set_frame_refs()
+								BST_FIELD_PROP_BOOL_END("frame_refs_short_signaling");
 							}
-						}
 
-						if (!FrameIsIntra)
-						{
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag4", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "RefFrameSignBiases, specifies the intended direction of the motion vector in time for each reference frame");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "ref_frame_idx and expectedFrameId");
 							for (int i = 0; i < REFS_PER_FRAME; i++)
 							{
-								uint8_t refFrame = LAST_FRAME + i;
-								if (!ctx_video_bst->SingleOBUParse && ptr_frame != nullptr) {
-									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("OrderHint", "OrderHint[%s]", ptr_frame->ref_order_hints[i], "", AV1_REF_FRAME_NAMEA(refFrame));
+								if (!frame_refs_short_signaling)
+								{
+									BST_ARRAY_FIELD_PROP_NUMBER("ref_frame_idx", i, 3, ref_frame_idx[i], 
+										"specifies which reference frames are used by inter frames."
+										"It is a requirement of bitstream conformance"
+										"that RefValid[ref_frame_idx[i]] is equal to 1, and that the selected reference frames match the current frame in bit depth,"
+										"profile, chroma subsampling, and color space");
 								}
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("RefFrameSignBias", "RefFrameSignBias[%s]", (RefFrameSignBias&(1 << i)) ? 1 : 0, "", AV1_REF_FRAME_NAMEA(refFrame));
+
+								if (ptr_sequence_header_obu->frame_id_numbers_present_flag) {
+									uint8_t n = ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
+									BST_ARRAY_FIELD_PROP_NUMBER1(delta_frame_id_minus_1, i, n, "plus 1 specifies the distance to the frame id for the reference frame");
+									NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("expectedFrameId", "expectedFrameId[%d]", "%" PRIu32 "(0X%" PRIX32 ")", expectedFrameId[i],
+										"specifies the frame id for each frame used for reference. It is a requirement of bitstream"
+										"conformance that whenever expectedFrameId[i] is calculated, the value matches RefFrameId[ref_frame_idx[i]]"
+										"(this contains the value of current_frame_id at the time that the frame indexed by ref_frame_idx was stored)", i);
+								}
 							}
-							NAV_WRITE_TAG_END("Tag4");
-						}
+							NAV_WRITE_TAG_END("Tag3");
 
-						if (ptr_sequence_header_obu->reduced_still_picture_header || disable_cdf_update)
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(disable_frame_end_update_cdf, "Should be 1, indicates that the end of frame CDF update is disabled");
-						}
-						else
-						{
-							BST_FIELD_PROP_BOOL(disable_frame_end_update_cdf, 
-								"indicates that the end of frame CDF update is disabled", 
-								"indicates that the end of frame CDF update is enabled");
-						}
-
-						if (primary_ref_frame == PRIMARY_REF_NONE)
-						{
-							// init_non_coeff_cdfs( )
-							// setup_past_independence( )
-						}
-						else
-						{
-							// load_cdfs( ref_frame_idx[ primary_ref_frame ] )
-							// load_previous( )
-						}
-
-						if (use_ref_frame_mvs == 1)
-						{
-							// motion_field_estimation( )
-						}
-
-						BST_FIELD_PROP_REF2_1(ptr_tile_info, "tile_info", "");
-						BST_FIELD_PROP_REF2_1(ptr_quantization_params, "quantization_params", "");
-						BST_FIELD_PROP_REF2_1(ptr_segmentation_params, "segmentation_params", "");
-						BST_FIELD_PROP_REF2_1(ptr_delta_q_params, "delta_q_params", "");
-						BST_FIELD_PROP_REF2_1(ptr_delta_lf_params, "delta_if_params", "");
-
-						if (primary_ref_frame == PRIMARY_REF_NONE)
-						{
-							// init_coeff_cdfs()
-						}
-						else
-						{
-							// load_previous_segment_ids()
-						}
-
-						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag5", "for(segmentId=0;segmentId&lt;MAX_SEGMENTS;segmentId++)", "");
-						for (uint8_t segmentId = 0; segmentId < MAX_SEGMENTS; segmentId++)
-						{
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("LosslessArray", "LosslessArray[seg#%d]", LosslessArray[segmentId], "", segmentId);
-							if (ptr_quantization_params->using_qmatrix)
+							if (frame_size_override_flag && !error_resilient_mode)
 							{
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SeqQMLevel", "SeqQMLevel[0][seg#%d]", SegQMLevel[0][segmentId], "", segmentId);
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SeqQMLevel", "SeqQMLevel[1][seg#%d]", SegQMLevel[1][segmentId], "", segmentId);
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SeqQMLevel", "SeqQMLevel[2][seg#%d]", SegQMLevel[2][segmentId], "", segmentId);
+								BST_FIELD_PROP_REF2_1(ptr_frame_size_with_refs, "frame_size_with_refs", "For inter frames, the frame size is either set equal to the size of a reference frame, or can be sent explicitly");
+							}
+							else
+							{
+								BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
+								BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
+							}
+
+							if (force_integer_mv)
+							{
+								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(allow_high_precision_mv, allow_high_precision_mv
+									? "specifies that motion vectors are specified to eighth pel precision"
+									: "specifies that motion vectors are specified to quarter pel precision");
+							}
+							else
+							{
+								BST_FIELD_PROP_BOOL(allow_high_precision_mv, "specifies that motion vectors are specified to eighth pel precision", "specifies that motion vectors are specified to quarter pel precision");
+							}
+
+							BST_FIELD_PROP_REF2_1(ptr_read_interpolation_filter, "read_interpolation_filter", "");
+							BST_FIELD_PROP_BOOL(is_motion_mode_switchable, "", "specifies that only the SIMPLE motion mode will be used");
+							if (error_resilient_mode || !ptr_sequence_header_obu->enable_ref_frame_mvs)
+							{
+								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(use_ref_frame_mvs, "Should be 0");
+							}
+							else
+							{
+								BST_FIELD_PROP_BOOL(use_ref_frame_mvs, 
+									"specifies that motion vector information from a previous frame can be used when decoding the current frame", 
+									"specifies that motion vector information from a previous frame will not be used");
 							}
 						}
-						NAV_WRITE_TAG_END("Tag5");
-
-						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(CodedLossless, CodedLossless
-							?"all segments use lossless encoding. This indicates that the frame is fully lossless at the coded resolution of FrameWidth by FrameHeight. In this case, the loop filter and CDEF filter are disabled"
-							:"");
-
-						BST_FIELD_PROP_REF2_1(ptr_loop_filter_params, "loop_filter_params", "");
-						BST_FIELD_PROP_REF2_1(ptr_cdef_params, "cdef_params", "");
-						BST_FIELD_PROP_REF2_1(ptr_lr_params, "lr_params", "");
-						BST_FIELD_PROP_REF2_1(ptr_read_tx_mode, "read_tx_mode", "");
-						BST_FIELD_PROP_REF2_1(ptr_frame_reference_mode, "frame_reference_mode", "");
-						BST_FIELD_PROP_REF2_1(ptr_skip_mode_params, "skip_mode_params", "");
-
-						if (FrameIsIntra || error_resilient_mode || !ptr_sequence_header_obu->enable_warped_motion)
-						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(allow_warped_motion, "Should be 0, indicates that the syntax element motion_mode will not be present");
-						}
-						else
-						{
-							BST_FIELD_PROP_BOOL(allow_warped_motion, "indicates that the syntax element motion_mode may be present", "indicates that the syntax element motion_mode will not be present");
-						}
-
-						BST_FIELD_PROP_BOOL(reduced_tx_set, 
-							"specifies that the frame is restricted to a reduced subset of the full set of transform types", 
-							"specifies that the frame is NOT restricted to a reduced subset of the full set of transform types");
-
-						BST_FIELD_PROP_REF2_1(ptr_global_motion_params, "global_motion_params", "");
-						BST_FIELD_PROP_REF2_1(ptr_film_grain_params, "film_grain_params", "");
 					}
+
+					if (!FrameIsIntra)
+					{
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag4", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "RefFrameSignBiases, specifies the intended direction of the motion vector in time for each reference frame");
+						for (int i = 0; i < REFS_PER_FRAME; i++)
+						{
+							uint8_t refFrame = LAST_FRAME + i;
+							if (!ctx_video_bst->SingleOBUParse && ptr_frame != nullptr) {
+								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("OrderHint", "OrderHint[%s]", ptr_frame->ref_order_hints[i], "", AV1_REF_FRAME_NAMEA(refFrame));
+							}
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("RefFrameSignBias", "RefFrameSignBias[%s]", (RefFrameSignBias&(1 << i)) ? 1 : 0, "", AV1_REF_FRAME_NAMEA(refFrame));
+						}
+						NAV_WRITE_TAG_END("Tag4");
+					}
+
+					if (ptr_sequence_header_obu->reduced_still_picture_header || disable_cdf_update)
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(disable_frame_end_update_cdf, "Should be 1, indicates that the end of frame CDF update is disabled");
+					}
+					else
+					{
+						BST_FIELD_PROP_BOOL(disable_frame_end_update_cdf, 
+							"indicates that the end of frame CDF update is disabled", 
+							"indicates that the end of frame CDF update is enabled");
+					}
+
+					if (primary_ref_frame == PRIMARY_REF_NONE)
+					{
+						// init_non_coeff_cdfs( )
+						// setup_past_independence( )
+					}
+					else
+					{
+						// load_cdfs( ref_frame_idx[ primary_ref_frame ] )
+						// load_previous( )
+					}
+
+					if (use_ref_frame_mvs == 1)
+					{
+						// motion_field_estimation( )
+					}
+
+					BST_FIELD_PROP_REF2_1(ptr_tile_info, "tile_info", "");
+					BST_FIELD_PROP_REF2_1(ptr_quantization_params, "quantization_params", "");
+					BST_FIELD_PROP_REF2_1(ptr_segmentation_params, "segmentation_params", "");
+					BST_FIELD_PROP_REF2_1(ptr_delta_q_params, "delta_q_params", "");
+					BST_FIELD_PROP_REF2_1(ptr_delta_lf_params, "delta_if_params", "");
+
+					if (primary_ref_frame == PRIMARY_REF_NONE)
+					{
+						// init_coeff_cdfs()
+					}
+					else
+					{
+						// load_previous_segment_ids()
+					}
+
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag5", "for(segmentId=0;segmentId&lt;MAX_SEGMENTS;segmentId++)", "");
+					for (uint8_t segmentId = 0; segmentId < MAX_SEGMENTS; segmentId++)
+					{
+						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("LosslessArray", "LosslessArray[seg#%d]", LosslessArray[segmentId], "", segmentId);
+						if (ptr_quantization_params->using_qmatrix)
+						{
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SeqQMLevel", "SeqQMLevel[0][seg#%d]", SegQMLevel[0][segmentId], "", segmentId);
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SeqQMLevel", "SeqQMLevel[1][seg#%d]", SegQMLevel[1][segmentId], "", segmentId);
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SeqQMLevel", "SeqQMLevel[2][seg#%d]", SegQMLevel[2][segmentId], "", segmentId);
+						}
+					}
+					NAV_WRITE_TAG_END("Tag5");
+
+					NAV_WRITE_TAG_WITH_NUMBER_VALUE1(CodedLossless, CodedLossless
+						?"all segments use lossless encoding. This indicates that the frame is fully lossless at the coded resolution of FrameWidth by FrameHeight. In this case, the loop filter and CDEF filter are disabled"
+						:"");
+
+					BST_FIELD_PROP_REF2_1(ptr_loop_filter_params, "loop_filter_params", "");
+					BST_FIELD_PROP_REF2_1(ptr_cdef_params, "cdef_params", "");
+					BST_FIELD_PROP_REF2_1(ptr_lr_params, "lr_params", "");
+					BST_FIELD_PROP_REF2_1(ptr_read_tx_mode, "read_tx_mode", "");
+					BST_FIELD_PROP_REF2_1(ptr_frame_reference_mode, "frame_reference_mode", "");
+					BST_FIELD_PROP_REF2_1(ptr_skip_mode_params, "skip_mode_params", "");
+
+					if (FrameIsIntra || error_resilient_mode || !ptr_sequence_header_obu->enable_warped_motion)
+					{
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(allow_warped_motion, "Should be 0, indicates that the syntax element motion_mode will not be present");
+					}
+					else
+					{
+						BST_FIELD_PROP_BOOL(allow_warped_motion, "indicates that the syntax element motion_mode may be present", "indicates that the syntax element motion_mode will not be present");
+					}
+
+					BST_FIELD_PROP_BOOL(reduced_tx_set, 
+						"specifies that the frame is restricted to a reduced subset of the full set of transform types", 
+						"specifies that the frame is NOT restricted to a reduced subset of the full set of transform types");
+
+					BST_FIELD_PROP_REF2_1(ptr_global_motion_params, "global_motion_params", "");
+					BST_FIELD_PROP_REF2_1(ptr_film_grain_params, "film_grain_params", "");
 
 				done:
 					DECLARE_FIELDPROP_END()
@@ -7089,7 +7098,7 @@ namespace BST
 
 						// TODO...
 
-						is_last_tg = ((int64_t)tg_end == (int64_t)(NumTiles - 1)) ? true : false;
+						is_last_tg = ((int64_t)tg_end == ((int64_t)NumTiles - 1)) ? true : false;
 						if (is_last_tg)
 						{
 							ctx_video_bst->SeenFrameHeader = 0;
@@ -7328,7 +7337,7 @@ namespace BST
 
 			if (obu_header.obu_has_size_field)
 			{
-				BST_FIELD_PROP_2NUMBER1(obu_size, obu_size_leb128_bytes<<3, "contains the size in bytes of the OBU not including the bytes within obu_header or the obu_size syntax element");
+				BST_FIELD_PROP_2NUMBER1(obu_size, (long long)obu_size_leb128_bytes<<3, "contains the size in bytes of the OBU not including the bytes within obu_header or the obu_size syntax element");
 			}
 			else
 			{

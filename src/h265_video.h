@@ -328,12 +328,12 @@ namespace BST {
 							}
 
 							DECLARE_FIELDPROP_BEGIN()
-								BST_FIELD_PROP_2NUMBER1(bit_rate_value_minus1, quick_log2(bit_rate_du_value_minus1 + 1) * 2 + 1, "")
-								BST_FIELD_PROP_2NUMBER1(cpb_size_value_minus1, quick_log2(cpb_size_value_minus1 + 1) * 2 + 1, "")
+								BST_FIELD_PROP_2NUMBER1(bit_rate_value_minus1, (long long)quick_log2(bit_rate_du_value_minus1 + 1) * 2 + 1, "")
+								BST_FIELD_PROP_2NUMBER1(cpb_size_value_minus1, (long long)quick_log2(cpb_size_value_minus1 + 1) * 2 + 1, "")
 								if (m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->sub_pic_hrd_params_present_flag)
 								{
-									BST_FIELD_PROP_2NUMBER1(cpb_size_du_value_minus1, quick_log2(cpb_size_du_value_minus1 + 1) * 2 + 1, "")
-									BST_FIELD_PROP_2NUMBER1(bit_rate_du_value_minus1, quick_log2(bit_rate_du_value_minus1 + 1) * 2 + 1, "")
+									BST_FIELD_PROP_2NUMBER1(cpb_size_du_value_minus1, (long long)quick_log2(cpb_size_du_value_minus1 + 1) * 2 + 1, "")
+									BST_FIELD_PROP_2NUMBER1(bit_rate_du_value_minus1, (long long)quick_log2(bit_rate_du_value_minus1 + 1) * 2 + 1, "")
 								}
 								BST_FIELD_PROP_2NUMBER1(cbr_flag, 1, cbr_flag ? "the HSS operates in a constant bit rate (CBR) mode" : "the HSS operates in an intermittent bit rate mode")
 
@@ -354,7 +354,7 @@ namespace BST {
 						SUB_LAYER_HRD_PARAMETERS(SUB_LAYER_INFO* ptr_sub_layer_info) : m_sub_layer_info(ptr_sub_layer_info){
 							if (m_sub_layer_info->cpb_cnt_minus1 >= 0)
 							{
-								sub_layer_hrd_parameters = new SUB_LAYER_HRD_PARAMETER*[m_sub_layer_info->cpb_cnt_minus1 + 1];
+								sub_layer_hrd_parameters = new SUB_LAYER_HRD_PARAMETER*[(size_t)m_sub_layer_info->cpb_cnt_minus1 + 1];
 								for (unsigned long i = 0; i <= m_sub_layer_info->cpb_cnt_minus1; i++)
 									sub_layer_hrd_parameters[i] = NULL;
 							}
@@ -486,13 +486,13 @@ namespace BST {
 							BST_FIELD_PROP_NUMBER1(fixed_pic_rate_within_cvs_flag, 1, "")
 						}
 						if (fixed_pic_rate_within_cvs_flag) {
-							BST_FIELD_PROP_2NUMBER1(elemental_duration_in_tc_minus1, quick_log2(elemental_duration_in_tc_minus1 + 1) * 2 + 1, "")
+							BST_FIELD_PROP_2NUMBER1(elemental_duration_in_tc_minus1, (long long)quick_log2(elemental_duration_in_tc_minus1 + 1) * 2 + 1, "")
 						}
 						else {
 							BST_FIELD_PROP_NUMBER1(low_delay_hrd_flag, 1, "")
 						}
 						if (!low_delay_hrd_flag) {
-							BST_FIELD_PROP_2NUMBER1(cpb_cnt_minus1, quick_log2(cpb_cnt_minus1 + 1) * 2 + 1, "the number of alternative CPB specifications in the bitstream of the CVS when HighestTid is equal to i, value should be in the range 0	to 31")
+							BST_FIELD_PROP_2NUMBER1(cpb_cnt_minus1, (long long)quick_log2(cpb_cnt_minus1 + 1) * 2 + 1, "the number of alternative CPB specifications in the bitstream of the CVS when HighestTid is equal to i, value should be in the range 0	to 31")
 						}
 
 						if (m_ptr_hdr_parameters->nal_hrd_parameters_present_flag) {
@@ -536,7 +536,7 @@ namespace BST {
 					, dpb_output_delay_length_minus1(23)
 					, m_commonInfPresentFlag(commonInfPresentFlag)
 					, m_maxNumSubLayersMinus1(maxNumSubLayersMinus1){
-					sub_layer_infos = new SUB_LAYER_INFO*[maxNumSubLayersMinus1 + 1];
+					sub_layer_infos = new SUB_LAYER_INFO*[(size_t)maxNumSubLayersMinus1 + 1];
 				}
 
 				virtual ~HRD_PARAMETERS() {
@@ -1136,7 +1136,7 @@ namespace BST {
 								BST_2ARRAY_FIELD_PROP_NUMBER("scaling_list_pred_mode_flag", sizeId, matrixId, 1, scaling_list_pred_mode_flags[idx], "");
 								if (!scaling_list_pred_mode_flags[idx])
 								{
-									BST_2ARRAY_FIELD_PROP_NUMBER("scaling_list_pred_matrix_id_delta", sizeId, matrixId, quick_log2(scaling_list_pred_matrix_id_delta[sizeId][matrixId] + 1) * 2 + 1, scaling_list_pred_matrix_id_delta[sizeId][matrixId], "");
+									BST_2ARRAY_FIELD_PROP_NUMBER("scaling_list_pred_matrix_id_delta", sizeId, matrixId, (long long)quick_log2(scaling_list_pred_matrix_id_delta[sizeId][matrixId] + 1) * 2 + 1, scaling_list_pred_matrix_id_delta[sizeId][matrixId], "");
 								}
 								else
 								{
@@ -1148,7 +1148,7 @@ namespace BST {
 									if (sizeId > 1)
 									{
 										int16_t scaling_list_dc_coef_minus8 = scaling_list_dc_coef[sizeId - 2][matrixId] - 8;
-										BST_2ARRAY_FIELD_PROP_NUMBER("scaling_list_dc_coef_minus8", sizeId, matrixId, quick_log2((scaling_list_dc_coef_minus8 >= 0 ? scaling_list_dc_coef_minus8 : (-scaling_list_dc_coef_minus8 + 1)) + 1) * 2 + 1, scaling_list_dc_coef_minus8, "")
+										BST_2ARRAY_FIELD_PROP_NUMBER("scaling_list_dc_coef_minus8", sizeId, matrixId, (long long)quick_log2((scaling_list_dc_coef_minus8 >= 0 ? scaling_list_dc_coef_minus8 : (-scaling_list_dc_coef_minus8 + 1)) + 1) * 2 + 1, scaling_list_dc_coef_minus8, "")
 										NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag20", "nextCoef = scaling_list_dc_coef_minus8[sizeId-2][matrixId] + 8", scaling_list_dc_coef[sizeId - 2][matrixId], "");
 									}
 									NAV_WRITE_TAG_END("Tag2");
@@ -1156,7 +1156,7 @@ namespace BST {
 									NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i = 0; i &lt; coefNum; i++)", "");
 										for (i = 0; i < coefNum; i++) {
 											unsigned long field_bits = scaling_list_delta_coef[sizeId][matrixId][i] >= 0 ? scaling_list_delta_coef[sizeId][matrixId][i] : (-scaling_list_delta_coef[sizeId][matrixId][i]) + 1;
-											BST_3ARRAY_FIELD_PROP_SIGN_NUMBER("scaling_list_delta_coef", sizeId, matrixId, i, quick_log2(field_bits + 1) * 2 + 1, scaling_list_delta_coef[sizeId][matrixId][i], "")
+											BST_3ARRAY_FIELD_PROP_SIGN_NUMBER("scaling_list_delta_coef", sizeId, matrixId, i, (long long)quick_log2(field_bits + 1) * 2 + 1, scaling_list_delta_coef[sizeId][matrixId][i], "")
 											nextCoef = (nextCoef + scaling_list_delta_coef[sizeId][matrixId][i] + 256) % 256;
 											NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag30", "nextCoef[%d][%d][%d] = (nextCoef + scaling_list_delta_coef[%d][%d][%d] + 256)%%256", nextCoef, "", sizeId, matrixId, i, sizeId, matrixId, i);
 											NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag31", "nScalingList[%d][%d][%d] = nextCoef[%d][%d][%d]", nextCoef, "", sizeId, matrixId, i, sizeId, matrixId, i);
@@ -1401,13 +1401,13 @@ namespace BST {
 						if (inter_ref_pic_set_prediction_flag) {
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag10", "if(stRpsIdx==num_short_term_ref_pic_sets)", "");
 							if (stRpsIdx == st_ref_pic_sets->num_short_term_ref_pic_sets) {
-								BST_FIELD_PROP_2NUMBER1(delta_idx_minus1, quick_log2(delta_idx_minus1 + 1) * 2 + 1, "RefRpsIdx=stRpsIdx-(delta_idx_minus1+1)");
+								BST_FIELD_PROP_2NUMBER1(delta_idx_minus1, (long long)quick_log2(delta_idx_minus1 + 1) * 2 + 1, "RefRpsIdx=stRpsIdx-(delta_idx_minus1+1)");
 							}
 							NAV_WRITE_TAG_END("Tag10");
 							uint8_t RefRpsIdx = stRpsIdx - (delta_idx_minus1 + 1);
 							uint8_t RefNumDeltaPocs = st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->NumNegativePics + st_ref_pic_sets->st_ref_pic_set[RefRpsIdx]->NumPositivePics;
 							BST_FIELD_PROP_NUMBER1(delta_rps_sign, 1, "deltaRps=(1-2*delta_rps_sign)*(abs_delta_rps_minus1+1)");
-							BST_FIELD_PROP_2NUMBER1(abs_delta_rps_minus1, quick_log2(abs_delta_rps_minus1 + 1) * 2 + 1, "deltaRps=(1-2*delta_rps_sign)*(abs_delta_rps_minus1+1)");
+							BST_FIELD_PROP_2NUMBER1(abs_delta_rps_minus1, (long long)quick_log2(abs_delta_rps_minus1 + 1) * 2 + 1, "deltaRps=(1-2*delta_rps_sign)*(abs_delta_rps_minus1+1)");
 							MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "NumDeltaPocs[%d]=%d", RefRpsIdx, RefNumDeltaPocs);
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag11", "for(j=0;j&lt;=NumDeltaPocs[RefRpsIdx];j++)", szTemp2);
 							for (int j = 0; j <= RefNumDeltaPocs; j++) {
@@ -1441,13 +1441,13 @@ namespace BST {
 						}
 						else
 						{
-							BST_FIELD_PROP_2NUMBER("num_negative_pics", quick_log2(NumNegativePics + 1) * 2 + 1, NumNegativePics, "");
-							BST_FIELD_PROP_2NUMBER("num_positive_pics", quick_log2(NumPositivePics + 1) * 2 + 1, NumPositivePics, "");
+							BST_FIELD_PROP_2NUMBER("num_negative_pics", (long long)quick_log2(NumNegativePics + 1) * 2 + 1, NumNegativePics, "");
+							BST_FIELD_PROP_2NUMBER("num_positive_pics", (long long)quick_log2(NumPositivePics + 1) * 2 + 1, NumPositivePics, "");
 							if (NumNegativePics > 0)
 							{
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag12", "for(i=0;i&lt;num_negative_pics;i++)", "");
 								for (uint8_t i = 0; i < NumNegativePics; i++) {
-									BST_ARRAY_FIELD_PROP_NUMBER("delta_poc_s0_minus1", i, quick_log2(delta_poc_s0_minus1[i] + 1) * 2 + 1, delta_poc_s0_minus1[i], "");
+									BST_ARRAY_FIELD_PROP_NUMBER("delta_poc_s0_minus1", i, (long long)quick_log2(delta_poc_s0_minus1[i] + 1) * 2 + 1, delta_poc_s0_minus1[i], "");
 									BST_ARRAY_FIELD_PROP_NUMBER("used_by_curr_pic_s0_flag", i, 1, used_by_curr_pic_s0_flags[i], "");
 								}
 								NAV_WRITE_TAG_END("Tag12");
@@ -1457,7 +1457,7 @@ namespace BST {
 							{
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag13", "for(i=0;i&lt;num_positive_pics;i++)", "");
 								for (uint8_t i = 0; i < NumPositivePics; i++) {
-									BST_ARRAY_FIELD_PROP_NUMBER("delta_poc_s1_minus1", i, quick_log2(delta_poc_s1_minus1[i] + 1) * 2 + 1, delta_poc_s1_minus1[i], "");
+									BST_ARRAY_FIELD_PROP_NUMBER("delta_poc_s1_minus1", i, (long long)quick_log2(delta_poc_s1_minus1[i] + 1) * 2 + 1, delta_poc_s1_minus1[i], "");
 									BST_ARRAY_FIELD_PROP_NUMBER("used_by_curr_pic_s1_flag", i, 1, used_by_curr_pic_s1_flags[i], "");
 								}
 								NAV_WRITE_TAG_END("Tag13");
@@ -1472,7 +1472,7 @@ namespace BST {
 							st_ref_pic_set;
 
 				ST_REF_PIC_SETS(uint8_t param_num_short_term_ref_pic_sets) : num_short_term_ref_pic_sets(param_num_short_term_ref_pic_sets) {
-					AMP_NEW0(st_ref_pic_set, ST_REF_PIC_SET*, num_short_term_ref_pic_sets + 1);
+					AMP_NEW0(st_ref_pic_set, ST_REF_PIC_SET*, (size_t)num_short_term_ref_pic_sets + 1);
 				}
 
 				virtual ~ST_REF_PIC_SETS() {
@@ -1582,7 +1582,7 @@ namespace BST {
 					}
 
 					DECLARE_FIELDPROP_BEGIN()
-						BST_FIELD_PROP_2NUMBER1(hrd_layer_set_idx, quick_log2(hrd_layer_set_idx + 1) * 2 + 1, "")
+						BST_FIELD_PROP_2NUMBER1(hrd_layer_set_idx, (long long)quick_log2(hrd_layer_set_idx + 1) * 2 + 1, "")
 						if (m_idx > 0) {
 							BST_FIELD_PROP_NUMBER1(cprms_present_flag, 1, cprms_present_flag?"the HRD parameters that are common for all sub-layers are present":"the HRD parameters that are common for all sub-layers are not present")
 						}
@@ -1765,17 +1765,17 @@ namespace BST {
 
 					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("vps_ordering_infos", "for(i = ( vps_sub_layer_ordering_info_present_flag ? 0 : vps_max_sub_layers_minus1 ); i &lt;= vps_max_sub_layers_minus1; i++ ) {", "");
 					for (i = (vps_sub_layer_ordering_info_present_flag ? 0 : vps_max_sub_layers_minus1); i <= vps_max_sub_layers_minus1; i++) {
-						BST_ARRAY_FIELD_PROP_NUMBER("vps_max_dec_pic_buffering_minus1", i, quick_log2(vps_ordering_info[i].vps_max_dec_pic_buffering_minus1 + 1) * 2 + 1, 
+						BST_ARRAY_FIELD_PROP_NUMBER("vps_max_dec_pic_buffering_minus1", i, (long long)quick_log2(vps_ordering_info[i].vps_max_dec_pic_buffering_minus1 + 1) * 2 + 1,
 							vps_ordering_info[i].vps_max_dec_pic_buffering_minus1, "plus 1 specifies the maximum required size of the decoded picture buffer for the CVS in units of picture storage buffers")
-						BST_ARRAY_FIELD_PROP_NUMBER("vps_max_num_reorder_pics", i, quick_log2(vps_ordering_info[i].vps_max_num_reorder_pics + 1) * 2 + 1,
+						BST_ARRAY_FIELD_PROP_NUMBER("vps_max_num_reorder_pics", i, (long long)quick_log2(vps_ordering_info[i].vps_max_num_reorder_pics + 1) * 2 + 1,
 							vps_ordering_info[i].vps_max_num_reorder_pics, "indicates the maximum allowed number of pictures with PicOutputFlag equal to 1 that can precede any picture with PicOutputFlag equal to 1 in the CVS in decoding order and follow that picture with PicOutputFlag equal to 1 in output order")
-						BST_ARRAY_FIELD_PROP_NUMBER("vps_max_latency_increase_plus1", i, quick_log2(vps_ordering_info[i].vps_max_latency_increase_plus1 + 1) * 2 + 1,
+						BST_ARRAY_FIELD_PROP_NUMBER("vps_max_latency_increase_plus1", i, (long long)quick_log2(vps_ordering_info[i].vps_max_latency_increase_plus1 + 1) * 2 + 1,
 							vps_ordering_info[i].vps_max_latency_increase_plus1, vps_ordering_info[i].vps_max_latency_increase_plus1?"VpsMaxLatencyPictures[i] = vps_max_num_reorder_pics[i] + vps_max_latency_increase_plus1[i] - 1":"no corresponding limit is expressed")
 					}
 					NAV_WRITE_TAG_END("vps_ordering_infos");
 
 					BST_FIELD_PROP_2NUMBER1(vps_max_layer_id, 6, "specifies the maximum allowed value of nuh_layer_id of all NAL units in each CVS referring to the VPS")
-					BST_FIELD_PROP_2NUMBER1(vps_num_layer_sets_minus1, quick_log2(vps_num_layer_sets_minus1 + 1) * 2 + 1, "plus 1 specifies the number of layer sets that are specified by the VPS")
+					BST_FIELD_PROP_2NUMBER1(vps_num_layer_sets_minus1, (long long)quick_log2(vps_num_layer_sets_minus1 + 1) * 2 + 1, "plus 1 specifies the number of layer sets that are specified by the VPS")
 
 					if (vps_num_layer_sets_minus1 >= 1)
 					{
@@ -1797,9 +1797,9 @@ namespace BST {
 						BST_FIELD_PROP_2NUMBER1(vps_time_scale, 32, "")
 						BST_FIELD_PROP_NUMBER1(vps_poc_proportional_to_timing_flag, 1, "")
 						if (vps_poc_proportional_to_timing_flag) {
-							BST_FIELD_PROP_2NUMBER1(vps_num_ticks_poc_diff_one_minus1, quick_log2(vps_num_ticks_poc_diff_one_minus1 + 1)*2 + 1, "plus 1 specifies the number of clock ticks corresponding to a difference of picture order count values equal to 1")
+							BST_FIELD_PROP_2NUMBER1(vps_num_ticks_poc_diff_one_minus1, (long long)quick_log2(vps_num_ticks_poc_diff_one_minus1 + 1)*2 + 1, "plus 1 specifies the number of clock ticks corresponding to a difference of picture order count values equal to 1")
 						}
-						BST_FIELD_PROP_2NUMBER1(vps_num_hrd_parameters, quick_log2(vps_num_hrd_parameters + 1) * 2 + 1, "specifies the number of hrd_parameters( ) syntax structures present in the VPS RBSP before the vps_extension_flag syntax element")
+						BST_FIELD_PROP_2NUMBER1(vps_num_hrd_parameters, (long long)quick_log2(vps_num_hrd_parameters + 1) * 2 + 1, "specifies the number of hrd_parameters( ) syntax structures present in the VPS RBSP before the vps_extension_flag syntax element")
 						for (i = 0; i < vps_num_hrd_parameters; i++) {
 							BST_FIELD_PROP_REF3(vps_hrd_parameters[i], "vps_hrd_parameters", i);
 						}
@@ -2034,8 +2034,8 @@ namespace BST {
 							: "specifies that chroma_sample_loc_type_top_field and chroma_sample_loc_type_bottom_field are not present");
 						if (chroma_loc_info_present_flag)
 						{
-							BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_top_field, quick_log2(chroma_sample_loc_type_top_field + 1)*2 + 1, "")
-							BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_bottom_field, quick_log2(chroma_sample_loc_type_bottom_field + 1) * 2 + 1, "")
+							BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_top_field, (long long)quick_log2(chroma_sample_loc_type_top_field + 1)*2 + 1, "")
+							BST_FIELD_PROP_2NUMBER1(chroma_sample_loc_type_bottom_field, (long long)quick_log2(chroma_sample_loc_type_bottom_field + 1) * 2 + 1, "")
 						}
 
 						BST_FIELD_PROP_NUMBER1(neutral_chroma_indication_flag, 1, neutral_chroma_indication_flag ? "indicates that the value of all decoded chroma samples is equal to 1<<(BitDepthC-1)"
@@ -2049,10 +2049,10 @@ namespace BST {
 
 						if (default_display_window_flag)
 						{
-							BST_FIELD_PROP_2NUMBER1(def_disp_win_left_offset, quick_log2(def_disp_win_left_offset + 1) * 2 + 1, "leftOffset = conf_win_left_offset + def_disp_win_left_offset");
-							BST_FIELD_PROP_2NUMBER1(def_disp_win_right_offset, quick_log2(def_disp_win_right_offset + 1) * 2 + 1, "rightOffset = conf_win_right_offset + def_disp_win_right_offset");
-							BST_FIELD_PROP_2NUMBER1(def_disp_win_top_offset, quick_log2(def_disp_win_top_offset + 1) * 2 + 1, "topOffset = conf_win_top_offset + def_disp_win_top_offset (E");
-							BST_FIELD_PROP_2NUMBER1(def_disp_win_bottom_offset, quick_log2(def_disp_win_bottom_offset + 1) * 2 + 1, "bottomOffset = conf_win_bottom_offset + def_disp_win_bottom_offset");
+							BST_FIELD_PROP_2NUMBER1(def_disp_win_left_offset, (long long)quick_log2(def_disp_win_left_offset + 1) * 2 + 1, "leftOffset = conf_win_left_offset + def_disp_win_left_offset");
+							BST_FIELD_PROP_2NUMBER1(def_disp_win_right_offset, (long long)quick_log2(def_disp_win_right_offset + 1) * 2 + 1, "rightOffset = conf_win_right_offset + def_disp_win_right_offset");
+							BST_FIELD_PROP_2NUMBER1(def_disp_win_top_offset, (long long)quick_log2(def_disp_win_top_offset + 1) * 2 + 1, "topOffset = conf_win_top_offset + def_disp_win_top_offset (E");
+							BST_FIELD_PROP_2NUMBER1(def_disp_win_bottom_offset, (long long)quick_log2(def_disp_win_bottom_offset + 1) * 2 + 1, "bottomOffset = conf_win_bottom_offset + def_disp_win_bottom_offset");
 						}
 
 						BST_FIELD_PROP_NUMBER1(vui_timing_info_present_flag, 1, vui_timing_info_present_flag ? "specifies that vui_num_units_in_tick, vui_time_scale, vui_poc_proportional_to_timing_flag and vui_hrd_parameters_present_flag are present"
@@ -2065,7 +2065,7 @@ namespace BST {
 								: "indicates that the picture order count value for each picture in the CVS that is not the first picture in the CVS, in decoding order, may or may not be proportional to the output time of the picture relative to the output time of the first picture in the CVS.");
 							if (vui_poc_proportional_to_timing_flag)
 							{
-								BST_FIELD_PROP_2NUMBER1(vui_num_ticks_poc_diff_one_minus1, quick_log2(vui_num_ticks_poc_diff_one_minus1 + 1) * 2 + 1, "plus 1 specifies the number of clock ticks corresponding to a difference of picture order count values equal to 1");
+								BST_FIELD_PROP_2NUMBER1(vui_num_ticks_poc_diff_one_minus1, (long long)quick_log2(vui_num_ticks_poc_diff_one_minus1 + 1) * 2 + 1, "plus 1 specifies the number of clock ticks corresponding to a difference of picture order count values equal to 1");
 							}
 							BST_FIELD_PROP_NUMBER1(vui_hrd_parameters_present_flag, 1, vui_hrd_parameters_present_flag ? "specifies that the syntax structure hrd_parameters( ) is present."
 								: "specifies that the syntax structure hrd_parameters( ) is not present.");
@@ -2085,11 +2085,11 @@ namespace BST {
 							BST_FIELD_PROP_NUMBER1(motion_vectors_over_pic_boundaries_flag, 1, motion_vectors_over_pic_boundaries_flag ? "indicates that no sample outside the picture boundaries and no sample at a fractional sample position for which the sample value is derived using one or more samples outside the picture boundaries is used for inter prediction of any sample."
 								: "indicates that one or more samples outside the picture boundaries may be used in inter prediction.");
 							BST_FIELD_PROP_NUMBER1(restricted_ref_pic_lists_flag, 1, "");
-							BST_FIELD_PROP_2NUMBER1(min_spatial_segmentation_idc, quick_log2(min_spatial_segmentation_idc + 1) * 2 + 1, "when not equal to 0, establishes a bound on the maximum possible size of distinct coded spatial segmentation regions in the pictures of the CVS.");
-							BST_FIELD_PROP_2NUMBER1(max_bytes_per_pic_denom, quick_log2(max_bytes_per_pic_denom + 1) * 2 + 1, "indicates a number of bytes not exceeded by the sum of the sizes of the VCL NAL units associated with any coded picture in the CVS.");
-							BST_FIELD_PROP_2NUMBER1(max_bits_per_min_cu_denom, quick_log2(max_bits_per_min_cu_denom + 1) * 2 + 1, "indicates an upper bound for the number of coded bits of coding_unit( ) data for any coding block in any picture of the CVS.");
-							BST_FIELD_PROP_2NUMBER1(log2_max_mv_length_horizontal, quick_log2(log2_max_mv_length_horizontal + 1) * 2 + 1, "indicate the maximum absolute value of a decoded horizontal motion vector component, respectively, in quarter luma sample units, for all pictures in the CVS");
-							BST_FIELD_PROP_2NUMBER1(log2_max_mv_length_vertical, quick_log2(log2_max_mv_length_vertical + 1) * 2 + 1, "indicate the maximum absolute value of a decoded vertical motion vector component, respectively, in quarter luma sample units, for all pictures in the CVS");
+							BST_FIELD_PROP_2NUMBER1(min_spatial_segmentation_idc, (long long)quick_log2(min_spatial_segmentation_idc + 1) * 2 + 1, "when not equal to 0, establishes a bound on the maximum possible size of distinct coded spatial segmentation regions in the pictures of the CVS.");
+							BST_FIELD_PROP_2NUMBER1(max_bytes_per_pic_denom, (long long)quick_log2(max_bytes_per_pic_denom + 1) * 2 + 1, "indicates a number of bytes not exceeded by the sum of the sizes of the VCL NAL units associated with any coded picture in the CVS.");
+							BST_FIELD_PROP_2NUMBER1(max_bits_per_min_cu_denom, (long long)quick_log2(max_bits_per_min_cu_denom + 1) * 2 + 1, "indicates an upper bound for the number of coded bits of coding_unit( ) data for any coding block in any picture of the CVS.");
+							BST_FIELD_PROP_2NUMBER1(log2_max_mv_length_horizontal, (long long)quick_log2(log2_max_mv_length_horizontal + 1) * 2 + 1, "indicate the maximum absolute value of a decoded horizontal motion vector component, respectively, in quarter luma sample units, for all pictures in the CVS");
+							BST_FIELD_PROP_2NUMBER1(log2_max_mv_length_vertical, (long long)quick_log2(log2_max_mv_length_vertical + 1) * 2 + 1, "indicate the maximum absolute value of a decoded vertical motion vector component, respectively, in quarter luma sample units, for all pictures in the CVS");
 						}
 					DECLARE_FIELDPROP_END()
 
@@ -2328,7 +2328,7 @@ namespace BST {
 
 						nal_read_u(in_bst, sps_sub_layer_ordering_info_present_flag, 1, uint8_t);
 
-						AMP_NEW(sps_ordering_info, SPS_ORDERING_INFO, sps_max_sub_layers_minus1 + 1);
+						AMP_NEW(sps_ordering_info, SPS_ORDERING_INFO, (size_t)sps_max_sub_layers_minus1 + 1);
 						for (int i = sps_sub_layer_ordering_info_present_flag ? 0 : sps_max_sub_layers_minus1; i <= sps_max_sub_layers_minus1; i++) {
 							nal_read_ue(in_bst, sps_ordering_info[i].sps_max_dec_pic_buffering_minus1, uint16_t);
 							nal_read_ue(in_bst, sps_ordering_info[i].sps_max_num_reorder_pics, uint16_t);
@@ -2490,8 +2490,8 @@ namespace BST {
 					BST_FIELD_PROP_REF(profile_tier_level)
 					NAV_WRITE_TAG_END("profile_tier_level");
 
-					BST_FIELD_PROP_2NUMBER1(sps_seq_parameter_set_id, quick_log2(sps_seq_parameter_set_id + 1) * 2 + 1, "provides an identifier for the SPS for reference by other syntax elements.")
-					BST_FIELD_PROP_2NUMBER1(chroma_format_idc, quick_log2(chroma_format_idc + 1) * 2 + 1, chroma_format_idc == 0 ? "Monochrome" : (
+					BST_FIELD_PROP_2NUMBER1(sps_seq_parameter_set_id, (long long)quick_log2(sps_seq_parameter_set_id + 1) * 2 + 1, "provides an identifier for the SPS for reference by other syntax elements.")
+					BST_FIELD_PROP_2NUMBER1(chroma_format_idc, (long long)quick_log2(chroma_format_idc + 1) * 2 + 1, chroma_format_idc == 0 ? "Monochrome" : (
 																											chroma_format_idc == 1 ? "4:2:0" : (
 																											chroma_format_idc == 2 ? "4:2:2" : (
 																											chroma_format_idc == 3 ? "4:4:4" : "Unknown"))));
@@ -2502,18 +2502,18 @@ namespace BST {
 							: "each of the two chroma arrays has the same height and width as the luma array.");
 					}
 
-					BST_FIELD_PROP_2NUMBER1(pic_width_in_luma_samples, quick_log2(pic_width_in_luma_samples + 1) * 2 + 1, "the width of each decoded picture in units of luma samples.");
-					BST_FIELD_PROP_2NUMBER1(pic_height_in_luma_samples, quick_log2(pic_height_in_luma_samples + 1) * 2 + 1, "the height of each decoded picture in units of luma samples.");
+					BST_FIELD_PROP_2NUMBER1(pic_width_in_luma_samples, (long long)quick_log2(pic_width_in_luma_samples + 1) * 2 + 1, "the width of each decoded picture in units of luma samples.");
+					BST_FIELD_PROP_2NUMBER1(pic_height_in_luma_samples, (long long)quick_log2(pic_height_in_luma_samples + 1) * 2 + 1, "the height of each decoded picture in units of luma samples.");
 					BST_FIELD_PROP_NUMBER1(conformance_window_flag, 1, conformance_window_flag ? "indicates that the conformance cropping window offset parameters follow next in the SPS."
 						: "indicates that the conformance cropping window offset parameters are not present.");
 
 					uint32_t display_width = pic_width_in_luma_samples, display_height = pic_height_in_luma_samples;
 					if (conformance_window_flag)
 					{
-						BST_FIELD_PROP_2NUMBER1(conf_win_left_offset, quick_log2(conf_win_left_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
-						BST_FIELD_PROP_2NUMBER1(conf_win_right_offset, quick_log2(conf_win_right_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
-						BST_FIELD_PROP_2NUMBER1(conf_win_top_offset, quick_log2(conf_win_top_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
-						BST_FIELD_PROP_2NUMBER1(conf_win_bottom_offset, quick_log2(conf_win_bottom_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
+						BST_FIELD_PROP_2NUMBER1(conf_win_left_offset, (long long)quick_log2(conf_win_left_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
+						BST_FIELD_PROP_2NUMBER1(conf_win_right_offset, (long long)quick_log2(conf_win_right_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
+						BST_FIELD_PROP_2NUMBER1(conf_win_top_offset, (long long)quick_log2(conf_win_top_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
+						BST_FIELD_PROP_2NUMBER1(conf_win_bottom_offset, (long long)quick_log2(conf_win_bottom_offset + 1) * 2 + 1, "in terms of a rectangular region specified in picture coordinates for output.");
 
 						uint32_t sub_width_c = ((1 == chroma_format_idc) || (2 == chroma_format_idc)) && (0 == separate_colour_plane_flag) ? 2 : 1;
 						uint32_t sub_height_c = (1 == chroma_format_idc) && (0 == separate_colour_plane_flag) ? 2 : 1;
@@ -2524,30 +2524,30 @@ namespace BST {
 					NAV_WRITE_TAG_WITH_NUMBER_VALUE1(display_width, "The display width");
 					NAV_WRITE_TAG_WITH_NUMBER_VALUE1(display_height, "The display height");
 
-					BST_FIELD_PROP_2NUMBER1(bit_depth_luma_minus8, quick_log2(bit_depth_luma_minus8 + 1) * 2 + 1, "BitDepthY = 8 + bit_depth_luma_minus8/QpBdOffsetY = 6 * bit_depth_luma_minus8");
-					BST_FIELD_PROP_2NUMBER1(bit_depth_chroma_minus8, quick_log2(bit_depth_chroma_minus8 + 1) * 2 + 1, "BitDepthC = 8 + bit_depth_chroma_minus8/QpBdOffsetC = 6 * bit_depth_chroma_minus8 (7");
-					BST_FIELD_PROP_2NUMBER1(log2_max_pic_order_cnt_lsb_minus4, quick_log2(log2_max_pic_order_cnt_lsb_minus4 + 1) * 2 + 1, "MaxPicOrderCntLsb = 2^(log2_max_pic_order_cnt_lsb_minus4 + 4)");
+					BST_FIELD_PROP_2NUMBER1(bit_depth_luma_minus8, (long long)quick_log2(bit_depth_luma_minus8 + 1) * 2 + 1, "BitDepthY = 8 + bit_depth_luma_minus8/QpBdOffsetY = 6 * bit_depth_luma_minus8");
+					BST_FIELD_PROP_2NUMBER1(bit_depth_chroma_minus8, (long long)quick_log2(bit_depth_chroma_minus8 + 1) * 2 + 1, "BitDepthC = 8 + bit_depth_chroma_minus8/QpBdOffsetC = 6 * bit_depth_chroma_minus8 (7");
+					BST_FIELD_PROP_2NUMBER1(log2_max_pic_order_cnt_lsb_minus4, (long long)quick_log2(log2_max_pic_order_cnt_lsb_minus4 + 1) * 2 + 1, "MaxPicOrderCntLsb = 2^(log2_max_pic_order_cnt_lsb_minus4 + 4)");
 
 					BST_FIELD_PROP_NUMBER1(sps_sub_layer_ordering_info_present_flag, 1, sps_sub_layer_ordering_info_present_flag ? "specifies that sps_max_dec_pic_buffering_minus1[i], sps_max_num_reorder_pics[i] and sps_max_latency_increase_plus1[i] are present for sps_max_sub_layers_minus1 + 1 sub-layers."
 						: "specifies that the values of sps_max_dec_pic_buffering_minus1[sps_max_sub_layers_minus1], sps_max_num_reorder_pics[sps_max_sub_layers_minus1] and sps_max_latency_increase_plus1[sps_max_sub_layers_minus1] apply to all sub-layers.");
 					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=(sps_sub_layer_ordering_info_present_flag?0:sps_max_sub_layers_minus1);i&lt;=sps_max_sub_layers_minus1; i++ )", "");
 					for (i = (sps_sub_layer_ordering_info_present_flag ? 0 : sps_max_sub_layers_minus1); i <= sps_max_sub_layers_minus1; i++)
 					{
-						BST_ARRAY_FIELD_PROP_NUMBER("sps_max_dec_pic_buffering_minus1", i, quick_log2(sps_ordering_info[i].sps_max_dec_pic_buffering_minus1)*2 + 1, sps_ordering_info[i].sps_max_dec_pic_buffering_minus1, 
+						BST_ARRAY_FIELD_PROP_NUMBER("sps_max_dec_pic_buffering_minus1", i, (long long)quick_log2(sps_ordering_info[i].sps_max_dec_pic_buffering_minus1)*2 + 1, sps_ordering_info[i].sps_max_dec_pic_buffering_minus1,
 							"plus 1 specifies the maximum required size of the decoded picture buffer for the CVS in units of picture storage buffers when HighestTid is equal to i.");
-						BST_ARRAY_FIELD_PROP_NUMBER("sps_max_num_reorder_pics", i, quick_log2(sps_ordering_info[i].sps_max_num_reorder_pics) * 2 + 1, sps_ordering_info[i].sps_max_num_reorder_pics, 
+						BST_ARRAY_FIELD_PROP_NUMBER("sps_max_num_reorder_pics", i, (long long)quick_log2(sps_ordering_info[i].sps_max_num_reorder_pics) * 2 + 1, sps_ordering_info[i].sps_max_num_reorder_pics,
 							"indicates the maximum allowed number of pictures with PicOutputFlag equal to 1");
-						BST_ARRAY_FIELD_PROP_NUMBER("sps_max_latency_increase_plus1", i, quick_log2(sps_ordering_info[i].sps_max_latency_increase_plus1) * 2 + 1, sps_ordering_info[i].sps_max_latency_increase_plus1, 
+						BST_ARRAY_FIELD_PROP_NUMBER("sps_max_latency_increase_plus1", i, (long long)quick_log2(sps_ordering_info[i].sps_max_latency_increase_plus1) * 2 + 1, sps_ordering_info[i].sps_max_latency_increase_plus1, 
 							sps_ordering_info[i].sps_max_latency_increase_plus1?"SpsMaxLatencyPictures[i] = sps_max_num_reorder_pics[i] + sps_max_latency_increase_plus1[i] - 1":"SpsMaxLatencyPictures[i] = sps_max_num_reorder_pics[i]");
 					}
 					NAV_WRITE_TAG_END("Tag0");
 
-					BST_FIELD_PROP_2NUMBER1(log2_min_luma_coding_block_size_minus3, quick_log2(log2_min_luma_coding_block_size_minus3 + 1) * 2 + 1, "");
-					BST_FIELD_PROP_2NUMBER1(log2_diff_max_min_luma_coding_block_size, quick_log2(log2_diff_max_min_luma_coding_block_size + 1) * 2 + 1, "");
-					BST_FIELD_PROP_2NUMBER1(log2_min_luma_transform_block_size_minus2, quick_log2(log2_min_luma_transform_block_size_minus2 + 1) * 2 + 1, "");
-					BST_FIELD_PROP_2NUMBER1(log2_diff_max_min_luma_transform_block_size, quick_log2(log2_diff_max_min_luma_transform_block_size + 1) * 2 + 1, "");
-					BST_FIELD_PROP_2NUMBER1(max_transform_hierarchy_depth_inter, quick_log2(max_transform_hierarchy_depth_inter + 1) * 2 + 1, "");
-					BST_FIELD_PROP_2NUMBER1(max_transform_hierarchy_depth_intra, quick_log2(max_transform_hierarchy_depth_intra + 1) * 2 + 1, "");
+					BST_FIELD_PROP_2NUMBER1(log2_min_luma_coding_block_size_minus3, (long long)quick_log2(log2_min_luma_coding_block_size_minus3 + 1) * 2 + 1, "");
+					BST_FIELD_PROP_2NUMBER1(log2_diff_max_min_luma_coding_block_size, (long long)quick_log2(log2_diff_max_min_luma_coding_block_size + 1) * 2 + 1, "");
+					BST_FIELD_PROP_2NUMBER1(log2_min_luma_transform_block_size_minus2, (long long)quick_log2(log2_min_luma_transform_block_size_minus2 + 1) * 2 + 1, "");
+					BST_FIELD_PROP_2NUMBER1(log2_diff_max_min_luma_transform_block_size, (long long)quick_log2(log2_diff_max_min_luma_transform_block_size + 1) * 2 + 1, "");
+					BST_FIELD_PROP_2NUMBER1(max_transform_hierarchy_depth_inter, (long long)quick_log2(max_transform_hierarchy_depth_inter + 1) * 2 + 1, "");
+					BST_FIELD_PROP_2NUMBER1(max_transform_hierarchy_depth_intra, (long long)quick_log2(max_transform_hierarchy_depth_intra + 1) * 2 + 1, "");
 
 					uint32_t MaxDpbSize;
 					uint32_t maxDpbPicBuf = 6;
@@ -2604,14 +2604,14 @@ namespace BST {
 					{
 						BST_FIELD_PROP_NUMBER1(pcm_sample_bit_depth_luma_minus1, 4, "the number of bits used to represent each of PCM sample values of the luma component");
 						BST_FIELD_PROP_NUMBER1(pcm_sample_bit_depth_chroma_minus1, 4, "specifies the number of bits used to represent each of PCM sample values of the chroma components");
-						BST_FIELD_PROP_NUMBER1(log2_min_pcm_luma_coding_block_size_minus3, quick_log2(log2_min_pcm_luma_coding_block_size_minus3 + 1)*2 + 1, 
+						BST_FIELD_PROP_NUMBER1(log2_min_pcm_luma_coding_block_size_minus3, (long long)quick_log2(log2_min_pcm_luma_coding_block_size_minus3 + 1)*2 + 1, 
 							"plus 3 specifies the minimum size of coding blocks");
-						BST_FIELD_PROP_NUMBER1(log2_diff_max_min_pcm_luma_coding_block_size, quick_log2(log2_diff_max_min_pcm_luma_coding_block_size + 1) * 2 + 1,
+						BST_FIELD_PROP_NUMBER1(log2_diff_max_min_pcm_luma_coding_block_size, (long long)quick_log2(log2_diff_max_min_pcm_luma_coding_block_size + 1) * 2 + 1,
 							"specifies the difference between the maximum and minimum size of coding blocks");
 						BST_FIELD_PROP_NUMBER1(pcm_loop_filter_disabled_flag, 1, "specifies whether the loop filter process is disabled on reconstructed samples in a coding unit");
 					}
 
-					BST_FIELD_PROP_NUMBER1(num_short_term_ref_pic_sets, quick_log2(num_short_term_ref_pic_sets + 1) * 2 + 1, "the number of st_ref_pic_set( ) syntax structures included in the SPS");
+					BST_FIELD_PROP_NUMBER1(num_short_term_ref_pic_sets, (long long)quick_log2(num_short_term_ref_pic_sets + 1) * 2 + 1, "the number of st_ref_pic_set( ) syntax structures included in the SPS");
 					if (num_short_term_ref_pic_sets > 0)
 					{
 						BST_FIELD_PROP_REF(st_ref_pic_sets);
@@ -2621,11 +2621,11 @@ namespace BST {
 						:"no long-term reference picture is used for inter prediction of any coded picture in the CVS.");
 					if (long_term_ref_pics_present_flag)
 					{
-						BST_FIELD_PROP_2NUMBER1(num_long_term_ref_pics_sps, quick_log2(num_long_term_ref_pics_sps + 1) * 2 + 1, "the number of candidate long-term reference pictures that are specified in the SPS");
+						BST_FIELD_PROP_2NUMBER1(num_long_term_ref_pics_sps, (long long)quick_log2(num_long_term_ref_pics_sps + 1) * 2 + 1, "the number of candidate long-term reference pictures that are specified in the SPS");
 						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "for(i=0;i&lt;num_long_term_ref_pics_sps;i++)", "");
 						for (i = 0; i < num_long_term_ref_pics_sps; i++)
 						{
-							BST_ARRAY_FIELD_PROP_NUMBER("lt_ref_pic_poc_lsb_sps", i, quick_log2(lt_ref_pic_poc_lsb_sps[i] + 1) * 2 + 1, lt_ref_pic_poc_lsb_sps[i], "");
+							BST_ARRAY_FIELD_PROP_NUMBER("lt_ref_pic_poc_lsb_sps", i, (long long)quick_log2(lt_ref_pic_poc_lsb_sps[i] + 1) * 2 + 1, lt_ref_pic_poc_lsb_sps[i], "");
 							BST_ARRAY_FIELD_PROP_NUMBER("used_by_curr_pic_lt_sps_flag", i, 1, used_by_curr_pic_lt_sps_flag[i], "equal to 0 specifies that the i-th candidate long-term reference picture specified in the SPS is not used for reference by a picture that includes in its long-term reference picture set (RPS) the i-th candidate long-term reference picture specified in the SPS.");
 						}
 						NAV_WRITE_TAG_END("Tag1");
@@ -2691,7 +2691,7 @@ namespace BST {
 							sps_3d_extension.iv_mv_scal_enabled_flag0?"specifies that motion vectors used for inter-view prediction may be scaled based on view_id_val values in the decoding process of layers with DepthFlag equal to 0"
 							:"specifies that motion vectors used for inter-view prediction are not scaled based on view_id_val values in the decoding process of layers with DepthFlag equal to 0");
 
-						BST_FIELD_PROP_2NUMBER("log2_ivmc_sub_pb_size_minus3", quick_log2(sps_3d_extension.log2_ivmc_sub_pb_size_minus3 + 1) * 2 + 1, 
+						BST_FIELD_PROP_2NUMBER("log2_ivmc_sub_pb_size_minus3", (long long)quick_log2(sps_3d_extension.log2_ivmc_sub_pb_size_minus3 + 1) * 2 + 1, 
 							sps_3d_extension.log2_ivmc_sub_pb_size_minus3, sps_3d_extension.iv_di_mc_enabled_flag0?
 							"derive the minimum size of sub-block partitions used in the derivation process for sub-block partition motion vectors for an inter-layer predicted merging candidate in the decoding process of layers with DepthFlag equal to 0":
 							"");
@@ -2713,7 +2713,7 @@ namespace BST {
 
 						BST_FIELD_PROP_BOOL1(sps_3d_extension, tex_mc_enabled_flag, "specifies that the derivation process for motion vectors for the texture merge candidate may be used in the decoding process of layers with DepthFlag equal to 1", 
 							"specifies that the derivation process for motion vectors for the texture merge candidate is not used in the decoding process of layers with DepthFlag equal to 1");
-						BST_FIELD_PROP_2NUMBER("log2_texmc_sub_pb_size_minus3", quick_log2(sps_3d_extension.log2_texmc_sub_pb_size_minus3 + 1) * 2 + 1, sps_3d_extension.log2_texmc_sub_pb_size_minus3, sps_3d_extension.tex_mc_enabled_flag?
+						BST_FIELD_PROP_2NUMBER("log2_texmc_sub_pb_size_minus3", (long long)quick_log2(sps_3d_extension.log2_texmc_sub_pb_size_minus3 + 1) * 2 + 1, sps_3d_extension.log2_texmc_sub_pb_size_minus3, sps_3d_extension.tex_mc_enabled_flag?
 							"derive the minimum size of sub-block partitions used in the derivation process for sub-block partition motion vectors for an inter-layer predicted merging candidate in the decoding process of layers with DepthFlag equal to 1":"");
 						BST_FIELD_PROP_BOOL1(sps_3d_extension, intra_contour_enabled_flag, "specifies that the intra prediction mode INTRA_CONTOUR using depth intra contour prediction may be used in the decoding process of layers with DepthFlag equal to 1", 
 							"specifies that the intra prediction mode INTRA_CONTOUR using depth intra contour prediction is not used in the decoding process of layers with DepthFlag equal to 1");
@@ -3030,7 +3030,7 @@ namespace BST {
 													for (int c = 0; c < 3; c++)
 													{
 														MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "res_coeff_q[%d][%d][%d][%d][%d]", idxShiftY, m_idxCb, m_idxCr, j, c);
-														BST_FIELD_PROP_2NUMBER(szTemp2, quick_log2(res_coeff_q[i][j][c] + 1) * 2 + 1, res_coeff_q[i][j][c], "specifies the quotient of the residual for the j-th colour mapping coefficient of the c-th colour component of the octant with octant index equal to (idxShiftY, idxCb, idxCr)");
+														BST_FIELD_PROP_2NUMBER(szTemp2, (long long)quick_log2(res_coeff_q[i][j][c] + 1) * 2 + 1, res_coeff_q[i][j][c], "specifies the quotient of the residual for the j-th colour mapping coefficient of the c-th colour component of the octant with octant index equal to (idxShiftY, idxCb, idxCr)");
 														if (CMResLSBits > 0)
 														{
 															MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "res_coeff_r[%d][%d][%d][%d][%d]", idxShiftY, m_idxCb, m_idxCr, j, c);
@@ -3842,14 +3842,14 @@ namespace BST {
 							"specifies that tile column boundaries and likewise tile row boundaries are not distributed uniformly across the picture but signalled explicitly using the syntax elements column_width_minus1[i] and row_height_minus1[i]");
 						if (!uniform_spacing_flag) {
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag10", "if( !uniform_spacing_flag )", "");
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag100", "for( i = 0; i &lt; num_tile_columns_minus1; i++ )", "");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag100", "for(i=0;i&lt;num_tile_columns_minus1;i++)", "");
 							for (int i = 0; i < num_tile_columns_minus1; i++) {
-								BST_ARRAY_FIELD_PROP_NUMBER("column_width_minus1", i, quick_log2(column_width_minus1[i] + 1) * 2 + 1, column_width_minus1[i], "the width of the i-th tile column in units of coding tree blocks");
+								BST_ARRAY_FIELD_PROP_NUMBER("column_width_minus1", i, (long long)quick_log2(column_width_minus1[i] + 1) * 2 + 1, column_width_minus1[i], "the width of the i-th tile column in units of coding tree blocks");
 							}
 							NAV_WRITE_TAG_END("Tag100");
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag101", "for( i = 0; i &lt; num_tile_rows_minus1; i++ )", "");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag101", "for( i=0;i&lt;num_tile_rows_minus1;i++)", "");
 							for (int i = 0; i < num_tile_rows_minus1; i++) {
-								BST_ARRAY_FIELD_PROP_NUMBER("row_height_minus1", i, quick_log2(row_height_minus1[i] + 1) * 2 + 1, row_height_minus1[i], "the height of the i-th tile row in units of coding tree blocks");
+								BST_ARRAY_FIELD_PROP_NUMBER("row_height_minus1", i, (long long)quick_log2(row_height_minus1[i] + 1) * 2 + 1, row_height_minus1[i], "the height of the i-th tile row in units of coding tree blocks");
 							}
 							NAV_WRITE_TAG_END("Tag101");
 							NAV_WRITE_TAG_END("Tag10");
@@ -3966,8 +3966,8 @@ namespace BST {
 								uint8_t index_bits = quick_ceil_log2(ptr_slice_header->NumPicTotalCurr);
 								if (ref_pic_list_modification_flag[0])
 								{
-									list_entry[0] = new uint32_t[ptr_slice_header->num_ref_idx_l0_active_minus1 + 1];
-									memset(list_entry[0], 0, ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
+									list_entry[0] = new uint32_t[(size_t)ptr_slice_header->num_ref_idx_l0_active_minus1 + 1];
+									memset(list_entry[0], 0, (size_t)ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
 
 									for (uint8_t rps_idx = 0; rps_idx < ptr_slice_header->num_ref_idx_l0_active_minus1; rps_idx++)
 										nal_read_u(in_bst, list_entry[0][rps_idx], index_bits, uint32_t);
@@ -3978,8 +3978,8 @@ namespace BST {
 									nal_read_u(in_bst, ref_pic_list_modification_flag[1], 1, uint8_t);
 									if (ref_pic_list_modification_flag[1])
 									{
-										list_entry[1] = new uint32_t[ptr_slice_header->num_ref_idx_l1_active_minus1 + 1];
-										memset(list_entry[0], 0, ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
+										list_entry[1] = new uint32_t[(size_t)ptr_slice_header->num_ref_idx_l1_active_minus1 + 1];
+										memset(list_entry[0], 0, (size_t)ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
 
 										for (uint8_t rps_idx = 0; rps_idx < ptr_slice_header->num_ref_idx_l1_active_minus1; rps_idx++)
 											nal_read_u(in_bst, list_entry[1][rps_idx], index_bits, uint32_t);
@@ -4089,7 +4089,7 @@ namespace BST {
 									nal_read_se(in_bst, delta_chroma_log2_weight_denom, int8_t);
 								}
 
-								AMP_NEW0(weight_factors[0], WEIGHTING_FACTORS, ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
+								AMP_NEW0(weight_factors[0], WEIGHTING_FACTORS, (size_t)ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
 								for (uint16_t i = 0; i <= ptr_slice_header->num_ref_idx_l0_active_minus1; i++) {
 									nal_read_u(in_bst, weight_factors[0][i].luma_weight_flag, 1, uint8_t);
 								}
@@ -4118,7 +4118,7 @@ namespace BST {
 
 								if (ptr_slice_header->slice_type == 0)
 								{
-									AMP_NEW0(weight_factors[1], WEIGHTING_FACTORS, ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
+									AMP_NEW0(weight_factors[1], WEIGHTING_FACTORS, (size_t)ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
 									for (uint16_t i = 0; i <= ptr_slice_header->num_ref_idx_l1_active_minus1; i++) {
 										nal_read_u(in_bst, weight_factors[1][i].luma_weight_flag, 1, uint8_t);
 									}
@@ -4198,15 +4198,14 @@ namespace BST {
 						{
 							if (weight_factors[0][ref_idx].luma_weight_flag)
 							{
+								long long field_bits = 0;
 								MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "delta_luma_weight_l0[%u]", ref_idx);
-								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-									quick_log2((weight_factors[0][ref_idx].delta_luma_weight >= 0 ? weight_factors[0][ref_idx].delta_luma_weight : ((-weight_factors[0][ref_idx].delta_luma_weight) + 1)) + 1) * 2 + 1,
-									weight_factors[0][ref_idx].delta_luma_weight,
+								field_bits = (long long)quick_log2((weight_factors[0][ref_idx].delta_luma_weight >= 0 ? weight_factors[0][ref_idx].delta_luma_weight : ((-weight_factors[0][ref_idx].delta_luma_weight) + 1)) + 1) * 2 + 1;
+								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits, weight_factors[0][ref_idx].delta_luma_weight,
 									"the difference of the weighting factor applied to the luma prediction value for list 0 prediction using RefPicList0[i]");
 								MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "luma_offset_l0[%u]", ref_idx);
-								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-									quick_log2((weight_factors[0][ref_idx].luma_offset >= 0 ? weight_factors[0][ref_idx].luma_offset : ((-weight_factors[0][ref_idx].luma_offset) + 1)) + 1) * 2 + 1,
-									weight_factors[0][ref_idx].luma_offset,
+								field_bits = (long long)quick_log2((weight_factors[0][ref_idx].luma_offset >= 0 ? weight_factors[0][ref_idx].luma_offset : ((-weight_factors[0][ref_idx].luma_offset) + 1)) + 1) * 2 + 1;
+								BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits, weight_factors[0][ref_idx].luma_offset,
 									"the additive offset applied to the luma prediction value for list 0 prediction using RefPicList0[i]");
 							}
 
@@ -4214,15 +4213,16 @@ namespace BST {
 							{
 								for (uint8_t j = 0; j < 2; j++)
 								{
+									long long field_bits = 0;
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "delta_chroma_weight_l0[%u][%u]", ref_idx, j);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-										quick_log2((weight_factors[0][ref_idx].delta_chroma_weight[j] >= 0 ? weight_factors[0][ref_idx].delta_chroma_weight[j] : ((-weight_factors[0][ref_idx].delta_chroma_weight[j]) + 1)) + 1) * 2 + 1,
+									field_bits = (long long)quick_log2((weight_factors[0][ref_idx].delta_chroma_weight[j] >= 0 ? weight_factors[0][ref_idx].delta_chroma_weight[j] : ((-weight_factors[0][ref_idx].delta_chroma_weight[j]) + 1)) + 1) * 2 + 1;
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits,
 										weight_factors[0][ref_idx].delta_chroma_weight[j], j == 0 ?
 										"the difference of the weighting factor applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cb" :
 										"the difference of the weighting factor applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cr");
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "delta_chroma_offset_l0[%u][%u]", ref_idx, j);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-										quick_log2((weight_factors[0][ref_idx].delta_chroma_offset[j] >= 0 ? weight_factors[0][ref_idx].delta_chroma_offset[j] : ((-weight_factors[0][ref_idx].delta_chroma_offset[j]) + 1)) + 1) * 2 + 1,
+									field_bits = (long long)quick_log2((weight_factors[0][ref_idx].delta_chroma_offset[j] >= 0 ? weight_factors[0][ref_idx].delta_chroma_offset[j] : ((-weight_factors[0][ref_idx].delta_chroma_offset[j]) + 1)) + 1) * 2 + 1;
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits,
 										weight_factors[0][ref_idx].delta_chroma_offset[j], j == 0 ?
 										"the difference of the additive offset applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cb" :
 										"the difference of the additive offset applied to the chroma prediction values for list 0 prediction using RefPicList0[i] for Cr");
@@ -4260,15 +4260,14 @@ namespace BST {
 							{
 								if (weight_factors[1][ref_idx].luma_weight_flag)
 								{
+									long long field_bits = 0;
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "delta_luma_weight_l1[%u]", ref_idx);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-										quick_log2((weight_factors[1][ref_idx].delta_luma_weight >= 0 ? weight_factors[1][ref_idx].delta_luma_weight : ((-weight_factors[1][ref_idx].delta_luma_weight) + 1)) + 1) * 2 + 1,
-										weight_factors[1][ref_idx].delta_luma_weight,
+									field_bits = (long long)quick_log2((weight_factors[1][ref_idx].delta_luma_weight >= 0 ? weight_factors[1][ref_idx].delta_luma_weight : ((-weight_factors[1][ref_idx].delta_luma_weight) + 1)) + 1) * 2 + 1;
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits, weight_factors[1][ref_idx].delta_luma_weight,
 										"the difference of the weighting factor applied to the luma prediction value for list 1 prediction using RefPicList0[i]");
 									MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "luma_offset_l1[%u]", ref_idx);
-									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-										quick_log2((weight_factors[1][ref_idx].luma_offset >= 0 ? weight_factors[1][ref_idx].luma_offset : ((-weight_factors[1][ref_idx].luma_offset) + 1)) + 1) * 2 + 1,
-										weight_factors[1][ref_idx].luma_offset,
+									field_bits = (long long)quick_log2((weight_factors[1][ref_idx].luma_offset >= 0 ? weight_factors[1][ref_idx].luma_offset : ((-weight_factors[1][ref_idx].luma_offset) + 1)) + 1) * 2 + 1;
+									BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits, weight_factors[1][ref_idx].luma_offset,
 										"the additive offset applied to the luma prediction value for list 1 prediction using RefPicList0[i]");
 								}
 
@@ -4276,15 +4275,16 @@ namespace BST {
 								{
 									for (uint8_t j = 0; j < 2; j++)
 									{
+										long long field_bits = 0;
 										MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "delta_chroma_weight_l1[%u][%u]", ref_idx, j);
-										BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-											quick_log2((weight_factors[1][ref_idx].delta_chroma_weight[j] >= 0 ? weight_factors[1][ref_idx].delta_chroma_weight[j] : ((-weight_factors[1][ref_idx].delta_chroma_weight[j]) + 1)) + 1) * 2 + 1,
+										field_bits = (long long)quick_log2((weight_factors[1][ref_idx].delta_chroma_weight[j] >= 0 ? weight_factors[1][ref_idx].delta_chroma_weight[j] : ((-weight_factors[1][ref_idx].delta_chroma_weight[j]) + 1)) + 1) * 2 + 1;
+										BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits,
 											weight_factors[1][ref_idx].delta_chroma_weight[j], j == 0 ?
 											"the difference of the weighting factor applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cb" :
 											"the difference of the weighting factor applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cr");
 										MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "delta_chroma_offset_l1[%u][%u]", ref_idx, j);
-										BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4,
-											quick_log2((weight_factors[1][ref_idx].delta_chroma_offset[j] >= 0 ? weight_factors[1][ref_idx].delta_chroma_offset[j] : ((-weight_factors[1][ref_idx].delta_chroma_offset[j]) + 1)) + 1) * 2 + 1,
+										field_bits = (long long)quick_log2((weight_factors[1][ref_idx].delta_chroma_offset[j] >= 0 ? weight_factors[1][ref_idx].delta_chroma_offset[j] : ((-weight_factors[1][ref_idx].delta_chroma_offset[j]) + 1)) + 1) * 2 + 1;
+										BST_FIELD_PROP_2NUMBER_WITH_ALIAS(szTemp4, field_bits,
 											weight_factors[1][ref_idx].delta_chroma_offset[j], j == 0 ?
 											"the difference of the additive offset applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cb" :
 											"the difference of the additive offset applied to the chroma prediction values for list 1 prediction using RefPicList0[i] for Cr");
@@ -4486,10 +4486,10 @@ namespace BST {
 
 										nal_read_ue(in_bst, num_long_term_pics, uint8_t);
 
-										lt_idx_sps.resize(num_long_term_sps + num_long_term_pics, 0);
-										poc_lsb_lt.resize(num_long_term_sps + num_long_term_pics, 0);
-										delta_poc_msb_cycle_lt.resize(num_long_term_sps + num_long_term_pics, 0);
-										for (uint16_t i = 0; i < num_long_term_sps + num_long_term_pics; i++) {
+										lt_idx_sps.resize((size_t)num_long_term_sps + num_long_term_pics, 0);
+										poc_lsb_lt.resize((size_t)num_long_term_sps + num_long_term_pics, 0);
+										delta_poc_msb_cycle_lt.resize((size_t)num_long_term_sps + num_long_term_pics, 0);
+										for (uint16_t i = 0; i < (uint16_t)num_long_term_sps + num_long_term_pics; i++) {
 											if (i < num_long_term_sps) {
 												if (ptr_sps->num_long_term_ref_pics_sps > 1)
 													nal_read_u(in_bst, lt_idx_sps[i], quick_ceil_log2(ptr_sps->num_long_term_ref_pics_sps), uint32_t);
@@ -4711,7 +4711,7 @@ namespace BST {
 						}
 
 						if (ptr_nal_unit->nal_unit_header.nal_unit_type != IDR_W_RADL && ptr_nal_unit->nal_unit_header.nal_unit_type != IDR_N_LP) {
-							BST_FIELD_PROP_2NUMBER1(slice_pic_order_cnt_lsb, ptr_sps->log2_max_pic_order_cnt_lsb_minus4 + 4, "specifies the picture order count modulo MaxPicOrderCntLsb for the current picture");
+							BST_FIELD_PROP_2NUMBER1(slice_pic_order_cnt_lsb, (long long)ptr_sps->log2_max_pic_order_cnt_lsb_minus4 + 4, "specifies the picture order count modulo MaxPicOrderCntLsb for the current picture");
 							BST_FIELD_PROP_BOOL(short_term_ref_pic_set_sps_flag, 
 								"specifies that the short-term RPS of the current picture is derived based on one of the st_ref_pic_set() syntax structures in the active SPS that is identified by the syntax element short_term_ref_pic_set_idx in the slice header", 
 								"specifies that the short-term RPS of the current picture is derived based on the st_ref_pic_set() syntax structure that is directly included in the slice headers of the current picture");
@@ -4746,7 +4746,7 @@ namespace BST {
 										}
 									}
 									else {
-										BST_ARRAY_FIELD_PROP_NUMBER1_F(poc_lsb_lt, i, ptr_sps->log2_max_pic_order_cnt_lsb_minus4 + 4, 
+										BST_ARRAY_FIELD_PROP_NUMBER1_F(poc_lsb_lt, i, (long long)ptr_sps->log2_max_pic_order_cnt_lsb_minus4 + 4, 
 											"specifies the value of the picture order count modulo MaxPicOrderCntLsb of the %d-th entry in the long-term RPS of the current picture",
 											i);
 										BST_ARRAY_FIELD_PROP_NUMBER1_F(used_by_curr_pic_lt_flag, i, 1,
@@ -4901,7 +4901,7 @@ namespace BST {
 							BST_FIELD_PROP_UE(offset_len_minus1, "plus 1 specifies the length, in bits, of the entry_point_offset_minus1[i] syntax elements");
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag2", "for(i=0;&lt;num_entry_point_offsets;i++)", "");
 							for (uint32_t i = 0; i < num_entry_point_offsets; i++) {
-								BST_ARRAY_FIELD_PROP_NUMBER1_F(entry_point_offset_minus1, i, offset_len_minus1 + 1, "plus 1 specifies the %d-th entry point offset in bytes", i);
+								BST_ARRAY_FIELD_PROP_NUMBER1_F(entry_point_offset_minus1, i, (long long)offset_len_minus1 + 1, "plus 1 specifies the %d-th entry point offset in bytes", i);
 							}
 							NAV_WRITE_TAG_END("Tag2");
 						}
@@ -4984,7 +4984,7 @@ namespace BST {
 				PIC_PARAMETER_SET_RBSP*		ptr_pic_parameter_set_rbsp;
 				SEI_RBSP*					ptr_sei_rbsp;
 				SLICE_SEGMENT_LAYER_RBSP*	ptr_slice_segment_layer_rbsp;
-				void*						ptr_rbsp;
+				void*						ptr_rbsp = nullptr;
 			};
 			VideoBitstreamCtx*				ptr_ctx_video_bst;
 
@@ -5238,7 +5238,7 @@ namespace BST {
 		{
 			std::vector<uint8_t>		leading_zero_8bits;
 			uint8_t						has_zero_byte;
-			uint8_t						zero_byte;
+			uint8_t						zero_byte = 0;
 			uint32_t					start_code_prefix_one_3bytes;
 			NAL_UNIT					nal_unit;
 			std::vector<uint8_t>		trailing_zero_8bits;
@@ -5509,8 +5509,8 @@ namespace BST {
 						if (std::find(ctx_video_bst.nal_unit_type_filters.begin(), ctx_video_bst.nal_unit_type_filters.end(), nal_unit_type) ==
 							ctx_video_bst.nal_unit_type_filters.end())
 						{
-							cbSize -= 2 + cbNALLengthDelimiterSize;
-							pBuf += 2 + cbNALLengthDelimiterSize;
+							cbSize -= cbNALLengthDelimiterSize + 2;
+							pBuf += (ptrdiff_t)cbNALLengthDelimiterSize + 2;
 							continue;
 						}
 					}
@@ -5531,7 +5531,7 @@ namespace BST {
 					}
 
 					cbSize -= cbNALLengthDelimiterSize + nal_length;
-					pBuf += cbNALLengthDelimiterSize + nal_length;
+					pBuf += (ptrdiff_t)cbNALLengthDelimiterSize + nal_length;
 				}
 				AMBst_Destroy(bst);
 

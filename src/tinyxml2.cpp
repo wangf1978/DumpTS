@@ -348,7 +348,7 @@ const char* StrPair::GetStr()
                                 // Found an entity - convert.
                                 *q = entity.value;
                                 ++q;
-                                p += entity.length + 2;
+                                p += (ptrdiff_t)entity.length + 2;
                                 entityFound = true;
                                 break;
                             }
@@ -2554,7 +2554,7 @@ void XMLPrinter::Print( const char* format, ... )
         va_start( va, format );
         TIXMLASSERT( _buffer.Size() > 0 && _buffer[_buffer.Size() - 1] == 0 );
         char* p = _buffer.PushArr( len ) - 1;	// back up over the null terminator.
-		TIXML_VSNPRINTF( p, len+1, format, va );
+		TIXML_VSNPRINTF( p, (size_t)len+1, format, va );
     }
     va_end( va );
 }

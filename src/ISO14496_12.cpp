@@ -355,7 +355,10 @@ namespace ISOBMFF
 
 	void PrintBoxTree(BoxTree* ptr_element, int print_level, int column_widths[])
 	{
-		size_t line_chars = print_level * 5 + 160;
+		if (print_level < 0)
+			return;
+
+		size_t line_chars = (size_t)print_level * 5 + 160;
 		char* szLine = new char[line_chars];
 		memset(szLine, ' ', line_chars);
 
@@ -366,14 +369,14 @@ namespace ISOBMFF
 		if (print_level >= 1)
 		{
 			BoxTree* ptr_parent = ptr_element->parent;
-			memcpy(szLine + indent + (print_level - 1)*level_span, "|--", 3);
+			memcpy(szLine + ((ptrdiff_t)print_level - 1)*level_span + indent, "|--", 3);
 			for (int i = print_level - 2; i >= 0 && ptr_parent != nullptr; i--)
 			{
 				if (ptr_parent->next_sibling != nullptr)
-					memcpy(szLine + indent + i*level_span, "|", 1);
+					memcpy(szLine + indent + (ptrdiff_t)i*level_span, "|", 1);
 				ptr_parent = ptr_parent->parent;
 			}
-			szText = szLine + indent + 3 + (print_level - 1)*level_span;
+			szText = szLine + ((ptrdiff_t)print_level - 1)*level_span + indent + 3;
 		}
 		else
 			szText = szLine + indent;
@@ -475,7 +478,7 @@ namespace ISOBMFF
 		for (size_t i = 0; i < _countof(column_widths); i++)
 			table_width += column_widths[i] + 1;
 
-		char* szLine = new char[table_width + 2];
+		char* szLine = new char[(size_t)table_width + 2];
 		memset(szLine, '-', table_width);
 		szLine[0] = szLine[1] = ' ';
 		szLine[table_width] = '\n';

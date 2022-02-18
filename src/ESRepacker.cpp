@@ -278,7 +278,7 @@ int CESRepacker::PreProcessMatroskaBlock()
 			}
 			else if (m_cur_seek_point_info.lacing == 2)
 			{
-				m_cur_seek_point_info.frame_sizes.push_back((uint32_t)(cbLeftSize / (num_frames_minus1 + 1)));
+				m_cur_seek_point_info.frame_sizes.push_back((uint32_t)(cbLeftSize / ((uint64_t)num_frames_minus1 + 1)));
 			}
 
 			total_frame_size += m_cur_seek_point_info.frame_sizes.back();
