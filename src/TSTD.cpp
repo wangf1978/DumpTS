@@ -31,7 +31,7 @@ SOFTWARE.
 #include "Syncer.h"
 #include "DataUtil.h"
 
-extern unordered_map<std::string, std::string> g_params;
+extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
 // option, 1: only PCR; 2: PCR + video; 3: PCR + audio; 4: PCR + all elementary streams
 int ShowPCR(int option)

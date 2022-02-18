@@ -31,7 +31,7 @@ SOFTWARE.
 #include "PayloadBuf.h"
 #include <chrono>
 
-extern std::unordered_map<std::string, std::string> g_params;
+extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern int g_verbose_level;
 
 #define DEFAULT_TLV_PACKETS_PER_DISPLAY 20

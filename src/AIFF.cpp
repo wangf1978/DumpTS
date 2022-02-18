@@ -27,7 +27,7 @@ SOFTWARE.
 #include "platcomm.h"
 #include "AIFF.h"
 
-extern std::unordered_map<std::string, std::string> g_params;
+extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern int g_verbose_level;
 
 int DumpAIFF()

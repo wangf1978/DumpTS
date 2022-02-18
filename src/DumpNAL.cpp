@@ -37,7 +37,7 @@ SOFTWARE.
 
 using namespace std;
 
-extern unordered_map<std::string, std::string> g_params;
+extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
 int	ShowNUs()
 {

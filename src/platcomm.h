@@ -451,4 +451,12 @@ inline uint8_t quick_ceil_log2(uint32_t v)
 	return (1UL << qlog2_value) != v ? (qlog2_value + 1) : (qlog2_value);
 }
 
+struct CaseInsensitiveComparator
+{
+	bool operator()(const std::string& a, const std::string& b) const noexcept
+	{
+		return STRICMP(a.c_str(), b.c_str()) < 0;
+	}
+};
+
 #endif

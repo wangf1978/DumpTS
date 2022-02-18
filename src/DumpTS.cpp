@@ -43,7 +43,7 @@ SOFTWARE.
 
 using namespace std;
 
-unordered_map<std::string, std::string> g_params;
+map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
 using PID_props = unordered_map<std::string, int>;
 unordered_map<short, PID_props&> g_PIDs_props;
@@ -264,7 +264,7 @@ void ParseCommandLine(int argc, char* argv[])
 		for (int i = 0; i < argc; i++)
 			printf("%s\n", argv[i]);
 
-		unordered_map<std::string, std::string>::const_iterator iter = g_params.cbegin();
+		auto iter = g_params.cbegin();
 		for (; iter != g_params.cend(); iter++)
 		{
 			if (iter->second.length() == 0)

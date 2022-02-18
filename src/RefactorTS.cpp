@@ -29,7 +29,7 @@ SOFTWARE.
 #include "AMRingBuffer.h"
 #include <algorithm>
 
-extern unordered_map<std::string, std::string> g_params;
+extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
 // Refactor TS, for example, change PID, PTS, or changing from ts to m2ts and so on
 int RefactorTS()

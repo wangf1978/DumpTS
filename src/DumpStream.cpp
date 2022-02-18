@@ -42,7 +42,7 @@ SOFTWARE.
 using namespace std;
 
 extern const char *dump_msg[];
-extern unordered_map<std::string, std::string> g_params;
+extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern TS_FORMAT_INFO g_ts_fmtinfo;
 extern int g_verbose_level;
 extern DUMP_STATUS g_dump_status;

@@ -29,7 +29,7 @@ SOFTWARE.
 using namespace std;
 
 extern const char *dump_msg[];
-extern unordered_map<std::string, std::string> g_params;
+extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
 // Dump a partial TS
 int DumpPartialTS()

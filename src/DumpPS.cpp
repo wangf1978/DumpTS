@@ -33,7 +33,7 @@ SOFTWARE.
 #include "mpeg2videoparser.h"
 #include "mpeg2video.h"
 
-extern std::unordered_map<std::string, std::string> g_params;
+extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern int g_verbose_level;
 extern DUMP_STATUS g_dump_status;
 extern TS_FORMAT_INFO	g_ts_fmtinfo;
