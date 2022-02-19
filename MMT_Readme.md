@@ -19,7 +19,7 @@ Layout of MMT:
                     descriptor_length: 8
                      video_resolution: 6(0X6), height: 2160
                    video_aspect_ratio: 3(0X3), 16:9 without pan vector
-                      video_scan_flag: 1, interlaced
+                      video_scan_flag: 0, interlaced
                      video_frame_rate: 8(0X8), 60/1.001 fps
                         component_tag: 0(0X0)
                 trans_characteristics: 5(0X5), Rec. ITU-R BT.2100 HLG
@@ -71,7 +71,7 @@ Layout of MMT:
                         descriptor_length: 8
                          video_resolution: 6(0X6), height: 2160
                        video_aspect_ratio: 3(0X3), 16:9 without pan vector
-                          video_scan_flag: 1, interlaced
+                          video_scan_flag: 0, interlaced
                          video_frame_rate: 8(0X8), 60/1.001 fps
                             component_tag: 0(0X0)
                     trans_characteristics: 5(0X5), Rec. ITU-R BT.2100 HLG

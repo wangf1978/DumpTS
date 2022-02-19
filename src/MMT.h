@@ -569,7 +569,7 @@ namespace MMT
 				video_aspect_ratio == 2?"16:9 with pan vector":(
 				video_aspect_ratio == 3?"16:9 without pan vector":(
 				video_aspect_ratio == 4?"> 16:9":"")))));
-			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 ", %s\n", szIndent, "video_scan_flag", (uint64_t)video_scan_flag, video_scan_flag ? "interlaced" : "progressive");
+			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 ", %s\n", szIndent, "video_scan_flag", (uint64_t)video_scan_flag, video_scan_flag ? "progressive" :"interlaced");
 			fprintf(out, MMT_FIX_HEADER_FMT_STR ": %" PRIu64 "(0X%" PRIX64 "), %s\n", szIndent, "video_frame_rate", (uint64_t)video_frame_rate, (uint64_t)video_frame_rate,
 				video_frame_rate == 0?"Unspecified":(
 				video_frame_rate == 1?"15 fps":(
