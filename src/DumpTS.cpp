@@ -159,7 +159,7 @@ void ParseCommandLine(int argc, char* argv[])
 		g_params.insert({ "input", argv[1] });
 	}
 
-	std::string str_arg_prefixes[] = {
+	const char* str_arg_prefixes[] = {
 		"output", 
 		"pid", 
 		"CID",
@@ -221,34 +221,34 @@ void ParseCommandLine(int argc, char* argv[])
 	for (; iarg < argc; iarg++)
 	{
 		bool bOption = false;
-		std::string strArg = argv[iarg];
-		if (strArg.find("--") == 0)
-		{
+		const char* strArg = argv[iarg];
+		if (StrBeginWith(argv[iarg], "--", true, NULL, &strArg))
 			bOption = true;
-			strArg = strArg.substr(2);
-		}
 
 		bool bFound = false;
 		for (size_t i = 0; i < _countof(str_arg_prefixes); i++)
 		{
-			if (strArg.find(str_arg_prefixes[i] + "=") == 0)
+			bool bEqual = false;
+			const char* strArgLeft = nullptr;
+			if (StrBeginWith(strArg, str_arg_prefixes[i], true, &bEqual, &strArgLeft))
 			{
-				string strVal = strArg.substr(str_arg_prefixes[i].length() + 1);
-				if (strArg.compare("removebox") != 0)
-					std::transform(strVal.begin(), strVal.end(), strVal.begin(), ::tolower);
-				g_params[str_arg_prefixes[i]] = strVal;
-				bFound = true;
-				break;
-			}
-			else if (strArg == str_arg_prefixes[i])
-			{
-				g_params[str_arg_prefixes[i]] = "";
-				bFound = true;
+				if (bEqual)
+				{
+					g_params[str_arg_prefixes[i]] = "";
+					bFound = true;
+				}
+				else if(*strArgLeft == '=')
+				{
+					strArgLeft++;
+					g_params[str_arg_prefixes[i]] = strArgLeft;
+					bFound = true;
+					break;
+				}
 			}
 		}
 
 		if (!bFound && bOption)
-			printf("Unsupported options \"%s\"\n", strArg.c_str());
+			printf("Unsupported options \"%s\"\n", strArg);
 	}
 
 	if (g_params.find("verbose") != g_params.end())
@@ -269,20 +269,20 @@ void ParseCommandLine(int argc, char* argv[])
 		{
 			if (iter->second.length() == 0)
 			{
-				if (iter->first.compare("showpack") == 0 ||
-					iter->first.compare("showIPv4pack") == 0 ||
-					iter->first.compare("showIPv6pack") == 0 ||
-					iter->first.compare("showHCIPpack") == 0 ||
-					iter->first.compare("showTCSpack") == 0 ||
-					iter->first.compare("showpts") == 0 ||
-					iter->first.compare("showinfo") == 0 ||
-					iter->first.compare("verbose") == 0 ||
-					iter->first.compare("showSIT") == 0 ||
-					iter->first.compare("showPMT") == 0 ||
-					iter->first.compare("showMPT") == 0 ||
-					iter->first.compare("showPAT") == 0 ||
-					iter->first.compare("showPLT") == 0 ||
-					iter->first.compare("showCAT") == 0)
+				if (MBCSICMP(iter->first.c_str(), "showpack") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showIPv4pack") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showIPv6pack") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showHCIPpack") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showTCSpack") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showpts") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showinfo") == 0 ||
+					MBCSICMP(iter->first.c_str(), "verbose") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showSIT") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showPMT") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showMPT") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showPAT") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showPLT") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showCAT") == 0)
 					printf("%s : yes\n", iter->first.c_str());
 				else
 					printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());

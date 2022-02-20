@@ -476,3 +476,32 @@ inline uint64_t gcd(uint64_t a, uint64_t b)
 		return gcd(b, c);
 }
 
+inline bool StrBeginWith(const char* str1, const char* str2, bool bIgnoreCase, bool* pbIsEqual, const char** str1_left)
+{
+	size_t szLen = strlen(str2), i = 0;
+	for (; i < szLen && str1[i] != 0 && (bIgnoreCase ? (toupper(str2[i]) == toupper(str1[i])) : (str2[i] == str1[i])); i++);
+
+	if (i == szLen)
+	{
+		AMP_SAFEASSIGN(pbIsEqual, str1[i] == _T('\0'));
+		AMP_SAFEASSIGN(str1_left, &str1[i]);
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+inline size_t StrEndWith(const char* str1, const char* str2, bool bIgnoreCase)
+{
+	size_t szLen = strlen(str1);
+	size_t szLen2 = strlen(str2);
+
+	if (szLen < szLen2)
+		return std::string::npos;
+
+	size_t i = szLen - strlen(str2), j = 0, end_pos = i;
+	for (; i >= 0 && i < szLen && (bIgnoreCase ? (toupper(str2[j]) == toupper(str1[i])) : (str2[j] == str1[i])); i++, j++);
+
+	return i == szLen ? end_pos : std::string::npos;
+}
+

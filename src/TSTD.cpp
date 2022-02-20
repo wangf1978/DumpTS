@@ -530,7 +530,8 @@ done:
 					max_number_of_rows = SPN_PCR.size();
 
 				ccWrittenOnce = MBCSPRINTF_S(szRow, sizeof(szRow) / sizeof(szRow[0]), "SPN,ATC(27MHZ),PCR(27MHZ)");
-				ccWritten += ccWrittenOnce;
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
 
 				size_t next_PCR_idx = SIZE_MAX;
 				size_t next_SPN_for_PCR = SIZE_MAX;
@@ -555,9 +556,13 @@ done:
 
 					ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten,
 						",PTS(27MHZ)(0x%04x),DTS(27MHZ)(0x%04x)", stm.first, stm.first);
-					ccWritten += ccWrittenOnce;
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
 				}
-				szRow[ccWritten++] = '\n';
+				if ((size_t)ccWritten + 1 < _countof(szRow))
+					szRow[ccWritten++] = '\n';
+				else
+					szRow[_countof(szRow) - 1] = '\n';
 
 				fwrite(szRow, 1, ccWritten, fp_csv);
 
@@ -576,7 +581,9 @@ done:
 					else
 						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu32 ",%" PRIu32 ",",
 							std::get<0>(SPN_ATC[i]), std::get<1>(SPN_ATC[i]));
-					ccWritten += ccWrittenOnce;
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
 
 					if (std::get<0>(SPN_ATC[i]) != next_SPN_for_PCR)
 						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",");
@@ -595,7 +602,9 @@ done:
 							next_SPN_for_PCR = std::get<0>(SPN_PCR[next_PCR_idx]);
 						}
 					}
-					ccWritten += ccWrittenOnce;
+
+					if (ccWrittenOnce > 0)
+						ccWritten += ccWrittenOnce;
 
 					// For stream SPN and PTS/DTS(27MHZ)
 					for (size_t j = 0; j < next_stm_spn_entry.size(); j++)
@@ -632,7 +641,8 @@ done:
 							}
 						}
 
-						ccWritten += ccWrittenOnce;
+						if (ccWrittenOnce > 0)
+							ccWritten += ccWrittenOnce;
 					}
 
 					szRow[ccWritten++] = '\n';
