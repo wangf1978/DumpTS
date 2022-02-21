@@ -260,7 +260,7 @@ namespace BST {
 						}PACKED;
 						unsigned char	lfe_element_tag_select;
 						unsigned char	assoc_data_element_tag_select;
-						unsigned char	char_value;
+						unsigned char	char_value = 0;
 					}PACKED;
 
 					unsigned long		element_instance_tag : 4;
@@ -288,10 +288,15 @@ namespace BST {
 					CElementConfig		assoc_data_element_tag_select[7];
 					CElementConfig		valid_cc_elements[15];
 
-					unsigned char		comment_field_bytes;
-					unsigned char		comment_field_data[255];
+					unsigned char		comment_field_bytes = 0;
+					unsigned char		comment_field_data[255] = { 0 };
 
-					CProgramConfigElement() {}
+					CProgramConfigElement() 
+						: element_instance_tag(0), object_type(0), sampling_frequency_index(0)
+						, num_front_channel_elements(0), num_side_channel_elements(0), num_back_channel_elements(0), num_lfe_channel_elements(0)
+						, num_assoc_data_elements(0), num_valid_cc_elements(0), mono_mixdown_present(0){
+					}
+
 					virtual ~CProgramConfigElement() { Unmap(); }
 
 					int Map(AMBst bst) {
@@ -769,21 +774,21 @@ namespace BST {
 
 			}PACKED;
 
-			unsigned char		audioObjectType_1;					// 5 bits
-			unsigned char		audioObjectTypeExt_1;				// 6 bits
+			unsigned char		audioObjectType_1 = 0;					// 5 bits
+			unsigned char		audioObjectTypeExt_1 = 0;				// 6 bits
 
-			unsigned char		samplingFrequencyIndex;				// 4 bits
-			unsigned long		samplingFrequency;					// 24 bits
+			unsigned char		samplingFrequencyIndex = 0;				// 4 bits
+			unsigned long		samplingFrequency = 0;					// 24 bits
 
-			unsigned char		channelConfiguration;				// 4 bits
+			unsigned char		channelConfiguration = 0;				// 4 bits
 
-			unsigned char		extensionSamplingFrequencyIndex;	// 4 bits
-			unsigned long		extensionSamplingFrequency;			// 24 bit
+			unsigned char		extensionSamplingFrequencyIndex = 0;	// 4 bits
+			unsigned long		extensionSamplingFrequency = 0;			// 24 bit
 
-			unsigned char		audioObjectType_2;					// 5 bits
-			unsigned char		audioObjectTypeExt_2;				// 6 bits
+			unsigned char		audioObjectType_2 = 0;					// 5 bits
+			unsigned char		audioObjectTypeExt_2 = 0;				// 6 bits
 
-			int					config_data_len;
+			int					config_data_len = 0;
 			union {
 				CGASpecificConfig*	GASpecificConfig;
 				unsigned char*		config_data;
@@ -987,7 +992,7 @@ namespace BST {
 				}PACKED;
 				uint8_t			lfe_element_tag_select;
 				uint8_t			assoc_data_element_tag_select;
-				uint8_t			char_value;
+				uint8_t			char_value = 0;
 			}PACKED;
 
 			uint32_t			element_instance_tag : 4;
@@ -1001,12 +1006,12 @@ namespace BST {
 			uint32_t			num_valid_cc_elements : 4;
 			uint32_t			mono_mixdown_present : 1;
 
-			uint8_t				mono_mixdown_element_number;
-			uint8_t				stereo_mixdown_present;
-			uint8_t				stereo_mixdown_element_number;
-			uint8_t				matrix_mixdown_idx_present;
-			uint8_t				matrix_mixdown_idx;
-			uint8_t				pseudo_surround_enable;
+			uint8_t				mono_mixdown_element_number = 0;
+			uint8_t				stereo_mixdown_present = 0;
+			uint8_t				stereo_mixdown_element_number = 0;
+			uint8_t				matrix_mixdown_idx_present = 0;
+			uint8_t				matrix_mixdown_idx = 0;
+			uint8_t				pseudo_surround_enable = 0;
 
 			ElementConfig		front_channel_elements[15];
 			ElementConfig		side_channel_elements[15];
@@ -1015,10 +1020,14 @@ namespace BST {
 			ElementConfig		assoc_data_element_tag_select[7];
 			ElementConfig		valid_cc_elements[15];
 
-			uint8_t				comment_field_bytes;
-			uint8_t				comment_field_data[255];
+			uint8_t				comment_field_bytes = 0;
+			uint8_t				comment_field_data[255] = { 0 };
 
-			PROGRAM_CONFIG_ELEMENT() {}
+			PROGRAM_CONFIG_ELEMENT()
+				: element_instance_tag(0), object_type(0), sampling_frequency_index(0), num_front_channel_elements(0)
+				, num_side_channel_elements(0), num_back_channel_elements(0), num_lfe_channel_elements(0), num_assoc_data_elements(0)
+				, num_valid_cc_elements(0), mono_mixdown_present(0){
+			}
 			~PROGRAM_CONFIG_ELEMENT() {}
 
 			int Unpack(CBitstream& bs) {
@@ -1302,7 +1311,12 @@ namespace BST {
 						uint8_t		NumEnhLayers : 2;
 						uint8_t		BandwidthScalabilityMode : 1;
 					}PACKED;
+					uint8_t			u8Val = 0;
 				}PACKED;
+
+				CELPHEADER()
+					: ExcitationMode(0), SampleRateMode(0), FineRateControl(0), reserved_0(0) {
+				}
 
 				int Unpack(CBitstream& bs)
 				{
@@ -1361,7 +1375,7 @@ namespace BST {
 			uint8_t				samplingFrequencyIndex;
 
 			CelpSpecificConfig(uint8_t nSamplingFrequencyIndex)
-				: samplingFrequencyIndex(nSamplingFrequencyIndex) {
+				: isBaseLayer(0), samplingFrequencyIndex(nSamplingFrequencyIndex) {
 			}
 
 			int Unpack(CBitstream& bs)
@@ -1427,6 +1441,11 @@ namespace BST {
 				uint32_t			Lip_Shape_Enable : 1;
 				uint32_t			Trick_Mode_Enable : 1;
 				uint32_t			padding : 2;
+
+				TTS_Sequence()
+					: TTS_Sequence_ID(0), Language_Code(0), Gender_Enable(0), Age_Enable(0), Speech_Rate_Enable(0), Prosody_Enable(0)
+					, Video_Enable(0), Lip_Shape_Enable(0), Trick_Mode_Enable(0), padding(0) {
+				}
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -1702,23 +1721,23 @@ namespace BST {
 
 		struct AudioSpecificConfig : public MPEG4System::DecoderSpecificInfo
 		{
-			uint8_t				audioObjectType_1;					// 5 bits
-			uint8_t				audioObjectTypeExt_1;				// 6 bits
+			uint8_t				audioObjectType_1 = 0;					// 5 bits
+			uint8_t				audioObjectTypeExt_1 = 0;				// 6 bits
 
-			uint8_t				samplingFrequencyIndex;				// 4 bits
-			uint32_t			samplingFrequency;					// 24 bits
+			uint8_t				samplingFrequencyIndex = 0;				// 4 bits
+			uint32_t			samplingFrequency = 0;					// 24 bits
 
-			uint8_t				channelConfiguration;				// 4 bits
+			uint8_t				channelConfiguration = 0;				// 4 bits
 
-			uint8_t				extensionSamplingFrequencyIndex;	// 4 bits
-			uint32_t			extensionSamplingFrequency;			// 24 bit
+			uint8_t				extensionSamplingFrequencyIndex = 0;	// 4 bits
+			uint32_t			extensionSamplingFrequency = 0;			// 24 bit
 
-			uint8_t				audioObjectType_2;					// 5 bits
-			uint8_t				audioObjectTypeExt_2;				// 6 bits
+			uint8_t				audioObjectType_2 = 0;					// 5 bits
+			uint8_t				audioObjectTypeExt_2 = 0;				// 6 bits
 
-			uint8_t				audioObjectType;
+			uint8_t				audioObjectType = 0;
 
-			uint8_t				extensionChannelConfiguration;		// 4 bits
+			uint8_t				extensionChannelConfiguration = 0;		// 4 bits
 
 			uint8_t				sacPayloadEmbedding : 1;			// for SpatialSpecificConfig
 			uint8_t				fillBits : 5;						// for ALSSpecificConfig()
@@ -1730,11 +1749,11 @@ namespace BST {
 				CelpSpecificConfig*	CelpSpecConfig;
 				TTSSpecificConfig*	TTSSpecConfig;
 				ALSSpecificConfig*	ALSSpecConfig;
-				void*				pConfig;
+				void*				pConfig = nullptr;
 			};
 
 			AudioSpecificConfig()
-				: audioObjectType(0), pConfig(nullptr){
+				: audioObjectType(0), sacPayloadEmbedding(0), fillBits(0), padding_0(0){
 			}
 
 			virtual ~AudioSpecificConfig()
@@ -2264,9 +2283,10 @@ namespace BST {
 				uint8_t			ancStop : 1;
 				uint8_t			byte_align : 4;
 				std::vector<uint8_t>
-					ancDataSegmentBytes;
+								ancDataSegmentBytes;
 
-				SAC_EXTENSION_DATA(int cntBytes) {
+				SAC_EXTENSION_DATA(int cntBytes)
+					: ancType(0), ancStart(0), ancStop(0), byte_align(0){
 					if (cntBytes > 1)
 						ancDataSegmentBytes.resize((size_t)cntBytes - 1);
 				}
@@ -2288,24 +2308,31 @@ namespace BST {
 			{
 				struct SBR_HEADER
 				{
-					uint16_t		bs_amp_res : 1;
-					uint16_t		bs_start_freq : 4;
-					uint16_t		bs_stop_freq : 4;
-					uint16_t		bs_xover_band : 3;
-					uint16_t		bs_reserved : 2;
-					uint16_t		bs_header_extra_1 : 1;
-					uint16_t		bs_header_extra_2 : 1;
+					union
+					{
+						struct
+						{
+							uint16_t		bs_amp_res : 1;
+							uint16_t		bs_start_freq : 4;
+							uint16_t		bs_stop_freq : 4;
+							uint16_t		bs_xover_band : 3;
+							uint16_t		bs_reserved : 2;
+							uint16_t		bs_header_extra_1 : 1;
+							uint16_t		bs_header_extra_2 : 1;
 
-					uint8_t			bs_freq_scale : 2;
-					uint8_t			bs_alter_scale : 1;
-					uint8_t			bs_noise_bands : 2;
-					uint8_t			byte_align_0 : 3;
+							uint8_t			bs_freq_scale : 2;
+							uint8_t			bs_alter_scale : 1;
+							uint8_t			bs_noise_bands : 2;
+							uint8_t			byte_align_0 : 3;
 
-					uint8_t			bs_limiter_bands : 2;
-					uint8_t			bs_limiter_gains : 2;
-					uint8_t			bs_interpol_freq : 1;
-					uint8_t			bs_smoothing_mode : 1;
-					uint8_t			byte_align_1 : 2;
+							uint8_t			bs_limiter_bands : 2;
+							uint8_t			bs_limiter_gains : 2;
+							uint8_t			bs_interpol_freq : 1;
+							uint8_t			bs_smoothing_mode : 1;
+							uint8_t			byte_align_1 : 2;
+						} PACKED;
+						uint8_t				ubytes[4] = { 0 };
+					} PACKED;
 
 					int Unpack(CBitstream& bs)
 					{
@@ -2388,7 +2415,8 @@ namespace BST {
 				int				id_aac;
 				int				crc_flag;
 
-				SBR_EXTENSION_DATA(int nIdAAC, int nCrcFlag) : id_aac(nIdAAC), crc_flag(nCrcFlag) {
+				SBR_EXTENSION_DATA(int nIdAAC, int nCrcFlag) 
+					: bs_sbr_crc_bits(0), bs_header_flag(0), word_align(0), id_aac(nIdAAC), crc_flag(nCrcFlag) {
 				}
 
 				int Unpack(CBitstream& bs)
@@ -2413,7 +2441,7 @@ namespace BST {
 				std::vector<uint8_t>
 								fill_bytes;
 
-				FILL_DATA(uint16_t cnt) {
+				FILL_DATA(uint16_t cnt): fill_nibble(0), reserved_0(0){
 					if (cnt > 1)
 						fill_bytes.resize(cnt - 1);
 				}
@@ -2440,7 +2468,8 @@ namespace BST {
 				EXTENSION_PAYLOAD*
 								extension_payload = nullptr;
 
-				DATA_ELEMENT(EXTENSION_PAYLOAD* pExtPayload) : extension_payload(pExtPayload) {
+				DATA_ELEMENT(EXTENSION_PAYLOAD* pExtPayload) 
+					: data_element_version(0), reserved_0(0), extension_payload(pExtPayload) {
 				}
 
 				int Unpack(CBitstream& bs)
@@ -2605,7 +2634,8 @@ namespace BST {
 				CAMBitArray		ltp_long_used;
 				ICS_INFO*		ics_info = nullptr;
 
-				LTP_DATA(ICS_INFO* pICSInfo) :ics_info(pICSInfo) {
+				LTP_DATA(ICS_INFO* pICSInfo) 
+					: ltp_lag_update(0), ltp_lag(0), ltp_coef(0), reserved(0), ics_info(pICSInfo) {
 				}
 
 				int Unpack(CBitstream& bs)
@@ -2919,7 +2949,7 @@ namespace BST {
 				std::vector<uint8_t>
 									sfb_cb[7];
 				uint8_t				sect_esc_val;
-				uint8_t				num_sec[7];
+				uint8_t				num_sec[7] = { 0 };
 				INDIVIDUAL_CHANNEL_STREAM*
 									individual_channel_stream = nullptr;
 
@@ -3051,23 +3081,23 @@ namespace BST {
 
 			struct SCALE_FACTOR_DATA
 			{
-				int16_t				dpcm_is_position[8][64];
-				int16_t				dpcm_noise_nrg[8][64];
-				int16_t				dpcm_sf[8][64];
-				int16_t				dpcm_is_last_position;
+				int16_t				dpcm_is_position[8][64] = { {0} };
+				int16_t				dpcm_noise_nrg[8][64] = { {0} };
+				int16_t				dpcm_sf[8][64] = { {0} };
+				int16_t				dpcm_is_last_position = 0;
 
-				int16_t				esc_dpcm_is_position[8][64];
-				int16_t				esc_dpcm_noise_nrg[8][64];
-				int16_t				esc_dpcm_sf[8][64];
-				int16_t				esc_dpcm_is_last_position;
+				int16_t				esc_dpcm_is_position[8][64] = { {0} };
+				int16_t				esc_dpcm_noise_nrg[8][64] = { {0} };
+				int16_t				esc_dpcm_sf[8][64] = { {0} };
+				int16_t				esc_dpcm_is_last_position = 0;
 
-				uint8_t				sf_concealment;
-				uint8_t				rev_global_gain;
-				uint16_t			length_of_rvlc_sf;
+				uint8_t				sf_concealment = 0;
+				uint8_t				rev_global_gain = 0;
+				uint16_t			length_of_rvlc_sf =0;
 
-				uint8_t				sf_escapes_present;
-				uint8_t				length_of_rvlc_escapes;
-				int16_t				dpcm_noise_last_position;
+				uint8_t				sf_escapes_present = 0;
+				uint8_t				length_of_rvlc_escapes = 0;
+				int16_t				dpcm_noise_last_position = 0;
 
 				INDIVIDUAL_CHANNEL_STREAM*
 									individual_channel_stream = nullptr;
@@ -3502,13 +3532,13 @@ namespace BST {
 
 			struct TNS_DATA
 			{
-				uint8_t				n_filt[8];
-				uint8_t				coef_res[8];
-				uint8_t				length[8][3];
-				uint8_t				order[8][3];
-				uint8_t				direction[8][3];
-				uint8_t				coef_compress[8][3];
-				uint8_t				coef[8][3][32];
+				uint8_t				n_filt[8] = { 0 };
+				uint8_t				coef_res[8] = { 0 };
+				uint8_t				length[8][3] = { {0} };
+				uint8_t				order[8][3] = { {0} };
+				uint8_t				direction[8][3] = { {0} };
+				uint8_t				coef_compress[8][3] = { {0} };
+				uint8_t				coef[8][3][32] = { {{0}} };
 
 				INDIVIDUAL_CHANNEL_STREAM*
 									individual_channel_stream = nullptr;
@@ -3600,7 +3630,7 @@ namespace BST {
 									individual_channel_stream = nullptr;
 
 				LTP_DATA(INDIVIDUAL_CHANNEL_STREAM* pIndividualChannelStream)
-					: individual_channel_stream(pIndividualChannelStream) {
+					: ltp_lag_update(0), ltp_lag(0), ltp_coef(0), reserved(0), individual_channel_stream(pIndividualChannelStream) {
 				}
 
 				int Unpack(CBitstream& bs)
@@ -3647,8 +3677,8 @@ namespace BST {
 			{
 				INDIVIDUAL_CHANNEL_STREAM*
 								individual_channel_stream = nullptr;
-				uint16_t		hcb_index[8][64][1024];
-				int16_t			spectral[8][64][1024];
+				uint16_t		hcb_index[8][64][1024] = { { {0}} };
+				int16_t			spectral[8][64][1024] = { { {0}} };
 
 				SPECTRAL_DATA(INDIVIDUAL_CHANNEL_STREAM* pIndividualChannelStream)
 					: individual_channel_stream(pIndividualChannelStream) {
@@ -3870,6 +3900,9 @@ namespace BST {
 				std::vector<std::tuple<uint8_t, uint8_t>>
 								pulse;
 
+				PULSE_DATA() : number_pulse(0), pulse_start_sfb(0) {
+				}
+
 				int Unpack(CBitstream& bs)
 				{
 					number_pulse = (uint8_t)bs.GetBits(2);
@@ -3902,15 +3935,15 @@ namespace BST {
 				uint8_t				max_band : 2;
 				uint8_t				reserved : 6;
 
-				uint8_t				adjust_num[4][8];
-				uint8_t				alevcode[4][8][7];
-				uint8_t				aloccode[4][8][7];
+				uint8_t				adjust_num[4][8] = { {0} };
+				uint8_t				alevcode[4][8][7] = { {0} };
+				uint8_t				aloccode[4][8][7] = { {0} };
 
 				INDIVIDUAL_CHANNEL_STREAM*
 									individual_channel_stream = nullptr;
 
 				GAIN_CONTROL_DATA(INDIVIDUAL_CHANNEL_STREAM* pIndividualChannelStream)
-					: individual_channel_stream(pIndividualChannelStream) {
+					: max_band(0), reserved(0),individual_channel_stream(pIndividualChannelStream) {
 				}
 
 				int Unpack(CBitstream& bs)
@@ -4296,6 +4329,10 @@ namespace BST {
 			std::vector<uint8_t>
 						data_stream_bytes;
 
+			DATA_STREAM_ELEMENT()
+				: element_instance_tag(0), data_byte_align_flag(0), reserved_0(0) {
+			}
+
 			int Unpack(CBitstream& bs)
 			{
 				int iRet = RET_CODE_SUCCESS;
@@ -4417,9 +4454,9 @@ namespace BST {
 		{
 			struct DATA_ELEMENT
 			{
-				uint64_t	start_bitpos;
-				uint8_t		id_syn_ele;
-				uint8_t		reserved[3];
+				uint64_t	start_bitpos = 0;
+				uint8_t		id_syn_ele = 0;
+				uint8_t		reserved[3] = { 0 };
 				union
 				{
 					SINGLE_CHANNEL_ELEMENT*	single_channel_element;
@@ -4427,7 +4464,7 @@ namespace BST {
 					DATA_STREAM_ELEMENT*	data_stream_element;
 					PROGRAM_CONFIG_ELEMENT*	program_config_element;
 					FILL_ELEMENT*			fill_element;
-					void*					ptr_element;
+					void*					ptr_element = nullptr;
 				};
 
 				DATA_ELEMENT(uint8_t IDSynEle, CAudioStreamContext* pAudStmCtx) : id_syn_ele(IDSynEle) {
@@ -4697,12 +4734,20 @@ namespace BST {
 
 				struct ADTSVariableHeader : public SYNTAX_BITSTREAM_MAP
 				{
-					uint32_t	copyright_identification_bit : 1;
-					uint32_t	copyright_identification_start : 1;
-					uint32_t	aac_frame_length : 13;
-					uint32_t	adts_buffer_fullness : 11;
-					uint32_t	number_of_raw_data_blocks_in_frame : 2;
-					uint32_t	dword_aligned_bits : 4;
+					union
+					{
+						struct
+						{
+							uint32_t	copyright_identification_bit : 1;
+							uint32_t	copyright_identification_start : 1;
+							uint32_t	aac_frame_length : 13;
+							uint32_t	adts_buffer_fullness : 11;
+							uint32_t	number_of_raw_data_blocks_in_frame : 2;
+							uint32_t	dword_aligned_bits : 4;
+						}PACKED;
+
+						uint8_t		uBytes[4] = { 0 };
+					}PACKED;
 
 					int Map(AMBst in_bst)
 					{
@@ -4921,7 +4966,7 @@ namespace BST {
 			uint32_t			ascLen[16][8] = { {0} };
 			std::shared_ptr<CAudioSpecificConfig>
 								AudioSpecificConfig[16][8];
-			AMBitArray			fillBits[16][8];
+			AMBitArray			fillBits[16][8] = { {nullptr} };
 			uint8_t				frameLengthType[128] = { 0 };
 			union
 			{
@@ -5672,7 +5717,7 @@ namespace BST {
 
 		struct CAudioSyncStreamFrame : public SYNTAX_BITSTREAM_MAP
 		{
-			uint16_t				syncword;
+			uint16_t				syncword = 0;
 			uint16_t				audioMuxLengthBytes = 0;
 			CAudioMuxElement*		AudioMuxElement = NULL;
 
