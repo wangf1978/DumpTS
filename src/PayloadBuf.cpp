@@ -1012,15 +1012,23 @@ int CPSIBuf::ProcessPSI(int dumpOptions)
 
 		// Refresh the current PMT payloads
 		// If the current PID in PMT payloads does not belong to PAT, delete it
-		for (auto iter = pPMTPayloads.cbegin(); iter != pPMTPayloads.cend(); iter++)
+		//for (auto iter = pPMTPayloads.cbegin(); iter != pPMTPayloads.cend(); iter++)
+		auto iter = pPMTPayloads.cbegin();
+		while(iter != pPMTPayloads.cend())
 		{
 			auto PMT_iter = PMT_PIDs.cbegin();
 			for (; PMT_iter != PMT_PIDs.cend() && iter->first != std::get<1>(*PMT_iter); PMT_iter++);
 
 			if (PMT_iter == PMT_PIDs.cend() && iter->first != PID_PROGRAM_ASSOCIATION_TABLE)
 			{
-				delete iter->second;
-				pPMTPayloads.erase(iter);
+				auto iter_del = iter;
+				iter++;
+				delete iter_del->second;
+				pPMTPayloads.erase(iter_del);
+			}
+			else
+			{
+				iter++;
 			}
 		}
 
