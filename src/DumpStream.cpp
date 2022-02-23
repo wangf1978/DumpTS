@@ -2244,7 +2244,8 @@ int FlushPESBuffer(
 			}
 
 			// Check the media information of current elementary stream
-			if (DUMP_MEDIA_INFO_VIEW&dumpopt)
+			if ((DUMP_MEDIA_INFO_VIEW&dumpopt)/* ||
+				(!(DUMP_VOB&dumpopt) && IS_NAL_STREAM_TYPE(filter_info.TS.stream_type))*/)
 			{
 				if (raw_data_len > 0)
 				{
@@ -2368,7 +2369,7 @@ done:
 	return iret;
 }
 
-// Dump a stream with specified PID to a pes/es stream
+// Dump a stream with specified PID to a PES/ES stream
 int DumpOneStream()
 {
 	int iRet = -1;
@@ -2488,6 +2489,23 @@ int DumpOneStream()
 	{
 		dumpopt |= DUMP_PAT;
 	}
+
+#if 0
+	if (g_params.find("showVPS") != g_params.end())
+	{
+		dumpopt |= DUMP_NAL_VPS;
+	}
+
+	if (g_params.find("showSPS") != g_params.end())
+	{
+		dumpopt |= DUMP_NAL_SPS;
+	}
+
+	if (g_params.find("showPPS") != g_params.end())
+	{
+		dumpopt |= DUMP_NAL_PPS;
+	}
+#endif
 
 	if (g_params.find("start") != g_params.end())
 	{
@@ -2803,7 +2821,7 @@ int DumpOneStream()
 							{
 								if (stream_type != HDMV_LPCM_AUDIO_STREAM)
 								{
-									printf("At present only support dumping pcm/wav data from LPCM audio stream.\n");
+									printf("At present only support dumping PCM/WAV data from LPCM audio stream.\n");
 									iRet = -1;
 									goto done;
 								}

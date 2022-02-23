@@ -1830,7 +1830,9 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::PIC_TIMING_H264(int payloadSize, INALContext* pNALCtx)
 	: cpb_removal_delay(0)
 	, dpb_output_delay(0)
-	, pic_struct(0xFF)
+	, pic_struct_present_flag(0)
+	, reserved_0(0)
+	, pic_struct(0)
 	, payload_size(payloadSize)
 	, ptr_NAL_Context(pNALCtx){
 	memset(ClockTS, 0, sizeof(ClockTS));
@@ -1909,6 +1911,7 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 
 		if (vui_parameters && vui_parameters->pic_struct_present_flag)
 		{
+			pic_struct_present_flag = 1;
 			pic_struct = (uint8_t)AMBst_GetBits(in_bst, 4);
 			parsed_payload_bits += 4;
 

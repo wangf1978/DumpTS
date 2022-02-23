@@ -464,7 +464,9 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 
 		printf("\tcpb_removal_delay: %" PRIu32 "\n", pPicTiming->cpb_removal_delay);
 		printf("\tdpb_output_delay: %" PRIu32 "\n", pPicTiming->dpb_output_delay);
-		printf("\tpic_struct: %d (%s)\n", pPicTiming->pic_struct, PIC_STRUCT_MEANING(pPicTiming->pic_struct));
+
+		if (pPicTiming->pic_struct_present_flag)
+			printf("\tpic_struct: %d (%s)\n", pPicTiming->pic_struct, PIC_STRUCT_MEANING(pPicTiming->pic_struct));
 
 		int NumClockTS = 0;
 		if (pPicTiming->pic_struct >= 0 && pPicTiming->pic_struct <= 2)
@@ -570,12 +572,7 @@ void PrintAVCSPSRoughInfo(H264_NU sps_nu)
 	printf("A new H.264 sequence(seq_parameter_set_id:%d):\n", sps_seq.seq_parameter_set_id);
 	printf("\tAVC Profile: %s\n", get_h264_profile_name(sps_seq.GetH264Profile()));
 	printf("\tAVC Level: %s\n", get_h264_level_name(sps_seq.GetH264Level()));
-	auto profile_idc = sps_seq.profile_idc;
-	if (profile_idc == 100 || profile_idc == 110 ||
-		profile_idc == 122 || profile_idc == 244 || profile_idc == 44 ||
-		profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
-		profile_idc == 128 || profile_idc == 138)
-		printf("\tChroma: %s\n", chroma_format_idc_names[sps_seq.chroma_format_idc]);
+	printf("\tChroma: %s\n", chroma_format_idc_names[sps_seq.chroma_format_idc]);
 
 	printf("\tScan type: %s\n", sps_seq.frame_mbs_only_flag?"Progressive":"Interlaced");
 
@@ -1049,12 +1046,7 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 								stm_info.video_info.colour_primaries = vui_parameters->colour_primaries;
 							}
 
-							auto profile_idc = sps_seq.profile_idc;
-							if (profile_idc == 100 || profile_idc == 110 ||
-								profile_idc == 122 || profile_idc == 244 || profile_idc == 44 ||
-								profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
-								profile_idc == 128 || profile_idc == 138)
-								stm_info.video_info.chroma_format_idc = sps_seq.chroma_format_idc;
+							stm_info.video_info.chroma_format_idc = sps_seq.chroma_format_idc;
 
 							if (vui_parameters->timing_info_present_flag && vui_parameters->fixed_frame_rate_flag)
 							{

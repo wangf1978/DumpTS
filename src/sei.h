@@ -301,7 +301,11 @@ namespace BST {
 					uint32_t		cpb_removal_delay;
 					uint32_t		dpb_output_delay;
 
-					uint8_t			pic_struct;
+					uint8_t			pic_struct_present_flag : 1;
+					uint8_t			reserved_0 : 2;
+					uint8_t			pic_struct : 5;
+					uint8_t			reserved_1[3] = { 0 };
+
 					CLOCK_TIMESTAMP	ClockTS[3];
 
 					std::vector<uint8_t>

@@ -50,6 +50,11 @@ using namespace std;
 // For all
 #define DUMP_STREAM_INFO_VIEW				(1<<16)
 
+// For NAL
+#define DUMP_NAL_VPS						(1<<17)
+#define DUMP_NAL_SPS						(1<<18)
+#define DUMP_NAL_PPS						(1<<19)
+
 // For Program Stream
 #define DUMP_VOB							(1<<7)
 #define DUMP_MPG							(1<<8)
@@ -82,6 +87,8 @@ using namespace std;
 #define SMPTE_VC1_VIDEO_STREAM				0xEA
 #define MPEG4_MVC_VIDEO_STREAM				0x20
 #define HEVC_VIDEO_STREAM					0x24
+#define VVC_VIDEO_STREAM					0x33
+#define EVC_VIDEO_STREAM					0x35
 
 #define MPEG1_AUDIO_STREAM					0x03
 #define MPEG2_AUDIO_STREAM					0x04
@@ -127,7 +134,16 @@ using namespace std;
 	 (coding_type) == MPEG4_AVC_VIDEO_STREAM ||			\
 	 (coding_type) == SMPTE_VC1_VIDEO_STREAM ||			\
 	 (coding_type) == MPEG4_MVC_VIDEO_STREAM ||			\
-	 (coding_type) == HEVC_VIDEO_STREAM)
+	 (coding_type) == HEVC_VIDEO_STREAM ||				\
+	 (coding_type) == VVC_VIDEO_STREAM ||				\
+	 (coding_type) == EVC_VIDEO_STREAM)
+
+#define IS_NAL_STREAM_TYPE(stm_type)	(\
+	(stm_type) == MPEG4_AVC_VIDEO_STREAM ||\
+	(stm_type) == MPEG4_MVC_VIDEO_STREAM ||\
+	(stm_type) == HEVC_VIDEO_STREAM ||\
+	(stm_type) == VVC_VIDEO_STREAM ||\
+	(stm_type) == EVC_VIDEO_STREAM)
 
 #define STREAM_TYPE_NAMEA(st)	(\
 	(st) == MPEG1_VIDEO_STREAM?"MPEG1 Video":(\
