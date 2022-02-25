@@ -6,7 +6,7 @@
 - **PS**: MPEG program stream, the file extension is normally *.vob, .vro, .mpg, .mpeg* 
 - **NAL**: Network Abstract Layer stream, the file extension is normally *.h264, .avc, .h265, .hevc, h266 and .vvc*
 - **MPV**: MPEG video stream, the file extension is normally *.mpv, .m2v, .mp2v, .m1v* 
-- **OBU**: Open Bitstream, AV1 bitstream is host in it, the file extension is normally *.obu,.av1* 
+- **OBU**: Open Bitstream with length delimited bitstream format as defined in Annex B of AV1, the file extension is normally *.obu,.av1* 
 - **ADTS** The elementary stream exported from MPEG2-AAC stream which is packetized in TS stream, the file extension is normally *.adts*
 - **LOAS/LATM** The elementary stream exported from MPEG4-AAC stream which is packetized in TS or MMT/TLV stream, the file extension is normally .loas(with sync layer) or .latm, normally exported MPEG4-AAC as *.loas*
 

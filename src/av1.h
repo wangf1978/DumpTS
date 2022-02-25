@@ -36,6 +36,7 @@ SOFTWARE.
 #include <unordered_map>
 #include "av1_def.h"
 #include "ISO14496_12.h"
+#include "av1parser.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -148,6 +149,8 @@ extern const uint8_t Segmentation_Feature_Bits[SEG_LVL_MAX];
 extern const uint8_t Segmentation_Feature_Signed[SEG_LVL_MAX];
 extern const uint8_t Segmentation_Feature_Max[SEG_LVL_MAX];
 extern const WarpedMotionParams default_warp_params;
+
+extern RET_CODE CreateAV1Context(IAV1Context** ppAV1Ctx, bool bAnnexB, bool bSingleOBUParse);
 
 #define METADATA_TYPE_NAME(t)	(\
 	(t) == METADATA_TYPE_HDR_CLL?"METADATA_TYPE_HDR_CLL":(\
@@ -406,7 +409,7 @@ namespace BST
 
 		struct OPEN_BITSTREAM_UNIT;
 
-		struct VideoBitstreamCtx
+		struct VideoBitstreamCtx : public CComUnknown, public IAV1Context
 		{
 			/* The current bitstream is annex-b: length delimited bitstream format or not */
 			bool				AnnexB;
@@ -460,6 +463,19 @@ namespace BST
 			std::shared_ptr<OPEN_BITSTREAM_UNIT>
 								sp_sequence_header;
 
+			DECLARE_IUNKNOWN
+
+			HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+			{
+				if (ppvObj == NULL)
+					return E_POINTER;
+
+				if (uuid == IID_IAV1Context)
+					return GetCOMInterface((IAV1Context*)this, ppvObj);
+
+				return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+			}
+
 			VideoBitstreamCtx(bool bAnnexB, bool bSingleOBUParse): AnnexB(bAnnexB), SingleOBUParse(bSingleOBUParse) {
 				camera_frame_header_ready = false;
 
@@ -477,6 +493,55 @@ namespace BST
 				need_resync = true;
 
 				tu_frame_idx = -1;
+			}
+
+			RET_CODE SetOBUFilters(std::initializer_list<OBU_FILTER> obu_filters)
+			{
+				m_obu_filters = obu_filters;
+				return RET_CODE_SUCCESS;
+			}
+
+			RET_CODE GetOBUFilters(std::vector<OBU_FILTER>& obu_filters)
+			{
+				obu_filters = m_obu_filters;
+				return RET_CODE_SUCCESS;
+			}
+
+			bool IsOBUFiltered(OBU_FILTER obu_filter)
+			{
+				if (m_obu_filters.size() == 0)
+					return true;
+
+				for (auto filter : m_obu_filters)
+				{
+					if (obu_filter.obu_type == filter.obu_type)
+					{
+						if (obu_filter.obu_extension_flag == filter.obu_extension_flag)
+						{
+							if (obu_filter.obu_extension_flag == 0)
+								return true;
+							else if(obu_filter.temporal_id == filter.temporal_id &&
+									obu_filter.spatial_id == filter.spatial_id)
+								return true;
+						}
+					}
+				}
+
+				return true;
+			}
+
+			AV1_OBU GetSeqHdrOBU()
+			{
+				return sp_sequence_header;
+			}
+
+			RET_CODE UpdateSeqHdrOBU(AV1_OBU seq_hdr_obu)
+			{
+				if (!seq_hdr_obu)
+					return RET_CODE_INVALID_PARAMETER;
+
+				sp_sequence_header = seq_hdr_obu;
+				return RET_CODE_SUCCESS;
 			}
 
 			void Reset()
@@ -499,6 +564,9 @@ namespace BST
 			~VideoBitstreamCtx() {
 				delete buffer_pool;
 			}
+
+			std::vector<OBU_FILTER>	
+								m_obu_filters;
 		};
 
 		static INLINE void ref_cnt_fb(RefCntBuffer *bufs, int *idx, int new_idx)

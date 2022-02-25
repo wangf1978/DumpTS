@@ -192,6 +192,9 @@
     <ClCompile Include="..\..\src\av1.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\av1parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
@@ -342,6 +345,9 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\version.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\av1parser.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

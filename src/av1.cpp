@@ -105,6 +105,17 @@ const WarpedMotionParams default_warp_params = {
 	0,
 };
 
+RET_CODE CreateAV1Context(IAV1Context** ppAV1Ctx, bool bAnnexB, bool bSingleOBUParse)
+{
+	if (ppAV1Ctx == NULL)
+		return RET_CODE_INVALID_PARAMETER;
+
+	auto pCtx = new BST::AV1::VideoBitstreamCtx(bAnnexB, bSingleOBUParse);
+	pCtx->AddRef();
+	*ppAV1Ctx = (IAV1Context*)pCtx;
+	return RET_CODE_SUCCESS;
+}
+
 namespace BST
 {
 	namespace AV1
