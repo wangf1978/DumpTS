@@ -1430,7 +1430,30 @@ int ShowNALObj(int object_type)
 			if (payload_type == SEI_PAYLOAD_BUFFERING_PERIOD)
 			{
 				if (object_type == 12)
+				{
+					// Try to activate SPS
+					if (cbRBSPPayloadBuf > 0)
+					{
+						AMBst bst = AMBst_CreateFromBuffer(pRBSPSEIPayloadBuf, (int)cbRBSPPayloadBuf);
+						try
+						{
+							uint64_t bp_seq_parameter_set_id = AMBst_Get_ue(bst);
+							if (bp_seq_parameter_set_id >= 0 && bp_seq_parameter_set_id <= 15)
+							{
+								if (m_coding == NAL_CODING_HEVC && m_pNALHEVCContext)
+									m_pNALHEVCContext->ActivateSPS((int8_t)bp_seq_parameter_set_id);
+								else if (m_coding == NAL_CODING_AVC && m_pNALAVCContext)
+									m_pNALAVCContext->ActivateSPS((int8_t)bp_seq_parameter_set_id);
+							}
+						}
+						catch (...)
+						{
+
+						}
+					}
+
 					PrintHRDFromSEIPayloadBufferingPeriod(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf);
+				}
 			}
 			else if (payload_type == SEI_PAYLOAD_PIC_TIMING)
 			{
