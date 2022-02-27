@@ -411,7 +411,76 @@ int PrintHRDFromSEIPayloadBufferingPeriod(INALContext* pCtx, uint8_t* pSEIPayloa
 	}
 	else if (coding == NAL_CODING_HEVC)
 	{
-		
+		H265_NU sps_nu;
+		INALHEVCContext* pNALHEVCCtx = nullptr;
+		if (SUCCEEDED(pCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+		{
+			sps_nu = pNALHEVCCtx->GetHEVCSPS(pBufPeriod->bp_seq_parameter_set_id);
+
+			pNALHEVCCtx->Release();
+			pNALHEVCCtx = nullptr;
+		}
+
+		if (pBufPeriod->irap_cpb_params_present_flag)
+		{
+			printf("\tcpb_delay_offset: %" PRIu32 "\n", pBufPeriod->cpb_delay_offset);
+			printf("\tdpb_delay_offset: %" PRIu32 "\n", pBufPeriod->dpb_delay_offset);
+		}
+
+		printf("\tconcatenation_flag: %d\n", (int)pBufPeriod->concatenation_flag);
+		printf("\tau_cpb_removal_delay_delta: %" PRId64"\n", (int64_t)pBufPeriod->au_cpb_removal_delay_delta_minus1 + 1);
+
+		bool sub_pic_hrd_params_present_flag = false;
+		bool NalHrdBpPresentFlag = false;
+		bool VclHrdBpPresentFlag = false;
+		uint8_t au_cpb_removal_delay_length_minus1 = 0;
+		uint8_t dpb_output_delay_length_minus1 = 0;
+		uint8_t initial_cpb_removal_delay_length_minus1 = 0;
+		if (sps_nu &&
+			sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters &&
+			sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters)
+		{
+			sub_pic_hrd_params_present_flag = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->sub_pic_hrd_params_present_flag;
+			au_cpb_removal_delay_length_minus1 = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->au_cpb_removal_delay_length_minus1;
+			dpb_output_delay_length_minus1 = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->dpb_output_delay_length_minus1;
+			initial_cpb_removal_delay_length_minus1 = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->initial_cpb_removal_delay_length_minus1;
+			NalHrdBpPresentFlag = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->nal_hrd_parameters_present_flag ? true : false;
+			VclHrdBpPresentFlag = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->vcl_hrd_parameters_present_flag ? true : false;
+		}
+
+		if (NalHrdBpPresentFlag)
+		{
+			auto pSubLayer0Info = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->sub_layer_infos[0];
+			size_t CpbCnt = pSubLayer0Info != NULL ? pSubLayer0Info->cpb_cnt_minus1 : 0;
+			for (size_t i = 0; i <= CpbCnt; i++)
+			{
+				printf("\tNAL CPB#%zu\n", i);
+				printf("\t\tinitial_cpb_removal_delay: %" PRIu32 "\n", pBufPeriod->nal_initial_cpb_removal_info[i].initial_cpb_removal_delay);
+				printf("\t\tinitial_cpb_removal_offset: %" PRIu32 "\n", pBufPeriod->nal_initial_cpb_removal_info[i].initial_cpb_removal_offset);
+				if (sub_pic_hrd_params_present_flag || pBufPeriod->irap_cpb_params_present_flag)
+				{
+					printf("\t\tinitial_alt_cpb_removal_delay: %" PRIu32 "\n", pBufPeriod->nal_initial_cpb_removal_info[i].initial_alt_cpb_removal_delay);
+					printf("\t\tinitial_alt_cpb_removal_offset: %" PRIu32 "\n", pBufPeriod->nal_initial_cpb_removal_info[i].initial_alt_cpb_removal_offset);
+				}
+			}
+		}
+
+		if (VclHrdBpPresentFlag)
+		{
+			auto pSubLayer0Info = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters->hrd_parameters->sub_layer_infos[0];
+			size_t CpbCnt = pSubLayer0Info != NULL ? pSubLayer0Info->cpb_cnt_minus1 : 0;
+			for (size_t i = 0; i <= CpbCnt; i++)
+			{
+				printf("\tNAL CPB#%zu\n", i);
+				printf("\t\tinitial_cpb_removal_delay: %" PRIu32 "\n", pBufPeriod->vcl_initial_cpb_removal_info[i].initial_cpb_removal_delay);
+				printf("\t\tinitial_cpb_removal_offset: %" PRIu32 "\n", pBufPeriod->vcl_initial_cpb_removal_info[i].initial_cpb_removal_offset);
+				if (sub_pic_hrd_params_present_flag || pBufPeriod->irap_cpb_params_present_flag)
+				{
+					printf("\t\tinitial_alt_cpb_removal_delay: %" PRIu32 "\n", pBufPeriod->vcl_initial_cpb_removal_info[i].initial_alt_cpb_removal_delay);
+					printf("\t\tinitial_alt_cpb_removal_offset: %" PRIu32 "\n", pBufPeriod->vcl_initial_cpb_removal_info[i].initial_alt_cpb_removal_offset);
+				}
+			}
+		}
 	}
 	else if (coding == NAL_CODING_VVC)
 	{
