@@ -2598,7 +2598,12 @@ namespace MMT
 		// If the message payload size is 0, it means that don't know the message payload size
 		uint32_t				message_payload_size = 0;
 
-		Message(uint32_t cbPayload = 0) : message_payload_size(cbPayload) {
+		Message(uint32_t cbPayload = 0) 
+			: start_bitpos(0)
+			, message_id(0)
+			, version(0)
+			, length(0)
+			, message_payload_size(cbPayload) {
 		}
 
 		virtual ~Message() {}
@@ -2729,7 +2734,7 @@ namespace MMT
 		std::vector<Table*>		tables;
 		std::vector<uint8_t>	unparsed_data;
 
-		PAMessage(uint32_t cbPayload = 0) : Message(cbPayload) {
+		PAMessage(uint32_t cbPayload = 0) : Message(cbPayload), number_of_tables(0){
 		}
 
 		virtual ~PAMessage() {
