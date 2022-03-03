@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include "platcomm.h"
 #include "AudChMap.h"
+
 
 std::tuple<std::string, std::string, std::string> channel_descs[22] =
 {
@@ -51,6 +52,125 @@ std::tuple<std::string, std::string, std::string> channel_descs[22] =
 	{ "Rts", "Right Top Surround", "" },
 	{ "LFE2", "Secondary low-frequency effects", "" },
 	{ "LFE", "Low-frequency effects", "" },
+};
+
+const char* channel_mapping_category_names[] =
+{
+	"D-Cinema",
+	"DTS/DTSHD",
+	"DRA/DRA Extension",
+	"ITU-R BS",
+	"",
+	"",
+	"",
+	"",
+};
+
+using CH_LOC_DESC = std::tuple<std::string/*label*/, std::string/*name*/, std::string/*explanation*/>;
+
+CH_LOC_DESC dcinema_channel_descs[] =
+{
+	{ "L",		"Left",						"A loudspeaker position behind the screen to the left edge, horizontally, of the screen center as viewed from the seating area" },
+	{ "C",		"Center",					"" },
+	{ "R",		"Right",					"" },
+	{ "Ls",		"Left Surround",			"" },
+	{ "Rs",		"Right Surround",			"" },
+	{ "LFE",	"Low-frequency effects",	"" },
+	{ "Rls",	"Rear surround left",		"" },
+	{ "Cs",		"Center Surround",			"" },
+	{ "Rrs",	"Rear surround right",		"" },
+	{ "Lc",		"Left Center",				"" },
+	{ "Rc",		"Right Center",				"" },
+	{ "Vhl",	"Vertical height left",		"" },
+	{ "Vhc",	"Vertical height center",	"" },
+	{ "Vhr",	"Vertical height right",	"" },
+	{ "Ts",		"Top center surround",		"" },
+	{ "Lw",		"Left wide",				"" },
+	{ "Rw",		"Right wide",				"" },
+	{ "Lsd",	"Left surround direct",		"" },
+	{ "Rsd",	"Right surround direct",	"" },
+	{ "LFE2",	"LFE 2", ""},
+};
+
+CH_LOC_DESC dts_channel_descs[] =
+{
+	{ "C",		"Centre in front of listener (0)",					""},
+	{ "L",		"Left in front (-30)",								""},
+	{ "R",		"Right in front (30)",								""},
+	{ "Ls",		"Left surround on side in rear (-110)",				""},
+	{ "Rs",		"Right surround on side in rear (110)",				""},
+	{ "LFE1",	"Low frequency effects subwoofer",					""},
+	{ "Cs",		"Centre surround in rear (180)",					""},
+	{ "LSr",	"Left surround in rear (-150)",						""},
+	{ "Rsr",	"Right surround in rear (150)",						""},
+	{ "Lss",	"Left surround on side (-90)",						""},
+	{ "Rss",	"Right surround on side (90)",						""},
+	{ "Lc",		"Between left and centre in front (-15)",			""},
+	{ "Rc",		"Between right and centre in front (15)",			""},
+	{ "Lh",		"Left height in front",								""},
+	{ "Ch",		"Centre Height in front",							""},
+	{ "Rh",		"Right Height in front",							""},
+	{ "LFE2",	"Second low frequency effects subwoofer",			""},
+	{ "Lw",		"Left on side in front (-60)",						""},
+	{ "Rw",		"Right on side in front (60)",						""},
+	{ "Oh",		"Over the listener's head",							""},
+	{ "Lhs",	"Left height on side",								""},
+	{ "Rhs",	"Right height on side",								""},
+	{ "Chr",	"Centre height in rear",							""},
+	{ "Lhr",	"Left height in rear",								""},
+	{ "Rhr",	"Right height in rear",								""},
+	{ "Cl",		"Centre in the plane lower then listener's ears",	""},
+	{ "Ll",		"Left in the plane lower then listener's ears",		""},
+	{ "Rl",		"Right in the plane lower then listener's ears",	""},
+};
+
+CH_LOC_DESC dra_channel_descs[] =
+{
+	{ "Front Left",		"Front Left",	""},
+	{ "Front Center",	"Front Center",	""},
+	{ "Front Right",	"Front Right",	""},
+	{ "Rear Left",		"Rear Left",	""},
+	{ "Rear Right",		"Rear Right",	""},
+	{ "LFE",			"LFE",			""},
+	{ "Side Left",		"Side Left",	""},
+	{ "Rear Center",	"Rear Center",	""},
+	{ "Side Right",		"Side Right",	""},
+};
+
+CH_LOC_DESC bs_channel_descs[] =
+{
+	{ "FL",		"Front left",			"Front left channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-left front on Middle layer"},
+	{ "FR",		"Front right",			"Front right channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-right front on Middle layer"},
+	{ "FC",		"Front centre",			"Front centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the centre front(straight ahead) on Middle layer"},
+	{ "LFE1",	"LFE1",					"LFE channel of the 22.2 multichannel sound system, which is reproduced from a specific low frequency loudspeaker located at the far-left front on Bottom layer"},
+	{ "BL",		"Back left",			"Back left channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-left back on Middle layer"},
+	{ "BR",		"Back right",			"Back right channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-right back on Middle layer"},
+	{ "FLc",	"Front left centre",	"Front left centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the mid-way between the front centre and the front left on Middle layer"},
+	{ "FRc",	"Front right centre",	"Front right centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the mid-way between the front centre and the front right on Middle layer"},
+	{ "BC",		"Back centre",			"Back centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the centre back(straight behind) on Middle layer"},
+	{ "LFE2",	"LFE2",					"LFE channel of the 22.2 multichannel sound system, which is reproduced from a specific low frequency loudspeaker located at the far-right front on Bottom layer"},
+	{ "SiL",	"Side left",			"Side left channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the left side on Middle layer"},
+	{ "SiR",	"Side right",			"Side right channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the right side on Middle layer"},
+	{ "TpFL",	"Top front left",		"Top front left channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-left front on Top layer"},
+	{ "TpFR",	"Top front right",		"Top front right channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-right front on Top layer"},
+	{ "TpFC",	"Top front centre",		"Top front centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the centre front(straight ahead) on Top layer"},
+	{ "TpC",	"Top centre",			"Top centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the centre on Top layer just above the seating position"},
+	{ "TpBL",	"Top back left",		"Top back left channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-left back on Top layer"},
+	{ "TpBR",	"Top back right",		"Top back right channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-right back on Top layer"},
+	{ "TpSiL",	"Top side left",		"Top side left channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the left side on Top layer"},
+	{ "TpSiR",	"Top side right",		"Top side right channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the right side on Top layer"},
+	{ "TpBC",	"Top back centre",		"Top back centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the centre back(straight behind) on Top layer"},
+	{ "BtFC",	"Bottom front centre",	"Bottom front centre channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the centre front(straight ahead) on Bottom layer"},
+	{ "BtFL",	"Bottom front left",	"Bottom front left channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-left front on Bottom layer"},
+	{ "BtFR",	"Bottom front right",	"Bottom front right channel of the 22.2 multichannel sound system, which is reproduced from a loudspeaker located at the far-right front on Bottom layer"},
+	{ "L",		"Left",					"Left channel of the 2 channel stereo system, the 5.1 channel stereophonic sound system, or the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the left front on Middle layer"},
+	{ "R",		"Right",				"Right channel of the 2 channel stereo system, the 5.1 channel stereophonic sound system, or the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the right front on Middle layer"},
+	{ "C",		"Centre",				"Centre channel of the 5.1 channel stereophonic sound system, or the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the centre front(straight ahead) on Middle layer"},
+	{ "LFE",	"LFE",					"LFE channel of the 5.1 channel stereophonic sound system, or the 7.1 multichannel sound system, which is reproduced from a specific low frequency loudspeaker"},
+	{ "Ls",		"Left surround",		"Left surround channel of the 5.1 channel stereophonic sound system, or the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the left back on Middle layer"},
+	{ "Rs",		"Right surround",		"Right surround channel of the 5.1 channel stereophonic sound system, or the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the right back on Middle layer"},
+	{ "Ltf",	"Left top front",		"Left top front channel of the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the left front on Top layer"},
+	{ "Rtf",	"Right top front",		"Right top front channel of the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the right front on Top layer"},
 };
 
 std::string GetChannelMappingDesc(unsigned long channel_mapping)
@@ -424,4 +544,146 @@ std::vector<CHANNEL_LOC> mpega_channel_mode_layouts[4] = {
 	{CH_MONO, CH_MONO},
 	{CH_MONO}
 };
+
+void CH_MAPPING::clear()
+{
+	// backup the category at first
+	uint64_t  backup_cat = cat;
+	u64Val = backup_cat << 61;
+}
+
+int CH_MAPPING::set_dual_mono()
+{
+	int iRet = 0;
+	uint64_t  backup_cat = cat;
+	u64Val = (backup_cat << 61);
+	dual_ch = 1;
+	switch ((int)cat)
+	{
+	case CH_MAPPING_CAT_DCINEMA:
+		C = 1;
+		break;
+	case CH_MAPPING_CAT_DTS:
+		DTS.C = 1;
+		break;
+	case CH_MAPPING_CAT_DRA:
+		DRA.Front_Center = 1;
+		break;
+	case CH_MAPPING_CAT_BS:
+		BS.C = 1;
+		break;
+	default:
+		iRet = -1;
+		break;
+	}
+	return iRet;
+}
+
+bool CH_MAPPING::is_lfe(size_t i)
+{
+	if (cat == CH_MAPPING_CAT_DCINEMA)
+		return i == DCINEMA_LFE || i == DCINEMA_LFE2;
+	else if (cat == CH_MAPPING_CAT_DTS)
+		return i == DTS_LFE1 || i == DTS_LFE2;
+	else if (cat == CH_MAPPING_CAT_DRA)
+		return i == DRA_LFE;
+	else if (cat == CH_MAPPING_CAT_BS)
+		return i == BS_LFE || i == BS_LFE1 || i == BS_LFE2;
+
+	return false;
+}
+
+bool CH_MAPPING::is_dual_mono()
+{
+	if (cat == CH_MAPPING_CAT_DCINEMA)
+		return (u64Val&DCINEMA_CH_LOC_BITMASK) == (1ULL << DCINEMA_C) && dual_ch && !MS;
+	else if (cat == CH_MAPPING_CAT_DTS)
+		return (u64Val&DTS_CH_LOC_BITMASK) == (1ULL << DTS_C) && dual_ch && !MS;
+	else if (cat == CH_MAPPING_CAT_DRA)
+		return (u64Val&DRA_CH_LOC_BITMASK) == (1ULL << DRA_Front_Center) && dual_ch && !MS;
+	else if (cat == CH_MAPPING_CAT_BS)
+		return (u64Val&BS_CH_LOC_BITMASK) == (1ULL << BS_C) && dual_ch && !MS;
+
+	return false;
+}
+
+std::string CH_MAPPING::get_desc()
+{
+	std::string sDesc;
+	int num_ch = 0, lfe = 0;
+
+	CH_LOC_DESC* ch_loc_descs = NULL;
+	size_t num_of_ch_loc_descs = 0;
+	if (cat == CH_MAPPING_CAT_DCINEMA)
+	{
+		ch_loc_descs = dcinema_channel_descs;
+		num_of_ch_loc_descs = _countof(dcinema_channel_descs);
+	}
+	else if (cat == CH_MAPPING_CAT_DTS)
+	{
+		ch_loc_descs = dts_channel_descs;
+		num_of_ch_loc_descs = _countof(dts_channel_descs);
+	}
+	else if (cat == CH_MAPPING_CAT_DRA)
+	{
+		ch_loc_descs = dra_channel_descs;
+		num_of_ch_loc_descs = _countof(dra_channel_descs);
+	}
+	else if (cat == CH_MAPPING_CAT_BS)
+	{
+		ch_loc_descs = bs_channel_descs;
+		num_of_ch_loc_descs = _countof(bs_channel_descs);
+	}
+	else
+		return "";
+
+	for (size_t i = 0; i < num_of_ch_loc_descs; i++)
+	{
+		if (u64Val&(1ULL << i))
+		{
+			if (sDesc.length() > 0)
+				sDesc += ", ";
+			sDesc += std::get<0>(ch_loc_descs[i]);
+			if (is_lfe(i))
+				lfe++;
+			else
+				num_ch++;
+		}
+	}
+
+	// Check the special channel location
+	if (MS)
+	{
+		if (sDesc.length() > 0)
+			sDesc += ", ";
+		sDesc += "MS";
+		num_ch++;
+	}
+
+	std::string sChDesc;
+	if(num_ch == 1 && is_dual_mono())
+	{
+		sChDesc = "2ch (Dual-Mono)";
+	}
+	else
+	{
+		sChDesc = std::to_string(num_ch);
+		if (lfe > 0)
+		{
+			sChDesc += ".";
+			sChDesc += std::to_string(lfe);
+		}
+
+		sChDesc += "ch(";
+		sChDesc += sDesc;
+		if (channel_mapping_category_names[cat][0] != '\0')
+		{
+			sChDesc += "/";
+			sChDesc += channel_mapping_category_names[cat];
+		}
+		sChDesc += ")";
+	}
+
+	return sChDesc;
+}
 

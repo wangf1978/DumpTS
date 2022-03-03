@@ -54,6 +54,418 @@ SOFTWARE.
 
 */
 
+// SMPTE Standard 428M (theater application)
+// HDMV LPCM audio
+// Dolby Digital, Dolby Digital Plus
+// MLP from Dolby Lossless
+enum DCINEMA_CH_LOC
+{
+	DCINEMA_L = 0,		// Left
+	DCINEMA_C,			// Center
+	DCINEMA_R,			// Right
+	DCINEMA_Ls,			// Left Surround
+	DCINEMA_Rs,			// Right Surround
+	DCINEMA_LFE,		// LFE
+	DCINEMA_Rls,		// Rear Surround left
+	DCINEMA_Cs,			// Center Surround
+	DCINEMA_Rrs,		// Real Surround right
+	DCINEMA_Lc,			// Left Center
+	DCINEMA_Rc,			// Right Center
+	DCINEMA_Vhl,		// Vertical height left
+	DCINEMA_Vhc,		// Vertical height center
+	DCINEMA_Vhr,		// Vertical height right
+	DCINEMA_Ts,			// Top center surround
+	DCINEMA_Lw,			// Left wide
+	DCINEMA_Rw,			// Right wide
+	DCINEMA_Lsd,		// Left surround direct
+	DCINEMA_Rsd,		// Right surround direct
+	DCINEMA_LFE2		// LFE2
+};
+
+// DTS, DTS-HD
+enum DTS_CH_LOC
+{
+	DTS_C = 0,			// Centre in front of listener(0)
+	DTS_L,				// Left in front(-30)
+	DTS_R,				// Right in front(30)
+	DTS_Ls,				// Left surround on side in rear(-110)
+	DTS_Rs,				// Right surround on side in rear(110)
+	DTS_LFE1,			// Low frequency effects subwoofer
+	DTS_Cs,				// Centre surround in rear(180)
+	DTS_LSr,			// Left surround in rear(-150)
+	DTS_Rsr,			// Right surround in rear(150)
+	DTS_Lss,			// Left surround on side(-90)
+	DTS_Rss,			// Right surround on side(90)
+	DTS_Lc,				// Between left and centre in front(-15)
+	DTS_Rc,				// Between right and centre in front(15)
+	DTS_Lh,				// Left height in front
+	DTS_Ch,				// Centre Height in front
+	DTS_Rh,				// Right Height in front
+	DTS_LFE2,			// Second low frequency effects subwoofer
+	DTS_Lw,				// Left on side in front(-60)
+	DTS_Rw,				// Right on side in front(60)
+	DTS_Oh,				// Over the listener's head
+	DTS_Lhs,			// Left height on side
+	DTS_Rhs,			// Right height on side
+	DTS_Chr,			// Centre height in rear
+	DTS_Lhr,			// Left height in rear
+	DTS_Rhr,			// Right height in rear
+	DTS_Cl,				// Centre in the plane lower then listener's ears
+	DTS_Ll,				// Left in the plane lower then listener's ears
+	DTS_Rl,				// Right in the plane lower then listener's ears
+};
+
+// DRA, DRA Extension
+enum DRA_CH_LOC
+{
+	DRA_Front_Left = 0,
+	DRA_Front_Center,
+	DRA_Front_Right,
+	DRA_Rear_Left,
+	DRA_Rear_Right,
+	DRA_LFE,
+	DRA_Side_Left,
+	DRA_Rear_Center,
+	DRA_Side_Right,
+};
+
+// ITU-R BS.2051-2
+// ARIB STD-B59 Version 2.0
+// MP4 AAC 22.2 follow this standard
+enum BS_CHANNEL_LOC
+{
+	BS_FL = 0,
+	BS_FR,
+	BS_FC,
+	BS_LFE1,
+	BS_BL,
+	BS_BR,
+	BS_FLc,
+	BS_FRc,
+	BS_BC,
+	BS_LFE2,
+	BS_SiL,
+	BS_SiR,
+	BS_TpFL,
+	BS_TpFR,
+	BS_TpFC,
+	BS_TpC,
+	BS_TpBL,
+	BS_TpBR,
+	BS_TpSiL,
+	BS_TpSiR,
+	BS_TpBC,
+	BS_BtFC,
+	BS_BtFL,
+	BS_BtFR,
+	BS_L,
+	BS_R,
+	BS_C,
+	BS_LFE,
+	BS_Ls,
+	BS_Rs,
+	BS_Ltf,
+	BS_Rtf,
+};
+
+enum CH_MAPPING_CAT
+{
+	CH_MAPPING_CAT_DCINEMA = 0,				// SMPTE Standard 428M (theater application)
+											// HDMV LPCM audio
+											// Dolby Digital, Dolby Digital Plus
+											// MLP from Dolby Lossless
+	CH_MAPPING_CAT_DTS,						// DTS, DTS-HD
+	CH_MAPPING_CAT_DRA,						// DRA, DRA Extension
+	CH_MAPPING_CAT_BS,						// ITU-R BS.2051-2
+											// ARIB STD-B59 Version 2.0
+											// MP4 AAC 22.2 follow this standard
+	CH_MAPPING_CAT_MAX = 7,
+};
+
+// bit 61, 62 and 63: Store the channel mapping category
+#define CH_MAPPING_CATEGORY_MASK		0xE000000000000000LL
+// bit 60
+#define CH_MAPPING_DUAL_CHANNEL			(1LL<<60)
+
+#define DCINEMA_CH_LOC_BITMASK			0xFFFFFULL		// 20 bits
+#define DTS_CH_LOC_BITMASK				0xFFFFFFFULL	// 28 bits
+#define DRA_CH_LOC_BITMASK				0x1FF			// 9 bits
+#define BS_CH_LOC_BITMASK				0xFFFFFFFFULL	// 32 bits
+
+#ifdef _MSC_VER
+#pragma pack(push,1)
+#define PACKED
+#else
+#define PACKED __attribute__ ((__packed__))
+#endif
+
+struct CH_MAPPING
+{
+	union {
+		uint64_t						u64Val = 0;
+#ifdef _BIG_ENDIAN_
+		struct {
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					MS : 1;		// Mono Surround
+
+			uint64_t					reserved : 39;
+			uint64_t					LFE2 : 1;
+			uint64_t					Rsd : 1;
+			uint64_t					Lsd : 1;
+			uint64_t					Rw : 1;
+			uint64_t					Lw : 1;
+			uint64_t					Ts : 1;
+			uint64_t					Vhr : 1;
+			uint64_t					Vhc : 1;
+			uint64_t					Vhl : 1;
+			uint64_t					Rc : 1;
+			uint64_t					Lc : 1;
+			uint64_t					Rrs : 1;
+			uint64_t					Cs : 1;
+			uint64_t					Rls : 1;
+			uint64_t					LFE : 1;
+			uint64_t					Rs : 1;
+			uint64_t					Ls : 1;
+			uint64_t					R : 1;
+			uint64_t					C : 1;
+			uint64_t					L : 1;
+		} PACKED;
+		struct {
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					MS : 1;		// Mono Surround
+
+			uint64_t					reserved : 31;
+			uint64_t					Rl : 1;
+			uint64_t					Ll : 1;
+			uint64_t					Cl : 1;
+			uint64_t					Rhr : 1;
+			uint64_t					Lhr : 1;
+			uint64_t					Chr : 1;
+			uint64_t					Rhs : 1;
+			uint64_t					Lhs : 1;
+			uint64_t					Oh : 1;
+			uint64_t					Rw : 1;
+			uint64_t					Lw : 1;
+			uint64_t					LFE2 : 1;
+			uint64_t					Rh : 1;
+			uint64_t					Ch : 1;
+			uint64_t					Lh : 1;
+			uint64_t					Rc : 1;
+			uint64_t					Lc : 1;
+			uint64_t					Rss : 1;
+			uint64_t					Lss : 1;
+			uint64_t					Rsr : 1;
+			uint64_t					LSr : 1;
+			uint64_t					Cs : 1;
+			uint64_t					LFE1 : 1;
+			uint64_t					Rs : 1;
+			uint64_t					Ls : 1;
+			uint64_t					R : 1;
+			uint64_t					L : 1;
+			uint64_t					C : 1;
+		} PACKED DTS;
+		struct {
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					MS : 1;		// Mono Surround
+
+			uint64_t					reserved : 50;
+			uint64_t					Side_Right : 1;
+			uint64_t					Rear_Center : 1;
+			uint64_t					Side_Left : 1;
+			uint64_t					LFE : 1;
+			uint64_t					Rear_Right : 1;
+			uint64_t					Rear_Left : 1;
+			uint64_t					Front_Right : 1;
+			uint64_t					Front_Center : 1;
+			uint64_t					Front_Left : 1;
+		} PACKED DRA;
+		struct {
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					MS : 1;		// Mono Surround
+
+			uint64_t					reserved : 27;
+			uint64_t					Rtf : 1;
+			uint64_t					Ltf : 1;
+			uint64_t					Rs : 1;
+			uint64_t					Ls : 1;
+			uint64_t					LFE : 1;
+			uint64_t					C : 1;
+			uint64_t					R : 1;
+			uint64_t					L : 1;
+			uint64_t					BtFR : 1;
+			uint64_t					BtFL : 1;
+			uint64_t					BtFC : 1;
+			uint64_t					TpBC : 1;
+			uint64_t					TpSiR : 1;
+			uint64_t					TpSiL : 1;
+			uint64_t					TpBR : 1;
+			uint64_t					TpBL : 1;
+			uint64_t					TpC : 1;
+			uint64_t					TpFC : 1;
+			uint64_t					TpFR : 1;
+			uint64_t					TpFL : 1;
+			uint64_t					SiR : 1;
+			uint64_t					SiL : 1;
+			uint64_t					LFE2 : 1;
+			uint64_t					BC : 1;
+			uint64_t					FRc : 1;
+			uint64_t					FLc : 1;
+			uint64_t					BR : 1;
+			uint64_t					BL : 1;
+			uint64_t					LFE1 : 1;
+			uint64_t					FC : 1;
+			uint64_t					FR : 1;
+			uint64_t					FL : 1;
+		} PACKED BS;	// based on ITU-R.2051-2
+#else
+		struct {
+			uint64_t					L : 1;
+			uint64_t					C : 1;
+			uint64_t					R : 1;
+			uint64_t					Ls : 1;
+			uint64_t					Rs : 1;
+			uint64_t					LFE : 1;
+			uint64_t					Rls : 1;
+			uint64_t					Cs : 1;
+			uint64_t					Rrs : 1;
+			uint64_t					Lc : 1;
+			uint64_t					Rc : 1;
+			uint64_t					Vhl : 1;
+			uint64_t					Vhc : 1;
+			uint64_t					Vhr : 1;
+			uint64_t					Ts : 1;
+			uint64_t					Lw : 1;
+			uint64_t					Rw : 1;
+			uint64_t					Lsd : 1;
+			uint64_t					Rsd : 1;
+			uint64_t					LFE2 : 1;
+			uint64_t					reserved : 39;
+
+			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+		} PACKED;
+		struct {
+			uint64_t					C : 1;
+			uint64_t					L : 1;
+			uint64_t					R : 1;
+			uint64_t					Ls : 1;
+			uint64_t					Rs : 1;
+			uint64_t					LFE1 : 1;
+			uint64_t					Cs : 1;
+			uint64_t					LSr : 1;
+			uint64_t					Rsr : 1;
+			uint64_t					Lss : 1;
+			uint64_t					Rss : 1;
+			uint64_t					Lc : 1;
+			uint64_t					Rc : 1;
+			uint64_t					Lh : 1;
+			uint64_t					Ch : 1;
+			uint64_t					Rh : 1;
+			uint64_t					LFE2 : 1;
+			uint64_t					Lw : 1;
+			uint64_t					Rw : 1;
+			uint64_t					Oh : 1;
+			uint64_t					Lhs : 1;
+			uint64_t					Rhs : 1;
+			uint64_t					Chr : 1;
+			uint64_t					Lhr : 1;
+			uint64_t					Rhr : 1;
+			uint64_t					Cl : 1;
+			uint64_t					Ll : 1;
+			uint64_t					Rl : 1;
+			uint64_t					reserved : 31;
+
+			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+		} PACKED DTS;
+		struct {
+			uint64_t					Front_Left : 1;
+			uint64_t					Front_Center : 1;
+			uint64_t					Front_Right : 1;
+			uint64_t					Rear_Left : 1;
+			uint64_t					Rear_Right : 1;
+			uint64_t					LFE : 1;
+			uint64_t					Side_Left : 1;
+			uint64_t					Rear_Center : 1;
+			uint64_t					Side_Right : 1;
+			uint64_t					reserved : 50;
+
+			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+		} PACKED DRA;
+		struct {
+			uint64_t					FL : 1;
+			uint64_t					FR : 1;
+			uint64_t					FC : 1;
+			uint64_t					LFE1 : 1;
+			uint64_t					BL : 1;
+			uint64_t					BR : 1;
+			uint64_t					FLc : 1;
+			uint64_t					FRc : 1;
+			uint64_t					BC : 1;
+			uint64_t					LFE2 : 1;
+			uint64_t					SiL : 1;
+			uint64_t					SiR : 1;
+			uint64_t					TpFL : 1;
+			uint64_t					TpFR : 1;
+			uint64_t					TpFC : 1;
+			uint64_t					TpC : 1;
+			uint64_t					TpBL : 1;
+			uint64_t					TpBR : 1;
+			uint64_t					TpSiL : 1;
+			uint64_t					TpSiR : 1;
+			uint64_t					TpBC : 1;
+			uint64_t					BtFC : 1;
+			uint64_t					BtFL : 1;
+			uint64_t					BtFR : 1;
+			uint64_t					L : 1;
+			uint64_t					R : 1;
+			uint64_t					C : 1;
+			uint64_t					LFE : 1;
+			uint64_t					Ls : 1;
+			uint64_t					Rs : 1;
+			uint64_t					Ltf : 1;
+			uint64_t					Rtf : 1;
+			uint64_t					reserved : 27;
+
+			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
+			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
+		} PACKED BS;	// based on ITU-R.2051-2
+#endif
+	};
+
+	CH_MAPPING() {}
+	CH_MAPPING(CH_MAPPING_CAT CAT) {
+		if (CAT >= CH_MAPPING_CAT_DCINEMA && CAT <= CH_MAPPING_CAT_MAX)
+			cat = CAT;
+	}
+	// clear the channel mapping bits
+	void clear();
+	// mark the current channel mapping is dual-mono
+	int set_dual_mono();
+	// get the channel mapping layout description
+	std::string get_desc();
+	// check whether the channel location in each category is LFE or not
+	bool is_lfe(size_t i);
+	// check whether the channel mapping is a dual-mono case
+	bool is_dual_mono();
+};
+
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
+#undef PACKED
+
+constexpr int cv_size_of_ch_mapping = sizeof(CH_MAPPING);
+
 enum CHANNEL_LOC
 {
 	CH_LOC_LEFT = 0,
