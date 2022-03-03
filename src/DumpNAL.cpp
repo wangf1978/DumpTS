@@ -1141,8 +1141,8 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 					{
 						auto sps_seq = sps_nu->ptr_seq_parameter_set_rbsp;
 
-						stm_info.video_info.profile = BST::H265Video::HEVC_PROFILE_Unknown;
-						stm_info.video_info.tier = BST::H265Video::HEVC_TIER_Unknown;
+						stm_info.video_info.profile = BST::H265Video::HEVC_PROFILE_UNKNOWN;
+						stm_info.video_info.tier = BST::H265Video::HEVC_TIER_UNKNOWN;
 						if (sps_seq->profile_tier_level)
 						{
 							if (sps_seq->profile_tier_level->general_profile_level.profile_present_flag)

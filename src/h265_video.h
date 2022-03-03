@@ -86,50 +86,68 @@ namespace BST {
 
 		enum HEVC_PROFILE
 		{
-			HEVC_PROFILE_Unknown = -1,
-			HEVC_PROFILE_Monochrome = 0,
-			HEVC_PROFILE_Monochrome_10,
-			HEVC_PROFILE_Monochrome_12,
-			HEVC_PROFILE_Monochrome_16,
-			HEVC_PROFILE_Main,
-			HEVC_PROFILE_Screen_Extended_Main,
-			HEVC_PROFILE_Main_10,
-			HEVC_PROFILE_Screen_Extended_Main_10,
-			HEVC_PROFILE_Main_12,
-			HEVC_PROFILE_Main_Still_Picture,
-			HEVC_PROFILE_Main_10_Still_Picture,
-			HEVC_PROFILE_Main_422_10,
-			HEVC_PROFILE_Main_422_12,
-			HEVC_PROFILE_Main_444,
-			HEVC_PROFILE_High_Throughput_444,
-			HEVC_PROFILE_Screen_Extended_Main_444,
-			HEVC_PROFILE_Screen_Extended_High_Throughput_444,
-			HEVC_PROFILE_Main_444_10,
-			HEVC_PROFILE_High_Throughput_444_10,
-			HEVC_PROFILE_Screen_Extended_Main_444_10,
-			HEVC_PROFILE_Screen_Extended_High_Throughput_444_10,
-			HEVC_PROFILE_Main_444_12,
-			HEVC_PROFILE_High_Throughput_444_14,
-			HEVC_PROFILE_Screen_Extended_High_Throughput_444_14,
-			HEVC_PROFILE_Main_Intra,
-			HEVC_PROFILE_Main_10_Intra,
-			HEVC_PROFILE_Main_12_Intra,
-			HEVC_PROFILE_Main_422_10_Intra,
-			HEVC_PROFILE_Main_422_12_Intra,
-			HEVC_PROFILE_Main_444_Intra,
-			HEVC_PROFILE_Main_444_10_Intra,
-			HEVC_PROFILE_Main_444_12_Intra,
-			HEVC_PROFILE_Main_444_16_Intra,
-			HEVC_PROFILE_Main_444_Still_Picture,
-			HEVC_PROFILE_Main_444_16_Still_Picture,
-			HEVC_PROFILE_High_Throughput_444_16_Intra,
+			HEVC_PROFILE_UNKNOWN = -1,
+			HEVC_PROFILE_MONOCHROME = 0,
+			HEVC_PROFILE_MONOCHROME_10,
+			HEVC_PROFILE_MONOCHROME_12,
+			HEVC_PROFILE_MONOCHROME_16,
+			HEVC_PROFILE_MAIN,
+			HEVC_PROFILE_SCREEN_EXTENDED_MAIN,
+			HEVC_PROFILE_MAIN_10,
+			HEVC_PROFILE_SCREEN_EXTENDED_MAIN_10,
+			HEVC_PROFILE_MAIN_12,
+			HEVC_PROFILE_MAIN_STILL_PICTURE,
+			HEVC_PROFILE_MAIN_10_STILL_PICTURE,
+			HEVC_PROFILE_MAIN_422_10,
+			HEVC_PROFILE_MAIN_422_12,
+			HEVC_PROFILE_MAIN_444,
+			HEVC_PROFILE_HIGH_THROUGHPUT_444,
+			HEVC_PROFILE_SCREEN_EXTENDED_MAIN_444,
+			HEVC_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444,
+			HEVC_PROFILE_MAIN_444_10,
+			HEVC_PROFILE_HIGH_THROUGHPUT_444_10,
+			HEVC_PROFILE_SCREEN_EXTENDED_MAIN_444_10,
+			HEVC_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_10,
+			HEVC_PROFILE_MAIN_444_12,
+			HEVC_PROFILE_HIGH_THROUGHPUT_444_14,
+			HEVC_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_14,
+			HEVC_PROFILE_MAIN_INTRA,
+			HEVC_PROFILE_MAIN_10_INTRA,
+			HEVC_PROFILE_MAIN_12_INTRA,
+			HEVC_PROFILE_MAIN_422_10_INTRA,
+			HEVC_PROFILE_MAIN_422_12_INTRA,
+			HEVC_PROFILE_MAIN_444_INTRA,
+			HEVC_PROFILE_MAIN_444_10_INTRA,
+			HEVC_PROFILE_MAIN_444_12_INTRA,
+			HEVC_PROFILE_MAIN_444_16_INTRA,
+			HEVC_PROFILE_MAIN_444_STILL_PICTURE,
+			HEVC_PROFILE_MAIN_444_16_STILL_PICTURE,
+			HEVC_PROFILE_HIGH_THROUGHPUT_444_16_INTRA,
 		};
 
 		enum HEVC_TIER
 		{
-			HEVC_TIER_Unknown = -1,
-			HEVC_TIER_Main,
-			HEVC_TIER_High
+			HEVC_TIER_UNKNOWN = -1,
+			HEVC_TIER_MAIN,
+			HEVC_TIER_HIGH
+		};
+
+		enum HEVC_LEVEL
+		{
+			HEVC_LEVEL_UNKNOWN = -1,
+			HEVC_LEVEL_1	= 30,	// 1
+			HEVC_LEVEL_2	= 60,	// 2
+			HEVC_LEVEL_2_1	= 63,	// 2.1
+			HEVC_LEVEL_3	= 90,	// 3
+			HEVC_LEVEL_3_1	= 93,	// 3.1
+			HEVC_LEVEL_4	= 120,	// 4
+			HEVC_LEVEL_4_1	= 123,	// 4.1
+			HEVC_LEVEL_5	= 150,	// 5
+			HEVC_LEVEL_5_1	= 153,	// 5.1
+			HEVC_LEVEL_5_2	= 156,	// 5.2
+			HEVC_LEVEL_6	= 180,	// 6
+			HEVC_LEVEL_6_1	= 183,	// 6.1
+			HEVC_LEVEL_6_2	= 186,	// 6.2
 		};
 
 		enum NAL_UNIT_TYPE
@@ -838,97 +856,97 @@ namespace BST {
 
 				HEVC_PROFILE GetHEVCProfile() {
 					if (general_profile_level.profile_idc == 3 || general_profile_level.profile_compatibility_flag[3])
-						return HEVC_PROFILE_Main_Still_Picture;
+						return HEVC_PROFILE_MAIN_STILL_PICTURE;
 					else if (general_profile_level.profile_idc == 1 || general_profile_level.profile_compatibility_flag[1])
-						return HEVC_PROFILE_Main;
+						return HEVC_PROFILE_MAIN;
 					else if (general_profile_level.profile_idc == 2 || general_profile_level.profile_compatibility_flag[2])
-						return general_profile_level.one_picture_only_constraint_flag ? HEVC_PROFILE_Main_10_Still_Picture : HEVC_PROFILE_Main_10;
+						return general_profile_level.one_picture_only_constraint_flag ? HEVC_PROFILE_MAIN_10_STILL_PICTURE : HEVC_PROFILE_MAIN_10;
 					else if (general_profile_level.profile_idc == 4 || general_profile_level.profile_compatibility_flag[4])
 					{
 						if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Monochrome;
+							return HEVC_PROFILE_MONOCHROME;
 						if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Monochrome_10;
+							return HEVC_PROFILE_MONOCHROME_10;
 						else if (general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Monochrome_12;
+							return HEVC_PROFILE_MONOCHROME_12;
 						else if (!general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Monochrome_16;
+							return HEVC_PROFILE_MONOCHROME_16;
 						else if (general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Main_12;
+							return HEVC_PROFILE_MAIN_12;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Main_422_10;
+							return HEVC_PROFILE_MAIN_422_10;
 						else if (general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Main_422_12;
+							return HEVC_PROFILE_MAIN_422_12;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Main_444;
+							return HEVC_PROFILE_MAIN_444;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Main_444_10;
+							return HEVC_PROFILE_MAIN_444_10;
 						else if (general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							!general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag && general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Main_444_12;
+							return HEVC_PROFILE_MAIN_444_12;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_Intra;
+							return HEVC_PROFILE_MAIN_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_10_Intra;
+							return HEVC_PROFILE_MAIN_10_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_12_Intra;
+							return HEVC_PROFILE_MAIN_12_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_422_10_Intra;
+							return HEVC_PROFILE_MAIN_422_10_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_422_12_Intra;
+							return HEVC_PROFILE_MAIN_422_12_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_444_Intra;
+							return HEVC_PROFILE_MAIN_444_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_444_10_Intra;
+							return HEVC_PROFILE_MAIN_444_10_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_444_12_Intra;
+							return HEVC_PROFILE_MAIN_444_12_INTRA;
 						else if (!general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_444_16_Intra;
+							return HEVC_PROFILE_MAIN_444_16_INTRA;
 						else if (general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag && general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_444_Still_Picture;
+							return HEVC_PROFILE_MAIN_444_STILL_PICTURE;
 						else if (!general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag && !general_profile_level.max_8bit_constraint_flag &&
 							!general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag && !general_profile_level.max_monochrome_constraint_flag &&
 							general_profile_level.intra_constraint_flag && general_profile_level.one_picture_only_constraint_flag)
-							return HEVC_PROFILE_Main_444_16_Still_Picture;
+							return HEVC_PROFILE_MAIN_444_16_STILL_PICTURE;
 					}
 					else if (general_profile_level.profile_idc == 5 || general_profile_level.profile_compatibility_flag[5])
 					{
@@ -936,22 +954,22 @@ namespace BST {
 							general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_High_Throughput_444;
+							return HEVC_PROFILE_HIGH_THROUGHPUT_444;
 						else if (general_profile_level.max_14bit_constraint_flag && general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag &&
 							!general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_High_Throughput_444_10;
+							return HEVC_PROFILE_HIGH_THROUGHPUT_444_10;
 						else if (general_profile_level.max_14bit_constraint_flag && !general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag &&
 							!general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_High_Throughput_444_14;
+							return HEVC_PROFILE_HIGH_THROUGHPUT_444_14;
 						else if (!general_profile_level.max_14bit_constraint_flag && !general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag &&
 							!general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag /*&&
 							general_profile_level.lower_bit_rate_constraint_flag*/)
-							return HEVC_PROFILE_High_Throughput_444_16_Intra;
+							return HEVC_PROFILE_HIGH_THROUGHPUT_444_16_INTRA;
 					}
 					else if (general_profile_level.profile_idc == 9 || general_profile_level.profile_compatibility_flag[9])
 					{
@@ -959,22 +977,22 @@ namespace BST {
 							general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Screen_Extended_Main;
+							return HEVC_PROFILE_SCREEN_EXTENDED_MAIN;
 						else if (general_profile_level.max_14bit_constraint_flag && general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag &&
 							!general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Screen_Extended_Main_10;
+							return HEVC_PROFILE_SCREEN_EXTENDED_MAIN_10;
 						else if (general_profile_level.max_14bit_constraint_flag && general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag &&
 							general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Screen_Extended_Main_444;
+							return HEVC_PROFILE_SCREEN_EXTENDED_MAIN_444;
 						else if (general_profile_level.max_14bit_constraint_flag && general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag &&
 							!general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Screen_Extended_Main_444_10;
+							return HEVC_PROFILE_SCREEN_EXTENDED_MAIN_444_10;
 					}
 					else if (general_profile_level.profile_idc == 11 || general_profile_level.profile_compatibility_flag[11])
 					{
@@ -982,20 +1000,20 @@ namespace BST {
 							general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Screen_Extended_High_Throughput_444;
+							return HEVC_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444;
 						else if (general_profile_level.max_14bit_constraint_flag && general_profile_level.max_12bit_constraint_flag && general_profile_level.max_10bit_constraint_flag &&
 							!general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Screen_Extended_High_Throughput_444_10;
+							return HEVC_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_10;
 						else if (general_profile_level.max_14bit_constraint_flag && !general_profile_level.max_12bit_constraint_flag && !general_profile_level.max_10bit_constraint_flag &&
 							!general_profile_level.max_8bit_constraint_flag && !general_profile_level.max_422chroma_constraint_flag && !general_profile_level.max_420chroma_constraint_flag &&
 							!general_profile_level.max_monochrome_constraint_flag && !general_profile_level.intra_constraint_flag && !general_profile_level.one_picture_only_constraint_flag &&
 							general_profile_level.lower_bit_rate_constraint_flag)
-							return HEVC_PROFILE_Screen_Extended_High_Throughput_444_14;
+							return HEVC_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_14;
 					}
 
-					return HEVC_PROFILE_Unknown;
+					return HEVC_PROFILE_UNKNOWN;
 				}
 
 				int Map(AMBst in_bst)
