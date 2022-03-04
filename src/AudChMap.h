@@ -596,7 +596,6 @@ enum SPEAKER_POS
 #define SPEAKER_7POINT1_SURROUND		(SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT | SPEAKER_SIDE_LEFT  | SPEAKER_SIDE_RIGHT)
 #endif
 
-extern std::tuple<std::string, std::string, std::string> channel_descs[22];
 extern CH_MAPPING acmod_ch_assignments[8];
 extern CH_MAPPING ddp_ch_assignment[16];
 extern std::tuple<CH_MAPPING, std::vector<uint8_t>> hdmv_lpcm_ch_assignments[16];

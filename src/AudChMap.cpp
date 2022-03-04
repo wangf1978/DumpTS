@@ -27,32 +27,6 @@ SOFTWARE.
 #include "platcomm.h"
 #include "AudChMap.h"
 
-std::tuple<std::string, std::string, std::string> channel_descs[22] =
-{
-	{ "L", "Left", "A loudspeaker position behind the screen to the left edge, horizontally, of the screen center as viewed from the seating area" },
-	{ "C", "Center", "" },
-	{ "R", "Right", "" },
-	{ "Ls", "Left Surround", "" },
-	{ "Rs", "Right Surround", "" },
-	{ "Lc", "Left Center", "" },
-	{ "Rc", "Right Center", "" },
-	{ "Lrs", "Left Rear Surround", "" },
-	{ "Rrs", "Right Rear Surround", "" },
-	{ "Cs", "Center Surround", "" },
-	{ "Ts", "Top Center Surround", "" },
-	{ "Lsd", "Left Surround Direct", "" },
-	{ "Rsd", "Right Surround Direct", "" },
-	{ "Lw", "Left Wide", "" },
-	{ "Rw", "Right Wide", "" },
-	{ "Vhl", "Vertical Height Left", "" },
-	{ "Vhr", "Vertical Height Right", "" },
-	{ "Vhc", "Vertical Height Center", "" },
-	{ "Lts", "Left Top Surround", "" },
-	{ "Rts", "Right Top Surround", "" },
-	{ "LFE2", "Secondary low-frequency effects", "" },
-	{ "LFE", "Low-frequency effects", "" },
-};
-
 const char* channel_mapping_category_names[] =
 {
 	"",
