@@ -27,7 +27,6 @@ SOFTWARE.
 #include "platcomm.h"
 #include "AudChMap.h"
 
-
 std::tuple<std::string, std::string, std::string> channel_descs[22] =
 {
 	{ "L", "Left", "A loudspeaker position behind the screen to the left edge, horizontally, of the screen center as viewed from the seating area" },
@@ -56,11 +55,11 @@ std::tuple<std::string, std::string, std::string> channel_descs[22] =
 
 const char* channel_mapping_category_names[] =
 {
+	"",
 	"D-Cinema",
 	"DTS/DTSHD",
 	"DRA/DRA Extension",
 	"ITU-R BS",
-	"",
 	"",
 	"",
 	"",
@@ -173,76 +172,36 @@ CH_LOC_DESC bs_channel_descs[] =
 	{ "Rtf",	"Right top front",		"Right top front channel of the 7.1 multichannel sound system, which is reproduced from a loudspeaker located at the right front on Top layer"},
 };
 
-std::string GetChannelMappingDesc(unsigned long channel_mapping)
+CH_MAPPING acmod_ch_assignments[8] =
 {
-	std::string sDesc;
-	int num_ch = 0, lfe = 0;
-	for (size_t i = 0; i < _countof(channel_descs); i++)
-	{
-		if (channel_mapping&(1 << i))
-		{
-			if (sDesc.length() > 0)
-				sDesc += ", ";
-			sDesc += std::get<0>(channel_descs[i]);
-			if (i == CH_LOC_LFE || i == CH_LOC_LFE2)
-				lfe++;
-			else
-				num_ch++;
-		}
-	}
-
-	std::string sChDesc;
-	if (num_ch == 2 && lfe == 0 && CHANNLE_PRESENT(channel_mapping, CH_LOC_DUALMONO))
-	{
-		sChDesc = "2ch (Dual-Mono)";
-	}
-	else
-	{
-		sChDesc = std::to_string(num_ch);
-		if (lfe > 0)
-		{
-			sChDesc += ".";
-			sChDesc += std::to_string(lfe);
-		}
-
-		sChDesc += "ch(";
-		sChDesc += sDesc;
-		sChDesc += ")";
-	}
-
-	return sChDesc;
-}
-
-unsigned long acmod_ch_assignments[8] =
-{
-	/* 00000b(0x00) */		(unsigned long)(CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_DUALMONO)),
-	/* 00000b(0x01) */		CHANNEL_BITMASK(CH_LOC_CENTER),
-	/* 00000b(0x02) */		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
-	/* 00000b(0x03) */		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT),
-	/* 00000b(0x04) */		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
-	/* 00000b(0x05) */		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
-	/* 00000b(0x06) */		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	/* 00000b(0x07) */		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
+	/* 00000b(0x00) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_C, CH_LOC_DUAL}),
+	/* 00000b(0x01) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_C}),
+	/* 00000b(0x02) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R}),
+	/* 00000b(0x03) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_C, DCINEMA_R}),
+	/* 00000b(0x04) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, CH_LOC_MS}),
+	/* 00000b(0x05) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_C, DCINEMA_R, CH_LOC_MS}),
+	/* 00000b(0x06) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_Ls, DCINEMA_Rs}),
+	/* 00000b(0x07) */	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_C, DCINEMA_R, DCINEMA_Ls, DCINEMA_Rs}),
 };
 
-unsigned long ddp_ch_assignment[16] =
+CH_MAPPING ddp_ch_assignment[16] =
 {
-	/*0  Left			*/	CHANNEL_BITMASK(CH_LOC_LEFT),
-	/*1  Center			*/	CHANNEL_BITMASK(CH_LOC_CENTER),
-	/*2  Right			*/	CHANNEL_BITMASK(CH_LOC_RIGHT),
-	/*3  Left Surround	*/	CHANNEL_BITMASK(CH_LOC_LS),
-	/*4  Right Surround	*/	CHANNEL_BITMASK(CH_LOC_RS),
-	/*5  Lc / Rc pair	*/	CHANNEL_BITMASK(CH_LOC_LC) | CHANNEL_BITMASK(CH_LOC_RC),
-	/*6  Lrs / Rrs pair	*/	CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),
-	/*7  Cs				*/	CHANNEL_BITMASK(CH_LOC_CS),
-	/*8  Ts				*/	CHANNEL_BITMASK(CH_LOC_TS),
-	/*9  Lsd / Rsd pair	*/	CHANNEL_BITMASK(CH_LOC_LSD) | CHANNEL_BITMASK(CH_LOC_RSD),
-	/*10 Lw / Rw pair	*/	CHANNEL_BITMASK(CH_LOC_LW) | CHANNEL_BITMASK(CH_LOC_RW),
-	/*11 Vhl / Vhr pair	*/	CHANNEL_BITMASK(CH_LOC_VHL) | CHANNEL_BITMASK(CH_LOC_VHR),
-	/*12 Vhc			*/	CHANNEL_BITMASK(CH_LOC_VHC),
-	/*13 Lts / Rts pair	*/	CHANNEL_BITMASK(CH_LOC_LTS) | CHANNEL_BITMASK(CH_LOC_RTS),
-	/*14 LFE2			*/	CHANNEL_BITMASK(CH_LOC_LFE2),
-	/*15 LFE			*/	CHANNEL_BITMASK(CH_LOC_LFE),
+	/*0  Left			*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L}),
+	/*1  Center			*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_C}),
+	/*2  Right			*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_R}),
+	/*3  Left Surround	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Ls}),
+	/*4  Right Surround	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Rs}),
+	/*5  Lc / Rc pair	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Lc,DCINEMA_Rc}),
+	/*6  Lrs / Rrs pair	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Rls,DCINEMA_Rrs}),
+	/*7  Cs				*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Cs}),
+	/*8  Ts				*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Ts}),
+	/*9  Lsd / Rsd pair	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Lsd, DCINEMA_Rsd}),
+	/*10 Lw / Rw pair	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Lw, DCINEMA_Rw}),
+	/*11 Vhl / Vhr pair	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Vhl ,DCINEMA_Vhr}),
+	/*12 Vhc			*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Vhc}),
+	/*13 Lts / Rts pair	*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {ATMOS_Lts, ATMOS_Rts}),
+	/*14 LFE2			*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_LFE2}),
+	/*15 LFE			*/	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_LFE}),
 };
 
 /*
@@ -265,27 +224,27 @@ LhsRhs         Left / Right height on side                    0x2000		2
 Chr            Centre height in rear                          0x4000		1
 LhrRhr         Left / Right height in rear                    0x8000		2
 */
-std::tuple<std::string/*Notation*/, std::string/*Desc*/, uint32_t/*ch_loc*/, uint8_t> dtshd_speaker_bitmask_table[16]
+std::tuple<std::string/*Notation*/, std::string/*Desc*/, CH_MAPPING/*ch_loc*/, uint8_t> dtshd_speaker_bitmask_table[16]
 {
-	{ "C",		"Centre in front of listener",				CHANNEL_BITMASK(CH_LOC_CENTER),									1 },
-	{ "LR",		"Left / Right in front",					CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),	2 },
-	{ "LsRs",	"Left / Right surround on side in rear",	CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),		2 },
-	{ "LFE1",	"Low frequency effects subwoofer",			CHANNEL_BITMASK(CH_LOC_LFE),									1 },
-	{ "Cs",		"Centre surround in rear",					CHANNEL_BITMASK(CH_LOC_CS),										1 },
-	{ "LhRh",	"Left / Right height in front",				CHANNEL_BITMASK(CH_LOC_VHL) | CHANNEL_BITMASK(CH_LOC_VHR),		2 },
-	{ "LsrRrs", "Left / Right surround in rear",			CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),		2 },
-	{ "Ch",		"Centre Height in front",					CHANNEL_BITMASK(CH_LOC_VHC),									1 },
-	{ "Oh",		"Over the listener's head",					CHANNEL_BITMASK(CH_LOC_CENTER),									1 },
-	{ "LcRc",	"Between left / right and centre in front", CHANNEL_BITMASK(CH_LOC_TS),										2 },
-	{ "LwRw",	"Left / Right on side in front",			CHANNEL_BITMASK(CH_LOC_LW) | CHANNEL_BITMASK(CH_LOC_RW),		2 },
-	{ "LssRss", "Left / Right surround on side",			CHANNEL_BITMASK(CH_LOC_CENTER),									2 },
-	{ "LFE2",	"Second low frequency effects subwoofer",	CHANNEL_BITMASK(CH_LOC_LFE2),									1 },
-	{ "LhsRhs", "Left / Right height on side",				CHANNEL_BITMASK(CH_LOC_LHS) | CHANNEL_BITMASK(CH_LOC_RHS),		2 },
-	{ "Chr",	"Centre height in rear",					CHANNEL_BITMASK(CH_LOC_CHR),									1 },
-	{ "LhrRhr", "Left / Right height in rear",				CHANNEL_BITMASK(CH_LOC_LHR) | CHANNEL_BITMASK(CH_LOC_RHR),		2 },
+	{ "C",		"Centre in front of listener",				CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_C}),				1 },
+	{ "LR",		"Left / Right in front",					CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_L, DTS_R}),			2 },
+	{ "LsRs",	"Left / Right surround on side in rear",	CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Ls, DTS_Rs}),		2 },
+	{ "LFE1",	"Low frequency effects subwoofer",			CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_LFE1}),				1 },
+	{ "Cs",		"Centre surround in rear",					CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Cs}),				1 },
+	{ "LhRh",	"Left / Right height in front",				CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Lh, DTS_Rh}),		2 },
+	{ "LsrRrs", "Left / Right surround in rear",			CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Lsr, DTS_Rsr}),		2 },
+	{ "Ch",		"Centre Height in front",					CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Ch}),				1 },
+	{ "Oh",		"Over the listener's head",					CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Oh}),				1 },
+	{ "LcRc",	"Between left / right and centre in front", CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Lc, DTS_Rc}),		2 },
+	{ "LwRw",	"Left / Right on side in front",			CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Lw, DTS_Rw}),		2 },
+	{ "LssRss", "Left / Right surround on side",			CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Lss, DTS_Rss}),		2 },
+	{ "LFE2",	"Second low frequency effects subwoofer",	CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_LFE2}),				1 },
+	{ "LhsRhs", "Left / Right height on side",				CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Lhs, DTS_Rhs}),		2 },
+	{ "Chr",	"Centre height in rear",					CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Chr}),				1 },
+	{ "LhrRhr", "Left / Right height in rear",				CH_MAPPING(CH_MAPPING_CAT_DTS, {DTS_Lhr, DTS_Rhr}),		2 },
 };
 
-std::tuple<uint32_t, std::vector<uint8_t>> hdmv_lpcm_ch_assignments[16] =
+std::tuple<CH_MAPPING, std::vector<uint8_t>> hdmv_lpcm_ch_assignments[16] =
 {
 	/*
 	0	-				reserved
@@ -305,79 +264,79 @@ std::tuple<uint32_t, std::vector<uint8_t>> hdmv_lpcm_ch_assignments[16] =
 	10	8 ch	L, C, R, LS, Rls, Rrs, RS (3 / 4)				L	R	C	LS	Rls	Rrs	RS
 	11			L, C, R, LS, Rls, Rrs, RS, lfe(3 / 4 + lfe)		L	R	C	LS	Rls	Rrs	RS	lfe
 	*/
-	{0, {} },
+	{CH_MAPPING(CH_MAPPING_CAT_DCINEMA), {} },
 	{
-		CHANNEL_BITMASK(CH_LOC_CENTER), 
-		{CH_LOC_CENTER}
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_C}),
+		{DCINEMA_C}
 	},
-	{0, {} },
+	{CH_MAPPING(CH_MAPPING_CAT_DCINEMA), {} },
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
-		{ CH_LOC_LEFT, CH_LOC_RIGHT}
-	},
-	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT), 
-		{CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_CENTER}
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, { DCINEMA_L, DCINEMA_R}),
+		{ DCINEMA_L, DCINEMA_R}
 	},
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
-		{CH_LOC_LEFT, CH_LOC_RIGHT,CH_LOC_LS }
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C}),
+		{ DCINEMA_L, DCINEMA_R, DCINEMA_C}
 	},
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS),
-		{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_CENTER, CH_LOC_LS }
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R,CH_LOC_MS }),
+		{ DCINEMA_L, DCINEMA_R,CH_LOC_MS}
 	},
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-		{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS }
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, { DCINEMA_L, DCINEMA_R, DCINEMA_C, CH_LOC_MS }),
+		{ DCINEMA_L, DCINEMA_R, DCINEMA_C, CH_LOC_MS }
 	},
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-		{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_CENTER, CH_LOC_LS, CH_LOC_RS }
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, { DCINEMA_L, DCINEMA_R, DCINEMA_Ls, DCINEMA_Rs }),
+		{ DCINEMA_L, DCINEMA_R, DCINEMA_Ls, DCINEMA_Rs }
 	},
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LFE),
-		{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_CENTER, CH_LOC_LS, CH_LOC_RS, CH_LOC_LFE }
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, { DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rs }),
+		{ DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rs }
 	},
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),
-		{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_CENTER, CH_LOC_LS, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_RS}
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, { DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rs, DCINEMA_LFE }),
+		{ DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rs, DCINEMA_LFE }
 	},
 	{
-		CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS) | CHANNEL_BITMASK(CH_LOC_LFE),
-		{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_CENTER, CH_LOC_LS, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_RS, CH_LOC_LFE}
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, { DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rls, DCINEMA_Rrs, DCINEMA_Rs }),
+		{ DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rls, DCINEMA_Rrs, DCINEMA_Rs }
 	},
-	{0, {} },
-	{0, {} },
-	{0, {} },
-	{0, {} }
+	{
+		CH_MAPPING(CH_MAPPING_CAT_DCINEMA, { DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rls, DCINEMA_Rrs, DCINEMA_Rs, DCINEMA_LFE }),
+		{ DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rls, DCINEMA_Rrs, DCINEMA_Rs, DCINEMA_LFE }
+	},
+	{CH_MAPPING(CH_MAPPING_CAT_DCINEMA), {} },
+	{CH_MAPPING(CH_MAPPING_CAT_DCINEMA), {} },
+	{CH_MAPPING(CH_MAPPING_CAT_DCINEMA), {} },
+	{CH_MAPPING(CH_MAPPING_CAT_DCINEMA), {} }
 };
 
-unsigned long FBB_Channel_assignments[21] = {
-	/* 00000b(0x00)  */CHANNEL_BITMASK(CH_LOC_CENTER),
-	/* 00001b(0x01)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
-	/* 00010b(0x02)  */(unsigned long)-1,
-	/* 00011b(0x03)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	/* 00100b(0x04)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LFE),
-	/* 00101b(0x05)  */(unsigned long)-1,
-	/* 00110b(0x06)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LFE) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	/* 00111b(0x07)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER),
-	/* 01000b(0x08)  */(unsigned long)-1,
-	/* 01001b(0x09)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	/* 01011b(0x0A)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE),
-	/* 01010b(0x0B)  */(unsigned long)-1,
-	/* 01011b(0x0C)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	/* 01100b(0x0D)  */(unsigned long)-1,
-	/* 01110b(0x0E)o */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	/* 01111b(0x0F)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE),
-	/* 10000b(0x10)  */(unsigned long)-1,
-	/* 10001b(0x11)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	/* 10010b(0x12)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_LFE),
-	/* 10011b(0x13)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_CENTER),
-	/* 10100b(0x14)  */CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT) | CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS) | CHANNEL_BITMASK(CH_LOC_CENTER) | CHANNEL_BITMASK(CH_LOC_LFE) ,
+CH_MAPPING FBB_Channel_assignments[21] = {
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_C}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_LFE}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_LFE, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_LFE}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_LFE, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_LFE}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_LFE, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_LFE, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R, DCINEMA_C, DCINEMA_LFE, DCINEMA_Ls, DCINEMA_Rs}),
 };
 
-unsigned long FBA_Channel_Loc_mapping_0[13] = {
+CH_MAPPING FBA_Channel_Loc_mapping_0[13] = {
 	/*
 	8ch_presentation_ channel_assignment bit	Exists									Number of channels
 	0											Left / Right										2
@@ -394,22 +353,22 @@ unsigned long FBA_Channel_Loc_mapping_0[13] = {
 	11											Centre Front Height(Cvh)							1
 	12											LFE2												1
 	*/
-	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
-	CHANNEL_BITMASK(CH_LOC_CENTER),
-	CHANNEL_BITMASK(CH_LOC_LFE),
-	CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	CHANNEL_BITMASK(CH_LOC_VHL) | CHANNEL_BITMASK(CH_LOC_VHR),
-	CHANNEL_BITMASK(CH_LOC_LC) | CHANNEL_BITMASK(CH_LOC_RC),
-	CHANNEL_BITMASK(CH_LOC_LRS) | CHANNEL_BITMASK(CH_LOC_RRS),
-	CHANNEL_BITMASK(CH_LOC_CS),
-	CHANNEL_BITMASK(CH_LOC_TS),
-	CHANNEL_BITMASK(CH_LOC_LSD) | CHANNEL_BITMASK(CH_LOC_RSD),
-	CHANNEL_BITMASK(CH_LOC_LW) | CHANNEL_BITMASK(CH_LOC_RW),
-	CHANNEL_BITMASK(CH_LOC_VHC),
-	CHANNEL_BITMASK(CH_LOC_LFE2)
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_C}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_LFE}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Vhl, DCINEMA_Vhr}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Lc, DCINEMA_Rc}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Rls, DCINEMA_Rrs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Cs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Ts}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Lsd, DCINEMA_Rsd}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Lw, DCINEMA_Rw}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Vhc}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_LFE2}),
 };
 
-unsigned long FBA_Channel_Loc_mapping_1[5] = {
+CH_MAPPING FBA_Channel_Loc_mapping_1[5] = {
 	/*
 	8ch_presentation_ channel_assignment bit	Exists									Number of channels
 	0											Left/Right										2
@@ -420,40 +379,39 @@ unsigned long FBA_Channel_Loc_mapping_1[5] = {
 	5 - 11										Reserved										N/A
 	12											Reserved										N/A
 	*/
-	CHANNEL_BITMASK(CH_LOC_LEFT) | CHANNEL_BITMASK(CH_LOC_RIGHT),
-	CHANNEL_BITMASK(CH_LOC_CENTER),
-	CHANNEL_BITMASK(CH_LOC_LFE),
-	CHANNEL_BITMASK(CH_LOC_LS) | CHANNEL_BITMASK(CH_LOC_RS),
-	CHANNEL_BITMASK(CH_LOC_LTS) | CHANNEL_BITMASK(CH_LOC_RTS)
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_C}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_LFE}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_Ls, DCINEMA_Rs}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {ATMOS_Lts, ATMOS_Rts}),
 };
 
-unsigned long Channel_Speaker_Mapping[] = {
-	/* CH_LOC_LEFT = 0,		*/	SPEAKER_POS_FRONT_LEFT,
-	/* CH_LOC_CENTER,		*/	SPEAKER_POS_FRONT_CENTER,
-	/* CH_LOC_RIGHT,		*/	SPEAKER_POS_FRONT_RIGHT,
-	/* CH_LOC_LS,			*/	SPEAKER_POS_SIDE_LEFT,
-	/* CH_LOC_RS,			*/	SPEAKER_POS_SIDE_RIGHT,
-	/* CH_LOC_LC,			*/	SPEAKER_POS_FRONT_LEFT_OF_CENTER,
-	/* CH_LOC_RC,			*/	SPEAKER_POS_FRONT_RIGHT_OF_CENTER,
-	/* CH_LOC_LRS,			*/	SPEAKER_POS_BACK_LEFT,
-	/* CH_LOC_RRS,			*/	SPEAKER_POS_BACK_RIGHT,
-	/* CH_LOC_CS,			*/	SPEAKER_POS_BACK_CENTER,
-	/* CH_LOC_TS,			*/	SPEAKER_POS_TOP_CENTER,
-	/* CH_LOC_LSD,			*/	SPEAKER_POS_BACK_LEFT,		// Not sure
-	/* CH_LOC_RSD,			*/	SPEAKER_POS_BACK_RIGHT,		// Not sure
-	/* CH_LOC_LW,			*/	0,						// Can't find speaker mapping
-	/* CH_LOC_RW,			*/	0,						// Can't find speaker mapping
-	/* CH_LOC_VHL,			*/	SPEAKER_POS_TOP_FRONT_LEFT,
-	/* CH_LOC_VHR,			*/	SPEAKER_POS_TOP_FRONT_RIGHT,
-	/* CH_LOC_VHC,			*/	SPEAKER_POS_TOP_FRONT_CENTER,
-	/* CH_LOC_LTS,			*/	SPEAKER_POS_TOP_BACK_LEFT,
-	/* CH_LOC_RTS,			*/	SPEAKER_POS_TOP_BACK_RIGHT,
-	/* CH_LOC_LFE2,			*/	SPEAKER_POS_LOW_FREQUENCY,
-	/* CH_LOC_LFE,			*/	SPEAKER_POS_LOW_FREQUENCY,
-	/* CH_LOC_DUALMONO = 31	*/
+uint32_t DCINEMA_Channel_Speaker_Mapping[] = {
+	/* DCINEMA_L	*/	SPEAKER_POS_FRONT_LEFT,
+	/* DCINEMA_C	*/	SPEAKER_POS_FRONT_CENTER,
+	/* DCINEMA_R	*/	SPEAKER_POS_FRONT_RIGHT,
+	/* DCINEMA_Ls	*/	SPEAKER_POS_SIDE_LEFT,
+	/* DCINEMA_Rs	*/	SPEAKER_POS_SIDE_RIGHT,
+	/* DCINEMA_LFE	*/	SPEAKER_POS_LOW_FREQUENCY,
+	/* DCINEMA_Rls	*/	SPEAKER_POS_BACK_LEFT,
+	/* DCINEMA_Cs	*/	SPEAKER_POS_BACK_CENTER,
+	/* DCINEMA_Rrs	*/	SPEAKER_POS_BACK_RIGHT,
+	/* DCINEMA_Lc	*/	SPEAKER_POS_FRONT_LEFT_OF_CENTER,
+	/* DCINEMA_Rc	*/	SPEAKER_POS_FRONT_RIGHT_OF_CENTER,
+	/* DCINEMA_Vhl	*/	SPEAKER_POS_TOP_FRONT_LEFT,
+	/* DCINEMA_Vhc	*/	SPEAKER_POS_TOP_FRONT_CENTER,
+	/* DCINEMA_Vhr	*/	SPEAKER_POS_TOP_FRONT_RIGHT,
+	/* DCINEMA_Ts	*/	SPEAKER_POS_TOP_CENTER,
+	/* DCINEMA_Lw	*/	UINT32_MAX,					// Can't find speaker mapping
+	/* DCINEMA_Rw	*/	UINT32_MAX,					// Can't find speaker mapping
+	/* DCINEMA_Lsd	*/	SPEAKER_POS_BACK_LEFT,		// Not sure
+	/* DCINEMA_Rsd	*/	SPEAKER_POS_BACK_RIGHT,		// Not sure
+	/* DCINEMA_LFE2 */	SPEAKER_POS_LOW_FREQUENCY,
+	/* ATMOS_Lts	*/	SPEAKER_POS_TOP_BACK_LEFT,
+	/* ATMOS_Rts	*/	SPEAKER_POS_TOP_BACK_RIGHT,
 };
 
-std::vector<CHANNEL_LOC> dts_audio_channel_arragements[16] = {
+CH_MAPPING dts_audio_channel_arragements[16] = {
 	/*
 	AMODE	CHS	Arrangement
 	0b000000	1	A
@@ -475,25 +433,25 @@ std::vector<CHANNEL_LOC> dts_audio_channel_arragements[16] = {
 	0b010000 - 0b111111		User defined
 	NOTE : L = left, R = right, C = centre, S = surround, F = front, R = rear, T = total, OV = overhead, A = first mono channel, B = second mono channel.
 	*/
-	/*0b000000*/{ CH_MONO },
-	/*0b000001*/{ CH_MONO, CH_MONO },
-	/*0b000010*/{ CH_LOC_LEFT, CH_LOC_RIGHT },
-	/*0b000011*/{ CH_LR_SUM, CH_LR_DIFF },
-	/*0b000100*/{ CH_LT, CH_RT },
-	/*0b000101*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT },
-	/*0b000110*/{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_SURROUND },
-	/*0b000111*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_SURROUND },
-	/*0b001000*/{ CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
-	/*0b001001*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
-	/*0b001010*/{ CH_LOC_LC, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
-	/*0b001011*/{ CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_TS },
-	/*0b001100*/{ CH_LOC_CENTER, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS },
-	/*0b001101*/{ CH_LOC_LC, CH_LOC_CENTER, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_RS },
-	/*0b001110*/{ CH_LOC_LC, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_LOC_LS, CH_LOC_RS, CH_LOC_RS },
-	/*0b001111*/{ CH_LOC_LC, CH_LOC_CENTER, CH_LOC_RC, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LS, CH_SURROUND, CH_LOC_RS },
+	/*0b000000*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C}),
+	/*0b000001*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C, CH_LOC_DUAL}),
+	/*0b000010*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_L, DTS_R }),
+	/*0b000011*/CH_MAPPING(CH_MAPPING_CAT_DTS, { CH_LOC_LR_SUM, CH_LOC_LR_DIFF }),
+	/*0b000100*/CH_MAPPING(CH_MAPPING_CAT_DTS, { CH_LOC_LT, CH_LOC_RT }),
+	/*0b000101*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C, DTS_L, DTS_R }),
+	/*0b000110*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_L, DTS_R, CH_LOC_MS }),
+	/*0b000111*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C, DTS_L, DTS_R, CH_LOC_MS }),
+	/*0b001000*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_L, DTS_R, DTS_Ls, DTS_Rs }),
+	/*0b001001*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C, DTS_L, DTS_R, DTS_Ls, DTS_Rs }),
+	/*0b001010*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_Lc, DTS_Rc, DTS_L, DTS_R, DTS_Ls, DTS_Rs }),
+	/*0b001011*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C, DTS_L, DTS_R, DTS_Lsr, DTS_Rsr, DTS_Oh }),
+	/*0b001100*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C, DTS_Rc, DTS_L, DTS_R, DTS_Lsr, DTS_Rsr }),
+	/*0b001101*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_Lc, DTS_C, DTS_Rc, DTS_L, DTS_R, DTS_Ls, DTS_Rs }),
+	/*0b001110*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_Lc, DTS_Rc, DTS_L, DTS_R, DTS_Ls, DTS_Ls, DTS_Rs, DTS_Rs }),
+	/*0b001111*/CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_Lc, DTS_C, DTS_Rc, DTS_L, DTS_R, DTS_Ls, CH_LOC_MS, DTS_Rs }),
 };
 
-std::vector<CHANNEL_LOC> aac_channel_configurations[8] = {
+CH_MAPPING aac_channel_configurations[16] = {
 	/*
 	Default bitstream	number of speakers 	audio syntactic elements, 	default element to 
 	index number							listed in order received	speaker mapping
@@ -521,17 +479,25 @@ std::vector<CHANNEL_LOC> aac_channel_configurations[8] = {
 																		left surround, right surround rear speakers, 
 																		front low frequency effects speaker
 	*/
-	/* 0 */{},
-	/* 1 */{CH_LOC_CENTER},
-	/* 2 */{CH_LOC_LEFT, CH_LOC_RIGHT},
-	/* 3 */{CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT},
-	/* 4 */{CH_LOC_CENTER, CH_LOC_LC, CH_LOC_RC, CH_LOC_CS},
-	/* 5 */{CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS},
-	/* 6 */{CH_LOC_CENTER, CH_LOC_LEFT, CH_LOC_RIGHT, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_LFE},
-	/* 7 */{CH_LOC_CENTER, CH_LOC_LC, CH_LOC_RC, CH_LOC_LS, CH_LOC_RS, CH_LOC_LRS, CH_LOC_RRS, CH_LOC_LFE}
+	/* 0 */CH_MAPPING(CH_MAPPING_CAT_BS),
+	/* 1 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_C}),
+	/* 2 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_L, BS_R}),
+	/* 3 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_C, BS_L, BS_R}),
+	/* 4 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_C, BS_L, BS_R, CH_LOC_MS}),
+	/* 5 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_C, BS_L, BS_R, BS_Ls, BS_Rs}),
+	/* 6 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_C, BS_L, BS_R, BS_Ls, BS_Rs, BS_LFE}),
+	/* 7 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_FC, BS_FLc, BS_FRc, BS_FL, BS_FR, BS_BL, BS_BR, BS_LFE}),
+	/* 8 */CH_MAPPING(CH_MAPPING_CAT_BS),
+	/* 9 */CH_MAPPING(CH_MAPPING_CAT_BS),
+	/*10 */CH_MAPPING(CH_MAPPING_CAT_BS),
+	/*11 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_FC, BS_FL, BS_FR, BS_BL, BS_BR, BS_BC, BS_LFE}),
+	/*12 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_FC, BS_FL, BS_FR, BS_SiL, BS_SiR, BS_BL, BS_BR, BS_LFE}),
+	/*13 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_FC, BS_FLc, BS_FRc, BS_FL, BS_FR, BS_SiL, BS_SiR, BS_BL, BS_BR, BS_BC, BS_LFE1, BS_LFE2, BS_TpFC, BS_TpFL, BS_TpFR, BS_TpSiL, BS_TpSiR, BS_TpC, BS_TpBL, BS_TpBR, BS_TpBC, BS_BtFC, BS_BtFL, BS_BtFR}),
+	/*14 */CH_MAPPING(CH_MAPPING_CAT_BS, {BS_FC, BS_FL, BS_FR, BS_Ls, BS_Rs, BS_LFE, BS_TpFL, BS_TpFR}),
+	/*15 */CH_MAPPING(CH_MAPPING_CAT_BS),
 };
 
-std::vector<CHANNEL_LOC> mpega_channel_mode_layouts[4] = {
+CH_MAPPING mpega_channel_mode_layouts[4] = {
 	/*
 	Channel Mode
 	00 - Stereo
@@ -539,11 +505,38 @@ std::vector<CHANNEL_LOC> mpega_channel_mode_layouts[4] = {
 	10 - Dual channel (2 mono channels)
 	11 - Single channel (Mono)
 	*/
-	{CH_LOC_LEFT, CH_LOC_RIGHT},
-	{CH_LOC_LEFT, CH_LOC_RIGHT},
-	{CH_MONO, CH_MONO},
-	{CH_MONO}
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R}),
+	CH_MAPPING(CH_MAPPING_CAT_DCINEMA, {DCINEMA_L, DCINEMA_R}),
+	CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C, CH_LOC_DUAL}),
+	CH_MAPPING(CH_MAPPING_CAT_DTS, { DTS_C}),
 };
+
+CH_MAPPING::CH_MAPPING(CH_MAPPING_CAT CAT, std::initializer_list<int> ch_locs)
+{
+	if (CAT >= CH_MAPPING_CAT_DCINEMA && CAT <= CH_MAPPING_CAT_MAX)
+		cat = CAT;
+
+	std::vector<int> locs = ch_locs;
+	for (size_t i = 0; i < locs.size(); i++)
+	{
+		if (locs[i] >= 0 && locs[i] < CH_SPECIAL_LOC_MIN)
+		{
+			u64Val |= CHANNEL_BITMASK(locs[i]);
+		}
+		else
+		{
+			switch (locs[i])
+			{
+			case CH_LOC_DUAL: dual_ch = 1; break;
+			case CH_LOC_MS: MS = 1; break;
+			case CH_LOC_LR_SUM: LR_SUM = 1; break;
+			case CH_LOC_LR_DIFF: LR_DIFF = 1; break;
+			case CH_LOC_LT: LT = 1; break;
+			case CH_LOC_RT: RT = 1; break;
+			}
+		}
+	}
+}
 
 void CH_MAPPING::clear()
 {
@@ -607,6 +600,19 @@ bool CH_MAPPING::is_dual_mono()
 	return false;
 }
 
+bool CH_MAPPING::is_invalid()
+{
+	return u64Val == 0 ? true : false;
+}
+
+bool CH_MAPPING::is_present(int ch_loc)
+{
+	if (ch_loc < 0 || ch_loc >= 64)
+		return false;
+
+	return CHANNLE_PRESENT(u64Val, ch_loc);
+}
+
 std::string CH_MAPPING::get_desc()
 {
 	std::string sDesc;
@@ -652,16 +658,47 @@ std::string CH_MAPPING::get_desc()
 	}
 
 	// Check the special channel location
-	if (MS)
-	{
+	if (dual_ch){
+		num_ch++;
+	}
+
+	if (MS){
 		if (sDesc.length() > 0)
 			sDesc += ", ";
 		sDesc += "MS";
 		num_ch++;
 	}
 
+	if (LR_SUM) {
+		if (sDesc.length() > 0)
+			sDesc += ", ";
+		sDesc += "L+R";
+		num_ch++;
+	}
+
+	if (LR_DIFF) {
+		if (sDesc.length() > 0)
+			sDesc += ", ";
+		sDesc += "L-R";
+		num_ch++;
+	}
+
+	if (LT){
+		if (sDesc.length() > 0)
+			sDesc += ", ";
+		sDesc += "LT";
+		num_ch++;
+	}
+
+	if (RT) {
+		if (sDesc.length() > 0)
+			sDesc += ", ";
+		sDesc += "RT";
+		num_ch++;
+	}
+
 	std::string sChDesc;
-	if(num_ch == 1 && is_dual_mono())
+	if(num_ch == 2 && is_dual_mono())
 	{
 		sChDesc = "2ch (Dual-Mono)";
 	}
@@ -676,12 +713,13 @@ std::string CH_MAPPING::get_desc()
 
 		sChDesc += "ch(";
 		sChDesc += sDesc;
+		sChDesc += ")";
 		if (channel_mapping_category_names[cat][0] != '\0')
 		{
-			sChDesc += "/";
+			sChDesc += "@";
 			sChDesc += channel_mapping_category_names[cat];
 		}
-		sChDesc += ")";
+		
 	}
 
 	return sChDesc;

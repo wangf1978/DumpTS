@@ -26,6 +26,7 @@ SOFTWARE.
 #pragma once
 #include <tuple>
 #include <string>
+#include <initializer_list>
 
 /*
 	Some basic concepts:
@@ -79,7 +80,10 @@ enum DCINEMA_CH_LOC
 	DCINEMA_Rw,			// Right wide
 	DCINEMA_Lsd,		// Left surround direct
 	DCINEMA_Rsd,		// Right surround direct
-	DCINEMA_LFE2		// LFE2
+	DCINEMA_LFE2,		// LFE2
+	// they are mentioned in MLP/ATMOS
+	ATMOS_Lts,			// Left Top Surround
+	ATMOS_Rts,			// Right Top Surround
 };
 
 // DTS, DTS-HD
@@ -92,7 +96,7 @@ enum DTS_CH_LOC
 	DTS_Rs,				// Right surround on side in rear(110)
 	DTS_LFE1,			// Low frequency effects subwoofer
 	DTS_Cs,				// Centre surround in rear(180)
-	DTS_LSr,			// Left surround in rear(-150)
+	DTS_Lsr,			// Left surround in rear(-150)
 	DTS_Rsr,			// Right surround in rear(150)
 	DTS_Lss,			// Left surround on side(-90)
 	DTS_Rss,			// Right surround on side(90)
@@ -170,7 +174,8 @@ enum BS_CHANNEL_LOC
 
 enum CH_MAPPING_CAT
 {
-	CH_MAPPING_CAT_DCINEMA = 0,				// SMPTE Standard 428M (theater application)
+	CH_MAPPING_CAT_UNKNOWN = 0,
+	CH_MAPPING_CAT_DCINEMA = 1,				// SMPTE Standard 428M (theater application)
 											// HDMV LPCM audio
 											// Dolby Digital, Dolby Digital Plus
 											// MLP from Dolby Lossless
@@ -183,9 +188,28 @@ enum CH_MAPPING_CAT
 };
 
 // bit 61, 62 and 63: Store the channel mapping category
-#define CH_MAPPING_CATEGORY_MASK		0xE000000000000000LL
+#define CH_MAPPING_CATEGORY_MASK		0xE000000000000000ULL
 // bit 60
-#define CH_MAPPING_DUAL_CHANNEL			(1LL<<60)
+#define CH_LOC_DUAL						60
+#define CH_MAPPING_DUAL					(1ULL<<CH_LOC_DUAL)
+// bit 59
+#define CH_LOC_MS						59
+#define CH_MAPPING_MS					(1ULL<<CH_LOC_MS))
+// bit 58
+#define CH_LOC_LR_SUM					58
+#define CH_MAPPING_LR_SUM				(1ULL<<CH_LOC_LR_SUM))
+// bit 57
+#define CH_LOC_LR_DIFF					57
+#define CH_MAPPING_LR_DIFF				(1ULL<<CH_LOC_LR_DIFF)
+// bit 56
+#define CH_LOC_LT						56
+#define CH_MAPPING_LT					(1ULL<<CH_LOC_LT)
+// bit 55
+#define CH_LOC_RT						55
+#define CH_MAPPING_RT					(1ULL<<CH_LOC_RT)
+
+
+#define CH_SPECIAL_LOC_MIN				50
 
 #define DCINEMA_CH_LOC_BITMASK			0xFFFFFULL		// 20 bits
 #define DTS_CH_LOC_BITMASK				0xFFFFFFFULL	// 28 bits
@@ -208,8 +232,14 @@ struct CH_MAPPING
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					LR_SUM : 1;	// L+R
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LT : 1;		// L total
+			uint64_t					RT : 1;		// R total
 
-			uint64_t					reserved : 39;
+			uint64_t					reserved : 33;
+			uint64_t					Rts : 1;
+			uint64_t					Lts : 1;
 			uint64_t					LFE2 : 1;
 			uint64_t					Rsd : 1;
 			uint64_t					Lsd : 1;
@@ -235,8 +265,12 @@ struct CH_MAPPING
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					LR_SUM : 1;	// L+R
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LT : 1;		// L total
+			uint64_t					RT : 1;		// R total
 
-			uint64_t					reserved : 31;
+			uint64_t					reserved : 27;
 			uint64_t					Rl : 1;
 			uint64_t					Ll : 1;
 			uint64_t					Cl : 1;
@@ -270,8 +304,12 @@ struct CH_MAPPING
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					LR_SUM : 1;	// L+R
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LT : 1;		// L total
+			uint64_t					RT : 1;		// R total
 
-			uint64_t					reserved : 50;
+			uint64_t					reserved : 46;
 			uint64_t					Side_Right : 1;
 			uint64_t					Rear_Center : 1;
 			uint64_t					Side_Left : 1;
@@ -286,8 +324,12 @@ struct CH_MAPPING
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					MS : 1;		// Mono Surround
+			uint64_t					LR_SUM : 1;	// L+R
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LT : 1;		// L total
+			uint64_t					RT : 1;		// R total
 
-			uint64_t					reserved : 27;
+			uint64_t					reserved : 23;
 			uint64_t					Rtf : 1;
 			uint64_t					Ltf : 1;
 			uint64_t					Rs : 1;
@@ -343,8 +385,14 @@ struct CH_MAPPING
 			uint64_t					Lsd : 1;
 			uint64_t					Rsd : 1;
 			uint64_t					LFE2 : 1;
-			uint64_t					reserved : 39;
+			uint64_t					Lts : 1;
+			uint64_t					Rts : 1;
+			uint64_t					reserved : 33;
 
+			uint64_t					RT : 1;		// R total
+			uint64_t					LT : 1;		// L total
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LR_SUM : 1;	// L+R
 			uint64_t					MS : 1;		// Mono Surround
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
@@ -378,8 +426,12 @@ struct CH_MAPPING
 			uint64_t					Cl : 1;
 			uint64_t					Ll : 1;
 			uint64_t					Rl : 1;
-			uint64_t					reserved : 31;
+			uint64_t					reserved : 27;
 
+			uint64_t					RT : 1;		// R total
+			uint64_t					LT : 1;		// L total
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LR_SUM : 1;	// L+R
 			uint64_t					MS : 1;		// Mono Surround
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
@@ -394,8 +446,12 @@ struct CH_MAPPING
 			uint64_t					Side_Left : 1;
 			uint64_t					Rear_Center : 1;
 			uint64_t					Side_Right : 1;
-			uint64_t					reserved : 50;
+			uint64_t					reserved : 46;
 
+			uint64_t					RT : 1;		// R total
+			uint64_t					LT : 1;		// L total
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LR_SUM : 1;	// L+R
 			uint64_t					MS : 1;		// Mono Surround
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
@@ -433,8 +489,12 @@ struct CH_MAPPING
 			uint64_t					Rs : 1;
 			uint64_t					Ltf : 1;
 			uint64_t					Rtf : 1;
-			uint64_t					reserved : 27;
+			uint64_t					reserved : 23;
 
+			uint64_t					RT : 1;		// R total
+			uint64_t					LT : 1;		// L total
+			uint64_t					LR_DIFF : 1;// L-R
+			uint64_t					LR_SUM : 1;	// L+R
 			uint64_t					MS : 1;		// Mono Surround
 			uint64_t					dual_ch : 1;// The related masked channel is dual, for example, C:1 + dual_ch: 1 ==> dual-mono
 			uint64_t					cat : 3;	// Please see CH_MAPPING_CAT_DCINEMA, CH_MAPPING_CAT_DTS, CH_MAPPING_CAT_DRA and CH_MAPPING_CAT_BS
@@ -447,6 +507,7 @@ struct CH_MAPPING
 		if (CAT >= CH_MAPPING_CAT_DCINEMA && CAT <= CH_MAPPING_CAT_MAX)
 			cat = CAT;
 	}
+	CH_MAPPING(CH_MAPPING_CAT CAT, std::initializer_list<int> ch_locs);
 	// clear the channel mapping bits
 	void clear();
 	// mark the current channel mapping is dual-mono
@@ -457,59 +518,20 @@ struct CH_MAPPING
 	bool is_lfe(size_t i);
 	// check whether the channel mapping is a dual-mono case
 	bool is_dual_mono();
+	// check whether the channel mapping is invalid or not
+	bool is_invalid();
+	// check the channel location is present in the current channel mapping
+	bool is_present(int ch_loc);
 };
+
+constexpr size_t size_of_CH_MAPPING = sizeof(CH_MAPPING);
 
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif
 #undef PACKED
 
-constexpr int cv_size_of_ch_mapping = sizeof(CH_MAPPING);
-
-enum CHANNEL_LOC
-{
-	CH_LOC_LEFT = 0,
-	CH_LOC_CENTER,
-	CH_LOC_RIGHT,
-	CH_LOC_LS,
-	CH_LOC_RS,
-	CH_LOC_LC,
-	CH_LOC_RC,
-	CH_LOC_LRS,
-	CH_LOC_RRS,
-	CH_LOC_CS,
-	CH_LOC_TS,
-	CH_LOC_LSD,
-	CH_LOC_RSD,
-	CH_LOC_LW,
-	CH_LOC_RW,
-	CH_LOC_VHL,
-	CH_LOC_VHR,
-	CH_LOC_VHC,
-	CH_LOC_LTS,
-	CH_LOC_RTS,
-	CH_LOC_LFE2,
-	CH_LOC_LFE,
-	CH_LOC_LHR,				// Height channel surround rear left loudspeaker
-	CH_LOC_RHR,				// Height channel surround rear right loudspeaker
-	CH_LOC_CHR,				// Height channel surround rear center loudspeaker
-	CH_LOC_LSS,				// Left side surround (Left Surround, directly to the side of the listener)
-	CH_LOC_RSS,				// Right side surround (Right Surround, directly to the side of the listener)
-	CH_LOC_LHS,				// Height channel surround rear left loudspeaker
-	CH_LOC_RHS,				// Height channel surround right side loudspeaker
-	//
-	// Special channel signal
-	//
-	CH_MONO		= 0x80,		// mono channel
-	CH_SURROUND,			// Surround
-	CH_LR_SUM,				// L + R
-	CH_LR_DIFF,				// L - R
-	CH_LT,					// Left Total
-	CH_RT,					// Right Total
-	CH_LOC_DUALMONO = 31
-};
-
-#define CHANNEL_BITMASK(loc)			(1<<loc)
+#define CHANNEL_BITMASK(loc)			(1ULL<<loc)
 #define CHANNLE_PRESENT(chanmap, loc)	(chanmap&(CHANNEL_BITMASK(loc)))
 
 enum SPEAKER_POS
@@ -562,7 +584,7 @@ enum SPEAKER_POS
 
 // standard speaker geometry configurations, used with X3DAudioInitialize
 #if !defined(SPEAKER_MONO)
-#define SPEAKER_MONO					SPEAKER_FRONT_CENTER
+#define SPEAKER_MONO					(SPEAKER_FRONT_CENTER)
 #define SPEAKER_STEREO					(SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT)
 #define SPEAKER_2POINT1					(SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_LOW_FREQUENCY)
 #define SPEAKER_SURROUND				(SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER | SPEAKER_BACK_CENTER)
@@ -575,15 +597,14 @@ enum SPEAKER_POS
 #endif
 
 extern std::tuple<std::string, std::string, std::string> channel_descs[22];
-extern std::string GetChannelMappingDesc(unsigned long channel_mapping);
-extern unsigned long acmod_ch_assignments[8];
-extern unsigned long ddp_ch_assignment[16];
-extern std::tuple<uint32_t, std::vector<uint8_t>> hdmv_lpcm_ch_assignments[16];
-extern unsigned long FBB_Channel_assignments[21];
-extern unsigned long FBA_Channel_Loc_mapping_0[13];
-extern unsigned long FBA_Channel_Loc_mapping_1[5];
-extern unsigned long Channel_Speaker_Mapping[22];
-extern std::vector<CHANNEL_LOC> dts_audio_channel_arragements[16];
-extern std::tuple<std::string/*Notation*/, std::string/*Desc*/, uint32_t/*ch_loc*/, uint8_t/*number of channels*/> dtshd_speaker_bitmask_table[16];
-extern std::vector<CHANNEL_LOC> aac_channel_configurations[8];
-extern std::vector<CHANNEL_LOC> mpega_channel_mode_layouts[4];
+extern CH_MAPPING acmod_ch_assignments[8];
+extern CH_MAPPING ddp_ch_assignment[16];
+extern std::tuple<CH_MAPPING, std::vector<uint8_t>> hdmv_lpcm_ch_assignments[16];
+extern CH_MAPPING FBB_Channel_assignments[21];
+extern CH_MAPPING FBA_Channel_Loc_mapping_0[13];
+extern CH_MAPPING FBA_Channel_Loc_mapping_1[5];
+extern uint32_t DCINEMA_Channel_Speaker_Mapping[22];
+extern CH_MAPPING dts_audio_channel_arragements[16];
+extern std::tuple<std::string/*Notation*/, std::string/*Desc*/, CH_MAPPING/*ch_loc*/, uint8_t/*number of channels*/> dtshd_speaker_bitmask_table[16];
+extern CH_MAPPING aac_channel_configurations[16];
+extern CH_MAPPING mpega_channel_mode_layouts[4];

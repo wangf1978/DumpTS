@@ -482,7 +482,6 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 	public:
 		CMPVEnumerator(IMPVContext* pCtx, int options)
 			: m_pMPVContext(pCtx), m_show_options(options) {
-			memset(&m_prev_stm_info, 0, sizeof(m_prev_stm_info));
 		}
 
 		virtual ~CMPVEnumerator() {
@@ -557,7 +556,6 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 					if (m_bHitSeqHdr)
 					{
 						STREAM_INFO stm_info;
-						memset(&stm_info, 0, sizeof(stm_info));
 						if (AMP_SUCCEEDED(GetStreamInfoSeqHdrAndExt(m_pMPVContext->GetSeqHdr().get(),
 							m_pMPVContext->GetSeqExt().get(),
 							m_sp_sequence_display_extension.get(), stm_info)) && memcmp(&stm_info, &m_prev_stm_info, sizeof(stm_info)) != 0)

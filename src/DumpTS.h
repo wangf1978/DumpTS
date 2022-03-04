@@ -25,6 +25,8 @@ SOFTWARE.
 */
 #pragma once
 #include <stdint.h>
+#include <algorithm>
+#include "AudChMap.h"
 
 enum DUMP_STATE
 {
@@ -77,9 +79,15 @@ union PES_FILTER_INFO
 struct AUDIO_INFO
 {
 	uint32_t		sample_frequency;
-	uint32_t		channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
+	CH_MAPPING		channel_mapping;	// The channel assignment according to bit position defined in CHANNEL_MAP_LOC
 	uint32_t		bits_per_sample;
 	uint32_t		bitrate;			// bits/second
+
+	AUDIO_INFO()
+		: sample_frequency(0)
+		, bits_per_sample(0)
+		, bitrate(0) {
+	}
 };
 
 struct VIDEO_INFO
@@ -100,6 +108,13 @@ struct VIDEO_INFO
 	uint16_t		aspect_ratio_denominator;
 	uint32_t		bitrate;			// bits/second
 	uint32_t		max_bitrate;		// bits/second
+
+	VIDEO_INFO()
+		: profile(-1), tier(-1), level(-1)
+		, transfer_characteristics(0), colour_primaries(0), chroma_format_idc(0)
+		, reserved(0), video_height(0), video_width(0), framerate_numerator(0), framerate_denominator(0), aspect_ratio_numerator(0), aspect_ratio_denominator(0)
+		, bitrate(0), max_bitrate(0){
+	}
 };
 
 struct STREAM_INFO
@@ -110,6 +125,16 @@ struct STREAM_INFO
 	{
 		AUDIO_INFO	audio_info;
 		VIDEO_INFO	video_info;
+		uint8_t		bytes[std::max(sizeof(AUDIO_INFO), sizeof(VIDEO_INFO))];
 	};
+
+	STREAM_INFO() :
+		stream_coding_type(0) {
+		memset(bytes, 0, sizeof(bytes));
+	}
+
+	STREAM_INFO(int stm_type) : stream_coding_type(stm_type) {
+		memset(bytes, 0, sizeof(bytes));
+	}
 };
 

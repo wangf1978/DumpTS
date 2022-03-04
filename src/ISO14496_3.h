@@ -41,6 +41,7 @@ SOFTWARE.
 #include <stdexcept>
 #include "dump_data_type.h"
 #include "AMSHA1.h"
+#include "AudChMap.h"
 
 #define ZERO_HCB								0
 #define FIRST_PAIR_HCB							5
@@ -1029,6 +1030,41 @@ namespace BST {
 				, num_valid_cc_elements(0), mono_mixdown_present(0){
 			}
 			~PROGRAM_CONFIG_ELEMENT() {}
+
+			CH_MAPPING GetChannelMapping()
+			{
+				if (num_front_channel_elements == 1 &&
+					num_side_channel_elements == 0 &&
+					num_back_channel_elements == 1 &&
+					num_lfe_channel_elements == 0 &&
+					num_valid_cc_elements == 0)
+				{
+					if (front_channel_elements[0].element_is_cpe == 1 &&
+						front_channel_elements[0].element_tag_select == 0 &&
+						back_channel_elements[0].element_is_cpe == 0 &&
+						back_channel_elements[0].element_tag_select == 0)
+						return CH_MAPPING(CH_MAPPING_CAT_BS, { BS_L, BS_R, CH_LOC_MS });
+					else if (front_channel_elements[0].element_is_cpe == 1 &&
+						front_channel_elements[0].element_tag_select == 0 &&
+						back_channel_elements[0].element_is_cpe == 1 &&
+						back_channel_elements[0].element_tag_select == 1)
+						return CH_MAPPING(CH_MAPPING_CAT_BS, { BS_L, BS_R, BS_Ls, BS_Rs });
+				}
+				else if (num_front_channel_elements == 2 &&
+					num_side_channel_elements == 0 &&
+					num_back_channel_elements == 0 &&
+					num_lfe_channel_elements == 0 &&
+					num_valid_cc_elements == 0)
+				{
+					if (front_channel_elements[0].element_is_cpe == 0 &&
+						front_channel_elements[0].element_tag_select == 0 &&
+						front_channel_elements[1].element_is_cpe == 0 &&
+						front_channel_elements[1].element_tag_select == 1)
+						return CH_MAPPING(CH_MAPPING_CAT_BS, { BS_C, CH_LOC_DUAL });
+				}
+
+				return CH_MAPPING(CH_MAPPING_CAT_BS);
+			}
 
 			int Unpack(CBitstream& bs) {
 				try {
