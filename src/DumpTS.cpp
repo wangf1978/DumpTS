@@ -62,6 +62,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	ShowOBUs();
 extern int	DiffATCDTS();
 extern int	LayoutTSPacket();
 extern int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig);
@@ -83,6 +84,20 @@ extern int	DumpMP4();
 extern int	DumpMKV();
 extern int	DumpMMT();
 extern int	DumpOneStreamFromPS();
+
+int GetTopRecordCount()
+{
+	int top = -1;
+	auto iterTop = g_params.find("top");
+	if (iterTop != g_params.end())
+	{
+		int64_t top_records = -1;
+		ConvertToInt(iterTop->second, top_records);
+		if (top_records < 0 || top_records > INT32_MAX)
+			top = -1;
+	}
+	return top;
+}
 
 bool TryFitMPEGSysType(FILE* rfp, MPEG_SYSTEM_TYPE eMPEGSysType, unsigned short& packet_size, unsigned short& num_of_prefix_bytes, unsigned short& num_of_suffix_bytes, bool& bEncrypted)
 {
@@ -192,6 +207,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showSPS",
 		"showPPS",
 		"showHRD",
+		"showOBU",
 		"showStreamMuxConfig",
 		"runHRD",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
@@ -493,6 +509,8 @@ int PrepareParams()
 					g_params["srcfmt"] = "adts";
 				else if (_stricmp(file_name_ext.c_str(), ".loas") == 0)
 					g_params["srcfmt"] = "loas";
+				else if (_stricmp(file_name_ext.c_str(), ".av1") == 0 || _stricmp(file_name_ext.c_str(), ".obu") == 0)
+					g_params["srcfmt"] = "av1";
 			}
 		}
 
@@ -558,7 +576,8 @@ int PrepareParams()
 			iter->second.compare("h265") == 0 || 
 			iter->second.compare("h266") == 0 ||
 			iter->second.compare("loas") == 0 ||
-			iter->second.compare("adts") == 0)
+			iter->second.compare("adts") == 0 ||
+			iter->second.compare("av1") == 0)
 			bIgnorePreparseTS = true;
 	}
 
@@ -676,6 +695,7 @@ void PrintHelp()
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
 	printf("\t--diffATCDTS\t\tShow the ATC and DTS diff at the payload unit start point between 2 specified PIDs\n");
 	printf("\t--showNU\t\tShow the access-unit, nal-unit, sei-message and sei_payload tree of AVC/HEVC/VVC stream\n");
+	printf("\t--showOBU\t\tShow the temporal-unit, frame-unit and open-bitstream-unit hierarchy of AV1 bitstream\n");
 	printf("\t--listMMTPpacket\tList the specified MMTP packets\n");
 	printf("\t--listMMTPpayload\tList the specified MMTP payloads\n");
 	printf("\t--listMPUtime\t\tList MPU presentation time and its pts/dts offset\n");
@@ -1145,6 +1165,11 @@ int main(int argc, char* argv[])
 			else if (g_params.find("runHRD") != g_params.end())
 			{
 				nDumpRet = RunH264HRD();
+				goto done;
+			}
+			else if (g_params.find("showOBU") != g_params.end())
+			{
+				nDumpRet = ShowOBUs();
 				goto done;
 			}
 			else if (g_params.find("showStreamMuxConfig") != g_params.end())

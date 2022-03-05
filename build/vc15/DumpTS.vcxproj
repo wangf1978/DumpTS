@@ -231,6 +231,7 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\..\AV1_Readme.md" />
     <None Include="..\..\doc\index.html" />
     <None Include="..\..\doc\references.md" />
     <None Include="..\..\MMT_Readme.md" />
@@ -267,6 +268,7 @@
     <ClCompile Include="..\..\src\combase.cpp" />
     <ClCompile Include="..\..\src\crc.cpp" />
     <ClCompile Include="..\..\src\DumpAAC.cpp" />
+    <ClCompile Include="..\..\src\DumpAV1.cpp" />
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
     <ClCompile Include="..\..\src\DumpMMT.cpp" />
     <ClCompile Include="..\..\src\DumpMP4.cpp" />

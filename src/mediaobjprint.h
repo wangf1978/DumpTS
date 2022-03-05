@@ -1,6 +1,7 @@
 #ifndef __MEDIA_OBJECT_PRINT_H__
 #define __MEDIA_OBJECT_PRINT_H__
 
+#include <memory>
 #include "tinyxml2.h"
 
 template<class T>

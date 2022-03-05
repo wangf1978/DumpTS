@@ -458,15 +458,7 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 	if (iter_srcfmt == g_params.end())
 		return RET_CODE_ERROR_NOTIMPL;
 
-	int top = -1;
-	auto iterTop = g_params.find("top");
-	if (iterTop != g_params.end())
-	{
-		int64_t top_records = -1;
-		ConvertToInt(iterTop->second, top_records);
-		if (top_records < 0 || top_records > INT32_MAX)
-			top = -1;
-	}
+	int top = GetTopRecordCount();
 
 	CMPEG2VideoParser MPVParser;
 	if (AMP_FAILED(MPVParser.GetMPVContext(&pMPVContext)))

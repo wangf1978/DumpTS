@@ -88,15 +88,7 @@ int	ShowNUs()
 		}
 	}
 
-	int top = -1;
-	auto iterTop = g_params.find("top");
-	if (iterTop != g_params.end())
-	{
-		int64_t top_records = -1;
-		ConvertToInt(iterTop->second, top_records);
-		if (top_records < 0 || top_records > INT32_MAX)
-			top = -1;
-	}
+	int top = GetTopRecordCount();
 
 	CNALParser NALParser(coding);
 	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
@@ -1300,15 +1292,7 @@ int ShowNALObj(int object_type)
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
-	int top = -1;
-	auto iterTop = g_params.find("top");
-	if (iterTop != g_params.end())
-	{
-		int64_t top_records = -1;
-		ConvertToInt(iterTop->second, top_records);
-		if (top_records < 0 || top_records > INT32_MAX)
-			top = -1;
-	}
+	int top = GetTopRecordCount();
 
 	CNALParser NALParser(coding);
 	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
@@ -1685,15 +1669,7 @@ int RunH264HRD()
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
-	int top = -1;
-	auto iterTop = g_params.find("top");
-	if (iterTop != g_params.end())
-	{
-		int64_t top_records = -1;
-		ConvertToInt(iterTop->second, top_records);
-		if (top_records < 0 || top_records > INT32_MAX)
-			top = -1;
-	}
+	int top = GetTopRecordCount();
 
 	CNALParser NALParser(coding);
 	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))

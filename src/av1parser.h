@@ -39,6 +39,20 @@ SOFTWARE.
 #include "AMBitStream.h"
 #include "DumpUtil.h"
 
+enum AV1_ENUM_OPTION
+{
+	AV1_ENUM_OPTION_TU		= (1<<4),	// Temporal Unit
+	AV1_ENUM_OPTION_FU		= (1<<5),	// Frame Unit
+	AV1_ENUM_OPTION_OBU		= (1<<6),	// Open Bitstream Unit
+	AV1_ENUM_OPTION_ALL		= (AV1_ENUM_OPTION_TU | AV1_ENUM_OPTION_FU | AV1_ENUM_OPTION_OBU),
+};
+
+enum AV1_BYTESTREAM_FORMAT
+{
+	AV1_BYTESTREAM_RAW = 0,				// (OBU)+, low-overhead bit-stream
+	AV1_BYTESTREAM_LENGTH_DELIMITED,	// ([Temporal Unit [Frame Unit [OBU]+]+]+)
+};
+
 namespace BST {
 	namespace AV1 {
 		struct OPEN_BITSTREAM_UNIT;
@@ -72,6 +86,8 @@ public:
 	virtual bool			IsOBUFiltered(OBU_FILTER obu_filter) = 0;
 	virtual AV1_OBU			GetSeqHdrOBU() = 0;
 	virtual RET_CODE		UpdateSeqHdrOBU(AV1_OBU seq_hdr_obu) = 0;
+	virtual AV1_BYTESTREAM_FORMAT
+							GetByteStreamFormat() = 0;
 	virtual void			Reset() = 0;
 
 public:
@@ -82,11 +98,18 @@ public:
 class IAV1Enumerator
 {
 public:
-	virtual RET_CODE		EnumTemporalUnitStart(IAV1Context* pCtx, uint32_t temporal_unit_size) = 0;
+	virtual RET_CODE		EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
 	virtual RET_CODE		EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
 	virtual RET_CODE		EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf) = 0;
 	virtual RET_CODE		EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
-	virtual RET_CODE		EnumTemporalUnitEnd(IAV1Context* pCtx) = 0;
+	virtual RET_CODE		EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
+	/*
+		Error Code:
+			1 Buffer is too small
+			2 forbidon_bit is not 0
+			3 reserved bit is not 0
+			4 incompatible bit-stream
+	*/
 	virtual RET_CODE		EnumError(IAV1Context* pCtx, uint64_t stream_offset, int error_code) = 0;
 };
 
@@ -98,21 +121,48 @@ public:
 
 public:
 	RET_CODE				SetEnumerator(IAV1Enumerator* pEnumerator, uint32_t options);
-	RET_CODE				ProcessInput(uint8_t* pBuf, size_t cbBuf);
+	RET_CODE				ProcessInput(uint8_t* pInput, size_t cbInput);
 	RET_CODE				ProcessOutput(bool bDrain = false);
 	RET_CODE				ParseFrameBuf(uint8_t* pAUBuf, size_t cbAUBuf);
 	RET_CODE				GetAV1Context(IAV1Context** ppCtx);
 	RET_CODE				Reset();
 
 protected:
+	RET_CODE				ProcessLengthDelimitedBitstreamOutput(bool bDrain);
+	RET_CODE				ProcessLowOverheadBitstreamOutput(bool bDrain);
+	RET_CODE				PushTemporalUnitBytes(uint8_t* pStart, uint8_t* pEnd);
+	RET_CODE				SubmitAnnexBTU();
+	RET_CODE				SubmitTU();
+
+protected:
 	IAV1Context*			m_pCtx = nullptr;
+	AV1_BYTESTREAM_FORMAT	m_av1_bytestream_format;
 
 	const int				read_unit_size = 2048;
 	AMLinearRingBuffer		m_rbRawBuf = nullptr;
+	// It is used to store a whole temporal unit buffer
+	AMLinearRingBuffer		m_rbTemporalUnit;
 
 	IAV1Enumerator*			m_av1_enum = nullptr;
 	uint32_t				m_av1_enum_options = 0;
-};
 
+	int						m_av1_obu_type = -1;
+	uint32_t				m_av1_obu_size = UINT32_MAX;
+	uint32_t				m_av1_obu_parsed_size = 0;
+	uint32_t				m_temporal_unit_size = UINT32_MAX;
+	uint32_t				m_temporal_unit_parsed_size = 0;
+	/*
+	-------------------------------> stream_size <--------------------------------------
+	|________________________________________________________________________________|
+					   ^          ^        ^
+	  cur_submit_pos--/      cur_scan_pos   \----- cur_byte_pos
+	*/
+	uint64_t				m_stream_size = 0;			// The file size
+	uint64_t				m_cur_byte_pos = 0;			// The read pointer of stream handle
+	uint64_t				m_cur_scan_pos = 0;			// The corresponding file position of the start buffer of raw data ring buffer
+	uint64_t				m_cur_submit_pos = 0;		// The corresponding file position of the start buffer of OBU unit EBSP
+
+	int64_t					m_num_temporal_units = 0LL;
+};
 
 #endif

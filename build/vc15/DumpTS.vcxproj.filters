@@ -58,6 +58,7 @@
     <None Include="..\macos\Makefile">
       <Filter>build\macos</Filter>
     </None>
+    <None Include="..\..\AV1_Readme.md" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">
@@ -193,6 +194,9 @@
       <Filter>src\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\av1parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpAV1.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

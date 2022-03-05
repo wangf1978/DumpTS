@@ -544,6 +544,11 @@ namespace BST
 				return RET_CODE_SUCCESS;
 			}
 
+			AV1_BYTESTREAM_FORMAT GetByteStreamFormat()
+			{
+				return AnnexB ? AV1_BYTESTREAM_LENGTH_DELIMITED : AV1_BYTESTREAM_RAW;
+			}
+
 			void Reset()
 			{
 				SeenFrameHeader = false;

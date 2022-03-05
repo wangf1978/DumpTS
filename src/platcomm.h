@@ -47,6 +47,7 @@ SOFTWARE.
 #include <inttypes.h>
 #include <climits>
 #include <new>
+#include <memory>
 #include "LibPlatform/platdef.h"
 
 #ifdef _WIN32
@@ -393,6 +394,9 @@ enum FLAG_VALUE
 };
 
 void print_mem(uint8_t* pBuf, int cbSize, int indent);
+
+// Get how many records to be displayed
+int GetTopRecordCount();
 
 inline uint8_t quick_log2(uint32_t v)
 {
