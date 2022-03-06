@@ -231,6 +231,7 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\..\Audio_Readme.md" />
     <None Include="..\..\AV1_Readme.md" />
     <None Include="..\..\doc\index.html" />
     <None Include="..\..\doc\references.md" />

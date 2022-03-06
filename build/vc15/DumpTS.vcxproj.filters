@@ -59,6 +59,7 @@
       <Filter>build\macos</Filter>
     </None>
     <None Include="..\..\AV1_Readme.md" />
+    <None Include="..\..\Audio_Readme.md" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">
