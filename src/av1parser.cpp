@@ -461,7 +461,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	bool bAnnexB = m_pCtx->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
 
-	if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
 	{
 		iRet = RET_CODE_ABORT;
 		goto done;
@@ -493,7 +493,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 		cbParsed += cbLeb128;
 		pFrameUnit = pBuf + cbParsed;
 
-		if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size)))
+		if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -511,8 +511,41 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 			cbFrameParsed += cbLeb128;
 			cbParsed += cbLeb128;
 
-			if (m_av1_enum != nullptr)
-				m_av1_enum->EnumOBU(m_pCtx, pBuf + cbParsed, obu_length);
+			if (obu_length > 0 && (int64_t)cbParsed < (int64_t)cbTUBuf)
+			{
+				uint8_t* p = pBuf + cbParsed;
+				size_t cbOBULeft = obu_length;
+				uint8_t obu_type = ((*p) >> 3) & 0xF;
+				uint8_t obu_extension_flag = ((*p) >> 2) & 0x1;
+				uint8_t obu_has_size_field = ((*p) >> 1) & 0x1;
+				uint8_t obu_reserved_1bit = (*p) & 0x1;
+				uint32_t obu_size = UINT32_MAX;
+
+				if (obu_extension_flag)
+				{
+					cbOBULeft--;
+					p++;
+				}
+
+				if (cbOBULeft > 0)
+				{
+					if (obu_has_size_field)
+					{
+						obu_size = BST::AV1::leb128(p, (uint32_t)cbOBULeft, &cbLeb128);
+						if (obu_size != UINT32_MAX)
+						{
+							uint32_t ob_preceding_size = 1 + obu_extension_flag + cbLeb128;
+							if (obu_size + ob_preceding_size != obu_length)
+								printf("[AV1Parser] obu_size and obu_length are NOT set consistently.\n");
+						}
+					}
+					else
+						obu_size = obu_length >= (1UL + obu_extension_flag) ? (obu_length - 1 - obu_extension_flag) : 0;
+
+					if (m_av1_enum != nullptr && (m_av1_enum_options&AV1_ENUM_OPTION_OBU) && obu_size != UINT32_MAX && obu_size > 0)
+						m_av1_enum->EnumOBU(m_pCtx, pBuf + cbParsed, obu_length, obu_type, obu_size);
+				}
+			}
 
 			cbFrameParsed += obu_length;
 			cbParsed += obu_length;
@@ -522,7 +555,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 			break;
 		else
 		{
-			if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
+			if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
@@ -530,8 +563,11 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 		}
 	}
 
-	if (m_av1_enum)
-		m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf);
+	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+	{
+		iRet = RET_CODE_ABORT;
+		goto done;
+	}
 
 	m_num_temporal_units++;
 
@@ -568,11 +604,11 @@ RET_CODE CAV1Parser::SubmitTU()
 	uint8_t* pBuf = pTUBuf;
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 
-	std::vector<std::tuple<uint8_t* /*obu buf*/, uint32_t/*the size of buf*/, uint8_t/*obu_type*/>> parsed_obus;
+	std::vector<std::tuple<uint8_t* /*obu buf*/, uint32_t/*the size of buf*/, uint8_t/*obu_type*/, uint32_t /*obu size*/>> parsed_obus;
 	auto iterFrame = parsed_obus.begin();
 	auto iter = parsed_obus.begin();
 
-	if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
 	{
 		iRet = RET_CODE_ABORT;
 		goto done;
@@ -688,7 +724,7 @@ RET_CODE CAV1Parser::SubmitTU()
 		frame_unit_size = obu_size + 1 + obu_extension_flag + leb128_byte_count;
 		cbParsed += frame_unit_size;
 
-		parsed_obus.emplace_back(std::make_tuple(pFrameUnit, frame_unit_size, obu_type));
+		parsed_obus.emplace_back(std::make_tuple(pFrameUnit, frame_unit_size, obu_type, obu_size));
 	}
 
 	// Now enumerate all frames and OBUs
@@ -730,7 +766,7 @@ RET_CODE CAV1Parser::SubmitTU()
 				else
 					frame_unit_size = (uint32_t)(pTUBuf + cbTUBuf - pFrameUnit);
 
-				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size)))
+				if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size)))
 				{
 					iRet = RET_CODE_ABORT;
 					goto done;
@@ -738,14 +774,14 @@ RET_CODE CAV1Parser::SubmitTU()
 
 				for (auto obu_iter = iterFrame; obu_iter != iter; obu_iter++)
 				{
-					if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, std::get<0>(*obu_iter), std::get<1>(*obu_iter))))
+					if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_OBU) && AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, std::get<0>(*obu_iter), std::get<1>(*obu_iter), std::get<2>(*obu_iter), std::get<3>(*obu_iter))))
 					{
 						iRet = RET_CODE_ABORT;
 						goto done;
 					}
 				}
 
-				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
+				if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
 				{
 					iRet = RET_CODE_ABORT;
 					goto done;
@@ -764,8 +800,11 @@ RET_CODE CAV1Parser::SubmitTU()
 		iter++;
 	} while (!bQuitLoop);
 
-	if (m_av1_enum)
-		m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf);
+	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+	{
+		iRet = RET_CODE_ABORT;
+		goto done;
+	}
 
 	m_num_temporal_units++;
 

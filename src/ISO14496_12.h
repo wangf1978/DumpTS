@@ -337,6 +337,9 @@ namespace ISOBMFF
 		uint32_t	version : 8;
 		uint32_t	flags : 24;
 
+		FullBox() : version(0), flags(0) {
+		}
+
 		virtual int Unpack(CBitstream& bs)
 		{
 			int iRet = 0;
@@ -870,7 +873,7 @@ namespace ISOBMFF
 
 	struct VisualRollRecoveryEntry : public VisualSampleGroupEntry
 	{
-		int16_t				roll_distance;
+		int16_t				roll_distance = 0;
 
 		VisualRollRecoveryEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
 		}
@@ -900,7 +903,7 @@ namespace ISOBMFF
 
 	struct AudioRollRecoveryEntry : public AudioSampleGroupEntry
 	{
-		int16_t				roll_distance;
+		int16_t				roll_distance = 0;
 
 		AudioRollRecoveryEntry(uint32_t nGroupingType, uint32_t nSize) : AudioSampleGroupEntry(nGroupingType, nSize) {
 		}
@@ -932,12 +935,12 @@ namespace ISOBMFF
 	{
 		struct Entry
 		{
-			uint16_t			num_output_samples;
-			uint16_t			num_total_samples;
+			uint16_t			num_output_samples = 0;
+			uint16_t			num_total_samples = 0;
 		}PACKED;
 
-		uint16_t			roll_count;
-		uint16_t			first_output_sample;
+		uint16_t			roll_count = 0;
+		uint16_t			first_output_sample = 0;
 		std::vector<uint32_t>
 							sample_offsets;
 		std::vector<Entry>	entries;
@@ -991,7 +994,10 @@ namespace ISOBMFF
 		uint8_t				num_leading_samples_known : 1;
 		uint8_t				num_leading_samples : 7;
 
-		VisualRandomAccessEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		VisualRandomAccessEntry(uint32_t nGroupingType, uint32_t nSize) 
+			: VisualSampleGroupEntry(nGroupingType, nSize)
+			, num_leading_samples_known(0)
+			, num_leading_samples(0){
 		}
 
 		int Unpack(CBitstream& bs)
@@ -1022,7 +1028,10 @@ namespace ISOBMFF
 		uint8_t				level_independently_decodable : 1;
 		uint8_t				reserved : 7;
 
-		TemporalLevelEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		TemporalLevelEntry(uint32_t nGroupingType, uint32_t nSize) 
+			: VisualSampleGroupEntry(nGroupingType, nSize)
+			, level_independently_decodable(0)
+			, reserved(0){
 		}
 
 		int Unpack(CBitstream& bs)
@@ -1094,19 +1103,19 @@ namespace ISOBMFF
 		{
 			struct SubSample
 			{
-				uint32_t	subsample_size;
-				uint8_t		subsample_priority;
-				uint8_t		discardable;
-				uint32_t	reserved;
+				uint32_t	subsample_size = 0;
+				uint8_t		subsample_priority = 0;
+				uint8_t		discardable = 0;
+				uint32_t	reserved = 0;
 			}PACKED;
 
-			uint32_t	sample_delta;
-			uint32_t	subsample_count;
+			uint32_t	sample_delta = 0;
+			uint32_t	subsample_count = 0;
 
 			std::vector<SubSample>	subsamples;
 		};
 
-		uint32_t			entry_count;
+		uint32_t			entry_count = 0;
 		std::vector<Entry>	entries;
 
 		virtual int Unpack(CBitstream& bs)
@@ -2114,8 +2123,8 @@ namespace ISOBMFF
 
 			struct ItemInfoEntryv0
 			{
-				uint16_t				item_ID;
-				uint16_t				item_protection_index;
+				uint16_t				item_ID = 0;
+				uint16_t				item_protection_index = 0;
 				std::string				item_name;
 				std::string				content_type;
 				std::string				content_encoding;	// optional
@@ -2838,8 +2847,8 @@ namespace ISOBMFF
 		{
 			struct SingleItemTypeReferenceBox : public Box
 			{
-				uint16_t				from_item_ID;
-				uint16_t				reference_count;
+				uint16_t				from_item_ID = 0;
+				uint16_t				reference_count = 0;
 				std::vector<uint16_t>	to_item_IDs;
 
 				virtual int Unpack(CBitstream& bs)

@@ -327,7 +327,7 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 				cbAvailLeb128ExtractBytes = AMP_MIN(8, cbSize);
 				for (; i < cbAvailLeb128ExtractBytes; i++)
 				{
-					unit_size |= ((pBuf[i] & 0x7f) << (i * 7));
+					unit_size |= ((int64_t)(pBuf[i] & 0x7f) << (i * 7));
 					Leb128Bytes++;
 					if (!(pBuf[i] & 0x80))
 						break;
@@ -459,7 +459,7 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 						cbAvailLeb128ExtractBytes = AMP_MIN(8, cbAvailSize);
 						for (; i < cbAvailLeb128ExtractBytes; i++)
 						{
-							obu_size |= ((pOBUBuf[i] & 0x7f) << (i * 7));
+							obu_size |= ((int64_t)(pOBUBuf[i] & 0x7f) << (i * 7));
 							Leb128Bytes++;
 							if (!(pOBUBuf[i] & 0x80))
 								break;
@@ -676,7 +676,7 @@ int AV1_ProcessLowOverheadBitstream(const char* szAV1FileName, int64_t start_pos
 			cbAvailLeb128ExtractBytes = AMP_MIN(8, cbAvailSize);
 			for (; i < cbAvailLeb128ExtractBytes; i++)
 			{
-				obu_size |= ((pOBUBuf[i] & 0x7f) << (i * 7));
+				obu_size |= ((int64_t)(pOBUBuf[i] & 0x7f) << (i * 7));
 				Leb128Bytes++;
 				if (!(pOBUBuf[i] & 0x80))
 					break;
@@ -751,7 +751,7 @@ int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB)
 		}
 		else
 		{
-			start_pos += std::get<0>(temporal_unit_layout) + std::get<1>(temporal_unit_layout);
+			start_pos += (int64_t)std::get<0>(temporal_unit_layout) + std::get<1>(temporal_unit_layout);
 			temporal_unit_num++;
 		}
 	} while (temporal_unit_num < MAX_TRIES_OF_SEARCHING_TU);
@@ -789,6 +789,62 @@ int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB)
 	return RET_CODE_SUCCESS;
 }
 
+class CAV1ShowOBUEnumerator : public IAV1Enumerator
+{
+public:
+	CAV1ShowOBUEnumerator(IAV1Context* pAV1Context)
+		: m_pAV1Context(pAV1Context) {
+		if (m_pAV1Context)
+			m_pAV1Context->AddRef();
+	}
+	virtual ~CAV1ShowOBUEnumerator() {
+		AMP_SAFERELEASE(m_pAV1Context);
+	}
+
+public:
+	RET_CODE EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+		m_FU_count_in_TU = 0;
+		printf("[%08" PRId64 "] Temporal Unit:\n", m_TU_count);
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+		m_OBU_count_in_FU = 0;
+		printf("%*.s[%08" PRId64 "] Frame Unit#%" PRId64 "\n", m_indent[1], m_szIndent, m_FU_count, m_FU_count_in_TU);
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
+		printf("%*.s[%08" PRId64 "] OBU#%" PRId64 "(len/size--%5zu/%-5" PRIu32 "): %s\n",
+			m_indent[2], m_szIndent, m_OBU_count, m_OBU_count_in_FU, cbOBUBuf, obu_size, obu_type < 0xF ? obu_type_names[obu_type] : "");
+		m_OBU_count_in_FU++;
+		m_OBU_count++;
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+		m_FU_count_in_TU++;
+		m_FU_count++;
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+		m_TU_count++;
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumError(IAV1Context* pCtx, uint64_t stream_offset, int error_code) {
+		return RET_CODE_SUCCESS;
+	}
+
+public:
+	int		m_indent[3] = { 0, 4, 8 };
+
+protected:
+	IAV1Context* m_pAV1Context = nullptr;
+	int64_t m_TU_count = 0;
+	int64_t m_FU_count_in_TU = 0;
+	int64_t m_FU_count = 0;
+	int64_t m_OBU_count_in_FU = 0;
+	int64_t m_OBU_count = 0;
+	const char* m_szIndent = "                    ";
+};
+
 int	ShowOBUs()
 {
 	IAV1Context* pAV1Context = nullptr;
@@ -808,7 +864,7 @@ int	ShowOBUs()
 		return RET_CODE_ERROR_NOTIMPL;
 
 	int options = 0;
-	std::string& strShowOBU = g_params["showNU"];
+	std::string& strShowOBU = g_params["showOBU"];
 	std::vector<std::string> strShowAUOptions;
 	splitstr(strShowOBU.c_str(), ",;.:", strShowAUOptions);
 	if (strShowAUOptions.size() == 0)
@@ -845,59 +901,16 @@ int	ShowOBUs()
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
-	class CAV1Enumerator : public IAV1Enumerator
+	CAV1ShowOBUEnumerator AV1Enumerator(pAV1Context);
+
+	if (!(options&AV1_ENUM_OPTION_TU))
 	{
-	public:
-		CAV1Enumerator(IAV1Context* pAV1Context)
-			: m_pAV1Context(pAV1Context) {
-			if (m_pAV1Context)
-				m_pAV1Context->AddRef();
-		}
-		virtual ~CAV1Enumerator() {
-			AMP_SAFERELEASE(m_pAV1Context);
-		}
+		AV1Enumerator.m_indent[1] = 0;
+		AV1Enumerator.m_indent[2] = 4;
+	}
 
-	public:
-		RET_CODE EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
-			m_FU_count_in_TU = 0;
-			printf("Temporal Unit#%" PRId64 "\n", m_TU_count);
-			return RET_CODE_SUCCESS;
-		}
-		RET_CODE EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
-			m_OBU_count_in_FU = 0;
-			printf("\tFrame Unit#%" PRId64 "\n", m_FU_count_in_TU);
-			return RET_CODE_SUCCESS;
-		}
-		RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf) {
-			uint8_t obu_type = 0xFF;
-
-			if (pOBUBuf != nullptr && cbOBUBuf > 0)
-			{
-				obu_type = ((*pOBUBuf) >> 3) & 0xF;
-			}
-
-			printf("\t\tOBU#%" PRId64 ": %s\n", m_OBU_count_in_FU, obu_type < 0xF?obu_type_names[obu_type]:"");
-			m_OBU_count_in_FU++;
-			return RET_CODE_SUCCESS;
-		}
-		RET_CODE EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
-			m_FU_count_in_TU++;
-			return RET_CODE_SUCCESS;
-		}
-		RET_CODE EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
-			m_TU_count++;
-			return RET_CODE_SUCCESS;
-		}
-		RET_CODE EnumError(IAV1Context* pCtx, uint64_t stream_offset, int error_code) {
-			return RET_CODE_SUCCESS;
-		}
-
-	protected:
-		IAV1Context* m_pAV1Context = nullptr;
-		int64_t m_TU_count = 0;
-		int64_t m_FU_count_in_TU = 0;
-		int64_t m_OBU_count_in_FU = 0;
-	}AV1Enumerator(pAV1Context);;
+	if (!(options&AV1_ENUM_OPTION_FU))
+		AV1Enumerator.m_indent[2] -= 4;
 
 	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || rfp == NULL)

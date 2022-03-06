@@ -100,7 +100,7 @@ class IAV1Enumerator
 public:
 	virtual RET_CODE		EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
 	virtual RET_CODE		EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
-	virtual RET_CODE		EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf) = 0;
+	virtual RET_CODE		EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) = 0;
 	virtual RET_CODE		EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
 	virtual RET_CODE		EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
 	/*

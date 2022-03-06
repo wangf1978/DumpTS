@@ -129,7 +129,7 @@ namespace AIFF
 
 	struct FormatVersionChunk : public AIFF_CHUNK
 	{
-		uint32_t		timestamp;
+		uint32_t		timestamp = 0;
 
 		int Unpack(CBitstream& bs)
 		{
@@ -297,9 +297,9 @@ namespace AIFF
 	{
 		struct Marker
 		{
-			MarkerId		id;
-			uint32_t		position;
-			uint8_t			markerName_bytecount;
+			MarkerId		id = 0;
+			uint32_t		position = 0;
+			uint8_t			markerName_bytecount = 0;
 			std::string		markerName;
 		};
 
@@ -471,18 +471,18 @@ namespace AIFF
 	{
 		struct Loop
 		{
-			int16_t			playMode;
-			MarkerId		beginLoop;
-			MarkerId		endLoop;
+			int16_t			playMode = 0;
+			MarkerId		beginLoop = 0;
+			MarkerId		endLoop = 0;
 		}PACKED;
 
-		int8_t			baseNote;
-		int8_t			detune;
-		int8_t			lowNote;
-		int8_t			highNote;
-		int8_t			lowVelocity;
-		int8_t			highVelocity;
-		int16_t			gain;
+		int8_t			baseNote = 0;
+		int8_t			detune = 0;
+		int8_t			lowNote = 0;
+		int8_t			highNote = 0;
+		int8_t			lowVelocity = 0;
+		int8_t			highVelocity = 0;
+		int16_t			gain = 0;
 		Loop			sustainLoop;
 		Loop			releaseLoop;
 
@@ -599,7 +599,7 @@ namespace AIFF
 
 	struct FormAIFCChunk : public AIFF_CHUNK
 	{
-		uint32_t        formType;
+		uint32_t        formType = 0;
 		std::vector<AIFF_CHUNK*>
 						chunks;
 
