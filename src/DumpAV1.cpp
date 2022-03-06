@@ -789,19 +789,47 @@ int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB)
 	return RET_CODE_SUCCESS;
 }
 
-class CAV1ShowOBUEnumerator : public IAV1Enumerator
+class CAV1BaseEnumerator : public IAV1Enumerator
 {
 public:
-	CAV1ShowOBUEnumerator(IAV1Context* pAV1Context)
+	CAV1BaseEnumerator(IAV1Context* pAV1Context)
 		: m_pAV1Context(pAV1Context) {
 		if (m_pAV1Context)
 			m_pAV1Context->AddRef();
 	}
-	virtual ~CAV1ShowOBUEnumerator() {
+	virtual ~CAV1BaseEnumerator() {
 		AMP_SAFERELEASE(m_pAV1Context);
 	}
 
 public:
+	RET_CODE EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+		return RET_CODE_SUCCESS;
+	}
+	RET_CODE EnumError(IAV1Context* pCtx, uint64_t stream_offset, int error_code) {
+		return RET_CODE_SUCCESS;
+	}
+
+protected:
+	IAV1Context* m_pAV1Context = nullptr;
+};
+
+class CAV1ShowOBUEnumerator : public CAV1BaseEnumerator
+{
+public:
+	CAV1ShowOBUEnumerator(IAV1Context* pCtx) : CAV1BaseEnumerator(pCtx) {}
+
 	RET_CODE EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
 		m_FU_count_in_TU = 0;
 		printf("[%08" PRId64 "] Temporal Unit:\n", m_TU_count);
@@ -828,15 +856,11 @@ public:
 		m_TU_count++;
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumError(IAV1Context* pCtx, uint64_t stream_offset, int error_code) {
-		return RET_CODE_SUCCESS;
-	}
 
 public:
 	int		m_indent[3] = { 0, 4, 8 };
 
 protected:
-	IAV1Context* m_pAV1Context = nullptr;
 	int64_t m_TU_count = 0;
 	int64_t m_FU_count_in_TU = 0;
 	int64_t m_FU_count = 0;
@@ -845,7 +869,61 @@ protected:
 	const char* m_szIndent = "                    ";
 };
 
-int	ShowOBUs()
+class CAV1ShowSeqHdrOBUEnumerator : public CAV1BaseEnumerator
+{
+public:
+	CAV1ShowSeqHdrOBUEnumerator(IAV1Context* pCtx) : CAV1BaseEnumerator(pCtx) {}
+	RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
+		if (obu_type == OBU_SEQUENCE_HEADER)
+		{
+			AMSHA1_RET retSHA1 = { 0 };
+			AMSHA1 hSHA1 = AM_SHA1_Init(pOBUBuf, (unsigned long)cbOBUBuf);
+			if (hSHA1 != nullptr)
+			{
+				AM_SHA1_Finalize(hSHA1);
+				AM_SHA1_GetHash(hSHA1, retSHA1);
+				AM_SHA1_Uninit(hSHA1);
+
+				if (m_pAV1Context->GetSeqHdrOBU() == nullptr || memcmp(retSHA1, m_sha1SeqHdrOBU, sizeof(AMSHA1)) != 0)
+				{
+					BST::AV1::OPEN_BITSTREAM_UNIT* ptr_obu_seq_hdr = new BST::AV1::OPEN_BITSTREAM_UNIT(nullptr);
+					if (ptr_obu_seq_hdr == nullptr)
+						return RET_CODE_NOTHING_TODO;
+
+					AV1_OBU sp_obu_seq_hdr = AV1_OBU(ptr_obu_seq_hdr);
+
+					AMBst in_bst = AMBst_CreateFromBuffer(pOBUBuf, (int)cbOBUBuf);
+					if (in_bst == nullptr)
+						return RET_CODE_NOTHING_TODO;
+
+					if (AMP_SUCCEEDED(sp_obu_seq_hdr->Map(in_bst)))
+					{
+						m_pAV1Context->UpdateSeqHdrOBU(sp_obu_seq_hdr);
+
+						PrintMediaObject(sp_obu_seq_hdr);
+
+						memcpy(m_sha1SeqHdrOBU, retSHA1, sizeof(AMSHA1));
+					}
+
+					AMBst_Destroy(in_bst);
+				}
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+protected:
+	AMSHA1_RET m_sha1SeqHdrOBU = { 0 };
+};
+
+enum AV1_INFO_CMD
+{
+	AV1_INFO_CMD_LIST_OBU = 0,
+	AV1_INFO_CMD_SHOW_OBUSEQHDR = 1,
+};
+
+int	ShowAV1Info(AV1_INFO_CMD cmd)
 {
 	IAV1Context* pAV1Context = nullptr;
 	uint8_t pBuf[2048] = { 0 };
@@ -901,16 +979,28 @@ int	ShowOBUs()
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
-	CAV1ShowOBUEnumerator AV1Enumerator(pAV1Context);
+	CAV1BaseEnumerator* pAV1Enumerator = nullptr;
 
-	if (!(options&AV1_ENUM_OPTION_TU))
+	if (cmd == AV1_INFO_CMD_LIST_OBU)
 	{
-		AV1Enumerator.m_indent[1] = 0;
-		AV1Enumerator.m_indent[2] = 4;
-	}
+		CAV1ShowOBUEnumerator* pAV1ShowOBUEnumerator = new CAV1ShowOBUEnumerator(pAV1Context);
 
-	if (!(options&AV1_ENUM_OPTION_FU))
-		AV1Enumerator.m_indent[2] -= 4;
+		if (!(options&AV1_ENUM_OPTION_TU))
+		{
+			pAV1ShowOBUEnumerator->m_indent[1] = 0;
+			pAV1ShowOBUEnumerator->m_indent[2] = 4;
+		}
+
+		if (!(options&AV1_ENUM_OPTION_FU))
+			pAV1ShowOBUEnumerator->m_indent[2] -= 4;
+
+		pAV1Enumerator = (CAV1BaseEnumerator*)pAV1ShowOBUEnumerator;
+	}
+	else if (cmd == AV1_INFO_CMD_SHOW_OBUSEQHDR)
+	{
+		CAV1ShowSeqHdrOBUEnumerator* pAV1SeqHdrOBUEnumerator = new CAV1ShowSeqHdrOBUEnumerator(pAV1Context);
+		pAV1Enumerator = (CAV1BaseEnumerator*)pAV1SeqHdrOBUEnumerator;
+	}
 
 	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || rfp == NULL)
@@ -924,7 +1014,7 @@ int	ShowOBUs()
 	file_size = _ftelli64(rfp);
 	_fseeki64(rfp, 0, SEEK_SET);
 
-	AV1Parser.SetEnumerator((IAV1Enumerator*)(&AV1Enumerator), options);
+	AV1Parser.SetEnumerator((IAV1Enumerator*)(pAV1Enumerator), options);
 
 	do
 	{
@@ -952,6 +1042,12 @@ done:
 	if (rfp != nullptr)
 		fclose(rfp);
 
+	if (pAV1Enumerator)
+	{
+		delete pAV1Enumerator;
+		pAV1Enumerator = nullptr;
+	}
+
 	if (pAV1Context)
 	{
 		pAV1Context->Release();
@@ -959,5 +1055,15 @@ done:
 	}
 
 	return iRet;
+}
+
+int	ShowOBUs()
+{
+	return ShowAV1Info(AV1_INFO_CMD_LIST_OBU);
+}
+
+int	ShowOBUSeqHdr()
+{
+	return ShowAV1Info(AV1_INFO_CMD_SHOW_OBUSEQHDR);
 }
 

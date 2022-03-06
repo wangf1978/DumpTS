@@ -72,6 +72,7 @@ extern int	ShowVPS();
 extern int	ShowSPS();
 extern int	ShowPPS();
 extern int	ShowHRD();
+extern int	ShowOBUSeqHdr();
 extern int	ShowMPVInfo();
 extern int	ShowNALInfo();
 extern int	BenchRead(int option);
@@ -208,6 +209,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPPS",
 		"showHRD",
 		"showOBU",
+		"showSeqHdr",
 		"showStreamMuxConfig",
 		"runHRD",
 		"benchRead",	// Do bench mark test to check whether the read speed is enough or not
@@ -702,6 +704,7 @@ void PrintHelp()
 	printf("\t--showVPS\t\tShow the VPS syntax of HEVC/VVC stream\n");
 	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
 	printf("\t--showPPS\t\tShow the PPS syntax of AVC/HEVC/VVC stream\n");
+	printf("\t--showSeqHdr\t\tShow the AV1 Sequence-Header-OBU syntax or MPEG2-Video sequence header\n");
 	printf("\t--showHRD\t\tShow the Hypothetical reference decoder parameters of AVC/HEVC/VVC stream\n");
 	printf("\t--runHRD\t\tRun the Hypothetical reference decoder verifier of AVC/HEVC/VVC stream\n");
 	printf("\t--showStreamMuxConfig\tShow the StreamMuxConfig in MPEG4 AAC LOAS/LATM stream\n");
@@ -1156,6 +1159,20 @@ int main(int argc, char* argv[])
 			{
 				nDumpRet = ShowPPS();
 				goto done;
+			}
+			else if (g_params.find("showSeqHdr") != g_params.end())
+			{
+				if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mpv") == 0)
+				{
+					nDumpRet = RET_CODE_ERROR_NOTIMPL;
+					printf("Oops! Not implement yet....\n");
+					goto done;
+				}
+				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("av1") == 0)
+				{
+					nDumpRet = ShowOBUSeqHdr();
+					goto done;
+				}
 			}
 			else if (g_params.find("showHRD") != g_params.end())
 			{
