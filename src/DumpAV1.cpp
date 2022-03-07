@@ -832,17 +832,17 @@ public:
 
 	RET_CODE EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
 		m_FU_count_in_TU = 0;
-		printf("[%08" PRId64 "] Temporal Unit:\n", m_TU_count);
+		printf("Temporal Unit#[%" PRId64 "]:\n", m_TU_count);
 		return RET_CODE_SUCCESS;
 	}
 	RET_CODE EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
 		m_OBU_count_in_FU = 0;
-		printf("%*.s[%08" PRId64 "] Frame Unit#%" PRId64 "\n", m_indent[1], m_szIndent, m_FU_count, m_FU_count_in_TU);
+		printf("%*.sFrame Unit#%" PRId64 "/global#%" PRId64 "\n", m_indent[1], m_szIndent, m_FU_count_in_TU, m_FU_count);
 		return RET_CODE_SUCCESS;
 	}
 	RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
-		printf("%*.s[%08" PRId64 "] OBU#%" PRId64 "(len/size--%5zu/%-5" PRIu32 "): %s\n",
-			m_indent[2], m_szIndent, m_OBU_count, m_OBU_count_in_FU, cbOBUBuf, obu_size, obu_type < 0xF ? obu_type_names[obu_type] : "");
+		printf("%*.sOBU#%" PRId64 ": %-32s (len/size--%5zu/%-5" PRIu32 ")/global#%" PRId64 "\n",
+			m_indent[2], m_szIndent, m_OBU_count_in_FU, obu_type < 0xF ? obu_type_names[obu_type] : "", cbOBUBuf, obu_size, m_OBU_count);
 		m_OBU_count_in_FU++;
 		m_OBU_count++;
 		return RET_CODE_SUCCESS;
