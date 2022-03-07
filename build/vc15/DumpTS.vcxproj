@@ -236,6 +236,7 @@
     <None Include="..\..\doc\index.html" />
     <None Include="..\..\doc\references.md" />
     <None Include="..\..\MMT_Readme.md" />
+    <None Include="..\..\NAL_Readme.md" />
     <None Include="..\..\README.md" />
     <None Include="..\linux\common\Toolchain.mk">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>

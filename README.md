@@ -148,6 +148,23 @@ Here are some examples of command lines:
     ```
     It will show the elementary audio stream information, including channel layout, sample frequency and so on
 
+- Show Box information
+    ```
+    DumpTS test.mp4 --trackid=1 --boxtype=stsd --showinfo
+    ```
+    Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-depth and so on
+
+- Show WebM media and codec information
+    ```
+    DumpTS av1.webm --showinfo
+    ```
+
+- Show MMT/TLV container information
+    ```
+    DumpTS 00301.mmts --showinfo
+    ```
+    Show the MMT payload information, including PLT, MPT and asset/elementary information
+
 - Dump ES stream from TS/M2TS file
     ```
     DumpTS 00001.m2ts --output=00001.hevc --pid=0x1011 --srcfmt=m2ts --outputfmt=es --showpts  
@@ -179,16 +196,6 @@ Here are some examples of command lines:
     ```
     Dump the track#1 of test.mp4, and save its sample data to the file test.hevc with NAL annex-b byte stream format, the VSP, SPS and PPS will be merged into elementary stream data.
 
-- Show Box information
-    ```
-    DumpTS test.mp4 --trackid=1 --boxtype=stsd --showinfo
-    ```
-    Show the 'stsd' box information, for example, HEVC/AVC resolution, chroma, bit-depth and so on
-
-- Show WebM media and codec information
-    ```
-    DumpTS av1.webm --showinfo
-    ```
     Show the tree view for the EBML elements of av1.webm
 
 - Extract block data of the specified track from WebM file 
@@ -196,12 +203,6 @@ Here are some examples of command lines:
     DumpTS tearsofsteel_4sec0025_3840x2160.y4m-20000.av1.webm --trackid=1 --output=tearsofsteel_4sec0025_4K.av1
     ```
     Extract av1 video stream from .webm file
-
-- Show MMT/TLV container information
-    ```
-    DumpTS 00301.mmts --showinfo
-    ```
-    Show the MMT payload information, including PLT, MPT and asset/elementary information
 
 - Show data fields of each TLV/IPv4/IPv6/MMT/message/table/descriptor/MPU/MFU 
     ```
@@ -344,133 +345,10 @@ Here are some examples of command lines:
         ......
     };
     ```
-    Show the AVC SPS syntax to learn the configuration of AVC stream
-    ```
-    DumpTS 00005.h264 --showSPS
-    NAL_UNIT:                                                      // Sequence parameter set
-    forbidden_zero_bit: 0                                          // shall be equal to 0.
-    nal_ref_idc: 1(0X1)
-    nal_unit_type: 7(0X7)                                          // Sequence parameter set
-    seq_parameter_set_rbsp():
-        profile_idc: 100(0X64)                                     // High Profile
-        constraint_set0_flag: 0
-        constraint_set1_flag: 0
-        constraint_set2_flag: 0
-        constraint_set3_flag: 0
-        constraint_set4_flag: 0
-        constraint_set5_flag: 0
-        reserved_zero_2bits: 0(0X0)
-        level_idc: 40(0X28)                                        // 4
-        seq_parameter_set_id: 0(0X0)                               // identifies the sequence parameter set that is referred to by the pi...
-        chroma_format_idc: 1(0X1)                                  // 4:2:0
-        bit_depth_luma_minus8: 0(0X0)
-        bit_depth_chroma_minus8: 0(0X0)
-        qpprime_y_zero_transform_bypass_flag: 0                    // the transform coefficient decoding process and picture construction...
-        seq_scaling_matrix_present_flag: 0                         // the flags seq_scaling_list_present_flag[ i ] for i = 0..7 or i = 0....
-        log2_max_frame_num_minus4: 3(0X3)                          // specifies the value of the variable MaxFrameNum that is used in fra...
-        pic_order_cnt_type: 0(0X0)                                 // specifies the method to decode picture order count
-        log2_max_pic_order_cnt_lsb_minus4: 0(0X0)                  // the value of the variable MaxPicOrderCntLsb that is used in the dec...
-        max_num_ref_frames: 2(0X2)                                 // the maximum number of short-term and long-term reference frames, co...
-        gaps_in_frame_num_value_allowed_flag: 0
-        pic_width_in_mbs_minus1: 119(0X77)                         // plus 1 specifies the width of each decoded picture in units of macr...
-        pic_height_in_map_units_minus1: 67(0X43)                   // plus 1 specifies the height in slice group map units of a decoded f...
-        frame_mbs_only_flag: 1                                     // every coded picture of the coded video sequence is a coded frame co...
-        direct_8x8_inference_flag: 1
-        frame_cropping_flag: 1                                     // the frame cropping offset parameters follow next in the sequence pa...
-        frame_crop_left_offset: 0(0X0)
-        frame_crop_right_offset: 0(0X0)
-        frame_crop_top_offset: 0(0X0)
-        frame_crop_bottom_offset: 4(0X4)
-        Concluded Values:
-            SubWidthC: 2(0X2)
-            SubHeightC: 2(0X2)
-            BitDepthY=8+bit_depth_luma_minus8: 8(0X8)
-            QpBdOffsetY=6*bit_depth_luma_minus8: 0(0X0)
-            BitDepthC=8+bit_depth_chroma_minus8: 8(0X8)
-            QpBdOffsetC=6*bit_depth_chroma_minus8: 0(0X0)
-            MbWidthC: 8(0X8)
-            MbHeightC: 8(0X8)
-            RawMbBits=256*BitDepthY + 2*MbWidthC*MbHeightC*BitDepthC: 3072(0XC00)
-            MaxFrameNum=2^(log2_max_frame_num_minus4 + 4): 5(0X5)
-            MaxPicOrderCntLsb=2^(log2_max_pic_order_cnt_lsb_minus4 + 4): 6(0X6)
-            PicWidthInMbs=pic_width_in_mbs_minus1 + 1: 120(0X78)   // the picture width in units of macroblocks
-            PicWidthInSamplesL=PicWidthInMbs * 16: 1920(0X780)     // picture width for the luma component
-            PicWidthInSamplesC=PicWidthInMbs * MbWidthC: 960(0X3C0)// picture width for the chroma components
-            PicHeightInMapUnits=pic_height_in_map_units_minus1 + 1: 68(0X44)
-            PicSizeInMapUnits=PicWidthInMbs * PicHeightInMapUnits: 8160(0X1FE0)
-            FrameHeightInMbs=(2-frame_mbs_only_flag)*PicHeightInMapUnits: 68(0X44)
-            ChromaArrayType: 1(0X1)
-            CropUnitX: 2(0X2)
-            CropUnitY: 2(0X2)
-            BufferWidth: 1920(0X780)                               // The width of frame buffer
-            BufferHeight: 1088(0X440)                              // The height of frame buffer
-            DisplayWidth: 1920(0X780)                              // The display width
-            DisplayHeight: 1080(0X438)                             // The display height
-        vui_parameters_present_flag: 1                             // the vui_parameters() syntax structure is present
-        vui_parameters():
-            aspect_ratio_info_present_flag: 1                      // aspect_ratio_idc is present
-            aspect_ratio_idc: 1                                    // 1:1(Square), example: 3840x2160 16:9 frame without horizontal overs...
-            overscan_info_present_flag: 1                          // the overscan_appropriate_flag is present
-            overscan_appropriate_flag: 1                           // indicates that the cropped decoded pictures output are suitable for...
-            video_signal_type_present_flag: 0                      // specify that video_format, video_full_range_flag and colour_descrip...
-            chroma_loc_info_present_flag: 0                        // specifies that chroma_sample_loc_type_top_field and chroma_sample_l...
-            timing_info_present_flag: 1                            // specifies that vui_num_units_in_tick, vui_time_scale, vui_poc_propo...
-            num_units_in_tick: 5005(0X138D)                        // the number of time units of a clock operating at the frequency vui_...
-            time_scale: 240000(0X3A980)                            // the number of time units that pass in one second.
-            fixed_frame_rate_flag: 1                               // the temporal distance between the HRD output times of any two conse...
-            nal_hrd_parameters_present_flag: 1                     // NAL HRD parameters (pertaining to Type II bitstream conformance) ar...
-            hrd_parameters:                                        // NAL HRD parameters
-                cpb_cnt_minus1: 0(0X0)                             // plus 1 specifies the number of alternative CPB specifications in th...
-                bit_rate_scale: 2(0X2)                             // (together with bit_rate_value_minus1[ SchedSelIdx ]) specifies the ...
-                cpb_size_scale: 3(0X3)                             // (together with cpb_size_value_minus1[ SchedSelIdx ]) specifies the ...
-                for(SchedSelIdx=0;SchedSelIdx<=cpb_cnt_minus1;SchedSelIdx++):
-                    bit_rate_value_minus1[0]: 78124                // (together with bit_rate_scale) specifies the maximum input bit rate...
-                    cpb_size_value_minus1[0]: 234374               // is used together with cpb_size_scale to specify the SchedSelIdx-th ...
-                    cbr_flag[0]: 0                                 // specifies that to decode this bitstream by the HRD using the SchedS...
-                    BitRate: 20000000                              // The bit rate in bits per second
-                    CpbSize: 30000000                              // The CPB size in bits
-                initial_cpb_removal_delay_length_minus1: 17(0X11)  // the length in bits of the initial_cpb_removal_delay[SchedSelIdx] an...
-                cpb_removal_delay_length_minus1: 7(0X7)            // the length in bits of the cpb_removal_delay syntax element
-                dpb_output_delay_length_minus1: 7(0X7)             // the length in bits of the dpb_output_delay syntax element
-                time_offset_length: 24(0X18)                       // greater than 0 specifies the length in bits of the time_offset synt...
-            vcl_hrd_parameters_present_flag: 1                     // VCL HRD parameters (clauses E.1.2 and E.2.2) immediately follow the...
-            vcl_parameters:                                        // VCL HRD parameters
-                cpb_cnt_minus1: 0(0X0)                             // plus 1 specifies the number of alternative CPB specifications in th...
-                bit_rate_scale: 2(0X2)                             // (together with bit_rate_value_minus1[ SchedSelIdx ]) specifies the ...
-                cpb_size_scale: 4(0X4)                             // (together with cpb_size_value_minus1[ SchedSelIdx ]) specifies the ...
-                for(SchedSelIdx=0;SchedSelIdx<=cpb_cnt_minus1;SchedSelIdx++):
-                    bit_rate_value_minus1[0]: 78124                // (together with bit_rate_scale) specifies the maximum input bit rate...
-                    cpb_size_value_minus1[0]: 78124                // is used together with cpb_size_scale to specify the SchedSelIdx-th ...
-                    cbr_flag[0]: 0                                 // specifies that to decode this bitstream by the HRD using the SchedS...
-                    BitRate: 20000000                              // The bit rate in bits per second
-                    CpbSize: 20000000                              // The CPB size in bits
-                initial_cpb_removal_delay_length_minus1: 17(0X11)  // the length in bits of the initial_cpb_removal_delay[SchedSelIdx] an...
-                cpb_removal_delay_length_minus1: 7(0X7)            // the length in bits of the cpb_removal_delay syntax element
-                dpb_output_delay_length_minus1: 7(0X7)             // the length in bits of the dpb_output_delay syntax element
-                time_offset_length: 24(0X18)                       // greater than 0 specifies the length in bits of the time_offset synt...
-            low_delay_hrd_flag: 0
-            pic_struct_present_flag: 1                             // picture timing SEI messages (clause D.2.2) are present that include...
-            bitstream_restriction_flag: 1                          // the following coded video sequence bitstream restriction parameters...
-            motion_vectors_over_pic_boundaries_flag: 1             // one or more samples outside picture boundaries may be used in inter...
-            max_bytes_per_pic_denom: 4(0X4)                        // a number of bytes not exceeded by the sum of the sizes of the VCL N...
-            max_bits_per_mb_denom: 0(0X0)                          // an upper bound for the number of coded bits of macroblock_layer( ) ...
-            log2_max_mv_length_horizontal: 16(0X10)                // the maximum absolute value of a decoded horizontal motion vector co...
-            log2_max_mv_length_vertical: 16(0X10)                  // the maximum absolute value of a decoded vertical motion vector comp...
-            max_num_reorder_frames: 1(0X1)                         // an upper bound for the number of frames buffers, in the decoded pic...
-            max_dec_frame_buffering: 4(0X4)                        // the required size of the HRD decoded picture buffer (DPB) in units ...
-        rbsp_trailing_bits:
-            rbsp_stop_one_bit: 1                                   // Should be 1
-            rbsp_alignment_zero_bit: 0                             // Should be 0
-            rbsp_alignment_zero_bit: 0                             // Should be 0
-            rbsp_alignment_zero_bit: 0                             // Should be 0
-            rbsp_alignment_zero_bit: 0                             // Should be 0
-            rbsp_alignment_zero_bit: 0                             // Should be 0
-            rbsp_alignment_zero_bit: 0                             // Should be 0
-            rbsp_alignment_zero_bit: 0                             // Should be 0
-```
 
 # More
 - For MMT, please see [MMT operation guideline](MMT_Readme.md)
 - For AV1/OBU, please see [AV1/OBU operation guideline](AV1_Readme.md)
 - For Audio, please see [Audio operation guideline](Audio_Readme.md)
+- For NAL, please see [NAL bitstream operation guideline](NAL_Readme.md)
 
