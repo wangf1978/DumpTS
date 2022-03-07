@@ -821,6 +821,111 @@ namespace BST {
 				return audioObjectType;
 			}
 
+			int GetSamplingFrequency()
+			{
+				auto audio_object_type = GetAudioObjectType();
+
+				if (audio_object_type == AAC_main ||
+					audio_object_type == AAC_LC ||
+					audio_object_type == AAC_SSR ||
+					audio_object_type == AAC_LTP ||
+					audio_object_type == AAC_Scalable ||
+					audio_object_type == TwinVQ ||
+					audio_object_type == ER_AAC_LC ||
+					audio_object_type == ER_AAC_LTP ||
+					audio_object_type == ER_AAC_scalable ||
+					audio_object_type == ER_TwinVQ ||
+					audio_object_type == ER_BSAC ||
+					audio_object_type == ER_AAC_LD)
+				{
+					int nSamplingRates[] = { 96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350, -1, -1, -1 };
+
+					if (samplingFrequencyIndex == 0xF)
+						return (int)samplingFrequency;
+					else if (nSamplingRates[samplingFrequencyIndex] > 0)
+						return nSamplingRates[samplingFrequencyIndex];
+				}
+
+				return 0;	// Unknown value
+			}
+
+			int GetNumOfChannels()
+			{
+				/*
+				1: 1ch (1/0)
+				2: 2ch (2/0)
+				3: 3ch (3/0)
+				4: 4ch (3/1)
+				5: 5ch (3/2)
+				6: 5.1ch (3/2.1)
+				7: 7.1ch (5/2.1)
+				11: 6.1ch (3/0/3.1)
+				12: 7.1ch (3/2/2.1)
+				13: 22.2ch (3/3/3-5/2/3-3/0/0+2)
+				14: 7.1ch (2/0/0-3/0/2-0/0/0+1)
+				0: program_config_element() is used.
+				(in case of 3ch(2/1), 4ch(2/2) and 2-audio signals (dual mono) (1/0+1/0))	
+				*/
+				int numOfChannels[] = { 0, 1, 2, 3, 4, 5, 6, 8, 0, 0, 0, 7, 8, 24, 8, 0 };
+				if (channelConfiguration >= _countof(numOfChannels))
+					return 0;
+
+				// if channel_configuration is 0, need parse program_config_element to get the channel configuration
+				if (channelConfiguration == 0 && GASpecificConfig != nullptr && GASpecificConfig->program_config_element != nullptr)
+				{
+					auto pce = GASpecificConfig->program_config_element;
+					if (pce->num_front_channel_elements == 1 &&
+						pce->num_side_channel_elements == 0 &&
+						pce->num_back_channel_elements == 1 &&
+						pce->num_lfe_channel_elements == 0 &&
+						pce->num_valid_cc_elements == 0 &&
+						pce->front_channel_elements[0].element_is_cpe == 1 &&
+						pce->front_channel_elements[0].element_tag_select == 0 &&
+						pce->back_channel_elements[0].element_is_cpe == 0 &&
+						pce->back_channel_elements[0].element_tag_select == 0)
+					{
+						// L+R+MS(mono surround)
+						return 3;
+					}
+					else if (pce->num_front_channel_elements == 1 &&
+						pce->num_side_channel_elements == 0 &&
+						pce->num_back_channel_elements == 1 &&
+						pce->num_lfe_channel_elements == 0 &&
+						pce->num_valid_cc_elements == 0 &&
+						pce->front_channel_elements[0].element_is_cpe == 1 &&
+						pce->front_channel_elements[0].element_tag_select == 0 &&
+						pce->back_channel_elements[0].element_is_cpe == 1 &&
+						pce->back_channel_elements[0].element_tag_select == 1)
+					{
+						// L+R+Ls+Rs
+						return 4;
+					}
+					else if (pce->num_front_channel_elements == 2 &&
+						pce->num_side_channel_elements == 0 &&
+						pce->num_back_channel_elements == 0 &&
+						pce->num_lfe_channel_elements == 0 &&
+						pce->num_valid_cc_elements == 0 &&
+						pce->front_channel_elements[0].element_is_cpe == 0 &&
+						pce->front_channel_elements[0].element_tag_select == 0 &&
+						pce->back_channel_elements[0].element_is_cpe == 0 &&
+						pce->back_channel_elements[0].element_tag_select == 1)
+					{
+						// Dual Mono
+						return 2;
+					}
+				}
+
+				return numOfChannels[channelConfiguration];
+			}
+
+			CH_MAPPING GetChannelMapping()
+			{
+				if (channelConfiguration >= _countof(aac_channel_configurations))
+					return CH_MAPPING();
+
+				return aac_channel_configurations[channelConfiguration];
+			}
+
 			int Map(AMBst in_bst) {
 				SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
