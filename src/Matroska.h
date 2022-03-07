@@ -332,7 +332,7 @@ namespace Matroska
 
 	struct SignedIntegerElement : public EBMLElement
 	{
-		int64_t			iVal;
+		int64_t			iVal = 0;
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -366,7 +366,7 @@ namespace Matroska
 
 	struct UnsignedIntegerElement : public EBMLElement
 	{
-		uint64_t			uVal;
+		uint64_t			uVal = 0;
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -394,7 +394,7 @@ namespace Matroska
 
 	struct FloatElement : public EBMLElement
 	{
-		double			fVal;
+		double			fVal = NAN;
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -442,7 +442,7 @@ namespace Matroska
 
 	struct ASCIIStringElement : public EBMLElement 
 	{
-		char*	szVal;
+		char*	szVal = nullptr;
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -520,8 +520,8 @@ namespace Matroska
 
 	struct DateElement : public EBMLElement
 	{
-		int64_t ns_since_20010101_midnight;	// Original value with high resolution
-		time_t	timeVal;					// The standard C/C++ time type
+		int64_t ns_since_20010101_midnight = 0;	// Original value with high resolution
+		time_t	timeVal = 0;					// The standard C/C++ time type
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -649,12 +649,13 @@ namespace Matroska
 			uint32_t	reserved : 3;
 			uint32_t	Byte_Pos_Block_fine : 25;
 
-			BlockFine(uint64_t file_pos, bool bSimpleBlock, bool bKeyframe, bool bInvisible, bool bDiscardable) {
-				is_simple_block = bSimpleBlock ? 1 : 0;
-				is_keyframe = bKeyframe ? 1 : 0;
-				is_invisible = bInvisible ? 1 : 0;
-				is_discardable = bDiscardable ? 1 : 0;
-				Byte_Pos_Block_fine = file_pos & 0x1FFFFFF;
+			BlockFine(uint64_t file_pos, bool bSimpleBlock, bool bKeyframe, bool bInvisible, bool bDiscardable)
+				: is_simple_block(bSimpleBlock ? 1 : 0)
+				, is_keyframe(bKeyframe ? 1 : 0)
+				, is_invisible(bInvisible ? 1 : 0)
+				, is_discardable(bDiscardable ? 1 : 0)
+				, reserved(0)
+				, Byte_Pos_Block_fine(file_pos & 0x1FFFFFF){
 			}
 		}PACKED;
 

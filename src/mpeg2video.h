@@ -180,7 +180,7 @@ namespace BST {
 
 	struct CSequenceHeader: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char		sequence_header_code[4];
+		unsigned char		sequence_header_code[4] = { 0 };
 		
 		unsigned long		horizontal_size_value:12;
 		unsigned long		vertical_size_value:12;
@@ -194,10 +194,13 @@ namespace BST {
 		unsigned long		load_intra_quantiser_matrix:1;
 		unsigned long		load_non_intra_quantiser_matrix:1;
 
-		unsigned char		intra_quantiser_matrix[64];
-		unsigned char		non_intra_quantiser_matrix[64];
+		unsigned char		intra_quantiser_matrix[64] = { 0 };
+		unsigned char		non_intra_quantiser_matrix[64] = { 0 };
 
-		CSequenceHeader(){}
+		CSequenceHeader()
+			: horizontal_size_value(0), vertical_size_value(0), aspect_ratio_information(0), frame_rate_code(0)
+			, bit_rate_value(0), marker_bit_0(0), vbv_buffer_size_value(0), constrained_parameters_flag(0)
+			, load_intra_quantiser_matrix(0), load_non_intra_quantiser_matrix(0){}
 
 		int Map(AMBst in_bst)
 		{
@@ -275,7 +278,7 @@ namespace BST {
 
 	struct CUserData: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char		user_data_start_code[4];
+		unsigned char		user_data_start_code[4] = { 0 };
 		std::vector<uint8_t>
 							user_data;
 
@@ -319,9 +322,9 @@ namespace BST {
 		DECLARE_FIELDPROP_END()	
 	};
 
-	struct CSequenceExtension: public SYNTAX_BITSTREAM_MAP
+	struct CSequenceExtension : public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char		extension_start_code[4];
+		unsigned char		extension_start_code[4] = { 0 };
 
 		unsigned long		extension_start_code_identifier:4;
 		unsigned long		profile_and_level_indication:8;
@@ -332,13 +335,17 @@ namespace BST {
 		unsigned long		bit_rate_extension:12;
 		unsigned long		marker_bit:1;
 
-		unsigned char		vbv_buffer_size_extension;
+		unsigned char		vbv_buffer_size_extension = 0;
 
 		unsigned char		low_delay:1;
 		unsigned char		frame_rate_extension_n:2;
 		unsigned char		frame_rate_extension_d:5;
 
-		CSequenceExtension() {}
+		CSequenceExtension()
+			: extension_start_code_identifier(0), profile_and_level_indication(0), progressive_sequence(0)
+			, chroma_format(0), horizontal_size_extension(0), vertical_size_extension(0), bit_rate_extension(0), marker_bit(0)
+			, low_delay(0), frame_rate_extension_n(0), frame_rate_extension_d(0){
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -459,14 +466,19 @@ namespace BST {
 		unsigned char		video_format:3;
 		unsigned char		colour_description:1;
 
-		unsigned char		colour_primaries;
-		unsigned char		transfer_characteristics;
-		unsigned char		matrix_coefficients;
+		unsigned char		colour_primaries = 0;
+		unsigned char		transfer_characteristics = 0;
+		unsigned char		matrix_coefficients = 0;
 
 		unsigned long		display_horizontal_size:14;
 		unsigned long		marker_bit:1;
 		unsigned long		display_vertical_size:14;
 		unsigned long		unused_padding:3;
+
+		CSequenceDisplayExtension()
+			: extension_start_code_identifier(0), video_format(0), colour_description(0)
+			, display_horizontal_size(0), marker_bit(0), display_vertical_size(0), unused_padding(0){
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -577,6 +589,7 @@ namespace BST {
 		unsigned char		unused_padding_1:4;
 
 		union{
+			uint8_t				bytes[8] = { 0 };
 			struct {
 				unsigned short	lower_layer_prediction_horizontal_size:14;
 				unsigned short	marker_bit:1;
@@ -604,6 +617,11 @@ namespace BST {
 				unsigned char	picture_mux_factor:3;
 			}PACKED;
 		}PACKED;
+
+		CSequenceScalableExtension()
+			: extension_start_code_identifier(0), scalable_mode(0), unused_padding_0(0)
+			, layer_id(0), unused_padding_1(0) {
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -690,7 +708,7 @@ namespace BST {
 
 	struct CGroupPicturesHeader: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char	group_start_code[4];
+		unsigned char	group_start_code[4] = { 0 };
 
 		unsigned long	drop_frame_flag:1;
 		unsigned long	time_code_hours:5;
@@ -702,7 +720,9 @@ namespace BST {
 		unsigned long	broken_link:1;
 		unsigned long	unused_padding:5;
 
-		CGroupPicturesHeader() {
+		CGroupPicturesHeader()
+			: drop_frame_flag(0), time_code_hours(0), time_code_minutes(0), marker_bit(0)
+			, time_code_seconds(0), time_code_pictures(0), closed_gop(0), broken_link(0), unused_padding(0){
 		}
 
 		int Map(AMBst in_bst)
@@ -861,7 +881,7 @@ namespace BST {
 
 	struct CPictureCodingExtension: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char	extension_start_code[4];
+		unsigned char	extension_start_code[4] = { 0 };
 
 		unsigned long	extension_start_code_identifier:4;
 		unsigned long	f_code_0_0:4;
@@ -895,7 +915,12 @@ namespace BST {
 		unsigned char	sub_carrier_phase;
 		// }
 
-		CPictureCodingExtension(){}
+		CPictureCodingExtension()
+			: extension_start_code_identifier(0), f_code_0_0(0), f_code_0_1(0), f_code_1_0(0), f_code_1_1(0), intra_dc_precision(0), picture_structure(0)
+			, top_field_first(0), frame_pred_frame_dct(0), concealment_motion_vectors(0), q_scale_type(0), intra_vlc_format(0), alternate_scan(0), repeat_first_field(0), chroma_420_type(0)
+			, progressive_frame(0), composite_display_flag(0), unused_padding_0(0)
+			, v_axis(0), field_sequence(0), unused_padding_1(0), sub_carrier(0), burst_amplitude(0), sub_carrier_phase(0){
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -997,10 +1022,15 @@ namespace BST {
 		unsigned char	load_chroma_intra_quantiser_matrix:1;
 		unsigned char	load_chroma_non_intra_quantiser_matrix:1;
 
-		unsigned char	intra_quantiser_matrix[64];
-		unsigned char	non_intra_quantiser_matrix[64];
-		unsigned char	chroma_intra_quantiser_matrix[64];
-		unsigned char	chroma_non_intra_quantiser_matrix[64];
+		unsigned char	intra_quantiser_matrix[64] = { 0 };
+		unsigned char	non_intra_quantiser_matrix[64] = { 0 };
+		unsigned char	chroma_intra_quantiser_matrix[64] = { 0 };
+		unsigned char	chroma_non_intra_quantiser_matrix[64] = { 0 };
+
+		CQuantMatrixExtension()
+			: extension_start_code_identifier(0)
+			, load_intra_quantiser_matrix(0), load_non_intra_quantiser_matrix(0), load_chroma_intra_quantiser_matrix(0), load_chroma_non_intra_quantiser_matrix(0) {
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -1099,15 +1129,20 @@ namespace BST {
 		unsigned char	number_of_frame_centre_offsets:3;
 		unsigned char	unused_padding_0:1;
 
-		struct {
-			unsigned short	frame_centre_horizontal_offset;
-			unsigned short	frame_centre_vertical_offset;
-			unsigned char	marker_bit_0:1;
-			unsigned char	marker_bit_1:1;
-			unsigned char	unused_padding:6;
+		union
+		{
+			uint8_t bytes[5];
+			struct {
+				unsigned short	frame_centre_horizontal_offset;
+				unsigned short	frame_centre_vertical_offset;
+				unsigned char	marker_bit_0 : 1;
+				unsigned char	marker_bit_1 : 1;
+				unsigned char	unused_padding : 6;
+			}PACKED;
 		}PACKED frame_centre_offsets[3];
 
-		CPictureDisplayExtension(unsigned long progressive_sequence, unsigned long repeat_first_field, unsigned long top_field_first, unsigned long picture_structure){
+		CPictureDisplayExtension(unsigned long progressive_sequence, unsigned long repeat_first_field, unsigned long top_field_first, unsigned long picture_structure)
+			: extension_start_code_identifier(0), number_of_frame_centre_offsets(0), unused_padding_0(0), frame_centre_offsets{ {0} }{
 			if ( progressive_sequence ) {
 				if ( repeat_first_field ) {
 					if ( top_field_first )
@@ -1129,7 +1164,9 @@ namespace BST {
 			}
 		}
 
-		CPictureDisplayExtension(): number_of_frame_centre_offsets(0){}
+		CPictureDisplayExtension()
+			: extension_start_code_identifier(0), number_of_frame_centre_offsets(0), unused_padding_0(0), frame_centre_offsets{ {0} } {
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -1217,6 +1254,11 @@ namespace BST {
 		unsigned short	backward_temporal_reference:10;
 		unsigned short	unused_padding:5;
 
+		CTemporalScalableExtension()
+			: extension_start_code_identifier(0), reference_select_code(0), forward_temporal_reference(0)
+			, marker_bit(0), backward_temporal_reference(0), unused_padding(0) {
+		}
+
 		int Map(AMBst in_bst)
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -1275,6 +1317,16 @@ namespace BST {
 		unsigned char	lower_layer_deinterlaced_field_select:1;
 		unsigned char	unused_padding_1:4;
 
+		CPictureSpatialScalableExtension()
+			: extension_start_code_identifier(0), lower_layer_temporal_reference(0), unused_padding_0(0)
+			, marker_bit_0(0), lower_layer_horizontal_offset(0)
+			, marker_bit_1(0), lower_layer_vertical_offset(0)
+			, spatial_temporal_weight_code_table_index(0)
+			, lower_layer_progressive_frame(0)
+			, lower_layer_deinterlaced_field_select(0)
+			, unused_padding_1(0) {
+		}
+
 		int Map(AMBst in_bst)
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -1332,7 +1384,7 @@ namespace BST {
 		unsigned char	copyright_flag:1;
 		unsigned char	unused_padding_0:3;
 
-		unsigned char	copyright_identifier;
+		unsigned char	copyright_identifier = 0;
 
 		unsigned char	original_or_copy:1;
 		unsigned char	reserved:7;
@@ -1348,6 +1400,14 @@ namespace BST {
 		unsigned long	marker_bit_2:1;
 		unsigned long	copyright_number_3:22;
 		unsigned long	unused_padding_3:9;
+
+		CCopyrightExtension()
+			: extension_start_code_identifier(0), copyright_flag(0), unused_padding_0(0)
+			, original_or_copy(0), reserved(0)
+			, marker_bit_0(0), copyright_number_1(0), unused_padding_1(0)
+			, marker_bit_1(0), copyright_number_2(0), unused_padding_2(0)
+			, marker_bit_2(0), copyright_number_3(0), unused_padding_3(0) {
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -1409,78 +1469,87 @@ namespace BST {
 
 	struct CCameraParametersExtension: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char	extension_start_code_identifier:4;
-		unsigned char	reserved_0:1;
-		unsigned char	unused_padding_0:3;
+		union
+		{
+			uint8_t		Bytes[72] = { 0 };
+			struct
+			{
+				unsigned char	extension_start_code_identifier : 4;
+				unsigned char	reserved_0 : 1;
+				unsigned char	unused_padding_0 : 3;
 
-		unsigned char	camera_id:7;
-		unsigned char	marker_bit_0:1;
+				unsigned char	camera_id : 7;
+				unsigned char	marker_bit_0 : 1;
 
-		unsigned long	height_of_image_device:22;
-		unsigned long	marker_bit_1:1;
-		unsigned long	unused_padding_1:9;
+				unsigned char	aligned_dword[2];
 
-		unsigned long	focal_length:22;
-		unsigned long	marker_bit_2:1;
-		unsigned long	unused_padding_2:9;
+				unsigned long	height_of_image_device : 22;
+				unsigned long	marker_bit_1 : 1;
+				unsigned long	unused_padding_1 : 9;
 
-		unsigned long	f_number:22;
-		unsigned long	marker_bit_3:1;
-		unsigned long	unused_padding_3:9;
+				unsigned long	focal_length : 22;
+				unsigned long	marker_bit_2 : 1;
+				unsigned long	unused_padding_2 : 9;
 
-		unsigned long	vertical_angle_of_view:22;
-		unsigned long	marker_bit_4:1;
-		unsigned long	unused_padding_4:9;
+				unsigned long	f_number : 22;
+				unsigned long	marker_bit_3 : 1;
+				unsigned long	unused_padding_3 : 9;
 
-		unsigned long	camera_position_x_upper:16;
-		unsigned long	marker_bit_5:1;
-		unsigned long	unused_padding_5:15;
+				unsigned long	vertical_angle_of_view : 22;
+				unsigned long	marker_bit_4 : 1;
+				unsigned long	unused_padding_4 : 9;
 
-		unsigned long	camera_position_x_lower:16;
-		unsigned long	marker_bit_6:1;
-		unsigned long	unused_padding_6:15;
+				unsigned long	camera_position_x_upper : 16;
+				unsigned long	marker_bit_5 : 1;
+				unsigned long	unused_padding_5 : 15;
 
-		unsigned long	camera_position_y_upper:16;
-		unsigned long	marker_bit_7:1;
-		unsigned long	unused_padding_7:15;
+				unsigned long	camera_position_x_lower : 16;
+				unsigned long	marker_bit_6 : 1;
+				unsigned long	unused_padding_6 : 15;
 
-		unsigned long	camera_position_y_lower:16;
-		unsigned long	marker_bit_8:1;
-		unsigned long	unused_padding_8:15;
+				unsigned long	camera_position_y_upper : 16;
+				unsigned long	marker_bit_7 : 1;
+				unsigned long	unused_padding_7 : 15;
 
-		unsigned long	camera_position_z_upper:16;
-		unsigned long	marker_bit_9:1;
-		unsigned long	unused_padding_9:15;
+				unsigned long	camera_position_y_lower : 16;
+				unsigned long	marker_bit_8 : 1;
+				unsigned long	unused_padding_8 : 15;
 
-		unsigned long	camera_position_z_lower:16;
-		unsigned long	marker_bit_10:1;
-		unsigned long	unused_padding_10:15;
+				unsigned long	camera_position_z_upper : 16;
+				unsigned long	marker_bit_9 : 1;
+				unsigned long	unused_padding_9 : 15;
 
-		unsigned long	camera_direction_x:22;
-		unsigned long	marker_bit_11:1;
-		unsigned long	unused_padding_11:9;
+				unsigned long	camera_position_z_lower : 16;
+				unsigned long	marker_bit_10 : 1;
+				unsigned long	unused_padding_10 : 15;
 
-		unsigned long	camera_direction_y:22;
-		unsigned long	marker_bit_12:1;
-		unsigned long	unused_padding_12:9;
+				unsigned long	camera_direction_x : 22;
+				unsigned long	marker_bit_11 : 1;
+				unsigned long	unused_padding_11 : 9;
 
-		unsigned long	camera_direction_z:22;
-		unsigned long	marker_bit_13:1;
-		unsigned long	unused_padding_13:9;
+				unsigned long	camera_direction_y : 22;
+				unsigned long	marker_bit_12 : 1;
+				unsigned long	unused_padding_12 : 9;
 
-		unsigned long	image_plane_vertical_x:22;
-		unsigned long	marker_bit_14:1;
-		unsigned long	unused_padding_14:9;
+				unsigned long	camera_direction_z : 22;
+				unsigned long	marker_bit_13 : 1;
+				unsigned long	unused_padding_13 : 9;
 
-		unsigned long	image_plane_vertical_y:22;
-		unsigned long	marker_bit_15:1;
-		unsigned long	unused_padding_15:9;
+				unsigned long	image_plane_vertical_x : 22;
+				unsigned long	marker_bit_14 : 1;
+				unsigned long	unused_padding_14 : 9;
 
-		unsigned long	image_plane_vertical_z:22;
-		unsigned long	marker_bit_16:1;
-		unsigned long	unused_padding_16:9;
+				unsigned long	image_plane_vertical_y : 22;
+				unsigned long	marker_bit_15 : 1;
+				unsigned long	unused_padding_15 : 9;
 
-		unsigned long	reserved_1;
+				unsigned long	image_plane_vertical_z : 22;
+				unsigned long	marker_bit_16 : 1;
+				unsigned long	unused_padding_16 : 9;
+
+				unsigned long	reserved_1;
+			}PACKED;
+		}PACKED;
 
 		int Map(AMBst in_bst)
 		{
@@ -1624,6 +1693,10 @@ namespace BST {
 		unsigned char	extension_start_code_identifier:4;
 		unsigned char	unused_padding:4;
 		CAMBitArray		ITUTdata;
+
+		CITUTExtension()
+			: extension_start_code_identifier(0), unused_padding(0) {
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -2200,6 +2273,17 @@ namespace BST {
 
 			uint8_t			active_vertical_size_lower;
 
+			CActiveRegionWindow()
+				: marker_bit_0(0), padding_0(0), top_left_x_upper(0)
+				, marker_bit_1(0), padding_1(0), top_left_x_lower(0)
+				, marker_bit_2(0), padding_2(0), top_left_y_upper(0)
+				, marker_bit_3(0), padding_3(0), top_left_y_lower(0)
+				, marker_bit_4(0), padding_4(0), active_horizontal_size_upper(0)
+				, marker_bit_5(0), padding_5(0), active_horizontal_size_lower(0)
+				, marker_bit_6(0), padding_6(0), active_vertical_size_upper(0)
+				, marker_bit_7(0), padding_7(0), active_vertical_size_lower(0){
+			}
+
 			int Map(AMBst in_bst)
 			{
 				SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -2287,8 +2371,15 @@ namespace BST {
 			uint8_t			picture_byte_count_part_c;
 
 			uint8_t			marker_bit_3 : 1;
-			uint8_t			padding_4 : 7;
+			uint8_t			padding_3 : 7;
 			uint8_t			picture_byte_count_part_d;
+
+			CCodedPictureLength()
+				: marker_bit_0(0), padding_0(0), picture_byte_count_part_a(0)
+				, marker_bit_1(0), padding_1(0), picture_byte_count_part_b(0)
+				, marker_bit_2(0), padding_2(0), picture_byte_count_part_c(0)
+				, marker_bit_3(0), padding_3(0), picture_byte_count_part_d(0) {
+			}
 
 			int Map(AMBst in_bst)
 			{
@@ -2488,11 +2579,12 @@ namespace BST {
 
 	struct CExtensionDataItem : public SYNTAX_BITSTREAM_MAP
 	{
-		int							extension_data_i;
-		unsigned long				extension_start_code;
-		unsigned long				extension_id;
+		int							extension_data_i = -1;
+		unsigned long				extension_start_code = 0;
+		unsigned long				extension_id = 0;
 		union
 		{
+			void*						ptr_extension_data = nullptr;
 			CSequenceExtension*			ptr_sequence_extension;
 			CSequenceDisplayExtension*	ptr_sequence_display_extension;
 			CSequenceScalableExtension*	ptr_sequence_scalable_extension;
@@ -2505,11 +2597,9 @@ namespace BST {
 			CTemporalScalableExtension*	ptr_picture_temporal_scalable_extension;
 			CCameraParametersExtension*	ptr_camera_parameter_extension;
 			CITUTExtension*				ptr_ITU_T_extension;
-			void*						ptr_extension_data = nullptr;
 		}PACKED;
 
-		CExtensionDataItem() 
-			: extension_data_i(-1), extension_id(0), ptr_extension_data(NULL) {}
+		CExtensionDataItem(){}
 
 		virtual ~CExtensionDataItem()
 		{
@@ -2937,6 +3027,12 @@ namespace BST {
 	struct VideoBitstreamCtx: public CComUnknown, public IMPVContext
 	{
 	public:
+		VideoBitstreamCtx() 
+		: m_in_scanning(0)
+		, m_unit_split(0)
+		, m_reserved_for_future_use(0){
+		}
+	public:
 		DECLARE_IUNKNOWN
 
 		HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
@@ -2969,9 +3065,9 @@ namespace BST {
 													// 1: the mapped bitstream is already split, and it is already a complete unit
 		uint8_t					m_reserved_for_future_use : 6;
 
-		uint8_t					m_phase;			// 0: Finish paring sequence_header and sequence_extension
-														// 1: Finish paring group_pictures_heder
-														// 2: Finish parsing picture_header and picture_coding_extension
+		int8_t					m_phase = -1;		// 0: Finish paring sequence_header and sequence_extension
+													// 1: Finish paring group_pictures_heder
+													// 2: Finish parsing picture_header and picture_coding_extension
 		std::vector<uint16_t>	m_start_codes;
 		int						m_curr_level = -1;
 
@@ -3257,17 +3353,17 @@ namespace BST {
 			DECLARE_FIELDPROP_END()	
 		};
 
-		int16_t		start_code_value;
-		uint8_t		reserved[6];
+		int16_t		start_code_value = -1;
+		uint8_t		reserved[6] = { 0 };
 		union
 		{
-			CPictureHeader*		ptr_picture_header;				// picture_start_code		00
-			CSlice*				ptr_slice;						// slice_start_code			01 through AF
 			CUnknownUnit*		ptr_unknown_unit =  nullptr;	// reserved					B0
 																// reserved					B1
 																// sequence_error_code		B4
 																// reserved					B6
 																// system start codes(Note)	B9 through FF
+			CPictureHeader*		ptr_picture_header;				// picture_start_code		00
+			CSlice*				ptr_slice;						// slice_start_code			01 through AF
 			CUserData*			ptr_user_data;					// user_data_start_code		B2
 			CSequenceHeader*	ptr_sequence_header;			// sequence_header_code		B3
 			CExtensionDataItem*	ptr_extension_data;				// extension_start_code		B5
@@ -3281,9 +3377,7 @@ namespace BST {
 		VideoBitstreamCtx*		ctx_video_bst;
 
 		BYTE_STREAM_UNIT(VideoBitstreamCtx* pCtxVideoBst) 
-			: start_code_value(-1)
-			, ptr_unknown_unit(nullptr)
-			, ctx_video_bst(pCtxVideoBst) {
+			: ctx_video_bst(pCtxVideoBst) {
 		}
 
 		~BYTE_STREAM_UNIT()

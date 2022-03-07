@@ -34,7 +34,7 @@ SOFTWARE.
 template <typename T, const int ring_unit_size>
 struct CAMRingUnits
 {
-	T					units[ring_unit_size];
+	T					units[ring_unit_size] = { 0 };
 	// fill 3 bytes in the ring buffer
 	int					read_pos;					// read from which bytes
 	int					write_pos;					// write from which bytes;

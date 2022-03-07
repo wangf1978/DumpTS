@@ -107,21 +107,21 @@ public:
 
 struct ES_REPACK_CONFIG
 {
-	CODEC_ID		codec_id = CODEC_ID_UNKNOWN;
+	CODEC_ID		codec_id;
 	union
 	{
-		void*		pCodecPrivObj = nullptr;
+		void*		pCodecPrivObj;
 		ISOBMFF::AVCDecoderConfigurationRecord*
 					pAVCConfigRecord;
 		ISOBMFF::HEVCDecoderConfigurationRecord*
 					pHEVCConfigRecord;
 	};
-	char			es_output_file_path[MAX_PATH] = { 0 };
+	char			es_output_file_path[MAX_PATH];
 	// Used for converting AnnexB byte-stream to ISO NAL Access Unit Sample format.
-	int				NALUnit_Length_Size = 0;
+	int				NALUnit_Length_Size;
 	union
 	{
-		void*		pESDataOutputCallback = nullptr;
+		void*		pESDataOutputCallback;
 		IMMTESDataOutputAgent*
 					pMMTESDataOutputAgent;
 	};

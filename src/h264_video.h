@@ -230,6 +230,9 @@ namespace BST {
 				uint8_t		nal_ref_idc : 2;
 				uint8_t		nal_unit_type : 5;
 
+				NAL_UNIT_HEADER() : forbidden_zero_bit(0), nal_ref_idc(0), nal_unit_type(0) {
+				}
+
 				int Map(AMBst in_bst)
 				{
 					SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -276,6 +279,20 @@ namespace BST {
 				uint32_t			output_flag : 1;
 				uint32_t			reserved_three_2bits : 2;
 				uint32_t			rserved : 9;
+
+				NAL_UNIT_HEADER_SVC_EXTENSION()
+					: idr_flag(0)
+					, priority_id(0)
+					, no_inter_layer_pred_flag(0)
+					, dependency_id(0)
+					, quality_id(0)
+					, temporal_id(0)
+					, use_ref_base_pic_flag(0)
+					, discardable_flag(0)
+					, output_flag(0)
+					, reserved_three_2bits(0)
+					, rserved(0) {
+				}
 
 				int Map(AMBst in_bst)
 				{
@@ -338,6 +355,17 @@ namespace BST {
 				uint32_t	reserved_one_bit : 1;
 				uint32_t	reserved : 9;
 
+				NAL_UNIT_HEADER_MVC_EXTENSION()
+					: non_idr_flag(0)
+					, priority_id(0)
+					, view_id(10)
+					, temporal_id(0)
+					, anchor_pic_flag(0)
+					, inter_view_flag(0)
+					, reserved_one_bit(0)
+					, reserved(0){
+					}
+
 				int Map(AMBst in_bst)
 				{
 					int iRet = RET_CODE_SUCCESS;
@@ -383,8 +411,8 @@ namespace BST {
 
 			struct SCALING_LIST : public SYNTAX_BITSTREAM_MAP
 			{
-				int				m_sizeOfScalingList;
-				bool			m_useDefaultScalingMatrixFlag;
+				int				m_sizeOfScalingList = 0;
+				bool			m_useDefaultScalingMatrixFlag = false;
 				std::vector<uint8_t>
 								scalingList;
 				std::vector<int8_t>
@@ -466,7 +494,7 @@ namespace BST {
 
 			struct HRD_PARAMETERS : public SYNTAX_BITSTREAM_MAP
 			{
-				uint8_t			cpb_cnt_minus1;
+				uint8_t			cpb_cnt_minus1 = 0;
 				uint8_t			bit_rate_scale : 4;
 				uint8_t			cpb_size_scale : 4;
 
@@ -476,10 +504,13 @@ namespace BST {
 								cpb_size_value_minus1;
 				CAMBitArray		cbr_flag;
 
-				uint8_t			initial_cpb_removal_delay_length_minus1;
-				uint8_t			cpb_removal_delay_length_minus1;
-				uint8_t			dpb_output_delay_length_minus1;
-				uint8_t			time_offset_length;
+				uint8_t			initial_cpb_removal_delay_length_minus1 = 0;
+				uint8_t			cpb_removal_delay_length_minus1 = 0;
+				uint8_t			dpb_output_delay_length_minus1 = 0;
+				uint8_t			time_offset_length = 0;
+
+				HRD_PARAMETERS() : bit_rate_scale(0), cpb_size_scale(0) {
+				}
 
 				int Map(AMBst in_bst)
 				{
@@ -548,7 +579,7 @@ namespace BST {
 
 			struct ACCESS_UNIT_DELIMITER_RBSP : public SYNTAX_BITSTREAM_MAP
 			{
-				uint8_t					primary_pic_type;
+				uint8_t					primary_pic_type = 0;
 				RBSP_TRAILING_BITS		rbsp_trailing_bits;
 
 				int Map(AMBst in_bst)
@@ -1400,16 +1431,26 @@ namespace BST {
 				uint16_t		slice_header_restriction_flag : 1;
 				uint16_t		reserved : 4;
 
-				int16_t			seq_scaled_ref_layer_left_offset;
-				int16_t			seq_scaled_ref_layer_top_offset;
-				int16_t			seq_scaled_ref_layer_right_offset;
-				int16_t			seq_scaled_ref_layer_bottom_offset;
+				int16_t			seq_scaled_ref_layer_left_offset = 0;
+				int16_t			seq_scaled_ref_layer_top_offset = 0;
+				int16_t			seq_scaled_ref_layer_right_offset = 0;
+				int16_t			seq_scaled_ref_layer_bottom_offset = 0;
 
 				SEQ_PARAMETER_SET_DATA*
-					ptr_seq_parameter_set_data;
+								ptr_seq_parameter_set_data;
 
 				SEQ_PARAMETER_SET_SVC_EXTENSION(SEQ_PARAMETER_SET_DATA* seq_parameter_set_data)
-					: ptr_seq_parameter_set_data(seq_parameter_set_data) {
+					: inter_layer_deblocking_filter_control_present_flag(0)
+					, extended_spatial_scalability_idc(0)
+					, chroma_phase_x_plus1_flag(0)
+					, chroma_phase_y_plus1(0)
+					, seq_ref_layer_chroma_phase_x_plus1_flag(0)
+					, seq_ref_layer_chroma_phase_y_plus1(0)
+					, seq_tcoeff_level_prediction_flag(0)
+					, adaptive_tcoeff_level_prediction_flag(0)
+					, slice_header_restriction_flag(0)
+					, reserved(0)					
+					, ptr_seq_parameter_set_data(seq_parameter_set_data) {
 				}
 
 				int Map(AMBst in_bst)
@@ -1534,7 +1575,8 @@ namespace BST {
 					HRD_PARAMETERS*	vcl_hrd_parameters;
 
 				}PACKED;
-				uint16_t		vui_ext_num_entries_minus1;
+
+				uint16_t		vui_ext_num_entries_minus1 = 0;
 				std::vector<VUI_EXT_ENTRY>
 								vui_ext_entries;
 
@@ -1636,7 +1678,7 @@ namespace BST {
 
 			struct SEQ_PARAMETER_SET_MVC_EXTENSION : public SYNTAX_BITSTREAM_MAP
 			{
-				uint16_t		num_views_minus1;
+				uint16_t		num_views_minus1 = 0;
 				uint16_t*		view_id;
 
 				uint8_t*		num_anchor_refs_l0;
@@ -1649,7 +1691,7 @@ namespace BST {
 				uint8_t*		num_non_anchor_refs_l1;
 				uint16_t**		non_anchor_ref_l1;
 
-				uint8_t			num_level_values_signalled_minus1;
+				uint8_t			num_level_values_signalled_minus1 = 0;
 				uint8_t*		level_idc;
 				uint16_t*		num_applicable_ops_minus1;
 				uint8_t**		applicable_op_temporal_id;
@@ -2003,7 +2045,7 @@ namespace BST {
 
 				};
 
-				uint16_t		vui_mvc_num_ops_minus1;
+				uint16_t		vui_mvc_num_ops_minus1 = 0;
 				std::vector<VUI_MVC_OP>
 								vui_mvc_ops;
 
@@ -2234,7 +2276,7 @@ namespace BST {
 					uint16_t	applicable_op_texture_flag : 1;
 				}PACKED;
 
-				uint16_t		num_views_minus1;
+				uint16_t		num_views_minus1 = 0;
 				uint16_t*		view_id;
 				CAMBitArray		depth_view_present_flag;
 				CAMBitArray		texture_view_present_flag;
@@ -2249,13 +2291,13 @@ namespace BST {
 				uint8_t*		num_non_anchor_refs_l1;
 				uint16_t**		non_anchor_ref_l1;
 
-				uint8_t			num_level_values_signalled_minus1;
+				uint8_t			num_level_values_signalled_minus1 = 0;
 				uint8_t*		level_idc;
 				uint16_t*		num_applicable_ops_minus1;
 				uint8_t**		applicable_op_temporal_id;
 				uint16_t**		applicable_op_num_target_views_minus1;
 				APPLICABLE_OP_TARGET_VIEW***
-					applicable_op_target_view;
+								applicable_op_target_view;
 				uint16_t**		applicable_op_num_texture_views_minus1;
 				uint16_t**		applicable_op_num_depth_views;
 
@@ -2264,16 +2306,18 @@ namespace BST {
 				uint8_t			reserved : 6;
 
 				MVCD_VUI_PARAMETERS_EXTENSION*
-					mvcd_vui_parameters_extension;
+								mvcd_vui_parameters_extension;
 				MVC_VUI_PARAMETERS_EXTENSION*
-					mvc_vui_parameters_extension;
+								mvc_vui_parameters_extension;
 
 				SEQ_PARAMETER_SET_MVCD_EXTENSION()
 					: view_id(NULL)
 					, num_anchor_refs_l0(NULL), anchor_ref_l0(NULL), num_anchor_refs_l1(NULL), anchor_ref_l1(NULL)
 					, num_non_anchor_refs_l0(NULL), non_anchor_ref_l0(NULL), num_non_anchor_refs_l1(NULL), non_anchor_ref_l1(NULL)
 					, level_idc(NULL), num_applicable_ops_minus1(NULL), applicable_op_temporal_id(NULL), applicable_op_num_target_views_minus1(NULL), applicable_op_target_view(NULL)
-					, applicable_op_num_texture_views_minus1(NULL), applicable_op_num_depth_views(NULL), mvcd_vui_parameters_extension(NULL), mvc_vui_parameters_extension(NULL) {
+					, applicable_op_num_texture_views_minus1(NULL), applicable_op_num_depth_views(NULL)
+					, mvcd_vui_parameters_present_flag(0), texture_vui_parameters_present_flag(0), reserved(0)
+					, mvcd_vui_parameters_extension(NULL), mvc_vui_parameters_extension(NULL) {
 				}
 
 				virtual ~SEQ_PARAMETER_SET_MVCD_EXTENSION() {
@@ -3530,10 +3574,12 @@ namespace BST {
 					uint8_t						m_IdrPicFlag;
 
 					DEC_REF_PIC_MARKING(uint8_t IdrPicFlag)
-						: adaptive_ref_pic_marking(NULL)
-						, m_IdrPicFlag(IdrPicFlag)
-					{
-
+						: nal_unit_type(0)
+						, no_output_of_prior_pics_flag(0)
+						, long_term_reference_flag(0)
+						, adaptive_ref_pic_marking_mode_flag(0)
+						, adaptive_ref_pic_marking(NULL)
+						, m_IdrPicFlag(IdrPicFlag){
 					}
 
 					virtual ~DEC_REF_PIC_MARKING()
@@ -4149,7 +4195,7 @@ namespace BST {
 			struct SLICE_DATA_PARTITION_A_LAYER_RBSP : public SYNTAX_BITSTREAM_MAP
 			{
 				SLICE_HEADER*			ptr_slice_header;
-				uint32_t				slice_id;
+				uint32_t				slice_id = 0;
 
 				NAL_UNIT*				ptr_nal_unit;
 
@@ -4196,9 +4242,9 @@ namespace BST {
 
 			struct SLICE_DATA_PARTITION_B_LAYER_RBSP : public SYNTAX_BITSTREAM_MAP
 			{
-				uint32_t				slice_id;
-				uint8_t					colour_plane_id;
-				uint8_t					redundant_pic_cnt;
+				uint32_t				slice_id = 0;
+				uint8_t					colour_plane_id = 0;
+				uint8_t					redundant_pic_cnt = 0;
 
 				SLICE_DATA_PARTITION_A_LAYER_RBSP*
 										ptr_slice_data_partition_A_layer_rbsp;
@@ -4206,8 +4252,7 @@ namespace BST {
 										sp_pps;
 
 				SLICE_DATA_PARTITION_B_LAYER_RBSP(SLICE_DATA_PARTITION_A_LAYER_RBSP* pSlicePartitionA)
-					: redundant_pic_cnt(0)
-					, ptr_slice_data_partition_A_layer_rbsp(pSlicePartitionA) {
+					: ptr_slice_data_partition_A_layer_rbsp(pSlicePartitionA) {
 				}
 
 				int Map(AMBst in_bst)
@@ -4297,9 +4342,9 @@ namespace BST {
 
 			struct SLICE_DATA_PARTITION_C_LAYER_RBSP : public SYNTAX_BITSTREAM_MAP
 			{
-				uint32_t				slice_id;
-				uint8_t					colour_plane_id;
-				uint8_t					redundant_pic_cnt;
+				uint32_t				slice_id = 0;
+				uint8_t					colour_plane_id = 0;
+				uint8_t					redundant_pic_cnt = 0;
 
 				SLICE_DATA_PARTITION_A_LAYER_RBSP*
 										ptr_slice_data_partition_A_layer_rbsp;
@@ -4307,8 +4352,7 @@ namespace BST {
 										sp_pps;
 
 				SLICE_DATA_PARTITION_C_LAYER_RBSP(SLICE_DATA_PARTITION_A_LAYER_RBSP* pSlicePartitionA)
-					: redundant_pic_cnt(0)
-					, ptr_slice_data_partition_A_layer_rbsp(pSlicePartitionA) {
+					: ptr_slice_data_partition_A_layer_rbsp(pSlicePartitionA) {
 				}
 
 				int Map(AMBst in_bst)
@@ -4382,14 +4426,16 @@ namespace BST {
 			};
 
 			NAL_UNIT_HEADER		nal_unit_header;
-			uint8_t				svc_extension_flag;
-			uint8_t				dword_align[3];
+			uint8_t				svc_extension_flag = 0;
+			uint8_t				dword_align[3] = { 0 };
 			union {
+				void*							ptr_view_extension = nullptr;
 				NAL_UNIT_HEADER_SVC_EXTENSION*	ptr_nal_unit_header_svc_extension;
 				NAL_UNIT_HEADER_MVC_EXTENSION*	ptr_nal_unit_header_mvc_extension;
 			}PACKED;
 			union
 			{
+				void*							ptr_rbsp = nullptr;
 				ACCESS_UNIT_DELIMITER_RBSP*		ptr_access_unit_delimiter_rbsp;
 				SEQ_PARAMETER_SET_RBSP*			ptr_seq_parameter_set_rbsp;
 				SEQ_PARAMETER_SET_EXTENSION_RBSP*
@@ -4405,7 +4451,6 @@ namespace BST {
 												ptr_slice_data_partition_b_layer_rbsp;
 				SLICE_DATA_PARTITION_C_LAYER_RBSP*
 												ptr_slice_data_partition_c_layer_rbsp;
-				void*							ptr_rbsp;
 			}PACKED;
 			std::vector<uint8_t>				unparsed_rbsp;
 			VideoBitstreamCtx*					ptr_ctx_video_bst;
@@ -4676,20 +4721,19 @@ namespace BST {
 
 		struct BYTE_STREAM_NAL_UNIT : public SYNTAX_BITSTREAM_MAP
 		{
-
 			std::vector<uint8_t>		leading_zero_8bits;
-			uint8_t						has_zero_byte;
-			uint8_t						zero_byte;
-			uint32_t					start_code_prefix_one_3bytes;
+			uint8_t						has_zero_byte = 0;
+			uint8_t						zero_byte = 0;
+			uint32_t					start_code_prefix_one_3bytes = 0;
 			std::shared_ptr<NAL_UNIT>					
 										nal_unit;
 			std::vector<uint8_t>		trailing_zero_8bits;
 			VideoBitstreamCtx*			ctx_video_bst;
 			uint32_t					NAL_Length_Delimiter_Size;
-			uint32_t					NAL_Length;
+			uint32_t					NAL_Length = 0;
 
 			BYTE_STREAM_NAL_UNIT(VideoBitstreamCtx* ctx = NULL, uint32_t cbNALLengthDelimiterSize = 0) 
-				: has_zero_byte(false), ctx_video_bst(ctx), NAL_Length_Delimiter_Size(cbNALLengthDelimiterSize), NAL_Length(0) {
+				: ctx_video_bst(ctx), NAL_Length_Delimiter_Size(cbNALLengthDelimiterSize) {
 			}
 
 			/*!	@brief Map from a byte stream NAL unit

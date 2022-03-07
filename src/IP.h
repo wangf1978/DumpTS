@@ -1211,7 +1211,7 @@ namespace IP
 				Home_Address_option = 0xC9,
 			};
 
-			uint8_t				Option_Type;
+			uint8_t				Option_Type = 0;
 			uint8_t				Opt_Data_Len = 0;
 
 			virtual ~Option() {}
@@ -1284,7 +1284,7 @@ namespace IP
 		*/
 		struct JumboPayloadOption : public Option
 		{
-			uint32_t			Jumbo_Payload_Length;
+			uint32_t			Jumbo_Payload_Length = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -1315,7 +1315,7 @@ namespace IP
 		*/
 		struct RouterAlertOption : public Option
 		{
-			uint16_t			Router_Alert_Value;
+			uint16_t			Router_Alert_Value = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -1349,7 +1349,7 @@ namespace IP
 		*/
 		struct HomeAddressOption : public Option
 		{
-			Address			Home_Address;
+			Address			Home_Address = { 0 };
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -1402,8 +1402,8 @@ namespace IP
 		{
 			struct Hop_by_Hop_Options_Header
 			{
-				uint8_t				Next_Header;
-				uint8_t				Header_Extension_Length;
+				uint8_t				Next_Header = 0;
+				uint8_t				Header_Extension_Length = 0;
 				std::list<Option*>	Options;
 
 				~Hop_by_Hop_Options_Header()
@@ -1477,10 +1477,10 @@ namespace IP
 
 			struct Routing_Header
 			{
-				uint8_t				Next_Header;
-				uint8_t				Header_Extension_Length;
-				uint8_t				Routing_Type;
-				uint8_t				Segments_Left;
+				uint8_t				Next_Header = 0;
+				uint8_t				Header_Extension_Length = 0;
+				uint8_t				Routing_Type = 0;
+				uint8_t				Segments_Left = 0;
 
 				uint8_t*			Routing_Type_Specific_Data = nullptr;
 
@@ -1555,11 +1555,11 @@ namespace IP
 			*/
 			struct Authentication_Header
 			{
-				uint32_t		Next_Header : 8;
-				uint32_t		Payload_Len : 8;
-				uint32_t		Reserved : 16;
-				uint32_t		Security_Parameters_Index;
-				uint32_t		Sequence_Number;
+				uint8_t			Next_Header = 0;
+				uint8_t			Payload_Len = 0;
+				uint16_t		Reserved = 0;
+				uint32_t		Security_Parameters_Index = 0;
+				uint32_t		Sequence_Number = 0;
 
 				uint8_t*		Authentication_Data = nullptr;
 

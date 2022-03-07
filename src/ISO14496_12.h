@@ -429,8 +429,8 @@ namespace ISOBMFF
 	*/
 	struct FileTypeBox : public Box
 	{
-		uint32_t				major_brand;
-		uint32_t				minor_version;
+		uint32_t				major_brand = 0;
+		uint32_t				minor_version  = 0;
 		std::vector<uint32_t>	compatible_brands;
 
 		virtual int Unpack(CBitstream& bs)
@@ -569,9 +569,9 @@ namespace ISOBMFF
 	*/
 	struct HandlerBox : public FullBox
 	{
-		uint32_t		pre_defined;
-		uint32_t		handler_type;
-		uint32_t		reserved[3];
+		uint32_t		pre_defined = 0;
+		uint32_t		handler_type = 0;
+		uint32_t		reserved[3] = { 0 };
 		std::string		name;
 
 		virtual int Unpack(CBitstream& bs)
@@ -772,12 +772,12 @@ namespace ISOBMFF
 			}
 		}PACKED;
 
-		uint32_t	grouping_type;
+		uint32_t	grouping_type = 0;
 		struct
 		{
-			uint32_t	grouping_type_parameter;
+			uint32_t	grouping_type_parameter = 0;
 		}PACKED v1;
-		uint32_t			entry_count;
+		uint32_t			entry_count = 0;
 		std::vector<Entry>	entries;
 
 		virtual int Unpack(CBitstream& bs)
@@ -1072,9 +1072,9 @@ namespace ISOBMFF
 						sample_group_description_entry;
 		}PACKED;
 
-		uint32_t			grouping_type;
-		uint32_t			default_length;
-		uint32_t			entry_count;
+		uint32_t			grouping_type = 0;
+		uint32_t			default_length = 0;
+		uint32_t			entry_count = 0;
 		std::vector<Entry>	entries;
 
 		uint32_t			handler_type = 0;
@@ -1180,11 +1180,11 @@ namespace ISOBMFF
 	*/
 	struct SampleAuxiliaryInformationSizesBox : public FullBox
 	{
-		uint32_t				aux_info_type;
-		uint32_t				aux_info_type_parameter;
+		uint32_t				aux_info_type = 0;
+		uint32_t				aux_info_type_parameter = 0;
 
-		uint8_t					default_sample_info_size;
-		uint32_t				sample_count;
+		uint8_t					default_sample_info_size = 0;
+		uint32_t				sample_count = 0;
 
 		std::vector<uint8_t>	sample_info_sizes;
 
@@ -1239,10 +1239,10 @@ namespace ISOBMFF
 	*/
 	struct SampleAuxiliaryInformationOffsetsBox : public FullBox
 	{
-		uint32_t				aux_info_type;
-		uint32_t				aux_info_type_parameter;
+		uint32_t				aux_info_type = 0;
+		uint32_t				aux_info_type_parameter = 0;
 
-		uint32_t				entry_count;
+		uint32_t				entry_count = 0;
 		std::vector<uint64_t>	offsets;
 
 		virtual int Unpack(CBitstream& bs)
@@ -1313,6 +1313,10 @@ namespace ISOBMFF
 
 			std::string	notice;
 
+			CopyrightBox()
+				: pad(0), language0(0), language1(0), language2(0) {
+			}
+
 			virtual int Unpack(CBitstream& bs)
 			{
 				int iRet = 0;
@@ -1347,7 +1351,7 @@ namespace ISOBMFF
 		*/
 		struct TrackSelectionBox : public FullBox
 		{
-			uint32_t				switch_group;
+			uint32_t				switch_group = 0;
 			std::vector<uint32_t>	attribute_list;
 
 			virtual int Unpack(CBitstream& bs)
@@ -1394,9 +1398,9 @@ namespace ISOBMFF
 			*/
 			struct SubTrackInformation : public FullBox
 			{
-				int16_t					switch_group;
-				int16_t					alternate_group;
-				uint32_t				sub_track_ID;
+				int16_t					switch_group = 0;
+				int16_t					alternate_group = 0;
+				uint32_t				sub_track_ID = 0;
 				std::vector<int32_t>	attribute_list;
 
 				virtual int Unpack(CBitstream& bs)
@@ -1562,7 +1566,7 @@ namespace ISOBMFF
 	*/
 	struct OriginalFormatBox : public Box
 	{
-		uint32_t	data_format;
+		uint32_t	data_format = 0;
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -1593,8 +1597,8 @@ namespace ISOBMFF
 	*/
 	struct SchemeTypeBox : public FullBox
 	{
-		uint32_t		scheme_type;	// 4CC identifying the scheme
-		uint32_t		scheme_version;	// scheme version
+		uint32_t		scheme_type = 0;	// 4CC identifying the scheme
+		uint32_t		scheme_version = 0;	// scheme version
 		std::string		scheme_uri;
 
 		virtual int Unpack(CBitstream& bs)
@@ -2023,7 +2027,7 @@ namespace ISOBMFF
 		*/
 		struct PrimaryItemBox : public FullBox
 		{
-			uint16_t	item_ID;
+			uint16_t	item_ID = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -2115,9 +2119,9 @@ namespace ISOBMFF
 			{
 				std::string				content_location;
 				std::string				content_MD5;
-				uint64_t				content_length;
-				uint64_t				transfer_length;
-				uint8_t					entry_count;
+				uint64_t				content_length = 0;
+				uint64_t				transfer_length = 0;
+				uint8_t					entry_count = 0;
 				std::vector<uint32_t>	group_ids;
 			};
 
@@ -2143,9 +2147,9 @@ namespace ISOBMFF
 
 			struct ItemInfoEntryv2
 			{
-				uint32_t				item_ID;
-				uint16_t				item_protection_index;
-				uint32_t				item_type;
+				uint32_t				item_ID = 0;
+				uint16_t				item_protection_index = 0;
+				uint32_t				item_type = 0;
 
 				std::string				item_name;
 
@@ -2161,10 +2165,10 @@ namespace ISOBMFF
 			{
 				union
 				{
+					void*				item_info_data = nullptr;
 					ItemInfoEntryv0*	item_info_entry_v0;
 					ItemInfoEntryv1*	item_info_entry_v1;
 					ItemInfoEntryv2*	item_info_entry_v2;
-					void*				item_info_data = nullptr;
 				}PACKED;
 
 				ItemInfoEntry(): item_info_data(0){
@@ -2412,16 +2416,16 @@ namespace ISOBMFF
 				*/
 				struct FilePartitionBox : public FullBox
 				{
-					uint16_t		item_ID;
-					uint16_t		packet_payload_size;
+					uint16_t		item_ID = 0;
+					uint16_t		packet_payload_size = 0;
 					uint8_t			reserved = 0;
-					uint8_t			FEC_encoding_ID;
-					uint16_t		FEC_instance_ID;
-					uint16_t		max_source_block_length;
-					uint16_t		encoding_symbol_length;
-					uint16_t		max_number_of_encoding_symbols;
+					uint8_t			FEC_encoding_ID = 0;
+					uint16_t		FEC_instance_ID = 0;
+					uint16_t		max_source_block_length = 0;
+					uint16_t		encoding_symbol_length = 0;
+					uint16_t		max_number_of_encoding_symbols = 0;
 					std::string		scheme_specific_info;
-					uint16_t		entry_count;
+					uint16_t		entry_count = 0;
 					std::vector<std::tuple<uint16_t/*block_count*/, uint32_t/*block_size*/>>
 									entries;
 
@@ -3004,9 +3008,9 @@ namespace ISOBMFF
 		*/
 		struct MetaboxRelationBox : public FullBox
 		{
-			uint32_t	first_metabox_handler_type;
-			uint32_t	second_metabox_handler_type;
-			uint8_t		metabox_relation;
+			uint32_t	first_metabox_handler_type = 0;
+			uint32_t	second_metabox_handler_type = 0;
+			uint8_t		metabox_relation = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -3098,14 +3102,14 @@ namespace ISOBMFF
 			}
 		}PACKED;
 
-		uint32_t				reference_ID;
-		uint32_t				timescale;
+		uint32_t				reference_ID = 0;
+		uint32_t				timescale = 0;
 
-		uint64_t				earliest_presentation_time;
-		uint64_t				first_offset;
+		uint64_t				earliest_presentation_time = 0;
+		uint64_t				first_offset = 0;
 
 		uint16_t				reserved = 0;
-		uint16_t				reference_count;
+		uint16_t				reference_count = 0;
 		std::vector<Reference>	references;
 
 		virtual int Unpack(CBitstream& bs)
@@ -3227,9 +3231,9 @@ namespace ISOBMFF
 	*/
 	struct ProducerReferenceTimeBox: public FullBox
 	{
-		uint32_t		reference_track_ID;
-		uint64_t		ntp_timestamp;
-		uint64_t		media_time;
+		uint32_t		reference_track_ID = 0;
+		uint64_t		ntp_timestamp = 0;
+		uint64_t		media_time = 0;
 
 		virtual int Unpack(CBitstream& bs)
 		{
@@ -3374,14 +3378,14 @@ namespace ISOBMFF
 					}PACKED v0;
 				}PACKED;
 
-				uint32_t	reserved_0[2];
-				int16_t		layer;
-				int16_t		alternate_group;
-				int16_t		volume;
-				uint16_t	reserved_1;
-				int32_t		matrix[9];
-				int32_t		width;
-				int32_t		height;
+				uint32_t	reserved_0[2] = { 0 };
+				int16_t		layer = 0;
+				int16_t		alternate_group = 0;
+				int16_t		volume = 0;
+				uint16_t	reserved_1 = 0;
+				int32_t		matrix[9] = { 0 };
+				int32_t		width = 0;
+				int32_t		height = 0;
 			
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -3494,7 +3498,7 @@ namespace ISOBMFF
 			{
 				struct TrackGroupTypeBox : public FullBox
 				{
-					uint32_t	track_group_id;
+					uint32_t	track_group_id = 0;
 
 					virtual int Unpack(CBitstream& bs)
 					{
@@ -3634,6 +3638,7 @@ namespace ISOBMFF
 				{
 					union
 					{
+						uint8_t		bytes[28] = { 0 };
 						struct {
 							uint64_t creation_time;
 							uint64_t modification_time;
@@ -3652,6 +3657,10 @@ namespace ISOBMFF
 					uint32_t	pad : 1;
 					uint32_t	language : 15;
 					uint32_t	pre_defined : 16;
+
+					MediaHeaderBox()
+						: pad(0), language(0), pre_defined(0) {
+					}
 					
 					virtual int Unpack(CBitstream& bs)
 					{
@@ -3705,8 +3714,8 @@ namespace ISOBMFF
 					*/
 					struct VideoMediaHeaderBox : public FullBox
 					{
-						uint16_t	graphicsmode;
-						uint16_t	opcolor[3];
+						uint16_t	graphicsmode = 0;
+						uint16_t	opcolor[3] = { 0 };
 
 						virtual int Unpack(CBitstream& bs)
 						{
@@ -3759,11 +3768,11 @@ namespace ISOBMFF
 
 					struct HintMediaHeaderBox : public FullBox
 					{
-						uint16_t	maxPDUsize;
-						uint16_t	avgPDUsize;
-						uint32_t	maxbitrate;
-						uint32_t	avgbitrate;
-						uint32_t	reserved;
+						uint16_t	maxPDUsize = 0;
+						uint16_t	avgPDUsize = 0;
+						uint32_t	maxbitrate = 0;
+						uint32_t	avgbitrate = 0;
+						uint32_t	reserved = 0;
 
 						virtual int Unpack(CBitstream& bs)
 						{
@@ -3866,9 +3875,9 @@ namespace ISOBMFF
 
 						struct BitRateBox : public Box
 						{
-							uint32_t	bufferSizeDB;
-							uint32_t	maxBitrate;
-							uint32_t	avgBitrate;
+							uint32_t	bufferSizeDB = 0;
+							uint32_t	maxBitrate = 0;
+							uint32_t	avgBitrate = 0;
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -4043,8 +4052,8 @@ namespace ISOBMFF
 						// Visual Sequences
 						struct PixelAspectRatioBox : public Box
 						{
-							uint32_t	hSpacing;
-							uint32_t	vSpacing;
+							uint32_t	hSpacing = 0;
+							uint32_t	vSpacing = 0;
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -4069,14 +4078,14 @@ namespace ISOBMFF
 
 						struct CleanApertureBox : public Box
 						{
-							uint32_t	cleanApertureWidthN;
-							uint32_t	cleanApertureWidthD;
-							uint32_t	cleanApertureHeightN;
-							uint32_t	cleanApertureHeightD;
-							uint32_t	horizOffN;
-							uint32_t	horizOffD;
-							uint32_t	vertOffN;
-							uint32_t	vertOffD;
+							uint32_t	cleanApertureWidthN = 0;
+							uint32_t	cleanApertureWidthD = 0;
+							uint32_t	cleanApertureHeightN = 0;
+							uint32_t	cleanApertureHeightD = 0;
+							uint32_t	horizOffN = 0;
+							uint32_t	horizOffD = 0;
+							uint32_t	vertOffN = 0;
+							uint32_t	vertOffD = 0;
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -4107,10 +4116,11 @@ namespace ISOBMFF
 
 						struct ColourInformationBox : public Box
 						{
-							uint32_t	colour_type;
+							uint32_t	colour_type = 0;
 
 							union
 							{
+								uint8_t			bytes[7] = { 0 };
 								struct
 								{
 							        // On-Screen colours
@@ -4127,7 +4137,7 @@ namespace ISOBMFF
 									uint16_t	Primaries_index;
 									uint16_t	Transfer_function_index;
 									uint16_t	Matrix_index;
-								};
+								}PACKED;
 							
 								// restricted ICC profile
 
@@ -4197,7 +4207,7 @@ namespace ISOBMFF
 						{
 							struct TimeScaleEntry : public Box
 							{
-								uint32_t				timescale;
+								uint32_t				timescale = 0;
 
 								virtual int Unpack(CBitstream& bs)
 								{
@@ -4223,7 +4233,7 @@ namespace ISOBMFF
 
 							struct TimeOffset : public Box
 							{
-								int32_t				offset;
+								int32_t				offset = 0;
 
 								virtual int Unpack(CBitstream& bs)
 								{
@@ -4249,7 +4259,7 @@ namespace ISOBMFF
 
 							struct SequenceOffset : public Box
 							{
-								int32_t				offset;
+								int32_t				offset = 0;
 
 								virtual int Unpack(CBitstream& bs)
 								{
@@ -4273,9 +4283,9 @@ namespace ISOBMFF
 
 							}PACKED;
 
-							uint16_t				hinttrackversion;
-							uint16_t				highestcompatibleversion;
-							uint32_t				maxpacketsize;
+							uint16_t				hinttrackversion = 0;
+							uint16_t				highestcompatibleversion = 0;
+							uint32_t				maxpacketsize = 0;
 
 							TimeScaleEntry*			ptr_tims = nullptr;
 							TimeOffset*				ptr_tsro = nullptr;
@@ -4330,17 +4340,17 @@ namespace ISOBMFF
 
 						struct VisualSampleEntry : public SampleEntry
 						{
-							uint16_t				pre_defined_0;
-							uint16_t				reserved_0;
-							uint32_t				pre_defined_1[3];
-							uint16_t				width;
-							uint16_t				height;
-							uint32_t				horizresolution;
-							uint32_t				vertresolution;
-							uint32_t				reserved_1;
-							uint16_t				frame_count;
-							uint8_t					compressorname_size;
-							uint8_t					compressorname[31];
+							uint16_t				pre_defined_0 = 0;
+							uint16_t				reserved_0 = 0;
+							uint32_t				pre_defined_1[3] = { 0 };
+							uint16_t				width = 0;
+							uint16_t				height = 0;
+							uint32_t				horizresolution = 0;
+							uint32_t				vertresolution = 0;
+							uint32_t				reserved_1 = 0;
+							uint16_t				frame_count = 0;
+							uint8_t					compressorname_size = 0;
+							uint8_t					compressorname[31] = { 0 };
 							uint16_t				depth = 0x0018;	
 							int16_t					pre_defined_2 = -1;
 							// other boxes from derived specifications
@@ -4417,12 +4427,12 @@ namespace ISOBMFF
 						// Audio Sequences
 						struct AudioSampleEntry : public SampleEntry
 						{
-							uint32_t				reserved_0[2];
+							uint32_t				reserved_0[2] = { 0 };
 							uint16_t				channelcount = 2;
 							uint16_t				samplesize = 16;
 							uint16_t				pre_defined = 0;
 							uint16_t				reserved_1 = 0;
-							uint32_t				samplerate;
+							uint32_t				samplerate = 0;
 
 							int _UnpackHeader(CBitstream& bs)
 							{
@@ -4482,8 +4492,8 @@ namespace ISOBMFF
 						*/
 						struct SampleDescriptionBox : public FullBox
 						{
-							uint32_t	handler_type;
-							uint32_t	entry_count;
+							uint32_t	handler_type = 0;
+							uint32_t	entry_count = 0;
 
 							std::vector<Box*>	SampleEntries;
 
@@ -4504,7 +4514,7 @@ namespace ISOBMFF
 								uint32_t	sample_delta;
 							}PACKED;
 
-							uint32_t			entry_count;
+							uint32_t			entry_count = 0;
 							std::vector<Entry>	entries;
 
 							bool FindSamplePos(uint32_t sample_number, size_t& idxEntry, uint32_t& posInEntry, int64_t& time_pos)
@@ -4581,7 +4591,7 @@ namespace ISOBMFF
 								}PACKED;
 							}PACKED;
 
-							uint32_t			entry_count;
+							uint32_t			entry_count = 0;
 							std::vector<Entry>	entries;
 
 							virtual int Unpack(CBitstream& bs)
@@ -4635,11 +4645,11 @@ namespace ISOBMFF
 						*/
 						struct CompositionToDecodeBox : public FullBox
 						{
-							int32_t		compositionToDTSShift;
-							int32_t		leastDecodeToDisplayDelta;
-							int32_t		greatestDecodeToDisplayDelta;
-							int32_t		compositionStartTime;
-							int32_t		compositionEndTime;
+							int32_t		compositionToDTSShift = 0;
+							int32_t		leastDecodeToDisplayDelta = 0;
+							int32_t		greatestDecodeToDisplayDelta = 0;
+							int32_t		compositionStartTime = 0;
+							int32_t		compositionEndTime = 0;
 
 							virtual int Unpack(CBitstream& bs)
 							{
@@ -4674,7 +4684,7 @@ namespace ISOBMFF
 						*/
 						struct SyncSampleBox : public FullBox
 						{
-							uint32_t				entry_count;
+							uint32_t				entry_count = 0;
 							std::vector<uint32_t>	sample_numbers;
 
 							bool IsSyncFrame(uint32_t sample_number)
@@ -4730,7 +4740,7 @@ namespace ISOBMFF
 								uint32_t	sync_sample_number;
 							}PACKED;
 
-							uint32_t			entry_count;
+							uint32_t			entry_count = 0;
 							std::vector<Entry>	entries;
 
 							virtual int Unpack(CBitstream& bs)
@@ -4773,8 +4783,8 @@ namespace ISOBMFF
 						*/
 						struct SampleSizeBox : public FullBox
 						{
-							uint32_t				sample_size;
-							uint32_t				sample_count;
+							uint32_t				sample_size = 0;
+							uint32_t				sample_count = 0;
 
 							std::vector<uint32_t>	entry_size;
 
@@ -4829,9 +4839,12 @@ namespace ISOBMFF
 						{
 							uint32_t				reserved : 24;
 							uint32_t				field_size : 8;
-							uint32_t				sample_count;
+							uint32_t				sample_count = 0;
 
 							std::vector<uint16_t>	entry_size;
+
+							CompactSampleSizeBox() : reserved(0), field_size(0) {
+							}
 
 							uint16_t GetMaxSampleSize()
 							{
@@ -4886,7 +4899,7 @@ namespace ISOBMFF
 								uint32_t	sample_description_index;
 							}PACKED;
 
-							uint32_t				entry_count;
+							uint32_t				entry_count = 0;
 							std::vector<EntryInfo>	entry_infos;
 
 							bool FindChunk(uint32_t sample_number, uint32_t total_chunks, uint32_t& chunk_number, uint32_t& first_sample_number, uint32_t &sample_desc_number)
@@ -4951,7 +4964,7 @@ namespace ISOBMFF
 						*/
 						struct ChunkOffsetBox : public FullBox
 						{
-							uint32_t				entry_count;
+							uint32_t				entry_count = 0;
 							std::vector<uint32_t>	chunk_offset;
 
 							virtual int Unpack(CBitstream& bs)
@@ -5035,7 +5048,7 @@ namespace ISOBMFF
 								uint8_t	padding_byte;
 							}PACKED;
 
-							uint32_t					sample_count;
+							uint32_t					sample_count = 0;
 							std::vector<PaddingEntry>	pads;
 							
 							virtual int Unpack(CBitstream& bs)
@@ -5478,7 +5491,7 @@ namespace ISOBMFF
 			*/
 			struct MovieExtendsHeaderBox : public FullBox
 			{
-				uint64_t		fragment_duration;
+				uint64_t		fragment_duration = 0;
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -5505,11 +5518,11 @@ namespace ISOBMFF
 			*/
 			struct TrackExtendsBox : public FullBox
 			{
-				uint32_t	track_ID;
-				uint32_t	default_sample_description_index;
-				uint32_t	default_sample_duration;
-				uint32_t	default_sample_size;
-				uint32_t	default_sample_flags;
+				uint32_t	track_ID = 0;
+				uint32_t	default_sample_description_index = 0;
+				uint32_t	default_sample_duration = 0;
+				uint32_t	default_sample_size = 0;
+				uint32_t	default_sample_flags = 0;
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -5560,7 +5573,8 @@ namespace ISOBMFF
 					}PACKED;
 				}PACKED;
 
-				uint32_t	level_count;
+				uint32_t			level_count = 0;
+				std::vector<Level>	levels;
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -5612,13 +5626,14 @@ namespace ISOBMFF
 							left_bytes -= 4;
 							break;
 						}
+
+						levels.push_back(level);
 					}
 
 					SkipLeftBits(bs);
 					return 0;
 				}
-
-			}PACKED;
+			};
 
 			MovieExtendsHeaderBox*			movie_extends_header_box;
 			std::vector<TrackExtendsBox*>	track_extends_boxes;
@@ -5748,7 +5763,7 @@ namespace ISOBMFF
 		*/
 		struct MovieFragmentHeaderBox : public FullBox
 		{
-			uint32_t	sequence_number;
+			uint32_t	sequence_number = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -5785,12 +5800,12 @@ namespace ISOBMFF
 			*/
 			struct TrackFragmentHeaderBox : public FullBox
 			{
-				uint32_t	track_ID;
-				uint64_t	base_data_offset;
-				uint32_t	sample_description_index;
-				uint32_t	default_sample_duration;
-				uint32_t	default_sample_size;
-				uint32_t	default_sample_flags;
+				uint32_t	track_ID = 0;
+				uint64_t	base_data_offset = 0;
+				uint32_t	sample_description_index = 0;
+				uint32_t	default_sample_duration = 0;
+				uint32_t	default_sample_size = 0;
+				uint32_t	default_sample_flags = 0;
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -5897,9 +5912,9 @@ namespace ISOBMFF
 					};
 				}PACKED;
 
-				uint32_t	sample_count;
-				int32_t		data_offset;
-				uint32_t	first_sample_flags;
+				uint32_t	sample_count = 0;
+				int32_t		data_offset = 0;
+				uint32_t	first_sample_flags = 0;
 
 				std::vector<Sample>	samples;
 
@@ -6004,7 +6019,7 @@ namespace ISOBMFF
 			*/
 			struct TrackFragmentBaseMediaDecodeTimeBox : public FullBox
 			{
-				uint64_t	baseMediaDecodeTime;
+				uint64_t	baseMediaDecodeTime = 0;
 
 				virtual int Unpack(CBitstream& bs)
 				{
@@ -6133,14 +6148,18 @@ namespace ISOBMFF
 				uint8_t		sample_number[4];
 			}PACKED;
 
-			uint32_t	track_ID;
+			uint32_t	track_ID = 0;
 			uint32_t	reserved : 26;
 			uint32_t	length_size_of_traf_num : 2;
 			uint32_t	length_size_of_trun_num : 2;
 			uint32_t	length_size_of_sample_num : 2;
-			uint32_t	number_of_entry;
+			uint32_t	number_of_entry = 0;
 
 			std::vector<Entry>	entries;
+
+			TrackFragmentRandomAccessBox()
+				: reserved(0), length_size_of_traf_num(0), length_size_of_trun_num(0), length_size_of_sample_num(0) {
+			}
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -6201,7 +6220,7 @@ namespace ISOBMFF
 		*/
 		struct MovieFragmentRandomAccessOffsetBox : public FullBox
 		{
-			uint32_t	size;
+			uint32_t	size = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{

@@ -260,7 +260,7 @@ namespace ISOBMFF
 
 		BoxTree() :BoxTree(UINT32_MAX, -1, 1) {}
 		BoxTree(uint32_t box_type, int8_t box_level, bool bMandatory)
-			:level(box_level), mandatory(bMandatory ? 1 : 0), type(box_type){}
+			:level(box_level), mandatory(bMandatory ? 1 : 0), reserved(0), type(box_type){}
 
 		~BoxTree()
 		{

@@ -699,11 +699,11 @@ namespace ISOBMFF
 
 		struct LAYER
 		{
-			uint8_t		layerID;
-			uint8_t		num_direct_ref_layers;
+			uint8_t		layerID = 0;
+			uint8_t		num_direct_ref_layers = 0;
 			std::vector<uint8_t>
 						direct_ref_layerIDs;
-			uint8_t		dimension_identifier[16];
+			uint8_t		dimension_identifier[16] = { 0 };
 		};
 
 		uint16_t		scalability_mask;
@@ -822,19 +822,22 @@ namespace ISOBMFF
 
 	struct TemporalLayerEntry : public VisualSampleGroupEntry
 	{
-		uint8_t					temporalLayerId;
+		uint8_t					temporalLayerId = 0;
 		uint8_t					tlprofile_space:2;
 		uint8_t					tltier_flag:1;
 		uint8_t					tlprofile_idc:5;
-		uint32_t				tlprofile_compatibility_flags; 
+		uint32_t				tlprofile_compatibility_flags = 0; 
 		uint64_t				tlconstraint_indicator_flags:48;
 		uint64_t				tllevel_idc:8;
 		uint64_t				tlConstantFrameRate:8;
-		uint16_t				tlMaxBitRate; 
-		uint16_t				tlAvgBitRate;
-		uint16_t				tlAvgFrameRate;
+		uint16_t				tlMaxBitRate = 0; 
+		uint16_t				tlAvgBitRate = 0;
+		uint16_t				tlAvgFrameRate = 0;
 
-		TemporalLayerEntry(uint32_t nGroupingType, uint32_t nSize) : VisualSampleGroupEntry(nGroupingType, nSize) {
+		TemporalLayerEntry(uint32_t nGroupingType, uint32_t nSize) 
+			: VisualSampleGroupEntry(nGroupingType, nSize)
+			, tlprofile_space(0), tltier_flag(0), tlprofile_idc(0), tlprofile_compatibility_flags(0)
+			, tlconstraint_indicator_flags(0), tllevel_idc(0), tlConstantFrameRate(0){
 		}
 
 		int Unpack(CBitstream& bs)

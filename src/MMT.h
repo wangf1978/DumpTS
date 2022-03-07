@@ -379,9 +379,9 @@ namespace MMT
 	extern const std::unordered_map<uint16_t, std::tuple<const char*, const char*>> MMT_SI_Descriptor_Descs;
 	struct MMTSIDescriptor
 	{
-		uint64_t				start_bitpos;
-		uint16_t				descriptor_tag;
-		uint8_t					descriptor_length;
+		uint64_t				start_bitpos = 0;
+		uint16_t				descriptor_tag = 0;
+		uint8_t					descriptor_length = 0;
 
 		virtual ~MMTSIDescriptor(){}
 
@@ -460,7 +460,7 @@ namespace MMT
 
 	struct MHStreamIdentifierDescriptor : public MMTSIDescriptor
 	{
-		uint16_t				component_tag;
+		uint16_t				component_tag = 0;
 		
 		int Unpack(CBitstream& bs)
 		{
@@ -517,6 +517,18 @@ namespace MMT
 		uint64_t				video_transfer_characteristics : 4;
 		uint64_t				reserved_1 : 4;
 		uint64_t				ISO_639_language_code : 24;
+
+		VideoComponentDescriptor()
+			: video_resolution(0)
+			, video_aspect_ratio(0)
+			, video_scan_flag(0)
+			, reserved_0(0)
+			, video_frame_rate(0)
+			, component_tag(0)
+			, video_transfer_characteristics(0)
+			, reserved_1(0)
+			, ISO_639_language_code(0) {
+		}
 
 		int Unpack(CBitstream& bs)
 		{
@@ -724,11 +736,15 @@ namespace MMT
 		uint8_t					pts_offset_type : 2;
 		uint8_t					timescale_flag : 1;
 
-		uint32_t				timescale;
-		uint16_t				default_pts_offset;
+		uint32_t				timescale = 0;
+		uint16_t				default_pts_offset = 0;
 
 		std::list<MPU_TIMESTAMP_OFFSETS>
 								ts_offsets;
+
+		MPUExtendedTimestampDescriptor()
+			: reserved(0), pts_offset_type(0), timescale_flag(0) {
+		}
 
 		int Unpack(CBitstream& bs)
 		{
@@ -1003,7 +1019,7 @@ namespace MMT
 
 	struct MHDataComponentDescriptor : public MMTSIDescriptor
 	{
-		uint16_t				data_component_id;
+		uint16_t				data_component_id = 0;
 		std::vector<uint8_t>	additional_data_component_info;
 		Additional_Arib_Subtitle_Info*
 								arib_subtitle_info = NULL;
@@ -1172,13 +1188,17 @@ namespace MMT
 		uint8_t				maximum_bit_rate_flag:1;
 		uint8_t				component_control_flag:1;
 		uint8_t				reserved_future_use_0 : 4;
-		uint8_t				reserved_future_use_1;
+		uint8_t				reserved_future_use_1 = 0;
 
-		uint8_t				maximum_bitrate;
-		uint8_t				component_control_length;
+		uint8_t				maximum_bitrate = 0;
+		uint8_t				component_control_length = 0;
 
 		std::vector< ComponentControlDescriptor>
 							component_controls;
+
+		ContentCopyControlDescriptor()
+			: digital_recording_control_data(0), maximum_bit_rate_flag(0), component_control_flag(0), reserved_future_use_0(0){
+		}
 
 		int Unpack(CBitstream& bs)
 		{
@@ -1283,6 +1303,17 @@ namespace MMT
 		uint8_t				retention_state : 3;
 		uint8_t				encryption_mode : 1;
 
+		ContentUsageControlDescriptor()
+			: remote_view_mode(0)
+			, copy_restriction_mode(0)
+			, image_constraint_token(0)
+			, reserved_future_use_0(0)
+			, reserved_future_use_1(0)
+			, retention_mode(0)
+			, retention_state(0)
+			, encryption_mode(0) {
+		}
+
 		int Unpack(CBitstream& bs)
 		{
 			int iRet = MMTSIDescriptor::Unpack(bs);
@@ -1341,8 +1372,8 @@ namespace MMT
 
 	struct MMTGeneralLocationInfo
 	{
-		uint64_t			start_bitpos;
-		uint8_t				location_type;
+		uint64_t			start_bitpos = 0;
+		uint8_t				location_type = 0;
 		union
 		{
 			uint16_t			packet_id;
@@ -1588,7 +1619,7 @@ namespace MMT
 
 	struct AccessControlDescriptor : public MMTSIDescriptor
 	{
-		uint16_t			CA_system_ID;
+		uint16_t			CA_system_ID = 0;
 		MMTGeneralLocationInfo
 							MMT_general_location_info;
 		std::vector<uint8_t>
@@ -1655,6 +1686,10 @@ namespace MMT
 		uint8_t				scramble_system_id;
 		std::vector<uint8_t>
 							private_data;
+
+		ScrambleDescriptor()
+			: layer_type(0), reserved(0), scramble_system_id(0){
+		}
 
 		int Unpack(CBitstream& bs)
 		{
@@ -1723,9 +1758,9 @@ namespace MMT
 
 	struct MHCAServiceDescriptor : public MMTSIDescriptor
 	{
-		uint16_t				CA_system_ID;
-		uint8_t					ca_broadcaster_group_id;
-		uint8_t					message_control;
+		uint16_t				CA_system_ID = 0;
+		uint8_t					ca_broadcaster_group_id = 0;
+		uint8_t					message_control = 0;
 		std::vector<uint16_t>	service_ids;
 
 		int Unpack(CBitstream& bs)
@@ -1788,10 +1823,10 @@ namespace MMT
 	{
 		static const char* MMT_SI_table_desc[256];
 
-		uint64_t				start_bitpos;
-		uint8_t					table_id;
-		uint8_t					version;
-		uint16_t				length;
+		uint64_t				start_bitpos = 0;
+		uint8_t					table_id = 0;
+		uint8_t					version = 0;
+		uint16_t				length = 0;
 
 		virtual ~Table() {}
 
@@ -1872,8 +1907,8 @@ namespace MMT
 	{
 		struct DeliveryInfo
 		{
-			uint32_t				transport_file_id;
-			uint8_t					location_type;
+			uint32_t				transport_file_id = 0;
+			uint8_t					location_type = 0;
 
 			union
 			{
@@ -1896,7 +1931,7 @@ namespace MMT
 				}PACKED URL;
 			}PACKED;
 
-			uint16_t				descripor_loop_length;
+			uint16_t				descripor_loop_length = 0;
 			std::vector<uint8_t>	descriptors;
 
 			int Unpack(CBitstream& bs)
@@ -2033,7 +2068,7 @@ namespace MMT
 		std::list<std::tuple<uint8_t, uint64_t, MMTGeneralLocationInfo>>
 								package_infos;
 
-		uint8_t					num_of_ip_delivery;
+		uint8_t					num_of_ip_delivery = 0;
 		DeliveryInfo*			delivery_infos = nullptr;
 
 		// descriptor ()
@@ -2392,6 +2427,10 @@ namespace MMT
 
 		uint8_t					number_of_assets = 0;
 		std::vector<Asset*>		assets;
+
+		MMTPackageTable()
+			: reserved(0), MPT_mode(0) {
+		}
 
 		virtual ~MMTPackageTable()
 		{
@@ -2912,21 +2951,21 @@ namespace MMT
 		{
 			struct DataUnit
 			{
-				uint16_t		data_unit_length;
+				uint16_t		data_unit_length = 0;
 				union
 				{
-					uint32_t		movie_fragment_sequence_number;
+					uint32_t		movie_fragment_sequence_number = 0;
 					uint32_t		item_id;
 				}PACKED;
-				uint32_t		sample_number;
-				uint32_t		offset;
-				uint8_t			priority;
-				uint8_t			dependency_counter;
+				uint32_t		sample_number = 0;
+				uint32_t		offset = 0;
+				uint8_t			priority = 0;
+				uint8_t			dependency_counter = 0;
 				std::vector<uint8_t>
 								MFU_data_bytes;
 			};
 
-			uint16_t			Payload_length;
+			uint16_t			Payload_length = 0;
 			
 			uint16_t			Fragment_type : 4;
 			uint16_t			timed_flag : 1;
@@ -2934,7 +2973,7 @@ namespace MMT
 			uint16_t			Aggregate_flag : 1;
 			uint16_t			fragment_counter : 8;
 
-			uint32_t			MPU_sequence_number;
+			uint32_t			MPU_sequence_number = 0;
 
 			std::list<DataUnit>	Data_Units;
 
@@ -2943,7 +2982,13 @@ namespace MMT
 			std::vector<uint8_t>
 								payload;
 
-			MPU(MMTPPacket* pMMTPpkt, int nPayloadDataLen) : ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
+			MPU(MMTPPacket* pMMTPpkt, int nPayloadDataLen) 
+				: Fragment_type(0)
+				, timed_flag(0)
+				, fragmentation_indicator(0)
+				, Aggregate_flag(0)
+				, fragment_counter(0)
+				, ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
 			}
 
 			int Unpack(CBitstream& bs)
@@ -3320,7 +3365,7 @@ namespace MMT
 			uint8_t				length_extension_flag : 1;
 			uint8_t				Aggregate_flag : 1;
 
-			uint8_t				fragment_counter;
+			uint8_t				fragment_counter = 0;
 
 			std::list<std::tuple<uint32_t, std::vector<uint8_t>>>
 								messages;
@@ -3330,7 +3375,12 @@ namespace MMT
 			std::vector<uint8_t>
 								payload;
 
-			ControlMessages(MMTPPacket* pMMTPpkt, int nPayloadDataLen) : ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
+			ControlMessages(MMTPPacket* pMMTPpkt, int nPayloadDataLen) 
+				: fragmentation_indicator(0)
+				, reserved(0)
+				, length_extension_flag(0)
+				, Aggregate_flag(0)
+				, ptr_MMTP_packet(pMMTPpkt), payload_data_len(nPayloadDataLen) {
 			}
 
 			~ControlMessages(){
@@ -3884,23 +3934,27 @@ namespace MMT
 		uint16_t				Context_id : 12;
 		uint16_t				Sequence_number : 4;
 
-		uint8_t					Header_type;
+		uint8_t					Header_type = 0;
 
 		union
 		{
+			void*				ptr_header = nullptr;
 			IP::V4::Header*		IPv4_header;
 			IP::V6::Header*		IPv6_header;
-			void*				ptr_header = nullptr;
 			uint16_t			IPv4_header_Identifier;
 		};
 
 		union
 		{
-			IP::UDPHeader*		UDP_header;
 			void*				pData = nullptr;
+			IP::UDPHeader*		UDP_header;
 		};
 
 		MMTPPacket*				MMTP_Packet = nullptr;
+
+		HeaderCompressedIPPacket()
+			: Context_id(0), Sequence_number(0) {
+		}
 
 		virtual ~HeaderCompressedIPPacket()
 		{
@@ -4060,17 +4114,27 @@ namespace MMT
 	// RECOMMENDATION ITU-R BT.1869 - Multiplexing scheme for variable-length packets in digital multimedia broadcasting systems
 	struct _TransmissionControlSignalPacket : public TLVPacket
 	{
-		uint8_t					table_id;
+		uint8_t					table_id = 0;
 		uint16_t				section_syntax_indicator : 1;
 		uint16_t				reserved_0 : 1;
 		uint16_t				reserved_1 : 2;
 		uint16_t				section_length : 12;
-		uint16_t				table_id_extension;
+		uint16_t				table_id_extension = 0;
 		uint8_t					reserved_2 : 2;
 		uint8_t					version_number : 5;
 		uint8_t					current_next_indicator : 1;
-		uint8_t					section_number;
-		uint8_t					last_section_number;
+		uint8_t					section_number = 0;
+		uint8_t					last_section_number = 0;
+
+		_TransmissionControlSignalPacket()
+			: section_syntax_indicator(0)
+			, reserved_0(0)
+			, reserved_1(0)
+			, section_length(0)
+			, reserved_2(0)
+			, version_number(0)
+			, current_next_indicator(0) {
+		}
 
 		int Unpack(CBitstream& bs)
 		{

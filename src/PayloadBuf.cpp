@@ -898,6 +898,7 @@ done:
 
 CPSIBuf::CPSIBuf(PSI_PROCESS_CONTEXT* CtxPSIProcess, unsigned short PID)
 	: CPayloadBuf(PID)
+	, table_id(0)
 	, version_number(0xFF)
 	, section_number(0)
 	, last_section_number(0)

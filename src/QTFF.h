@@ -50,7 +50,7 @@ namespace QTFF
 	{
 		struct MetaDataHeaderAtom : public ISOBMFF::FullBox
 		{
-			uint32_t		nextItemID;
+			uint32_t		nextItemID = 0;
 
 			virtual int Unpack(CBitstream& bs)
 			{
@@ -145,8 +145,8 @@ namespace QTFF
 			{
 				struct ValueAtom : public ISOBMFF::Box
 				{
-					uint32_t		Type_Indicator;
-					uint32_t		Locale_Indicator;
+					uint32_t		Type_Indicator = 0;
+					uint32_t		Locale_Indicator = 0;
 
 					virtual int _Unpack(CBitstream& bs)
 					{
@@ -213,7 +213,7 @@ namespace QTFF
 
 				struct ItemInformationAtom : public ISOBMFF::FullBox
 				{
-					uint32_t		Item_ID;
+					uint32_t		Item_ID = 0;
 
 					virtual int Unpack(CBitstream& bs)
 					{
@@ -567,9 +567,9 @@ namespace QTFF
 		}PACKED;
 
 		// for version 0, 1 and 3 common parts
-		uint16_t				Version;
-		uint16_t				Revision_level;
-		uint32_t				Vendor;
+		uint16_t				Version = 0;
+		uint16_t				Revision_level = 0;
+		uint32_t				Vendor = 0;
 		union
 		{
 			uint16_t				channelcount = 2;

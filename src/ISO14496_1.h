@@ -135,9 +135,9 @@ namespace MPEG4System
 	struct BaseDescriptor : public BST::INavFieldProp
 	{
 		uint64_t	start_bitpos = 0;
-		uint8_t		tag;
+		uint8_t		tag = 0;
 		uint8_t		header_size = 0;
-		uint8_t		reserved[2];
+		uint8_t		reserved[2] = { 0 };
 		uint32_t	sizeOfInstance = 0;
 
 		virtual ~BaseDescriptor(){}
@@ -260,7 +260,7 @@ namespace MPEG4System
 
 	struct IPI_DescrPointer : public BaseDescriptor
 	{
-		uint16_t		IPI_ES_Id;
+		uint16_t		IPI_ES_Id = 0;
 
 		virtual int Unpack(CBitstream& bs)
 		{

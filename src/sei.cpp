@@ -1457,10 +1457,11 @@ int64_t GetUEFromUint64(uint64_t v, int bits)
 }
 
 BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::BUFFERING_PERIOD(int payloadSize, INALContext* pNALCtx)
-	: irap_cpb_params_present_flag(0)
+	: bp_seq_parameter_set_id(0)
+	, irap_cpb_params_present_flag(0)
+	, concatenation_flag(0)
 	, use_alt_cpb_params_flag(0)
-	, cpb_delay_offset(0)
-	, dpb_delay_offset(0)
+	, reserved_0(0)
 	, payload_size(payloadSize)
 	, ptr_NAL_Context(pNALCtx)
 {

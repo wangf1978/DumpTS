@@ -660,11 +660,15 @@ namespace BST
 		{
 			struct OBU_HEADER : public SYNTAX_BITSTREAM_MAP
 			{
-				struct OBU_EXTENSION_HEADER
+				union OBU_EXTENSION_HEADER
 				{
-					uint8_t		temporal_id : 3;
-					uint8_t		spatial_id : 2;
-					uint8_t		extension_header_reserved_3bits : 3;
+					uint8_t		byteVal;
+					struct
+					{
+						uint8_t		temporal_id : 3;
+						uint8_t		spatial_id : 2;
+						uint8_t		extension_header_reserved_3bits : 3;
+					}PACKED;
 				}PACKED;
 
 				uint8_t		obu_forbidden_bit : 1;
@@ -674,7 +678,11 @@ namespace BST
 				uint8_t		obu_reserved_1bit : 1;
 
 				OBU_EXTENSION_HEADER
-							obu_extension_header;
+							obu_extension_header = {0};
+
+				OBU_HEADER()
+					: obu_forbidden_bit(0), obu_type(0), obu_extension_flag(0), obu_has_size_field(0), obu_reserved_1bit(0) {
+				}
 
 				int Map(AMBst in_bst)
 				{
@@ -784,6 +792,10 @@ namespace BST
 					uint8_t			align_byte_0 : 7;
 					uint32_t		num_ticks_per_picture_minus_1;
 
+					TIMING_INFO()
+						: num_units_in_display_tick(0), time_scale(0), equal_picture_interval(0), align_byte_0(0), num_ticks_per_picture_minus_1(0) {
+					}
+
 					int Map(AMBst in_bst)
 					{
 						SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -834,6 +846,11 @@ namespace BST
 					uint64_t		buffer_removal_time_length_minus_1 : 5;
 					uint64_t		frame_presentation_time_length_minus_1 : 5;
 					uint64_t		qword_align_0 : 9;
+
+					DECODER_MODEL_INFO()
+						: bitrate_scale(0), buffer_size_scale(0), buffer_delay_length_minus_1(0)
+						, num_units_in_decoding_tick(0), buffer_removal_time_length_minus_1(0), frame_presentation_time_length_minus_1(0), qword_align_0(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -1117,7 +1134,9 @@ namespace BST
 					SEQUENCE_HEADER_OBU*
 									ptr_sequence_header_obu;
 
-					OPERATING_PARAMETERS_INFO(SEQUENCE_HEADER_OBU* pSeqHdrOBU) : ptr_sequence_header_obu(pSeqHdrOBU) {
+					OPERATING_PARAMETERS_INFO(SEQUENCE_HEADER_OBU* pSeqHdrOBU) 
+						: bitrate_minus_1(0), buffer_size_minus_1(0), cbr_flag(0), low_delay_mode_flag(0)
+						, byte_align_0(0), decoder_buffer_delay(0), encoder_buffer_delay(0), ptr_sequence_header_obu(pSeqHdrOBU) {
 					}
 
 					int Map(AMBst in_bst)
@@ -1172,6 +1191,7 @@ namespace BST
 				{
 					union
 					{
+						uint32_t	u32Val;
 						struct
 						{
 							uint32_t		operating_point_idc : 12;
@@ -1182,7 +1202,6 @@ namespace BST
 							uint32_t		initial_display_delay_minus_1 : 4;
 							uint32_t		reserved : 8;
 						}PACKED;
-						uint32_t	u32Val;
 					}PACKED;
 
 					OPERATING_PARAMETERS_INFO*
@@ -1776,8 +1795,8 @@ namespace BST
 			{
 				struct METADATA_ITUT_T35 : public SYNTAX_BITSTREAM_MAP
 				{
-					uint8_t			itu_t_t35_country_code;
-					uint8_t			itu_t_t35_country_code_extension_byte;
+					uint8_t			itu_t_t35_country_code = 0;
+					uint8_t			itu_t_t35_country_code_extension_byte = 0;
 					std::vector<uint8_t>
 									itu_t_t35_payload_bytes;
 
@@ -1843,8 +1862,8 @@ namespace BST
 
 				struct METADATA_HDR_CLL : public SYNTAX_BITSTREAM_MAP
 				{
-					uint16_t		max_cll;
-					uint16_t		max_fall;
+					uint16_t		max_cll = 0;
+					uint16_t		max_fall = 0;
 
 					int Map(AMBst in_bst)
 					{
@@ -1878,14 +1897,14 @@ namespace BST
 
 				struct METADATA_HDR_MDCV : public SYNTAX_BITSTREAM_MAP
 				{
-					uint16_t		primary_chromaticity_x[3];
-					uint16_t		primary_chromaticity_y[3];
+					uint16_t		primary_chromaticity_x[3] = { 0 };
+					uint16_t		primary_chromaticity_y[3] = { 0 };
 
-					uint16_t		white_point_chromaticity_x;
-					uint16_t		white_point_chromaticity_y;
+					uint16_t		white_point_chromaticity_x = 0;
+					uint16_t		white_point_chromaticity_y = 0;
 
-					uint32_t		luminance_max;
-					uint32_t		luminance_min;
+					uint32_t		luminance_max = 0;
+					uint32_t		luminance_min = 0;
 
 					int Map(AMBst in_bst)
 					{
@@ -1953,14 +1972,19 @@ namespace BST
 						uint8_t			temporal_group_description_present_flag:1;	// f(1)
 						uint8_t			scalability_structure_reserved_3bits:3;		// f(3)
 
-						uint16_t		spatial_layer_max_width[4];
-						uint16_t		spatial_layer_max_height[4];
+						uint16_t		spatial_layer_max_width[4] = { 0 };
+						uint16_t		spatial_layer_max_height[4] = { 0 };
 
-						uint8_t			spatial_layer_ref_id[4];
+						uint8_t			spatial_layer_ref_id[4] = { 0 };
 
-						uint8_t			temporal_group_size;
+						uint8_t			temporal_group_size = 0;
 						std::vector<TEMPORAL_GROUP>
 										temporal_groups;
+
+						SCALABILITY_STRUCTURE()
+							: spatial_layers_cnt_minus_1(0), spatial_layer_dimensions_present_flag(0)
+							, spatial_layer_description_present_flag(0), temporal_group_description_present_flag(0), scalability_structure_reserved_3bits(0) {
+						}
 
 						int Map(AMBst in_bst)
 						{
@@ -2090,7 +2114,7 @@ namespace BST
 
 					};
 
-					uint8_t					scalability_mode_idc;
+					uint8_t					scalability_mode_idc = 0;
 					SCALABILITY_STRUCTURE	scalability_structure;
 
 					int Map(AMBst in_bst)
@@ -2151,6 +2175,12 @@ namespace BST
 					uint64_t		qword_align : 25;
 
 					uint32_t		time_offset_value;
+
+					METADATA_TIMECODE()
+						: counting_type(0), full_timestamp_flag(0), discontinuity_flag(0), cnt_dropped_flag(0), n_frames(0)
+						, seconds_flag(0), seconds_value(0), minutes_flag(0), minutes_value(0), hours_flag(0), hours_value(0)
+						, time_offset_length(0), qword_align(0), time_offset_value(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -2301,7 +2331,7 @@ namespace BST
 					DECLARE_FIELDPROP_END()
 				};
 
-				uint64_t		metadata_type;
+				uint64_t		metadata_type = 0;
 				union
 				{
 					METADATA_ITUT_T35*	ptr_metadata_itut_t35;
@@ -2315,7 +2345,7 @@ namespace BST
 				};
 
 				OPEN_BITSTREAM_UNIT*	ptr_OBU = nullptr;
-				uint8_t					metadata_type_leb128_bytes;
+				uint8_t					metadata_type_leb128_bytes = 0;
 
 				METADATA_OBU(OPEN_BITSTREAM_UNIT* pOBU)
 					: ptr_OBU(pOBU){
@@ -2480,11 +2510,11 @@ namespace BST
 			{
 				struct TILE_LIST_ENTRY: public SYNTAX_BITSTREAM_MAP
 				{
-					uint8_t			anchor_frame_idx;
-					uint8_t			anchor_tile_row;
-					uint8_t			anchor_tile_col;
+					uint8_t			anchor_frame_idx = 0;
+					uint8_t			anchor_tile_row = 0;
+					uint8_t			anchor_tile_col = 0;
 
-					uint16_t		tile_data_size_minus_1;
+					uint16_t		tile_data_size_minus_1 = 0;
 					std::vector<uint8_t>
 									coded_tile_data;
 
@@ -2535,10 +2565,10 @@ namespace BST
 					DECLARE_FIELDPROP_END()
 				};
 
-				uint8_t			output_frame_width_in_tiles_minus_1;
-				uint8_t			output_frame_height_in_tiles_minus_1;
+				uint8_t			output_frame_width_in_tiles_minus_1 = 0;
+				uint8_t			output_frame_height_in_tiles_minus_1 = 0;
 
-				uint16_t		tile_count_minus_1;
+				uint16_t		tile_count_minus_1 = 0;
 
 				std::vector<TILE_LIST_ENTRY>
 								tile_list_entries;
@@ -2606,20 +2636,20 @@ namespace BST
 							uint8_t		enable_superres : 1;
 							uint8_t		byte_align : 3;
 
-							uint8_t		SuperresDenom;
-							uint16_t	UpscaledWidth;
-							uint16_t	FrameWidth;
+							uint8_t		SuperresDenom = 0;
+							uint16_t	UpscaledWidth = 0;
+							uint16_t	FrameWidth = 0;
 
 							FRAME_SIZE*	ptr_frame_size = nullptr;
 
-							SUPERRES_PARAMS(FRAME_SIZE* pFrameSize) : ptr_frame_size(pFrameSize) {
+							SUPERRES_PARAMS(FRAME_SIZE* pFrameSize) 
+								: use_superres(0), coded_denom(0), enable_superres(0), byte_align(0), ptr_frame_size(pFrameSize) {
 								UpscaledWidth = ptr_frame_size->FrameWidth;
 								enable_superres = ptr_frame_size->ptr_uncompressed_header->ptr_sequence_header_obu->enable_superres;
 							}
 
-							SUPERRES_PARAMS(uint16_t frame_width, uint8_t bEnableSuperres) {
-								UpscaledWidth = frame_width;
-								enable_superres = bEnableSuperres;
+							SUPERRES_PARAMS(uint16_t frame_width, uint8_t bEnableSuperres)
+								: use_superres(0), coded_denom(0), enable_superres(bEnableSuperres), byte_align(0), UpscaledWidth(frame_width){
 							}
 
 							int Map(AMBst in_bst)
@@ -2696,14 +2726,14 @@ namespace BST
 							uint16_t	MiRows;
 						}PACKED;
 
-						uint16_t			frame_width_minus_1;
-						uint16_t			frame_height_minus_1;
+						uint16_t			frame_width_minus_1 = 0;
+						uint16_t			frame_height_minus_1 = 0;
 
-						uint16_t			FrameWidth;
-						uint16_t			FrameHeight;
+						uint16_t			FrameWidth = 0;
+						uint16_t			FrameHeight = 0;
 
-						SUPERRES_PARAMS*	ptr_superres_params;
-						COMPUTE_IMAGE_SIZE	compute_image_size;
+						SUPERRES_PARAMS*	ptr_superres_params = nullptr;
+						COMPUTE_IMAGE_SIZE	compute_image_size = { 0, 0 };
 
 						UNCOMPRESSED_HEADER* ptr_uncompressed_header;
 
@@ -2787,15 +2817,15 @@ namespace BST
 						uint8_t		render_and_frame_size_different : 1;
 						uint8_t		byte_align_0 : 7;
 
-						uint16_t	render_width_minus_1;
-						uint16_t	render_height_minus_1;
+						uint16_t	render_width_minus_1 = 0;
+						uint16_t	render_height_minus_1 = 0;
 
-						uint16_t	RenderWidth;
-						uint16_t	RenderHeight;
+						uint16_t	RenderWidth = 0;
+						uint16_t	RenderHeight = 0;
 
 						FRAME_SIZE*	ptr_frame_size = nullptr;
 
-						RENDER_SIZE(FRAME_SIZE* pFrameSize) : ptr_frame_size(pFrameSize) {
+						RENDER_SIZE(FRAME_SIZE* pFrameSize) : render_and_frame_size_different(0), byte_align_0(0), ptr_frame_size(pFrameSize) {
 						}
 
 						int Map(AMBst in_bst)
@@ -2856,18 +2886,18 @@ namespace BST
 					{
 						CAMBitArray		found_ref;
 
-						uint32_t		UpscaleWidth;
-						uint32_t		FrameWidth;
-						uint32_t		FrameHeight;
-						uint32_t		RenderWidth;
-						uint32_t		RenderHeight;
+						uint32_t		UpscaleWidth = 0;
+						uint32_t		FrameWidth = 0;
+						uint32_t		FrameHeight = 0;
+						uint32_t		RenderWidth = 0;
+						uint32_t		RenderHeight = 0;
 
 						FRAME_SIZE*		ptr_frame_size = nullptr;
 						RENDER_SIZE*	ptr_render_size = nullptr;
 						FRAME_SIZE::SUPERRES_PARAMS*
 										ptr_superres_params = nullptr;
 						FRAME_SIZE::COMPUTE_IMAGE_SIZE
-										compute_image_size;
+										compute_image_size = {0, 0};
 
 						UNCOMPRESSED_HEADER*
 										ptr_uncompressed_header = nullptr;
@@ -2975,6 +3005,10 @@ namespace BST
 						uint8_t		is_filter_switchable : 1;
 						uint8_t		interpolation_filter : 3;
 						uint8_t		byte_align : 4;
+
+						READ_INTERPOLATION_FILTER()
+							: is_filter_switchable(0), interpolation_filter(0), byte_align(0) {
+						}
 
 						int Map(AMBst in_bst)
 						{
@@ -3396,7 +3430,10 @@ namespace BST
 							uint8_t		delta_coded : 1;
 							uint8_t		byte_align : 7;
 
-							int8_t		delta_q;
+							int8_t		delta_q = 0;
+
+							READ_DELTA_Q() : delta_coded(0), byte_align(0) {
+							}
 
 							int Map(AMBst in_bst)
 							{
@@ -3631,11 +3668,12 @@ namespace BST
 						uint8_t		segmentation_update_map : 1;
 						uint8_t		segmentation_temporal_update : 1;
 						uint8_t		segmentation_update_data : 1;
+						uint8_t		byte_aligned : 4;
 
 						CAMBitArray	feature_enabled;
-						int16_t		feature_value[MAX_SEGMENTS][SEG_LVL_MAX];
-						bool		FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX];
-						int16_t		FeatureData[MAX_SEGMENTS][SEG_LVL_MAX];
+						int16_t		feature_value[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
+						bool		FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
+						int16_t		FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 
 						uint8_t		SegIdPreSkip = 0;
 						uint8_t		LastActiveSegId = 0;
@@ -3643,7 +3681,9 @@ namespace BST
 						UNCOMPRESSED_HEADER*
 									ptr_uncompressed_header = nullptr;
 
-						SEGMENTATION_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) : ptr_uncompressed_header(pUncompressedHdr) {
+						SEGMENTATION_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) 
+							: segmentation_enabled(0), segmentation_update_map(0), segmentation_temporal_update(0), segmentation_update_data(0)
+							, ptr_uncompressed_header(pUncompressedHdr) {
 						}
 
 						int Map(AMBst in_bst)
@@ -3855,7 +3895,9 @@ namespace BST
 						UNCOMPRESSED_HEADER*
 									ptr_uncompressed_header = nullptr;
 
-						DELTA_Q_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr): ptr_uncompressed_header(pUncompressedHdr){}
+						DELTA_Q_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr)
+							: delta_q_res(0), delta_q_present(0), byte_align(0)
+							, ptr_uncompressed_header(pUncompressedHdr){}
 
 						int Map(AMBst in_bst)
 						{
@@ -3924,7 +3966,9 @@ namespace BST
 						UNCOMPRESSED_HEADER*
 									ptr_uncompressed_header = nullptr;
 
-						DELTA_LF_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) : ptr_uncompressed_header(pUncompressedHdr) {}
+						DELTA_LF_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) 
+							: delta_lf_present(0), delta_lf_res(0), delta_lf_multi(0)
+							, ptr_uncompressed_header(pUncompressedHdr) {}
 
 						int Map(AMBst in_bst)
 						{
@@ -4184,27 +4228,33 @@ namespace BST
 					// 5.9.19. CDEF params syntax
 					struct CDEF_PARAMS : public SYNTAX_BITSTREAM_MAP 
 					{
-						struct CDEFFilter
+						union CDEFFilter
 						{
-							uint8_t			cdef_y_pri_strength : 4;
-							uint8_t			cdef_y_sec_strength : 2;
-							uint8_t			byte_align_0 : 2;
+							uint8_t				bytes[2];
+							struct
+							{
+								uint8_t			cdef_y_pri_strength : 4;
+								uint8_t			cdef_y_sec_strength : 2;
+								uint8_t			byte_align_0 : 2;
 
-							uint8_t			cdef_uv_pri_strength : 4;
-							uint8_t			cdef_uv_sec_strength : 2;
-							uint8_t			byte_align_1 : 2;
+								uint8_t			cdef_uv_pri_strength : 4;
+								uint8_t			cdef_uv_sec_strength : 2;
+								uint8_t			byte_align_1 : 2;
+							}PACKED;
 						}PACKED;
 
 						uint8_t			cdef_damping_minus_3 : 2;
 						uint8_t			cdef_bits : 2;
 						uint8_t			CdefDamping : 4;
 
-						CDEFFilter		filters[8];
+						CDEFFilter		filters[8] = { {0} };
 
 						UNCOMPRESSED_HEADER*	
 										ptr_uncompressed_header = nullptr;
 
-						CDEF_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr): ptr_uncompressed_header(pUncompressedHdr){}
+						CDEF_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr)
+							: cdef_damping_minus_3(0), cdef_bits(0), CdefDamping(0)
+							, ptr_uncompressed_header(pUncompressedHdr){}
 
 						INLINE uint8_t GetCdefYSecStrength(uint8_t filter_id)
 						{
@@ -4309,7 +4359,7 @@ namespace BST
 					// 5.9.20. Loop restoration params syntax
 					struct LR_PARAMS : public SYNTAX_BITSTREAM_MAP
 					{
-						uint8_t		lr_type[3];
+						uint8_t		lr_type[3] = { 0 };
 						uint8_t		lr_unit_shift : 1;
 						uint8_t		lr_unit_extra_shift : 1;
 						uint8_t		lr_uv_shift : 1;
@@ -4317,13 +4367,15 @@ namespace BST
 						uint8_t		usesChromaLr : 1;
 						uint8_t		byte_align : 3;
 
-						uint8_t		FrameRestorationType[3];
-						uint8_t		LoopRestorationSize[3];
+						uint8_t		FrameRestorationType[3] = { 0 };
+						uint8_t		LoopRestorationSize[3] = { 0 };
 
 						UNCOMPRESSED_HEADER*
 									ptr_uncompressed_header = nullptr;
 
-						LR_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) : ptr_uncompressed_header(pUncompressedHdr) {}
+						LR_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) 
+							: lr_unit_shift(0), lr_unit_extra_shift(0), lr_uv_shift(0), usesLr(0), usesChromaLr(0), byte_align(0)
+							, ptr_uncompressed_header(pUncompressedHdr) {}
 
 						uint8_t GetLRUnitShift()
 						{
@@ -4482,7 +4534,9 @@ namespace BST
 						UNCOMPRESSED_HEADER*
 									ptr_uncompressed_header = nullptr;
 
-						READ_TX_MODE(UNCOMPRESSED_HEADER* pUncompressedHdr) : ptr_uncompressed_header(pUncompressedHdr) {}
+						READ_TX_MODE(UNCOMPRESSED_HEADER* pUncompressedHdr) 
+							: tx_mode_select(0), TxMode(0), byte_align(0)
+							, ptr_uncompressed_header(pUncompressedHdr) {}
 
 						int Map(AMBst in_bst)
 						{
@@ -4545,7 +4599,8 @@ namespace BST
 						UNCOMPRESSED_HEADER*
 									ptr_uncompressed_header = nullptr;
 
-						FRAME_REFERENCE_MODE(UNCOMPRESSED_HEADER* pUncompressedHdr) : ptr_uncompressed_header(pUncompressedHdr) {}
+						FRAME_REFERENCE_MODE(UNCOMPRESSED_HEADER* pUncompressedHdr) 
+							: reference_select(0), byte_align(0), ptr_uncompressed_header(pUncompressedHdr) {}
 
 						int Map(AMBst in_bst)
 						{
@@ -4601,19 +4656,20 @@ namespace BST
 						uint8_t		skip_mode_present : 1;
 						uint8_t		byte_align : 6;
 
-						int8_t		forwardIdx;
-						uint8_t		forwardHint;
-						int8_t		backwardIdx;
-						uint8_t		backwardHint;
-						int8_t		secondForwardIdx;
-						uint8_t		secondForwardHint;
+						int8_t		forwardIdx = 0;
+						uint8_t		forwardHint = 0;
+						int8_t		backwardIdx = 0;
+						uint8_t		backwardHint = 0;
+						int8_t		secondForwardIdx = 0;
+						uint8_t		secondForwardHint = 0;
 
-						uint8_t		SkipModeFrame[2];
+						uint8_t		SkipModeFrame[2] = { 0 };
 
 						UNCOMPRESSED_HEADER*
 									ptr_uncompressed_header = nullptr;
 
-						SKIP_MODE_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) : ptr_uncompressed_header(pUncompressedHdr) {}
+						SKIP_MODE_PARAMS(UNCOMPRESSED_HEADER* pUncompressedHdr) 
+							: skipModeAllowed(0), skip_mode_present(0), byte_align(0), ptr_uncompressed_header(pUncompressedHdr) {}
 
 						int Map(AMBst in_bst)
 						{
@@ -4803,7 +4859,7 @@ namespace BST
 								uint16_t	numSyms;
 								union
 								{
-									uint16_t	subexp_final_bits;
+									uint16_t	subexp_final_bits = 0;
 									uint16_t	subexp_bits;
 								};
 								uint16_t	decode_subexp;
@@ -4812,7 +4868,7 @@ namespace BST
 								uint16_t	final_mk;
 								uint16_t	final_k;
 
-								DECODE_SUBEXP(uint16_t n) : numSyms(n), final_i(0), final_mk(0), final_k(3) {}
+								DECODE_SUBEXP(uint16_t n) : numSyms(n), decode_subexp(0), final_i(0), final_mk(0), final_k(3) {}
 
 								bool IsFinalBits() {
 									uint8_t b2 = final_i ? (final_k + final_i - 1) : final_k;
@@ -4929,9 +4985,9 @@ namespace BST
 							// 5.9.25.Global param syntax
 							struct READ_GLOBAL_PARAM : public SYNTAX_BITSTREAM_MAP
 							{
-								uint8_t		absBits;
-								uint8_t		precBits;
-								int8_t		precDiff;
+								uint8_t		absBits = 0;
+								uint8_t		precBits = 0;
+								int8_t		precDiff = 0;
 
 								DECODE_SUBEXP*
 											decode_subexp;
@@ -4939,7 +4995,7 @@ namespace BST
 								uint8_t		m_type;
 								uint8_t		m_ref;
 								uint8_t		m_idx;
-								int32_t		PrevGmParams;
+								int32_t		PrevGmParams = 0;
 
 								REF_GLOBAL_MOTION_PARAMS*
 											ptr_ref_global_motion_params;
@@ -7127,8 +7183,8 @@ namespace BST
 				uint8_t			tile_start_and_end_present_flag : 1;
 				uint8_t			byte_align_0 : 7;
 
-				uint32_t		tg_start;
-				uint32_t		tg_end;
+				uint32_t		tg_start = 0;
+				uint32_t		tg_end = 0;
 
 
 				bool			is_last_tg;
@@ -7137,7 +7193,8 @@ namespace BST
 				OPEN_BITSTREAM_UNIT*
 								ptr_OBU;
 
-				TILE_GROUP_OBU(OPEN_BITSTREAM_UNIT* pOBU, int sz): is_last_tg(false), tg_obu_sz(sz), ptr_OBU(pOBU){}
+				TILE_GROUP_OBU(OPEN_BITSTREAM_UNIT* pOBU, int sz)
+					: tile_start_and_end_present_flag(0), byte_align_0(0), is_last_tg(false), tg_obu_sz(sz), ptr_OBU(pOBU){}
 
 				int Map(AMBst in_bst)
 				{
@@ -7223,11 +7280,12 @@ namespace BST
 			}PACKED;
 
 			OBU_HEADER	obu_header;
-			uint32_t	obu_size;
-			uint8_t		obu_size_leb128_bytes;
+			uint32_t	obu_size = 0;
+			uint8_t		obu_size_leb128_bytes = 0;
 
 			union
 			{
+				void*					ptr_void = nullptr;
 				SEQUENCE_HEADER_OBU*	ptr_sequence_header_obu;
 				TEMPORAL_DELIMITER_OBU*	ptr_temporal_delimiter_obu;
 				FRAME_HEADER_OBU*		ptr_frame_header_obu;

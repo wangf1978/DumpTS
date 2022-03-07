@@ -214,9 +214,9 @@ namespace BST {
 					uint8_t			use_alt_cpb_params_flag : 1;
 					uint8_t			reserved_0 : 1;
 
-					uint32_t		cpb_delay_offset;
-					uint32_t		dpb_delay_offset;
-					uint32_t		au_cpb_removal_delay_delta_minus1;
+					uint32_t		cpb_delay_offset = 0;
+					uint32_t		dpb_delay_offset = 0;
+					uint32_t		au_cpb_removal_delay_delta_minus1 = 0;
 
 					std::vector<INITIAL_CPB_REMOVAL_INFO>
 									nal_initial_cpb_removal_info;
@@ -384,13 +384,13 @@ namespace BST {
 
 				struct MASTERING_DISPLAY_COLOUR_VOLUME : public SYNTAX_BITSTREAM_MAP
 				{
-					uint16_t		display_primaries_x[3];
-					uint16_t		display_primaries_y[3];
-					uint16_t		white_point_x;
-					uint16_t		white_point_y;
+					uint16_t		display_primaries_x[3] = { 0 };
+					uint16_t		display_primaries_y[3] = { 0 };
+					uint16_t		white_point_x = 0;
+					uint16_t		white_point_y = 0;
 
-					uint32_t		max_display_mastering_luminance;
-					uint32_t		min_display_mastering_luminance;
+					uint32_t		max_display_mastering_luminance = 0;
+					uint32_t		min_display_mastering_luminance = 0;
 
 					MASTERING_DISPLAY_COLOUR_VOLUME(int payloadSize) {
 						UNREFERENCED_PARAMETER(payloadSize);
@@ -465,8 +465,8 @@ namespace BST {
 					uint8_t		no_parameter_set_update_flag : 1;
 					uint8_t		reserved : 2;
 
-					uint8_t		num_sps_ids_minus1;
-					uint8_t		active_seq_parameter_set_id[16];
+					uint8_t		num_sps_ids_minus1 = 0;
+					uint8_t		active_seq_parameter_set_id[16] = { 0 };
 					std::vector<uint8_t>
 								layer_sps_idx;
 					
@@ -474,7 +474,8 @@ namespace BST {
 								ptr_sei_payload;
 
 					ACTIVE_PARAMETER_SETS(SEI_PAYLOAD* pSEIPayload)
-						: ptr_sei_payload(pSEIPayload){
+						: active_video_parameter_set_id(0), self_contained_cvs_flag(0), no_parameter_set_update_flag(0), reserved(0)
+						, ptr_sei_payload(pSEIPayload){
 					}
 
 					int Map(AMBst in_bst)
@@ -562,10 +563,14 @@ namespace BST {
 
 				struct RECOVERY_POINT : public SYNTAX_BITSTREAM_MAP
 				{
-					short		recovery_poc_cnt;
+					short		recovery_poc_cnt = 0;
 					uint8_t		exact_match_flag : 1;
 					uint8_t		broken_link_flag : 1;
 					uint8_t		reserved : 6;
+
+					RECOVERY_POINT()
+						: exact_match_flag(0), broken_link_flag(0), reserved(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -605,11 +610,15 @@ namespace BST {
 
 				struct RECOVERY_POINT_H264 : public SYNTAX_BITSTREAM_MAP
 				{
-					uint16_t	recovery_frame_cnt;
+					uint16_t	recovery_frame_cnt = 0;
 					uint8_t		exact_match_flag : 1;
 					uint8_t		broken_link_flag : 1;
 					uint8_t		changing_slice_group_idc : 2;
 					uint8_t		reserved : 4;
+
+					RECOVERY_POINT_H264()
+						: exact_match_flag(0), broken_link_flag(0), changing_slice_group_idc(0), reserved(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -654,15 +663,19 @@ namespace BST {
 
 				struct PAN_SCAN_RECT : public SYNTAX_BITSTREAM_MAP
 				{
-					uint32_t		pan_scan_rect_id;
+					uint32_t		pan_scan_rect_id = 0;
 					uint8_t			pan_scan_rect_cancel_flag : 1;
 					uint8_t			pan_scan_cnt_minus1 : 6;
 					uint8_t			pan_scan_rect_persistence_flag : 1;
 
-					int32_t			pan_scan_rect_left_offset[3];
-					int32_t			pan_scan_rect_right_offset[3];
-					int32_t			pan_scan_rect_top_offset[3];
-					int32_t			pan_scan_rect_bottom_offset[3];
+					int32_t			pan_scan_rect_left_offset[3] = { 0 };
+					int32_t			pan_scan_rect_right_offset[3] = { 0 };
+					int32_t			pan_scan_rect_top_offset[3] = { 0 };
+					int32_t			pan_scan_rect_bottom_offset[3] = { 0 };
+
+					PAN_SCAN_RECT()
+						: pan_scan_rect_cancel_flag(0), pan_scan_cnt_minus1(0), pan_scan_rect_persistence_flag(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -1131,10 +1144,14 @@ namespace BST {
 						uint8_t		additional_data_flag : 1;
 						uint8_t		cc_count : 5;
 
-						uint8_t		reserved_1;
-						uint8_t		marker_bits;
+						uint8_t		reserved_1 = 0;
+						uint8_t		marker_bits = 0;
 
 						std::vector<CC_DATA_ITEM>	items;
+
+						CC_DATA()
+							: reserved_0(0), process_cc_data_flag(0), additional_data_flag(0), cc_count(0) {
+						}
 
 						int Map(AMBst in_bst)
 						{
@@ -1210,7 +1227,7 @@ namespace BST {
 							uint8_t		picture_type : 4;
 						}PACKED;
 
-						uint16_t		number_of_pictures_in_GOP;
+						uint16_t		number_of_pictures_in_GOP = 0;
 						std::vector<GOP_PIC_INFO>
 										GOP_pic_info;
 
@@ -1270,7 +1287,7 @@ namespace BST {
 							uint8_t		picture_type : 4;
 						}PACKED;
 
-						uint16_t		number_of_pictures_in_GOP;
+						uint16_t		number_of_pictures_in_GOP = 0;
 						std::vector<GOP_PIC_INFO>
 										GOP_pic_info;
 
@@ -1458,7 +1475,7 @@ namespace BST {
 
 					};
 
-					uint8_t						uuid_iso_iec_11578[16];
+					uint8_t						uuid_iso_iec_11578[16] = { 0 };
 					std::vector<uint8_t>		user_data_payload_byte;
 
 					uint32_t					type_indicator;
@@ -1594,8 +1611,12 @@ namespace BST {
 					uint8_t		prev_scene_id_valid_flag : 1;
 					uint8_t		scene_transition_type : 6;
 
-					uint32_t	scene_id;
-					uint32_t	second_scene_id;
+					uint32_t	scene_id = 0;
+					uint32_t	second_scene_id = 0;
+
+					SCENE_INFO()
+						: scene_info_present_flag(0), prev_scene_id_valid_flag(0), scene_transition_type(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -1648,7 +1669,7 @@ namespace BST {
 
 				struct PICTURE_SNAPSHOT : public SYNTAX_BITSTREAM_MAP
 				{
-					uint32_t		snapshot_id;
+					uint32_t		snapshot_id = 0;
 
 					int Map(AMBst in_bst)
 					{
@@ -1682,8 +1703,8 @@ namespace BST {
 
 				struct PROGRESSIVE_REFINEMENT_SEGMENT_START : public SYNTAX_BITSTREAM_MAP
 				{
-					uint32_t		progressive_refinement_id;
-					uint32_t		pic_order_cnt_delta;
+					uint32_t		progressive_refinement_id = 0;
+					uint32_t		pic_order_cnt_delta = 0;
 
 					int Map(AMBst in_bst)
 					{
@@ -1720,7 +1741,7 @@ namespace BST {
 
 				struct PROGRESSIVE_REFINEMENT_SEGMENT_END : public SYNTAX_BITSTREAM_MAP
 				{
-					uint32_t		progressive_refinement_id;
+					uint32_t		progressive_refinement_id = 0;
 
 					int Map(AMBst in_bst)
 					{
@@ -1758,7 +1779,7 @@ namespace BST {
 					struct COMP_MODEL_INFO
 					{
 						uint16_t		comp_model_present_flag:1;
-						uint16_t		num_intensity_intervals_minus1;
+						uint16_t		num_intensity_intervals_minus1:8;
 						uint16_t		num_model_values_minus1:3;
 						uint16_t		reserved : 4;
 
@@ -1768,6 +1789,9 @@ namespace BST {
 									intensity_interval_upper_bound;
 						std::vector<int32_t>
 									comp_model_value;
+
+						COMP_MODEL_INFO() : comp_model_present_flag(0), num_intensity_intervals_minus1(0), num_model_values_minus1(0), reserved(0) {
+						}
 					};
 
 					uint8_t		film_grain_characteristics_cancel_flag : 1;
@@ -1780,9 +1804,9 @@ namespace BST {
 					uint8_t		film_grain_full_range_flag : 1;
 					uint8_t		reserved_1 : 1;
 
-					uint8_t		film_grain_colour_primaries;
-					uint8_t		film_grain_transfer_characteristics;
-					uint8_t		film_grain_matrix_coeffs;
+					uint8_t		film_grain_colour_primaries = 0;
+					uint8_t		film_grain_transfer_characteristics = 0;
+					uint8_t		film_grain_matrix_coeffs = 0;
 
 					uint8_t		blending_mode_id : 2;
 					uint8_t		log2_scale_factor : 4;
@@ -1791,6 +1815,12 @@ namespace BST {
 
 					COMP_MODEL_INFO
 								comp_model_info[3];
+
+					FILM_GRAIN_CHARACTERISTICS()
+						: film_grain_characteristics_cancel_flag(0), film_grain_model_id(0), separate_colour_description_present_flag(0), reserved_0(0)
+						, film_grain_bit_depth_luma_minus8(0), film_grain_bit_depth_chroma_minus8(0), film_grain_full_range_flag(0), reserved_1(0)
+						, blending_mode_id(0), log2_scale_factor(0), film_grain_characteristics_persistence_flag(0), reserved_2(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -1913,22 +1943,23 @@ namespace BST {
 				{
 					struct PIVOT_LAYOUT
 					{
-						uint16_t					num_pivots;
+						uint16_t					num_pivots = 0;
 						std::vector<uint32_t>		coded_pivot_value;
 						std::vector<uint32_t>		target_pivot_value;
 					};
 
-					uint32_t		tone_map_id;
+					uint32_t		tone_map_id = 0;
 					uint8_t			tone_map_cancel_flag : 1;
 					uint8_t			tone_map_persistence_flag : 1;
 					uint8_t			reserved_0 : 6;
 
-					uint8_t			coded_data_bit_depth;
-					uint8_t			target_bit_depth;
+					uint8_t			coded_data_bit_depth = 0;
+					uint8_t			target_bit_depth = 0;
 					uint32_t		tone_map_model_id;
 
 					union
 					{
+						uint8_t			bytes[32] = { 0 };
 						struct {
 							uint32_t	min_value;
 							uint32_t	max_value;
@@ -1955,10 +1986,12 @@ namespace BST {
 							uint16_t	nominal_black_level_code_value;
 							uint16_t	nominal_white_level_code_value;
 							uint16_t	extended_white_level_code_value;
-						};
+						}PACKED;
 					};
 
-					TONE_MAPPING_INFO() : tone_map_model_id(0xFFFFFFFF), start_of_coded_interval(NULL){
+					TONE_MAPPING_INFO() 
+						: tone_map_cancel_flag(0), tone_map_persistence_flag(0), reserved_0(0)
+						, tone_map_model_id(0xFFFFFFFF), start_of_coded_interval(NULL){
 					}
 
 					virtual ~TONE_MAPPING_INFO() {
@@ -2138,8 +2171,8 @@ namespace BST {
 
 				struct FRAME_PACKING_ARRANGEMENT : public SYNTAX_BITSTREAM_MAP
 				{
-					uint32_t		frame_packing_arrangement_id;
-					uint8_t			frame_packing_arrangement_cancel_flag;
+					uint32_t		frame_packing_arrangement_id = 0;
+					uint8_t			frame_packing_arrangement_cancel_flag = 0;
 					uint8_t			frame_packing_arrangement_type : 7;
 					uint8_t			quincunx_sampling_flag : 1;
 
@@ -2158,10 +2191,30 @@ namespace BST {
 					uint8_t			frame1_grid_position_x:4;
 					uint8_t			frame1_grid_position_y:4;
 
-					uint8_t			frame_packing_arrangement_reserved_byte;
+					uint8_t			frame_packing_arrangement_reserved_byte = 0;
 					uint8_t			frame_packing_arrangement_persistence_flag : 1;
 					uint8_t			upsampled_aspect_ratio_flag : 1;
 					uint8_t			reserved_1 : 6;
+
+					FRAME_PACKING_ARRANGEMENT()
+						: frame_packing_arrangement_type(0)
+						, quincunx_sampling_flag(0)
+						, content_interpretation_type(0)
+						, spatial_flipping_flag(0)
+						, frame0_flipped_flag(0)
+						, field_views_flag(0)
+						, current_frame_is_frame0_flag(0)
+						, frame0_self_contained_flag(0)
+						, frame1_self_contained_flag(0)
+						, reserved_0(0)
+						, frame0_grid_position_x(0)
+						, frame0_grid_position_y(0)
+						, frame1_grid_position_x(0)
+						, frame1_grid_position_y(0)
+						, frame_packing_arrangement_persistence_flag(0)
+						, upsampled_aspect_ratio_flag(0)
+						, reserved_1(0)
+					{}
 
 					int Map(AMBst in_bst)
 					{
@@ -2255,7 +2308,11 @@ namespace BST {
 					uint8_t		ver_flip : 1;
 					uint8_t		display_orientation_persistence_flag : 1;
 					uint8_t		reserved : 4;
-					uint16_t	anticlockwise_rotation;
+					uint16_t	anticlockwise_rotation = 0;
+
+					DISPLAY_ORIENTATION()
+						: display_orientation_cancel_flag(0), hor_flip(0), ver_flip(0), display_orientation_persistence_flag(0), reserved(0), anticlockwise_rotation(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -2315,6 +2372,10 @@ namespace BST {
 					uint16_t		num_entries_in_sop_minus1 : 12;
 					std::vector<SOP_ENTRY>
 									sop_entries;
+
+					STRUCTURE_OF_PICTURES_INFO()
+						: sop_seq_parameter_set_id(0), num_entries_in_sop_minus1(0){
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -2384,8 +2445,8 @@ namespace BST {
 
 				struct TEMPORAL_SUB_LAYER_ZERO_INDEX : public SYNTAX_BITSTREAM_MAP
 				{
-					uint8_t		temporal_sub_layer_zero_idx;
-					uint8_t		irap_pic_id;
+					uint8_t		temporal_sub_layer_zero_idx = 0;
+					uint8_t		irap_pic_id = 0;
 
 					int Map(AMBst in_bst)
 					{
@@ -2421,20 +2482,20 @@ namespace BST {
 
 				struct COLOUR_REMAPPING_INFO : public SYNTAX_BITSTREAM_MAP
 				{
-					uint32_t		colour_remap_id;
+					uint32_t		colour_remap_id = 0;
 					uint8_t			colour_remap_cancel_flag : 1;
 					uint8_t			colour_remap_persistence_flag : 1;
 					uint8_t			colour_remap_video_signal_info_present_flag : 1;
 					uint8_t			colour_remap_full_range_flag : 1;
 					uint8_t			reserved_0 : 4;
 
-					uint8_t			colour_remap_primaries;
-					uint8_t			colour_remap_transfer_function;
-					uint8_t			colour_remap_matrix_coefficients;
+					uint8_t			colour_remap_primaries = 0;
+					uint8_t			colour_remap_transfer_function = 0;
+					uint8_t			colour_remap_matrix_coefficients = 0;
 
-					uint8_t			colour_remap_input_bit_depth;
-					uint8_t			colour_remap_bit_depth;
-					uint8_t			pre_lut_num_val_minus1[3];
+					uint8_t			colour_remap_input_bit_depth = 0;
+					uint8_t			colour_remap_bit_depth = 0;
+					uint8_t			pre_lut_num_val_minus1[3] = { 0 };
 					std::vector<uint32_t>
 									pre_lut_coded_value[3];
 					std::vector<uint32_t>
@@ -2444,13 +2505,24 @@ namespace BST {
 					uint8_t			log2_matrix_denom : 4;
 					uint8_t			reserved_1 : 3;
 
-					int16_t			colour_remap_coeffs[3][3];
+					int16_t			colour_remap_coeffs[3][3] = { {0} };
 
-					uint8_t			post_lut_num_val_minus1[3];
+					uint8_t			post_lut_num_val_minus1[3] = { 0 };
 					std::vector<uint32_t>
 									post_lut_coded_value[3];
 					std::vector<uint32_t>
 									post_lut_target_value[3];
+
+					COLOUR_REMAPPING_INFO()
+						: colour_remap_cancel_flag(0)
+						, colour_remap_persistence_flag(0)
+						, colour_remap_video_signal_info_present_flag(0)
+						, colour_remap_full_range_flag(0)
+						, reserved_0(0)
+						, colour_remap_matrix_present_flag(0)
+						, log2_matrix_denom(0)
+						, reserved_1(0) {
+					}
 
 					int Map(AMBst in_bst)
 					{
@@ -2607,7 +2679,7 @@ namespace BST {
 
 				struct DEINTERLACED_FIELD_INDENTIFICATION : public SYNTAX_BITSTREAM_MAP
 				{
-					uint8_t			deinterlaced_picture_source_parity_flag;
+					uint8_t			deinterlaced_picture_source_parity_flag = 0;
 
 					int Map(AMBst in_bst)
 					{

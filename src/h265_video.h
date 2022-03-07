@@ -236,10 +236,10 @@ namespace BST {
 
 		public:
 			std::vector<uint8_t>		nal_unit_type_filters;
-			int8_t						in_scanning;
+			int8_t						in_scanning = 0;
 			std::unordered_map<uint8_t, int8_t>
 										sps_seq_parameter_set_id;
-			int8_t						prev_vps_video_parameter_set_id;
+			int8_t						prev_vps_video_parameter_set_id =  -1;
 			std::map<uint8_t, H265_NU>	sp_h265_vpses;		// the smart pointers of VPS for the current h265 bitstream
 			std::map<uint8_t, H265_NU>	sp_h265_spses;		// the smart pointers of SPS for the current h265 bitstream
 			std::map<uint8_t, H265_NU>	sp_h265_ppses;		// the smart pointers of PPS for the current h265 bitstream
@@ -255,6 +255,10 @@ namespace BST {
 				uint16_t	nal_unit_type:6;
 				uint16_t	nuh_layer_id:6;
 				uint16_t	nuh_temporal_id_plus1:1;
+
+				NAL_UNIT_HEADER()
+					: forbidden_zero_bit(0), nal_unit_type(0), nuh_layer_id(0), nuh_temporal_id_plus1(0){
+				}
 
 				int Map(AMBst in_bst)
 				{
@@ -304,15 +308,16 @@ namespace BST {
 					{
 						struct SUB_LAYER_HRD_PARAMETER : public SYNTAX_BITSTREAM_MAP
 						{
-							uint32_t	bit_rate_value_minus1;
-							uint32_t	cpb_size_value_minus1;
-							uint32_t	cpb_size_du_value_minus1;
-							uint32_t	bit_rate_du_value_minus1;
-							uint8_t		cbr_flag;
+							uint32_t	bit_rate_value_minus1 = 0;
+							uint32_t	cpb_size_value_minus1 = 0;
+							uint32_t	cpb_size_du_value_minus1 = 0;
+							uint32_t	bit_rate_du_value_minus1 = 0;
+							uint8_t		cbr_flag = 0;
 							SUB_LAYER_HRD_PARAMETERS*
 										m_ptr_sub_layer_hrd_parameters;
 
-							SUB_LAYER_HRD_PARAMETER(SUB_LAYER_HRD_PARAMETERS* ptr_sub_layer_hrd_parameters) :m_ptr_sub_layer_hrd_parameters(ptr_sub_layer_hrd_parameters) {}
+							SUB_LAYER_HRD_PARAMETER(SUB_LAYER_HRD_PARAMETERS* ptr_sub_layer_hrd_parameters) 
+								: m_ptr_sub_layer_hrd_parameters(ptr_sub_layer_hrd_parameters) {}
 
 							int Map(AMBst bst)
 							{
@@ -426,8 +431,8 @@ namespace BST {
 					uint8_t		low_delay_hrd_flag : 1;
 					uint8_t		reserved : 5;
 
-					uint16_t	elemental_duration_in_tc_minus1;
-					uint8_t		cpb_cnt_minus1;
+					uint16_t	elemental_duration_in_tc_minus1 = 0;
+					uint8_t		cpb_cnt_minus1 = 0;
 
 					SUB_LAYER_HRD_PARAMETERS*
 								ptr_nal_sub_layer_hrd_parameters;
@@ -438,7 +443,10 @@ namespace BST {
 								m_ptr_hdr_parameters;
 
 					SUB_LAYER_INFO(HRD_PARAMETERS* ptr_hdr_parameters)
-						: cpb_cnt_minus1(0)
+						: fixed_pic_rate_general_flag(0)
+						, fixed_pic_rate_within_cvs_flag(0)
+						, low_delay_hrd_flag(0)
+						, reserved(0)
 						, ptr_nal_sub_layer_hrd_parameters(NULL)
 						, ptr_vcl_sub_layer_hrd_parameters(NULL)
 						, m_ptr_hdr_parameters(ptr_hdr_parameters) {}
@@ -1086,9 +1094,9 @@ namespace BST {
 			struct SCALING_LIST_DATA : public SYNTAX_BITSTREAM_MAP
 			{
 				CAMBitArray		scaling_list_pred_mode_flags;
-				uint8_t			scaling_list_pred_matrix_id_delta[4][6];
-				uint8_t			scaling_list_dc_coef[2][6];
-				int8_t			scaling_list_delta_coef[4][6][64];
+				uint8_t			scaling_list_pred_matrix_id_delta[4][6] = { {0} };
+				uint8_t			scaling_list_dc_coef[2][6] = { {0} };
+				int8_t			scaling_list_delta_coef[4][6][64] = { {{0}} };
 
 				int Map(AMBst in_bst)
 				{
@@ -1200,23 +1208,26 @@ namespace BST {
 					uint8_t		delta_rps_sign : 1;
 					uint8_t		reserved_0 : 6;
 
-					uint8_t		delta_idx_minus1;
-					uint16_t	abs_delta_rps_minus1;
+					uint8_t		delta_idx_minus1 = 0;
+					uint16_t	abs_delta_rps_minus1 = 0;
 
 					CAMBitArray	used_by_curr_pic_flags;
 					CAMBitArray	use_delta_flags;
 
-					uint8_t		NumNegativePics;
-					uint8_t		NumPositivePics;
+					uint8_t		NumNegativePics = 0;
+					uint8_t		NumPositivePics = 0;
 
-					uint16_t	delta_poc_s0_minus1[16];
-					uint16_t	delta_poc_s1_minus1[16];
+					uint16_t	delta_poc_s0_minus1[16] = { 0 };
+					uint16_t	delta_poc_s1_minus1[16] = { 0 };
 					CAMBitArray	used_by_curr_pic_s0_flags;
 					CAMBitArray	used_by_curr_pic_s1_flags;
 
 					ST_REF_PIC_SET(ST_REF_PIC_SETS* ptr_st_ref_pic_sets, uint8_t param_stRpsIdx)
 						: st_ref_pic_sets(ptr_st_ref_pic_sets)
 						, stRpsIdx(param_stRpsIdx)
+						, inter_ref_pic_set_prediction_flag(0)
+						, delta_rps_sign(0)
+						, reserved_0(0)
 						, delta_idx_minus1(0) {
 						inter_ref_pic_set_prediction_flag = (uint8_t)0;
 					}
@@ -1556,12 +1567,13 @@ namespace BST {
 				{
 					uint16_t		hrd_layer_set_idx : 15;
 					uint16_t		cprms_present_flag : 1;
-					HRD_PARAMETERS*	hrd_parameters;
+					HRD_PARAMETERS*	hrd_parameters = nullptr;
 					VIDEO_PARAMETER_SET_RBSP*
 									ptr_parent;
 					uint16_t		m_idx;
 
-					VPS_HRD_PARAMETER(VIDEO_PARAMETER_SET_RBSP* pParent, uint16_t i): ptr_parent(pParent), m_idx(i){
+					VPS_HRD_PARAMETER(VIDEO_PARAMETER_SET_RBSP* pParent, uint16_t i)
+						: hrd_layer_set_idx(0), cprms_present_flag(0), ptr_parent(pParent), m_idx(i){
 					}
 
 					virtual ~VPS_HRD_PARAMETER() {
@@ -1616,29 +1628,29 @@ namespace BST {
 				uint16_t	vps_max_sub_layers_minus1 : 3;
 				uint16_t	vps_temporal_id_nesting_flag : 1;
 
-				uint16_t	vps_reserved_0xffff_16bits;
+				uint16_t	vps_reserved_0xffff_16bits = 0;
 
 				PROFILE_TIER_LEVEL*
 							profile_tier_level;
 
-				uint8_t		vps_sub_layer_ordering_info_present_flag;
+				uint8_t		vps_sub_layer_ordering_info_present_flag = 0;
 				VPS_ORDERING_INFO*
 							vps_ordering_info;
 
-				uint8_t		vps_max_layer_id;
-				uint16_t	vps_num_layer_sets_minus1;
+				uint8_t		vps_max_layer_id = 0;
+				uint16_t	vps_num_layer_sets_minus1 = 0;
 				CAMBitArray*
 							layer_id_included_flag;
-				uint8_t		vps_timing_info_present_flag;
+				uint8_t		vps_timing_info_present_flag = 0;
 
-				uint32_t	vps_num_units_in_tick;
-				uint32_t	vps_time_scale;
-				uint8_t		vps_poc_proportional_to_timing_flag;
-				uint32_t	vps_num_ticks_poc_diff_one_minus1;
-				uint16_t	vps_num_hrd_parameters;
+				uint32_t	vps_num_units_in_tick = 0;
+				uint32_t	vps_time_scale = 0;
+				uint8_t		vps_poc_proportional_to_timing_flag = 0;
+				uint32_t	vps_num_ticks_poc_diff_one_minus1 = 0;
+				uint16_t	vps_num_hrd_parameters = 0;
 				VPS_HRD_PARAMETER**
 							vps_hrd_parameters;
-				uint8_t		vps_extension_flag;
+				uint8_t		vps_extension_flag = 0;
 				RBSP_TRAILING_BITS
 							rbsp_trailing_bits;
 
@@ -1646,7 +1658,13 @@ namespace BST {
 							ptr_ctx_video_bst;
 
 				VIDEO_PARAMETER_SET_RBSP(VideoBitstreamCtx* ctx=NULL)
-					: profile_tier_level(NULL)
+					: vps_video_parameter_set_id(0)
+					, vps_base_layer_internal_flag(0)
+					, vps_base_layer_available_flag(0)
+					, vps_max_layers_minus1(0)
+					, vps_max_sub_layers_minus1(0)
+					, vps_temporal_id_nesting_flag(0)
+					, profile_tier_level(NULL)
 					, vps_ordering_info(NULL)
 					, layer_id_included_flag(NULL)
 					, vps_hrd_parameters(NULL)
@@ -2755,7 +2773,7 @@ namespace BST {
 
 			struct ACCESS_UNIT_DELIMITER_RBSP : public SYNTAX_BITSTREAM_MAP
 			{
-				uint8_t					pic_type;
+				uint8_t					pic_type = 0;
 				RBSP_TRAILING_BITS		rbsp_trailing_bits;
 
 				int Map(AMBst in_bst)
@@ -2795,26 +2813,28 @@ namespace BST {
 			{
 				struct PPS_RANGE_EXTENSION : public SYNTAX_BITSTREAM_MAP
 				{
-					uint8_t		log2_max_transform_skip_block_size_minus2;
+					uint8_t		log2_max_transform_skip_block_size_minus2 = 0;
 				
 					uint8_t		cross_component_prediction_enabled_flag : 1;
 					uint8_t		chroma_qp_offset_list_enabled_flag : 1;
 					uint8_t		reserved_0 : 6;
 
-					uint8_t		diff_cu_chroma_qp_offset_depth;
-					uint8_t		chroma_qp_offset_list_len_minus1;
+					uint8_t		diff_cu_chroma_qp_offset_depth = 0;
+					uint8_t		chroma_qp_offset_list_len_minus1 = 0;
 
-					int8_t		cb_qp_offset_list[6];
-					int8_t		cr_qp_offset_list[6];
+					int8_t		cb_qp_offset_list[6] = { 0 };
+					int8_t		cr_qp_offset_list[6] = { 0 };
 
-					uint8_t		log2_sao_offset_scale_luma;
-					uint8_t		log2_sao_offset_scale_chroma;
+					uint8_t		log2_sao_offset_scale_luma = 0;
+					uint8_t		log2_sao_offset_scale_chroma = 0;
 
 					PIC_PARAMETER_SET_RBSP*
 								pic_parameter_set_rbsp;
 
 					PPS_RANGE_EXTENSION(PIC_PARAMETER_SET_RBSP* ptr_pic_parameter_set_rbsp) 
-						: log2_max_transform_skip_block_size_minus2(0)
+						: cross_component_prediction_enabled_flag(0)
+						, chroma_qp_offset_list_enabled_flag(0)
+						, reserved_0(0)
 						, pic_parameter_set_rbsp(ptr_pic_parameter_set_rbsp) {
 					}
 
@@ -3076,28 +3096,30 @@ namespace BST {
 
 						};
 
-						uint8_t		num_cm_ref_layers_minus1;
-						uint8_t		cm_ref_layer_id[62];
+						uint8_t		num_cm_ref_layers_minus1 = 0;
+						uint8_t		cm_ref_layer_id[62] = { 0 };
 
 						uint8_t		cm_octant_depth : 2;
 						uint8_t		cm_y_part_num_log2 : 2;
 						uint8_t		cm_res_quant_bits : 2;
 						uint8_t		cm_delta_flc_bits_minus1 : 2;
 
-						uint8_t		luma_bit_depth_cm_input_minus8;
-						uint8_t		chroma_bit_depth_cm_input_minus8;
-						uint8_t		luma_bit_depth_cm_output_minus8;
-						uint8_t		chroma_bit_depth_cm_output_minus8;
+						uint8_t		luma_bit_depth_cm_input_minus8 = 0;
+						uint8_t		chroma_bit_depth_cm_input_minus8 = 0;
+						uint8_t		luma_bit_depth_cm_output_minus8 = 0;
+						uint8_t		chroma_bit_depth_cm_output_minus8 = 0;
 
-						int32_t		cm_adapt_threshold_u_delta;
-						int32_t		cm_adapt_threshold_v_delta;
+						int32_t		cm_adapt_threshold_u_delta = 0;
+						int32_t		cm_adapt_threshold_v_delta = 0;
 
 						COLOUR_MAPPING_OCTANTS*
 									colour_mapping_octants;
 
 						COLOUR_MAPPING_TABLE()
-							: cm_adapt_threshold_u_delta(0)
-							, cm_adapt_threshold_v_delta(0)
+							: cm_octant_depth(0)
+							, cm_y_part_num_log2(0)
+							, cm_res_quant_bits(0)
+							, cm_delta_flc_bits_minus1(0)
 							, colour_mapping_octants(NULL){
 						}
 
@@ -3225,17 +3247,18 @@ namespace BST {
 					uint8_t		pps_infer_scaling_list_flag : 1;
 					uint8_t		pps_scaling_list_ref_layer_id : 6;
 
-					uint8_t		num_ref_loc_offsets;
+					uint8_t		num_ref_loc_offsets = 0;
 					REF_LOC_INFO*
-								ref_loc_info;
+								ref_loc_info = nullptr;
 
-					uint8_t		colour_mapping_enabled_flag;
+					uint8_t		colour_mapping_enabled_flag = 0;
 					COLOUR_MAPPING_TABLE*
-								colour_mapping_table;
+								colour_mapping_table = nullptr;
 
 					PPS_MULTILAYER_EXTENSION()
-						: ref_loc_info(NULL)
-						, colour_mapping_table(NULL){
+						: poc_reset_info_present_flag(0)
+						, pps_infer_scaling_list_flag(0)
+						, pps_scaling_list_ref_layer_id(0){
 					}
 
 					virtual ~PPS_MULTILAYER_EXTENSION() {
@@ -3373,16 +3396,16 @@ namespace BST {
 				{
 					struct DELTA_DLT : public SYNTAX_BITSTREAM_MAP
 					{
-						uint32_t		num_val_delta_dlt;
-						uint32_t		max_diff;
-						uint32_t		min_diff_minus1;
-						uint32_t		delta_dlt_val0;
-						uint32_t*		delta_val_diff_minus_min;
+						uint32_t		num_val_delta_dlt =  0;
+						uint32_t		max_diff = 0;
+						uint32_t		min_diff_minus1 = 0;
+						uint32_t		delta_dlt_val0 = 0;
+						uint32_t*		delta_val_diff_minus_min = nullptr;
 
 						PPS_3D_EXTENSION*
 										pps_3d_extension;
 
-						DELTA_DLT(PPS_3D_EXTENSION* ptr_pps_3d_extension): delta_val_diff_minus_min(NULL), pps_3d_extension(ptr_pps_3d_extension){}
+						DELTA_DLT(PPS_3D_EXTENSION* ptr_pps_3d_extension): pps_3d_extension(ptr_pps_3d_extension){}
 
 						virtual ~DELTA_DLT() {
 							AMP_SAFEDELA(delta_val_diff_minus_min);
@@ -4996,17 +5019,16 @@ namespace BST {
 			NAL_UNIT_HEADER		nal_unit_header;
 			union
 			{
+				void*						ptr_rbsp = nullptr;
 				VIDEO_PARAMETER_SET_RBSP*	ptr_video_parameter_set_rbsp;
 				SEQ_PARAMETER_SET_RBSP*		ptr_seq_parameter_set_rbsp;
 				ACCESS_UNIT_DELIMITER_RBSP*	ptr_access_unit_delimiter_rbsp;
 				PIC_PARAMETER_SET_RBSP*		ptr_pic_parameter_set_rbsp;
 				SEI_RBSP*					ptr_sei_rbsp;
 				SLICE_SEGMENT_LAYER_RBSP*	ptr_slice_segment_layer_rbsp;
-				void*						ptr_rbsp = nullptr;
 			};
-			VideoBitstreamCtx*				ptr_ctx_video_bst;
+			VideoBitstreamCtx*				ptr_ctx_video_bst = nullptr;
 
-			NAL_UNIT() : ptr_rbsp(NULL), ptr_ctx_video_bst(NULL){}
 			virtual ~NAL_UNIT() {
 				switch (nal_unit_header.nal_unit_type)
 				{
@@ -5255,17 +5277,17 @@ namespace BST {
 		struct BYTE_STREAM_NAL_UNIT : public SYNTAX_BITSTREAM_MAP
 		{
 			std::vector<uint8_t>		leading_zero_8bits;
-			uint8_t						has_zero_byte;
+			uint8_t						has_zero_byte = 0;
 			uint8_t						zero_byte = 0;
-			uint32_t					start_code_prefix_one_3bytes;
+			uint32_t					start_code_prefix_one_3bytes = 0;
 			NAL_UNIT					nal_unit;
 			std::vector<uint8_t>		trailing_zero_8bits;
 			VideoBitstreamCtx*			ctx_video_bst;
 			uint32_t					NAL_Length_Delimiter_Size;
-			uint32_t					NAL_Length;
+			uint32_t					NAL_Length = 0;
 
 			BYTE_STREAM_NAL_UNIT(VideoBitstreamCtx* ctx = NULL, uint32_t cbNALLengthDelimiterSize=0) 
-				: has_zero_byte(false), ctx_video_bst(ctx), NAL_Length_Delimiter_Size(cbNALLengthDelimiterSize), NAL_Length(0) {
+				: ctx_video_bst(ctx), NAL_Length_Delimiter_Size(cbNALLengthDelimiterSize) {
 				nal_unit.UpdateCtx(ctx);
 			}
 
