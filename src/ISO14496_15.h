@@ -32,6 +32,7 @@ SOFTWARE.
 #include "ISO14496_12.h"
 #include "ISO14496_1.h"
 #include "dump_data_type.h"
+#include "AMRingBuffer.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -93,6 +94,8 @@ SOFTWARE.
 	(box_type) == 'a3d2' ||\
 	(box_type) == 'a3d3' ||\
 	(box_type) == 'a3d4')
+
+class IMMTESDataOutputAgent;
 
 namespace ISOBMFF
 {
@@ -872,6 +875,8 @@ namespace ISOBMFF
 		virtual int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit, const PROCESS_DATA_INFO* NAL_Unit_DataInfo = nullptr, bool* bAUCommitted = nullptr) = 0;
 		/*!	@brief Discard all data*/
 		virtual int Flush() = 0;
+		/*!	@brief Forcedly commit the data to the downstream*/
+		virtual int Drain() = 0;
 		virtual int SetNextAUPTSDTS(TM_90KHZ pts, TM_90KHZ dts) = 0;
 		virtual int SetAUStartPointCallback(CB_AU_STARTPOINT cbAUStartPoint, void* ptr_context) = 0;
 
@@ -880,10 +885,15 @@ namespace ISOBMFF
 
 	struct NALAUSampleRepackerBase : public INALAUSampleRepacker
 	{
+		// INALAUSampleRepacker
 		virtual int Seek(uint64_t src_sample_file_offset);
 		virtual	int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 		virtual int SetNextAUPTSDTS(TM_90KHZ pts, TM_90KHZ dts);
 		virtual int SetAUStartPointCallback(CB_AU_STARTPOINT cbAUStartPoint, void* ptr_context);
+
+		// Other command functions
+		virtual int WriteAUData(uint8_t* pBuf, int cbBuf, const PROCESS_DATA_INFO* NAL_Unit_DataInfo = nullptr);
+		virtual int CommitAU();
 
 		FILE*		m_fpSrc;
 		FILE*		m_fpDst;
@@ -892,11 +902,25 @@ namespace ISOBMFF
 
 		CB_AU_STARTPOINT
 					m_callback_au_startpoint;
+		IMMTESDataOutputAgent*
+					m_pOutputAgent;
 		void*		m_context_au_startpoint;
+		AMLinearRingBuffer
+					m_lrb_AU;
+		PROCESS_DATA_INFO
+					m_data_info;
 
-		NALAUSampleRepackerBase(FILE* fp, FILE* fw) 
+		NALAUSampleRepackerBase(FILE* fp, FILE* fw, IMMTESDataOutputAgent* pOutputAgent) 
 			: m_fpSrc(fp), m_fpDst(fw), m_next_AU_PTS(INVALID_TM_90KHZ_VALUE), m_next_AU_DTS(INVALID_TM_90KHZ_VALUE)
-			, m_callback_au_startpoint(nullptr), m_context_au_startpoint(nullptr){
+			, m_callback_au_startpoint(nullptr), m_pOutputAgent(pOutputAgent), m_context_au_startpoint(nullptr), m_lrb_AU(nullptr){
+			if (m_pOutputAgent != nullptr)
+				m_lrb_AU = AM_LRB_Create(1024 * 1024);
+
+			memset(&m_data_info, 0, sizeof(m_data_info));
+		}
+
+		~NALAUSampleRepackerBase() {
+			AM_LRB_Destroy(m_lrb_AU);
 		}
 	};
 
@@ -905,12 +929,13 @@ namespace ISOBMFF
 		ISOBMFF::AVCDecoderConfigurationRecord*
 					m_AVCConfigRecord;
 
-		AVCSampleRepacker(FILE* fp, FILE* fw, ISOBMFF::AVCDecoderConfigurationRecord* pAVCConfigRecord)
-			: NALAUSampleRepackerBase(fp, fw), m_AVCConfigRecord(pAVCConfigRecord){}
+		AVCSampleRepacker(FILE* fp, FILE* fw, IMMTESDataOutputAgent* pOutputAgent, ISOBMFF::AVCDecoderConfigurationRecord* pAVCConfigRecord)
+			: NALAUSampleRepackerBase(fp, fw, pOutputAgent), m_AVCConfigRecord(pAVCConfigRecord){}
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 		int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit, const PROCESS_DATA_INFO* NAL_Unit_DataInfo = nullptr, bool* bAUCommitted = nullptr);
 		int Flush();
+		int Drain();
 	};
 
 	struct HEVCSampleRepacker : public NALAUSampleRepackerBase
@@ -920,12 +945,13 @@ namespace ISOBMFF
 		std::vector<std::tuple<uint8_t* /*pNalUnitBuf*/, int /*NumBytesInNalUnit*/, PROCESS_DATA_INFO>>
 					m_vNonVCLNUs;
 
-		HEVCSampleRepacker(FILE* fp, FILE* fw, ISOBMFF::HEVCDecoderConfigurationRecord* pHEVCConfigRecord)
-			: NALAUSampleRepackerBase(fp, fw), m_HEVCConfigRecord(pHEVCConfigRecord) {}
+		HEVCSampleRepacker(FILE* fp, FILE* fw, IMMTESDataOutputAgent* pOutputAgent, ISOBMFF::HEVCDecoderConfigurationRecord* pHEVCConfigRecord)
+			: NALAUSampleRepackerBase(fp, fw, pOutputAgent), m_HEVCConfigRecord(pHEVCConfigRecord) {}
 
 		int	RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe);
 		int RepackNALUnitToAnnexBByteStream(uint8_t* pNalUnitBuf, int NumBytesInNalUnit, const PROCESS_DATA_INFO* NAL_Unit_DataInfo = nullptr, bool* bAUCommitted = nullptr);
 		int Flush();
+		int Drain();
 	};
 
 } // namespace  ISOBMFF

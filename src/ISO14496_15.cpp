@@ -60,6 +60,85 @@ namespace ISOBMFF
 		return RET_CODE_SUCCESS;
 	}
 
+	int NALAUSampleRepackerBase::WriteAUData(uint8_t* pBuf, int cbBuf, const PROCESS_DATA_INFO* NAL_Unit_DataInfo)
+	{
+		int iRet = RET_CODE_SUCCESS;
+		if (pBuf == NULL || cbBuf <= 0)
+			return RET_CODE_INVALID_PARAMETER;
+
+		if (NAL_Unit_DataInfo && !m_data_info.valid)
+			m_data_info = *NAL_Unit_DataInfo;
+
+		if (m_fpDst != NULL)
+		{
+			fwrite((const void*)pBuf, 1, cbBuf, m_fpDst);
+		}
+
+		if (m_lrb_AU)
+		{
+			int nAUWriteBufLen = 0;
+			uint8_t* pAUWriteBuf = AM_LRB_GetWritePtr(m_lrb_AU, &nAUWriteBufLen);
+			if (nAUWriteBufLen <= 0 || pAUWriteBuf == nullptr || nAUWriteBufLen < cbBuf)
+			{
+				// Try to reform and enlarge the buffer.
+				AM_LRB_Reform(m_lrb_AU);
+				pAUWriteBuf = AM_LRB_GetWritePtr(m_lrb_AU, &nAUWriteBufLen);
+				if (nAUWriteBufLen == 0 || pAUWriteBuf == nullptr || nAUWriteBufLen < cbBuf)
+				{
+					// Enlarge the ring buffer size
+					int nCurSize = AM_LRB_GetSize(m_lrb_AU);
+					if (nCurSize == INT32_MAX || nCurSize + cbBuf > INT32_MAX)
+					{
+						printf("[NALRepacker][WriteAUData] The input AE unit buffer is too huge, can't be supported now.\n");
+						return RET_CODE_OUTOFMEMORY;
+					}
+
+					if (nCurSize + cbBuf >= INT32_MAX / 2)
+						nCurSize = INT32_MAX;
+					else
+						nCurSize += cbBuf;
+
+					printf("[NALRepacker][WriteAUData] Try to resize the linear ring buffer size to %d bytes.\n", nCurSize);
+					if ((iRet = AM_LRB_Resize(m_lrb_AU, nCurSize)) < 0)
+						return iRet;
+
+					pAUWriteBuf = AM_LRB_GetWritePtr(m_lrb_AU, &nAUWriteBufLen);
+					if (nAUWriteBufLen == 0 || pAUWriteBuf == nullptr)
+						return RET_CODE_OUTOFMEMORY;
+				}
+			}
+
+			memcpy(pAUWriteBuf, pBuf, cbBuf);
+			AM_LRB_SkipWritePtr(m_lrb_AU, cbBuf);
+		}
+
+		return RET_CODE_SUCCESS;	
+	}
+
+	int NALAUSampleRepackerBase::CommitAU()
+	{
+		int nAUBufLen = 0;
+		if (m_lrb_AU)
+		{
+			uint8_t* pAUReadPtr = AM_LRB_GetReadPtr(m_lrb_AU, &nAUBufLen);
+			if (pAUReadPtr != NULL && nAUBufLen > 0)
+			{
+				if (m_pOutputAgent != nullptr)
+				{
+					m_pOutputAgent->OutputES(m_data_info.valid ? m_data_info.CID : 0xFFFF, 
+						m_data_info.valid ? m_data_info.packet_id : 0xFFFF,
+						pAUReadPtr, nAUBufLen, m_next_AU_PTS, m_next_AU_DTS);
+				}
+
+				AM_LRB_SkipReadPtr(m_lrb_AU, nAUBufLen);
+			}
+		}
+
+		m_data_info.valid = 0;
+		
+		return RET_CODE_SUCCESS;
+	}
+
 	int	AVCSampleRepacker::RepackSamplePayloadToAnnexBByteStream(uint32_t sample_size, FLAG_VALUE keyframe)
 	{
 		uint8_t buf[2048];
@@ -197,6 +276,11 @@ namespace ISOBMFF
 	}
 
 	int AVCSampleRepacker::Flush()
+	{
+		return -1;
+	}
+
+	int AVCSampleRepacker::Drain()
 	{
 		return -1;
 	}
@@ -412,13 +496,12 @@ namespace ISOBMFF
 				))
 			{
 				bStartNewAccessUnitFound = true;
-				if (m_fpDst != nullptr)
+
+				/*if (fwrite(four_bytes_start_prefixes, 1, 4, m_fpDst) != 4)*/
+				if (AMP_FAILED(WriteAUData(four_bytes_start_prefixes, 4, &std::get<2>(v))))
 				{
-					if (fwrite(four_bytes_start_prefixes, 1, 4, m_fpDst) != 4)
-					{
-						printf("[HEVCSampleRepacker] Failed to write 4 bytes of start code prefix to the output file.\n");
-						return RET_CODE_ERROR;
-					}
+					printf("[HEVCSampleRepacker] Failed to write 4 bytes of start code prefix to the output file.\n");
+					return RET_CODE_ERROR;
 				}
 
 				if (m_callback_au_startpoint != nullptr)
@@ -433,24 +516,20 @@ namespace ISOBMFF
 			else
 			{
 				bool is_zero_byte_present = (nu_type == 32 || nu_type == 33 || nu_type == 34) ? true : false;
-				if (m_fpDst != nullptr)
+				uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
+				//if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
+				if (AMP_FAILED(WriteAUData(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, cbStartCodePrefix, &std::get<2>(v))))
 				{
-					uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
-					if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
-					{
-						printf("[HEVCSampleRepacker] Failed to write %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
-						return RET_CODE_ERROR;
-					}
+					printf("[HEVCSampleRepacker] Failed to write %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
+					return RET_CODE_ERROR;
 				}
 			}
 
-			if (m_fpDst != nullptr)
+			//if (fwrite(pNuBuf, 1, (size_t)cbNuBuf, m_fpDst) != (size_t)cbNuBuf)
+			if (AMP_FAILED(WriteAUData(pNuBuf, cbNuBuf, &std::get<2>(v))))
 			{
-				if (fwrite(pNuBuf, 1, (size_t)cbNuBuf, m_fpDst) != (size_t)cbNuBuf)
-				{
-					printf("[HEVCSampleRepacker] Failed to write %u bytes of NAL Unit to the output file.\n", cbNuBuf);
-					return RET_CODE_ERROR;
-				}
+				printf("[HEVCSampleRepacker] Failed to write %u bytes of NAL Unit to the output file.\n", cbNuBuf);
+				return RET_CODE_ERROR;
 			}
 
 			delete[] pNuBuf;
@@ -460,34 +539,33 @@ namespace ISOBMFF
 		m_vNonVCLNUs.clear();
 
 		// Write the NAL unit to the output file
-		if (m_fpDst != nullptr)
+		bool is_zero_byte_present = (first_slice_segment_in_pic_flag && nuh_layer_id == 0 && !bStartNewAccessUnitFound) ? true : false;
+		uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
+		//if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
+		if (AMP_FAILED(WriteAUData(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, cbStartCodePrefix, NAL_Unit_DataInfo)))
 		{
-			bool is_zero_byte_present = (first_slice_segment_in_pic_flag && nuh_layer_id == 0 && !bStartNewAccessUnitFound) ? true : false;
-			uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
-			if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
+			printf("[HEVCSampleRepacker] Failed to write %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
+			return RET_CODE_ERROR;
+		}
+
+		//if (fwrite(pNalUnitBuf, 1, (size_t)NumBytesInNalUnit, m_fpDst) != (size_t)NumBytesInNalUnit)
+		if (AMP_FAILED(WriteAUData(pNalUnitBuf, NumBytesInNalUnit, NAL_Unit_DataInfo)))
+		{
+			printf("[HEVCSampleRepacker] Failed to write %d bytes of NAL unit to the output file.\n", NumBytesInNalUnit);
+			return RET_CODE_ERROR;
+		}
+
+		if (is_zero_byte_present)
+		{
+			bStartNewAccessUnitFound = true;
+
+			if (m_callback_au_startpoint != nullptr)
 			{
-				printf("[HEVCSampleRepacker] Failed to write %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
-				return RET_CODE_ERROR;
-			}
+				ACCESS_UNIT_INFO au_info;
+				memset(&au_info, 0, sizeof(au_info));
 
-			if (fwrite(pNalUnitBuf, 1, (size_t)NumBytesInNalUnit, m_fpDst) != (size_t)NumBytesInNalUnit)
-			{
-				printf("[HEVCSampleRepacker] Failed to write %d bytes of NAL unit to the output file.\n", NumBytesInNalUnit);
-				return RET_CODE_ERROR;
-			}
-
-			if (is_zero_byte_present)
-			{
-				bStartNewAccessUnitFound = true;
-
-				if (m_callback_au_startpoint != nullptr)
-				{
-					ACCESS_UNIT_INFO au_info;
-					memset(&au_info, 0, sizeof(au_info));
-
-					au_info.picture_type = picture_type;
-					m_callback_au_startpoint(m_next_AU_PTS, m_next_AU_DTS, NAL_Unit_DataInfo, &au_info, m_context_au_startpoint);
-				}
+				au_info.picture_type = picture_type;
+				m_callback_au_startpoint(m_next_AU_PTS, m_next_AU_DTS, NAL_Unit_DataInfo, &au_info, m_context_au_startpoint);
 			}
 		}
 
@@ -499,6 +577,22 @@ namespace ISOBMFF
 
 	int HEVCSampleRepacker::Flush()
 	{
+		for (auto& v : m_vNonVCLNUs)
+		{
+			uint8_t* pNuBuf = std::get<0>(v);
+			delete[] pNuBuf;
+		}
+		m_vNonVCLNUs.clear();
+
+		AM_LRB_Reset(m_lrb_AU);
+		m_data_info.valid = 0;
+
+		return RET_CODE_SUCCESS;
+	}
+
+	int HEVCSampleRepacker::Drain()
+	{
+		int nRet = RET_CODE_SUCCESS;
 		uint8_t four_bytes_start_prefixes[4] = { 0, 0, 0, 1 };
 		uint8_t three_bytes_start_prefixes[3] = { 0, 0, 1 };
 
@@ -511,28 +605,38 @@ namespace ISOBMFF
 			//uint8_t nu_nuh_layer_id = ((pNuBuf[0] & 0x1) << 5)&((pNuBuf[1] >> 3) & 0x1F);
 
 			bool is_zero_byte_present = (nu_type == 32 || nu_type == 33 || nu_type == 34) ? true : false;
-			if (m_fpDst != nullptr)
 			{
 				uint8_t cbStartCodePrefix = is_zero_byte_present ? 4 : 3;
-				if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
+				//if (fwrite(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, 1, cbStartCodePrefix, m_fpDst) != cbStartCodePrefix)
+				if (AMP_FAILED(WriteAUData(is_zero_byte_present ? four_bytes_start_prefixes : three_bytes_start_prefixes, cbStartCodePrefix, &std::get<2>(v))))
 				{
 					printf("[HEVCSampleRepacker] Failed to flush %u bytes of start code prefix to the output file.\n", cbStartCodePrefix);
-					return RET_CODE_ERROR;
+					nRet = RET_CODE_ERROR;
+					goto done;
 				}
 
-				if (fwrite(pNuBuf, 1, (size_t)cbNuBuf, m_fpDst) != (size_t)cbNuBuf)
+				//if (fwrite(pNuBuf, 1, (size_t)cbNuBuf, m_fpDst) != (size_t)cbNuBuf)
+				if (AMP_FAILED(WriteAUData(pNuBuf, cbNuBuf, &std::get<2>(v))))
 				{
 					printf("[HEVCSampleRepacker] Failed to flush %u bytes of NAL Unit to the output file.\n", cbNuBuf);
-					return RET_CODE_ERROR;
+					nRet = RET_CODE_ERROR;
+					goto done;
 				}
 			}
-
-			delete[] pNuBuf;
 		}
 
+		// Forcedly commit the AU data
+		CommitAU();
+
+	done:
+		for (auto& v : m_vNonVCLNUs)
+		{
+			uint8_t* pNuBuf = std::get<0>(v);
+			delete[] pNuBuf;
+		}
 		m_vNonVCLNUs.clear();
 
-		return RET_CODE_SUCCESS;
+		return nRet;
 	}
 
 }

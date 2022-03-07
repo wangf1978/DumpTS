@@ -418,6 +418,11 @@ int CESRepacker::Flush()
 	return RET_CODE_ERROR_NOTIMPL;
 }
 
+int CESRepacker::Drain()
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
 int CESRepacker::Close()
 {
 	if (m_fpSrc != nullptr)
@@ -468,11 +473,11 @@ int CNALRepacker::Open(const char* szSrcFile)
 	{
 		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC)
 		{
-			m_NALAURepacker = new ISOBMFF::AVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pAVCConfigRecord);
+			m_NALAURepacker = new ISOBMFF::AVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pMMTESDataOutputAgent, m_config.pAVCConfigRecord);
 		}
 		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC)
 		{
-			m_NALAURepacker = new ISOBMFF::HEVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pHEVCConfigRecord);
+			m_NALAURepacker = new ISOBMFF::HEVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pMMTESDataOutputAgent, m_config.pHEVCConfigRecord);
 		}
 	}
 
@@ -732,6 +737,53 @@ int CNALRepacker::Flush()
 	}
 
 	return m_NALAURepacker ? m_NALAURepacker->Flush() : RET_CODE_SUCCESS;
+}
+
+int CNALRepacker::Drain()
+{
+	if (m_srcESFmt == ES_BYTE_STREAM_NALUNIT_WITH_LEN)
+	{
+		uint8_t nDelimiterLengthSize = 4;
+		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC && m_config.pAVCConfigRecord != nullptr)
+			nDelimiterLengthSize = m_config.pAVCConfigRecord->lengthSizeMinusOne + 1;
+		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC && m_config.pHEVCConfigRecord != nullptr)
+			nDelimiterLengthSize = m_config.pHEVCConfigRecord->lengthSizeMinusOne + 1;
+		else if (m_config.NALUnit_Length_Size > 0 && (size_t)m_config.NALUnit_Length_Size <= sizeof(uint64_t))
+			nDelimiterLengthSize = m_config.NALUnit_Length_Size;
+
+		int nNalBufLen = 0;
+		uint8_t* pNalBuf = AM_LRB_GetReadPtr(m_lrb_NAL, &nNalBufLen);
+
+		// Flush the previous buffer
+		if (pNalBuf != nullptr && nNalBufLen > 0)
+		{
+			if (m_NALAURepacker != nullptr)
+			{
+				if (nNalBufLen > nDelimiterLengthSize)
+				{
+					uint64_t nNalUnitLen = 0;
+					for (uint8_t i = 0; i < nDelimiterLengthSize; i++)
+						nNalUnitLen = (nNalUnitLen << 8) | pNalBuf[i];
+
+					// it is a normal unit buffer or not.
+					if (nNalUnitLen + nDelimiterLengthSize <= (uint64_t)nNalBufLen)
+						m_NALAURepacker->RepackNALUnitToAnnexBByteStream(pNalBuf + nDelimiterLengthSize, (int)nNalUnitLen);
+				}
+			}
+			else
+			{
+				if (m_fpDst != nullptr)
+				{
+					if (fwrite(pNalBuf, 1, (size_t)nNalBufLen, m_fpDst) != (size_t)nNalBufLen)
+						printf("[ESRepacker] Failed to flush %d bytes into the output file.\n", nNalBufLen);
+				}
+			}
+
+			AM_LRB_Reset(m_lrb_NAL);
+		}
+	}
+
+	return m_NALAURepacker ? m_NALAURepacker->Drain() : RET_CODE_SUCCESS;
 }
 
 int CNALRepacker::Close()

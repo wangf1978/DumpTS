@@ -99,20 +99,32 @@ struct SEEK_POINT_INFO
 					frame_sizes;
 };
 
+class IMMTESDataOutputAgent
+{
+public:
+	virtual int OutputES(uint16_t cid, uint16_t pkt_id, uint8_t* es_data, int cb_es_data, long long pts, long long dts) = 0;
+};
+
 struct ES_REPACK_CONFIG
 {
-	CODEC_ID		codec_id;
+	CODEC_ID		codec_id = CODEC_ID_UNKNOWN;
 	union
 	{
+		void*		pCodecPrivObj = nullptr;
 		ISOBMFF::AVCDecoderConfigurationRecord*
 					pAVCConfigRecord;
 		ISOBMFF::HEVCDecoderConfigurationRecord*
 					pHEVCConfigRecord;
-		void*		pCodecPrivObj;
 	};
-	char			es_output_file_path[MAX_PATH];
+	char			es_output_file_path[MAX_PATH] = { 0 };
 	// Used for converting AnnexB byte-stream to ISO NAL Access Unit Sample format.
-	int				NALUnit_Length_Size;
+	int				NALUnit_Length_Size = 0;
+	union
+	{
+		void*		pESDataOutputCallback = nullptr;
+		IMMTESDataOutputAgent*
+					pMMTESDataOutputAgent;
+	};
 };
 
 class CESRepacker
@@ -154,6 +166,9 @@ public:
 
 	/*!	@brief Flush the cache buffer in the ES packer. */
 	virtual int Flush();
+	
+	/*!	@brief The upper data is sent finished, and need forcedly to drain the left data to process */
+	virtual int Drain();
 	
 	/*!	@brief Close ES re-packer and release the resource. */
 	virtual int Close();
@@ -204,6 +219,7 @@ public:
 	virtual int Process(uint8_t* pBuf, int cbSize, const PROCESS_DATA_INFO* data_info = NULL);
 	virtual int SetNextMPUPtsDts(int number_of_au, const TM_90KHZ* PTSes, const TM_90KHZ* DTSes);
 	virtual int Flush();
+	virtual int Drain();
 	virtual int Close();
 
 	// Method

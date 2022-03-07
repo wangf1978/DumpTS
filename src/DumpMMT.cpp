@@ -2481,7 +2481,7 @@ int DumpMMTOneStream()
 	for (int i = 0; i <= 1; i++) {
 		if (pESRepacker[i] != nullptr)
 		{
-			pESRepacker[i]->Flush();
+			pESRepacker[i]->Drain();
 
 			pESRepacker[i]->Close();
 			delete pESRepacker[i];
