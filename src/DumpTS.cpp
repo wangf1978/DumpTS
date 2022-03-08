@@ -80,7 +80,7 @@ extern int	ShowPCR(int option);
 extern int	DiffTSATC();
 extern int	RefactorTS();
 extern int	DumpOneStream();
-extern int	DumpPartialTS();
+extern int	DumpPartialTS(bool bOnlyESTS = true);
 extern int	DumpMP4();
 extern int	DumpMKV();
 extern int	DumpMMT();
@@ -975,8 +975,7 @@ int main(int argc, char* argv[])
 	{
 		nDumpRet = DumpMMT();
 	}
-	else if (iter_srcfmt != g_params.end() && (iter_srcfmt->second.compare("vob") == 0 ||
-											   iter_srcfmt->second.compare("mpg") == 0))
+	else if (iter_srcfmt != g_params.end() && (iter_srcfmt->second.compare("vob") == 0 || iter_srcfmt->second.compare("mpg") == 0))
 	{
 		if (g_params.find("stream_id") != g_params.end())
 		{
@@ -991,9 +990,7 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
-	else if (g_params.find("pid") != g_params.end() && (
-														g_params.find("diffATC") == g_params.end() &&
-														g_params.find("diffATCDTS") == g_params.end()))
+	else if (g_params.find("pid") != g_params.end() && (g_params.find("diffATC") == g_params.end() && g_params.find("diffATCDTS") == g_params.end()))
 	{
 		if (g_params.find("outputfmt") == g_params.end())
 			g_params["outputfmt"] = "es";
@@ -1004,7 +1001,7 @@ int main(int argc, char* argv[])
 		{
 			nDumpRet = DumpOneStream();
 		}
-		else if (str_output_fmt.compare("ts") == 0 || str_output_fmt.compare("m2ts") == 0)
+		else if (str_output_fmt.compare("ts") == 0 || str_output_fmt.compare("tts") == 0 || str_output_fmt.compare("m2ts") == 0)
 		{
 			if (g_params.find("destpid") == g_params.end())
 				nDumpRet = DumpPartialTS();

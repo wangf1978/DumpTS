@@ -25,6 +25,7 @@ SOFTWARE.
 */
 #include "platcomm.h"
 #include "PayloadBuf.h"
+#include "DataUtil.h"
 
 using namespace std;
 
@@ -32,7 +33,157 @@ extern const char *dump_msg[];
 extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
 // Dump a partial TS
-int DumpPartialTS()
+int DumpPartialTS(bool bOnlyESTS = true)
 {
-	return -1;
+	errno_t errn = 0;
+	int nDumpRet = -1;
+	FILE *fp = NULL, *fw = NULL;
+	uint8_t offset = 0;
+	uint8_t ts_pack_size = TS_PACKET_SIZE - 4;
+	uint8_t buf[TS_PACKET_SIZE] = { 0 };
+	std::set<uint16_t> pid_filters;
+	bool bTTSOutput = false;
+	int64_t num_of_ts_packs_written = 0;
+
+	auto iter_srcfmt = g_params.find("srcfmt");
+	auto iter_dstfmt = g_params.find("outputfmt");
+	auto iter_inputfile = g_params.find("input");
+	auto iter_outputfile = g_params.find("output");
+	auto iter_PID = g_params.find("pid");
+
+	if (iter_PID == g_params.end())
+	{
+		nDumpRet = -1;
+		printf("Please specify the PID.\n");
+		goto done;
+	}
+	else
+	{
+		std::vector<std::string> strPIDs;
+		splitstr(iter_PID->second.c_str(), ",;.:", strPIDs);
+		for (auto& strPID : strPIDs)
+		{
+			int64_t pidVal = -1LL;
+			if (ConvertToInt(strPID, pidVal) && pidVal >= 0LL && pidVal <= 0x1FFFLL)
+				pid_filters.insert((uint16_t)pidVal);
+			else
+				printf("Found an invalid PID: %s\n", strPID.c_str());
+		}
+
+		if (pid_filters.size() == 0)
+		{
+			nDumpRet = -1;
+			printf("Please specify a valid PID or multiple valid PIDs delimited by ',.:;'.\n");
+			goto done;
+		}
+	}
+
+	if (iter_srcfmt == g_params.end() ||
+		(_stricmp(iter_srcfmt->second.c_str(), "ts") != 0 &&
+		 _stricmp(iter_srcfmt->second.c_str(), "tts") != 0 &&
+		 _stricmp(iter_srcfmt->second.c_str(), "m2ts") != 0))
+	{
+		nDumpRet = -1;
+		printf("Only support extracting stream/PSI from transport stream.\n");
+		goto done;
+	}
+
+	if (iter_dstfmt == g_params.end() ||
+		(_stricmp(iter_dstfmt->second.c_str(), "ts") != 0 &&
+		 _stricmp(iter_dstfmt->second.c_str(), "tts") != 0))
+	{
+		nDumpRet = -1;
+		printf("Only support extracting stream/PSI to transport stream.\n");
+		goto done;
+	}
+
+	if (iter_inputfile == g_params.end())
+	{
+		printf("Please specify an input transport stream file.\n");
+		nDumpRet = -1;
+		goto done;
+	}
+
+	if (iter_outputfile == g_params.end())
+	{
+		printf("Please specify an output transport stream file.\n");
+		nDumpRet = -1;
+		goto done;
+	}
+
+	// support:
+	// m2ts/tts -> tts
+	// m2ts/tts -> ts
+	// not support:
+	// ts -> tts
+	if (_stricmp(iter_srcfmt->second.c_str(), "ts") == 0 && 
+			(_stricmp(iter_dstfmt->second.c_str(), "tts") == 0 ||
+			 _stricmp(iter_dstfmt->second.c_str(), "m2ts") == 0))
+	{
+		nDumpRet = -1;
+		printf("Does NOT support extracting ts to tts or m2ts.\n");
+		goto done;
+	}
+
+	if (_stricmp(iter_srcfmt->second.c_str(), "tts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "m2ts") == 0)
+	{
+		ts_pack_size = TS_PACKET_SIZE;
+		offset = 4;
+	}
+
+	if (_stricmp(iter_dstfmt->second.c_str(), "tts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "m2ts") == 0)
+	{
+		bTTSOutput = true;
+	}
+
+	errn = fopen_s(&fp, iter_inputfile->second.c_str(), "rb");
+	if (errn != 0 || fp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", iter_inputfile->second.c_str(), errn);
+		goto done;
+	}
+
+	errn = fopen_s(&fw, iter_outputfile->second.c_str(), "wb+");
+	if (errn != 0 || fw == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", iter_outputfile->second.c_str(), errn);
+		goto done;
+	}
+
+	while (true)
+	{
+		size_t nRead = fread(buf, 1, ts_pack_size, fp);
+		if (nRead < ts_pack_size)
+			break;
+
+		uint16_t PID = ((buf[offset + 1] & 0x3F) << 8) | buf[offset + 2];
+		if (pid_filters.find(PID) == pid_filters.end())
+			continue;
+
+		size_t nWritten = 0;
+		if (bTTSOutput || offset == 0)
+			nWritten = fwrite(buf, 1, ts_pack_size, fw);
+		else
+			nWritten = fwrite(buf + 4, 1, ts_pack_size - 4, fw);
+
+		if (nWritten < (ts_pack_size - (bTTSOutput || offset == 0) ? 0 : 4))
+		{
+			printf("Failed to write the data into destination file.\n");
+			break;
+		}
+
+		num_of_ts_packs_written++;
+	}
+
+	printf("Write %" PRId64 " transport stream packs successfully.\n", num_of_ts_packs_written);
+	nDumpRet = 0;
+
+done:
+	if (fp != nullptr)
+		fclose(fp);
+
+	if (fw != nullptr)
+		fclose(fw);
+
+	return nDumpRet;
 }
