@@ -380,13 +380,13 @@ int ParseMLPAU(unsigned short PID, int stream_type, unsigned long sync_code, uns
 		{
 			for (size_t i = 0; i < _countof(FBA_Channel_Loc_mapping_1); i++)
 				if (channel_assignment_8ch_presentation&(1<<i))
-					audio_info.audio_info.channel_mapping.u64Val = FBA_Channel_Loc_mapping_1[i].u64Val;
+					audio_info.audio_info.channel_mapping.u64Val |= FBA_Channel_Loc_mapping_1[i].u64Val;
 		}
 		else
 		{
 			for (size_t i = 0; i < _countof(FBA_Channel_Loc_mapping_0); i++)
 				if (channel_assignment_8ch_presentation & (1 << i))
-					audio_info.audio_info.channel_mapping.u64Val = FBA_Channel_Loc_mapping_0[i].u64Val;
+					audio_info.audio_info.channel_mapping.u64Val |= FBA_Channel_Loc_mapping_0[i].u64Val;
 		}
 	}
 	else if (sync_code == FBB_SYNC_CODE)
@@ -1297,7 +1297,6 @@ int GetStreamInfoFromMP4AAU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_in
 	}
 
 	uint32_t options = 0;
-
 	class CLOASEnumerator : public BST::AACAudio::ILOASEnumerator
 	{
 	public:
@@ -1381,7 +1380,7 @@ int GetStreamInfoFromMP4AAU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_in
 	return iRet;
 }
 
-int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, int dumpopt)
+int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* pBuf, int cbSize, int dumpopt, int stream_id, int stream_id_extension)
 {
 	unsigned char* p = pBuf;
 	int cbLeft = cbSize;
@@ -1404,7 +1403,7 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	}
 
 	// At first, check whether the stream type is already decided or not for the current dumped stream.
-	if (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM)
+	if (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM && stream_id_extension != 0x76)
 	{
 		// Try to analyze the MLP audio information.
 		// header size:
@@ -1438,11 +1437,12 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 		{
 			if (ParseMLPAU(PID, stream_type, sync_code, p, cbLeft, stm_info) == 0)
 			{
+				audio_program_id = 0;
 				iParseRet = 0;
 			}
 		}
 	}
-	else if (DOLBY_AC3_AUDIO_STREAM == stream_type || DD_PLUS_AUDIO_STREAM == stream_type)
+	else if (DOLBY_AC3_AUDIO_STREAM == stream_type || DD_PLUS_AUDIO_STREAM == stream_type || (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM && stream_id_extension == 0x76))
 	{
 		unsigned short sync_code = p[0];
 		while (cbLeft >= 8)
@@ -1457,10 +1457,14 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 
 		if (cbLeft >= 8)
 		{
-			if (DOLBY_AC3_AUDIO_STREAM == stream_type)
+			if (DOLBY_AC3_AUDIO_STREAM == stream_type || (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM && stream_id_extension == 0x76))
 			{
 				if (ParseAC3Frame(PID, stream_type, p, cbLeft, stm_info) == 0)
 				{
+					if (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM && stream_id_extension == 0x76)
+						audio_program_id = 1;
+					else
+						audio_program_id = 0;
 					iParseRet = 0;
 				}
 			}
@@ -1680,6 +1684,10 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 	if (iParseRet == 0)
 	{
 		bool bChanged = false;
+
+		stm_info.stream_id = stream_id;
+		stm_info.stream_id_extension = stream_id_extension;
+
 		// Compare with the previous audio information.
 		if (g_stream_infos.find(PID) == g_stream_infos.end())
 			bChanged = true;
@@ -1716,7 +1724,14 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 				printf("%s Stream information:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
 
 				printf("\tPID: 0X%X.\n", PID);
+
+				if (stm_info.stream_id != -1)
+					printf("\tStream ID: 0X%02X\n", stm_info.stream_id);
+
 				printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+
+				if (stm_info.stream_id_extension != -1)
+					printf("\tStream ID Extension: 0X%02X\n", stm_info.stream_id_extension);
 
 				if (stream_type == HEVC_VIDEO_STREAM)
 				{
@@ -1767,17 +1782,36 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 						printf("\tBitrate: %" PRIu32 " bps.\n", stm_info.video_info.bitrate);
 				}
 			}
-			else
+			else if(IS_AUDIO_STREAM_TYPE(stream_type))
 			{
 				if (g_stream_infos[PID].size() <= audio_program_id)
 					g_stream_infos[PID].resize((size_t)audio_program_id + 1);
 				g_stream_infos[PID][audio_program_id] = stm_info;
 				if (g_stream_infos[PID].size() > 1)
-					printf("%s Stream information#%d:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
+				{
+					if (stream_type == DOLBY_LOSSLESS_AUDIO_STREAM)
+					{
+						if (stream_id_extension == 0x76)
+							printf("%s Stream information(AC3 part):\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
+						else
+							printf("%s Stream information(MLP part):\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
+
+					}
+					else
+						printf("%s Stream information#%d:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type), audio_program_id);
+				}
 				else
 					printf("%s Stream information:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
 				printf("\tPID: 0X%X.\n", PID);
+
+				if (stm_info.stream_id != -1)
+					printf("\tStream ID: 0X%02X\n", stm_info.stream_id);
+
 				printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+
+				if (stm_info.stream_id_extension != -1)
+					printf("\tStream ID Extension: 0X%02X\n", stm_info.stream_id_extension);
+
 				printf("\tSample Frequency: %d (HZ).\n", stm_info.audio_info.sample_frequency);
 				printf("\tBits Per Sample: %d.\n", stm_info.audio_info.bits_per_sample);
 				printf("\tChannel Layout: %s.\n", stm_info.audio_info.channel_mapping.get_desc().c_str());
@@ -1793,6 +1827,23 @@ int CheckRawBufferMediaInfo(unsigned short PID, int stream_type, unsigned char* 
 					else
 						printf("\tBitrate: %" PRIu32 " bps.\n", stm_info.audio_info.bitrate);
 				}
+			}
+			else
+			{
+				if (g_stream_infos[PID].size() == 0)
+					g_stream_infos[PID].resize(1);
+				g_stream_infos[PID][audio_program_id] = stm_info;
+				printf("%s Stream information:\n", STREAM_TYPE_NAMEA(stm_info.stream_coding_type));
+
+				printf("\tPID: 0X%X.\n", PID);
+
+				if (stm_info.stream_id != -1)
+					printf("\tStream ID: 0X%02X\n", stm_info.stream_id);
+
+				printf("\tStream Type: %d(0X%02X).\n", stm_info.stream_coding_type, stm_info.stream_coding_type);
+
+				if (stm_info.stream_id_extension != -1)
+					printf("\tStream ID Extension: 0X%02X\n", stm_info.stream_id_extension);
 			}
 		}
 	}
@@ -2250,7 +2301,7 @@ int FlushPESBuffer(
 					else
 						StreamUniqueID = filter_info.TS.PID;
 
-					CheckRawBufferMediaInfo((unsigned short)StreamUniqueID, stream_type, raw_data, raw_data_len, dumpopt);
+					CheckRawBufferMediaInfo((unsigned short)StreamUniqueID, stream_type, raw_data, raw_data_len, dumpopt, pes_stream_id, pes_stream_id_extension);
 				}
 			}
 

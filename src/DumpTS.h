@@ -119,7 +119,9 @@ struct VIDEO_INFO
 
 struct STREAM_INFO
 {
-	int	stream_coding_type;
+	int32_t		stream_coding_type = -1;
+	int32_t		stream_id = -1;
+	int32_t		stream_id_extension = -1;
 
 	union
 	{
@@ -128,8 +130,7 @@ struct STREAM_INFO
 		uint8_t		bytes[std::max(sizeof(AUDIO_INFO), sizeof(VIDEO_INFO))];
 	};
 
-	STREAM_INFO() :
-		stream_coding_type(0) {
+	STREAM_INFO() {
 		memset(bytes, 0, sizeof(bytes));
 	}
 

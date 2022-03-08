@@ -138,6 +138,22 @@ using namespace std;
 	 (coding_type) == VVC_VIDEO_STREAM ||				\
 	 (coding_type) == EVC_VIDEO_STREAM)
 
+#define  IS_AUDIO_STREAM_TYPE(coding_type)				\
+	((coding_type) == MPEG1_AUDIO_STREAM ||				\
+	 (coding_type) == MPEG2_AUDIO_STREAM ||				\
+	 (coding_type) == AAC_AUDIO_STREAM ||				\
+	 (coding_type) == HDMV_LPCM_AUDIO_STREAM ||			\
+	 (coding_type) == DOLBY_AC3_AUDIO_STREAM ||			\
+	 (coding_type) == DTS_AUDIO_STREAM ||				\
+	 (coding_type) == DOLBY_LOSSLESS_AUDIO_STREAM ||	\
+	 (coding_type) == DD_PLUS_AUDIO_STREAM ||			\
+	 (coding_type) == DTS_HD_EXCEPT_XLL_AUDIO_STREAM ||	\
+	 (coding_type) == DTS_HD_XLL_AUDIO_STREAM ||		\
+	 (coding_type) == DRA_AUDIO_STREAM ||				\
+	 (coding_type) == DRA_EXTENSION_AUDIO_STREAM ||		\
+	 (coding_type) == DD_PLUS_SECONDARY_AUDIO_STREAM ||	\
+	 (coding_type) == DTS_HD_SECONDARY_AUDIO_STREAM)
+
 #define IS_NAL_STREAM_TYPE(stm_type)	(\
 	(stm_type) == MPEG4_AVC_VIDEO_STREAM ||\
 	(stm_type) == MPEG4_MVC_VIDEO_STREAM ||\
