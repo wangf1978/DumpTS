@@ -238,6 +238,7 @@
     <None Include="..\..\MMT_Readme.md" />
     <None Include="..\..\NAL_Readme.md" />
     <None Include="..\..\README.md" />
+    <None Include="..\..\TS_Readme.md" />
     <None Include="..\linux\common\Toolchain.mk">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

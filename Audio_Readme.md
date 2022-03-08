@@ -139,6 +139,16 @@ Dolby Lossless Audio (TrueHD/Atmos) Stream information:
         Bits Per Sample: 24.
         Channel Layout: 2ch(Rls, Rrs)@D-Cinema.
 ```
+### For 6ch Dolby True-HD/Atmos
+```
+DumpTS 00024.m2ts --showinfo --pid=0x1100
+Dolby Lossless Audio (TrueHD/Atmos) Stream information:
+        PID: 0X1100.
+        Stream Type: 131(0X83).
+        Sample Frequency: 192000 (HZ).
+        Bits Per Sample: 24.
+        Channel Layout: 5.1ch(L, C, R, Ls, Rs, LFE)@D-Cinema.
+```
 ### For stereo DTS:
 ```
 DumpTS 00017.m2ts --showinfo --pid=0x1100

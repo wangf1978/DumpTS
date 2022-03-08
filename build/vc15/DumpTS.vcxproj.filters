@@ -61,6 +61,7 @@
     <None Include="..\..\AV1_Readme.md" />
     <None Include="..\..\Audio_Readme.md" />
     <None Include="..\..\NAL_Readme.md" />
+    <None Include="..\..\TS_Readme.md" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">

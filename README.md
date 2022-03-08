@@ -132,19 +132,12 @@ Here are some examples of command lines:
 - Show TS elementary stream media and codec information
     ```
     DumpTS 00001.m2ts --pid=0x1100 --showinfo
-    Dolby Lossless Audio Stream information:
+    Dolby Lossless Audio (TrueHD/Atmos) Stream information:
             PID: 0X1100.
             Stream Type: 131(0X83).
-            Sample Frequency: 48000 (HZ).
+            Sample Frequency: 192000 (HZ).
             Bits Per Sample: 24.
-            Channel Layout: 7.1ch(L, C, R, Ls, Rs, Lrs, Rrs, LFE).
-    Dolby Lossless Audio Stream information:
-            PID: 0X1100.
-            Stream Type: 131(0X83).
-            Sample Frequency: 48000 (HZ).
-            Bits Per Sample: 24.
-            Channel Layout: 7.1ch(L, C, R, Ls, Rs, Lrs, Rrs, LFE).
-            Bitrate: 4202.683 mbps.
+            Channel Layout: 5.1ch(L, C, R, Ls, Rs, LFE)@D-Cinema.
     ```
     It will show the elementary audio stream information, including channel layout, sample frequency and so on
 
@@ -158,6 +151,7 @@ Here are some examples of command lines:
     ```
     DumpTS av1.webm --showinfo
     ```
+    Show the tree view for the EBML elements of av1.webm
 
 - Show MMT/TLV container information
     ```
@@ -196,8 +190,6 @@ Here are some examples of command lines:
     ```
     Dump the track#1 of test.mp4, and save its sample data to the file test.hevc with NAL annex-b byte stream format, the VSP, SPS and PPS will be merged into elementary stream data.
 
-    Show the tree view for the EBML elements of av1.webm
-
 - Extract block data of the specified track from WebM file 
     ```
     DumpTS tearsofsteel_4sec0025_3840x2160.y4m-20000.av1.webm --trackid=1 --output=tearsofsteel_4sec0025_4K.av1
@@ -215,38 +207,6 @@ Here are some examples of command lines:
     DumpTS 00301.mmts --CID=0 --pid=0x100 --output=e00301.hevc
     ```
     Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
-- Show Data Unit in a MMTP payload
-    ```
-    DumpTS 00002.mmts --pid=0xF200 --PKTseqno=0x0109895C --showDU
-    packet_sequence_number: 0x0109895C, packet_id: 0xF200, MPU sequence number: 0x00000396:
-    DataUnit#0(MF_sequence_number: 0X00000000, 
-             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
-             ----------------------------------------------------------------
-     000000  00  00  00  03  46  03  50                                       | ....F.P
-    
-    DataUnit#1(MF_sequence_number: 0X00000000,
-             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
-             ----------------------------------------------------------------
-     000000  00  00  00  B7  44  03  C0  76    F0  2C  21  FF  FE  10  D2  63 | ....D..v.,!....c
-     000010  38  E1  83  41  54  09  C5  08    64  C5  71  58  72  0E  88  A1 | 8..AT...d.qXr...
-     000020  0F  FA  69  A4  D5  A3  15  26    C8  62  C9  2C  8A  43  1C  B1 | ..i....&.b.,.C..
-     000030  04  11  12  51  C2  8C  71  61    61  D1  E0  90  50  B0  5D  06 | ...Q..qaa...P.].
-     000040  C4  50  87  FD  7A  F9  3F  11    FD  7E  6F  8A  F0  87  0D  60 | .P..z.?..~o....`
-     000050  8A  0A  08  A1  0F  FD  34  D2    6A  D1  8A  93  64  31  64  96 | ......4.j...d1d.
-     000060  45  21  8E  58  82  08  89  28    E1  46  38  B0  B0  E8  F0  48 | E!.X...(.F8....H
-     000070  28  58  2E  83  62  28  43  FF    5E  BE  4F  C4  7F  5F  9B  E2 | (X..b(C.^.O.._..
-     000080  BC  21  C3  58  22  82  82  28    43  FF  4D  34  9A  B4  62  A4 | .!.X"..(C.M4..b.
-     000090  D9  0C  59  25  91  48  63  96    20  82  22  4A  38  51  8E  2C | ..Y%.Hc. ."J8Q.,
-     0000A0  2C  3A  3C  12  0A  16  0B  A0    DA  10  FF  D7  AF  93  F1  1F | ,:<.............
-     0000B0  D7  E6  F8  AF  08  70  D6  08    A0  A1  20                     | .....p....
-    
-    DataUnit#2(MF_sequence_number: 0X00000000,
-             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
-             ----------------------------------------------------------------
-     000000  00  00  00  0D  4E  03  01  07    04  00  00  03  02  00  00  05 | ....N...........
-     000010  80                                                               | .
-    ```
-    print the data unit in MMTP packet with packet_sequence_number '0x0109895C' of stream with packet_id 0xF200 in 00002.mmts
 - Show ATC diff in TTS or M2TS
     ```
     DumpTS 00001.tts --diffATC --start=110 --end=140
@@ -282,15 +242,6 @@ Here are some examples of command lines:
     pkt_idx:138 [header 4bytes: 01 AD 60 35] ATC: 0x01AD6035(  28139573), diff: 1214(0.044963s)
     pkt_idx:139 [header 4bytes: 01 AD 64 F3] ATC: 0x01AD64F3(  28140787), diff: 1214(0.044963s)
     ```
-- list MMT stream MPU time
-   ```
-   DumpTS 00002.mmts --CID=1 --pid=0xF200 --listMPUtime --start=0x3ea --end=0x3ed
-   0, CID: 0x0001(1), packet_id: 0xF200(61952):
-     0, MPU_SeqNo: 0x000003ea(1002), presentation_time: 3690620935.983657s, scale: 180,000HZ, decoding_time_offset:9010
-     1, MPU_SeqNo: 0x000003eb(1003), presentation_time: 3690620936.517528s, scale: 180,000HZ, decoding_time_offset:9010
-     2, MPU_SeqNo: 0x000003ec(1004), presentation_time: 3690620937.051399s, scale: 180,000HZ, decoding_time_offset:9010
-   ```
-   List the MPU presentation time for the stream with CID=1 and packet_id=0xF200 which MPU_sequence_number is betwwen [0x3ea, 0x3ed)
 - Other utilities
     ```
     DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook
@@ -351,4 +302,5 @@ Here are some examples of command lines:
 - For AV1/OBU, please see [AV1/OBU operation guideline](AV1_Readme.md)
 - For Audio, please see [Audio operation guideline](Audio_Readme.md)
 - For NAL, please see [NAL bitstream operation guideline](NAL_Readme.md)
+- For Transport-Stream, please see [TS bitstream operation guideline](TS_Readme.md)
 

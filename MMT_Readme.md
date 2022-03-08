@@ -899,6 +899,17 @@ section_syntax_indicator: 1
        ......
 ```
 
+## List MMT stream MPU time
+   ```
+   DumpTS 00002.mmts --CID=1 --pid=0xF200 --listMPUtime --start=0x3ea --end=0x3ed
+   0, CID: 0x0001(1), packet_id: 0xF200(61952):
+     0, MPU_SeqNo: 0x000003ea(1002), presentation_time: 3690620935.983657s, scale: 180,000HZ, decoding_time_offset:9010
+     1, MPU_SeqNo: 0x000003eb(1003), presentation_time: 3690620936.517528s, scale: 180,000HZ, decoding_time_offset:9010
+     2, MPU_SeqNo: 0x000003ec(1004), presentation_time: 3690620937.051399s, scale: 180,000HZ, decoding_time_offset:9010
+   ```
+   List the MPU presentation time for the stream with CID=1 and packet_id=0xF200 which MPU_sequence_number is between [0x3ea, 0x3ed)
+
+
  ## Show the pts/dts of each AU
 
 ```
