@@ -1,13 +1,13 @@
 # TS/TTS/M2TS Operation Guideline
 
-* [Extract an elementary stream]
-* [Extract a PSI data stream]
-* [Extract a sub-stream from one elementary stream]
-* [Extract a part of transport stream]
-* [Show PSI information]
-  * [Show PAT]
-  * [Show PMT]
-  * [Show SIT]
+* [Extract an elementary stream](#extract-an-elementary-stream)
+* [Extract a PSI data stream](#extract-a-psi-data-stream)
+* [Extract a sub-stream from one elementary stream](#extract-a-sub-stream-from-one-elementary-stream)
+* [Extract a part of transport stream](#extract-a-part-of-transport-stream)
+* [Show PSI information](#show-psi-information)
+  * [Show PAT](#show-pai)
+  * [Show PMT](#show-pmt)
+  * [Show SIT](#show-sit)
 
 ## Extract an elementary stream
 1. Get the transport stream rough information
@@ -107,7 +107,7 @@ PMT(ver: 3):
     descriptor_tag/descriptor_length: 0XC1/  1 - Digital copy control descriptor
         Digital copy control information: 2 -- Copy can be made for only one generation
 
-    ES_PID: 0x100, stream_type: 0x02 -- (Rec. ITU-T H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream):
+    ES_PID: 0x100, stream_type: 0x02 -- (MPEG-2 Video or MPEG-1 constrained parameter video stream):
             descriptor_tag/descriptor_length: 0X52/  1 - Stream identifier descriptor
                 component_tag: 0x00
 
@@ -133,7 +133,7 @@ PMT(ver: 4):
     descriptor_tag/descriptor_length: 0XC1/  1 - Digital copy control descriptor
         Digital copy control information: 2 -- Copy can be made for only one generation
 
-    ES_PID: 0x100, stream_type: 0x02 -- (Rec. ITU-T H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream):
+    ES_PID: 0x100, stream_type: 0x02 -- (MPEG-2 Video or MPEG-1 constrained parameter video stream):
             descriptor_tag/descriptor_length: 0X52/  1 - Stream identifier descriptor
                 component_tag: 0x00
 
@@ -165,7 +165,7 @@ PMT(ver: 5):
     descriptor_tag/descriptor_length: 0XC1/  1 - Digital copy control descriptor
         Digital copy control information: 2 -- Copy can be made for only one generation
 
-    ES_PID: 0x100, stream_type: 0x02 -- (Rec. ITU-T H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream):
+    ES_PID: 0x100, stream_type: 0x02 -- (MPEG-2 Video or MPEG-1 constrained parameter video stream):
             descriptor_tag/descriptor_length: 0X52/  1 - Stream identifier descriptor
                 component_tag: 0x00
 
