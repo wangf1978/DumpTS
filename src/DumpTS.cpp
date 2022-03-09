@@ -234,6 +234,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"top",			// Show the n top records
 		"payload_first_last",
 		"layoutpacket",
+		"cost",
 	};
 
 	for (; iarg < argc; iarg++)
@@ -834,6 +835,7 @@ int main(int argc, char* argv[])
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 	int nDumpRet = 0;
+	auto tm_prog_start = std::chrono::system_clock::now();
 
 	memset(&g_dump_status, 0, sizeof(g_dump_status));
 
@@ -1212,6 +1214,13 @@ int main(int argc, char* argv[])
 	}
 
 done:
+	if (g_params.find("cost") != g_params.end())
+	{
+		auto tm_prog_end = std::chrono::system_clock::now();
+		auto running_time = std::chrono::duration_cast<std::chrono::milliseconds>(tm_prog_end - tm_prog_start).count();
+		printf("Running for %lld.%03llds", running_time / 1000LL, running_time % 1000LL);
+	}
+
 	return nDumpRet;
 }
 

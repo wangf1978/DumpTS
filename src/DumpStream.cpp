@@ -2414,6 +2414,44 @@ done:
 	return iret;
 }
 
+struct PID_STAT
+{
+	uint64_t			count = 0;
+	std::set<uint8_t>	stream_types;
+	uint32_t			pcr : 1;
+	uint32_t			pmt : 1;
+	uint32_t			reserved : 30;
+
+	PID_STAT()
+		: pcr(0), pmt(0), reserved(0) {
+	}
+};
+
+std::map<uint16_t, const char*> PID_Allocation_ARIB = {
+	{ 0x0000, "PAT"},
+	{ 0x0001, "CAT"},
+	{ 0x0010, "NIT"},
+	{ 0x0011, "SDT/BAT"},
+	{ 0x0012, "EIT"},
+	{ 0x0013, "RST"},
+	{ 0x0014, "TDT/TOT"},
+	{ 0x0017, "DCT"},
+	{ 0x001E, "DIT"},
+	{ 0x001F, "SIT"},
+	{ 0x0020, "LIT"},
+	{ 0x0021, "ERT"},
+	{ 0x0022, "PCAT"},
+	{ 0x0023, "SDTT"},
+	{ 0x0024, "BIT"},
+	{ 0x0025, "NBIT/LDT"},
+	{ 0x0026, "EIT"},
+	{ 0x0027, "EIT"},
+	{ 0x0028, "SDTT"},
+	{ 0x0029, "CDT"},
+	{ 0x002F, "Multiple frame header information"},
+	{ 0x1FFF, "Null packet"}
+};
+
 // Dump a stream with specified PID to a PES/ES stream
 int DumpOneStream()
 {
@@ -2423,6 +2461,8 @@ int DumpOneStream()
 	int dumpopt = 0;
 	errno_t errn;
 	unsigned char* pes_buffer = new (std::nothrow) unsigned char[20 * 1024 * 1024];
+
+	std::map<uint16_t, PID_STAT> PID_stat;
 
 	//size_t pes_hdr_location = 0;
 	int raw_data_len = 0, dump_ret;
@@ -2632,6 +2672,20 @@ int DumpOneStream()
 			break;
 
 		unsigned short PID = (buf[buf_head_offset + 1] & 0x1f) << 8 | buf[buf_head_offset + 2];
+		auto iter_PID_state = PID_stat.find(PID);
+
+		if (iter_PID_state == PID_stat.end())
+		{
+			auto insert_ret = PID_stat.insert({ PID, PID_STAT() });
+			if (insert_ret.second == false)
+			{
+				printf("Failed to insert a stat record for PID: 0x%04X.\n", PID);
+				break;
+			}
+			iter_PID_state = insert_ret.first;
+		}
+
+		iter_PID_state->second.count++;
 
 		bool bPSI = pPSIBufs.find(PID) != pPSIBufs.end() ? true : false;
 
@@ -2668,20 +2722,21 @@ int DumpOneStream()
 		{
 			if (bPSI)
 			{
-				if (pPSIBufs.find(PID) != pPSIBufs.end())
+				auto iterPSIBuf = pPSIBufs.find(PID);
+				if (iterPSIBuf != pPSIBufs.end())
 				{
-					if (pPSIBufs[PID]->ProcessPSI(dumpopt) == 0)
+					if (iterPSIBuf->second->ProcessPSI(dumpopt) == 0)
 					{
 						// Update each PID stream type
-						if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+						if (iterPSIBuf->second->table_id == TID_TS_program_map_section && sPID != 0)
 						{
 							unsigned char stream_type = 0xFF;
-							if (((CPMTBuf*)pPSIBufs[PID])->GetPMTInfo(sPID, stream_type) == 0)
+							if (((CPMTBuf*)iterPSIBuf->second)->GetPMTInfo(sPID, stream_type) == 0)
 								stream_types[sPID] = stream_type;
 						}
 					}
 
-					pPSIBufs[PID]->Reset();
+					iterPSIBuf->second->Reset();
 				}
 
 				if (PID == PID_PROGRAM_ASSOCIATION_TABLE)
@@ -2719,21 +2774,22 @@ int DumpOneStream()
 
 		if (bPSI)
 		{
-			if (pPSIBufs[PID]->PushTSBuf(ts_pack_idx, buf, index, (unsigned char)g_ts_fmtinfo.packet_size) >= 0)
+			auto iterPSIBuf = pPSIBufs.find(PID);
+			if (iterPSIBuf != pPSIBufs.end() && iterPSIBuf->second->PushTSBuf(ts_pack_idx, buf, index, (unsigned char)g_ts_fmtinfo.packet_size) >= 0)
 			{
 				// Try to process PSI buffer
-				int nProcessPSIRet = pPSIBufs[PID]->ProcessPSI(dumpopt);
+				int nProcessPSIRet = iterPSIBuf->second->ProcessPSI(dumpopt);
 				// If process PMT result is -1, it means the buffer is too small, don't reset the buffer.
 				if (nProcessPSIRet != -1)
 				{
 					if (sProgSeqID >= 0)
 					{
-						if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+						if (iterPSIBuf->second->table_id == TID_TS_program_map_section)
 						{
 							bool bNewProgramSeq = false;
 							if (mapPSIVersionNumbers.find(PID) != mapPSIVersionNumbers.end())
 							{
-								if (pPSIBufs[PID]->version_number != mapPSIVersionNumbers[PID])
+								if (iterPSIBuf->second->version_number != mapPSIVersionNumbers[PID])
 									bNewProgramSeq = true;
 							}
 							else
@@ -2756,7 +2812,7 @@ int DumpOneStream()
 									}
 								}
 
-								mapPSIVersionNumbers[PID] = pPSIBufs[PID]->version_number;
+								mapPSIVersionNumbers[PID] = iterPSIBuf->second->version_number;
 							}
 
 							unwritten_pat_buf.clear();
@@ -2783,11 +2839,11 @@ int DumpOneStream()
 						}
 					}
 
-					pPSIBufs[PID]->Reset();
+					iterPSIBuf->second->Reset();
 				}
 				else
 				{
-					if (sProgSeqID >= 0 && pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+					if (sProgSeqID >= 0 && iterPSIBuf->second->table_id == TID_TS_program_map_section)
 						std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pmt_buf));
 
 					if (sProgSeqID >= 0 && PID == PID_PROGRAM_ASSOCIATION_TABLE)
@@ -2798,13 +2854,22 @@ int DumpOneStream()
 				{
 					if (dumpopt & DUMP_MEDIA_INFO_VIEW)
 					{
-						if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+						if (iterPSIBuf->second->table_id == TID_TS_program_map_section)
 						{
-							unordered_map<unsigned short, unsigned char>& stm_types = ((CPMTBuf*)pPSIBufs[PID])->GetStreamTypes();
+							unordered_map<unsigned short, unsigned char>& stm_types = ((CPMTBuf*)iterPSIBuf->second)->GetStreamTypes();
 							if (prev_PMT_stream_types.find(PID) == prev_PMT_stream_types.end() || stm_types != prev_PMT_stream_types[PID])
 							{
 								int idxStm = 0;
 								size_t num_of_streams = stm_types.size();
+								unsigned short cur_PMT_PCR_PID = ((CPMTBuf*)iterPSIBuf->second)->GetPCRPID();
+
+								for (auto& iter : stm_types)
+									PID_stat[iter.first].stream_types.insert(iter.second);
+
+								if (cur_PMT_PCR_PID != 0x1FFF)
+									PID_stat[cur_PMT_PCR_PID].pcr = 1;
+
+								iter_PID_state->second.pmt = 1;
 
 								// only show the below information only for media info case
 								if (!(dumpopt & DUMP_STREAM_INFO_VIEW))
@@ -2853,11 +2918,11 @@ int DumpOneStream()
 						}
 					}
 
-					if (pPSIBufs[PID]->table_id == TID_TS_program_map_section)
+					if (iterPSIBuf->second->table_id == TID_TS_program_map_section)
 					{
 						// Update each PID stream type
 						unsigned char stream_type = 0xFF;
-						if (((CPMTBuf*)pPSIBufs[PID])->GetPMTInfo(sPID, stream_type) == 0)
+						if (((CPMTBuf*)iterPSIBuf->second)->GetPMTInfo(sPID, stream_type) == 0 && sPID != 0)
 						{
 							stream_types[sPID] = stream_type;
 
@@ -2925,6 +2990,50 @@ int DumpOneStream()
 	g_dump_status.completed = 1;
 
 	iRet = 0;
+
+	if (dumpopt & DUMP_MEDIA_INFO_VIEW)
+	{
+		printf("The number of transport stream packs: %" PRIu64 "\n", g_dump_status.num_of_packs);
+		for (auto& iter : PID_stat)
+		{
+			std::string PID_desc;
+			auto iterPIDTable = PID_Allocation_ARIB.find(iter.first);
+			if (iterPIDTable != PID_Allocation_ARIB.end())
+				PID_desc += iterPIDTable->second;
+
+			if (iter.second.stream_types.size() > 0)
+			{
+				if (PID_desc.length() > 0)
+					PID_desc += "/";
+
+				size_t i = 0;
+				for (auto stm_type: iter.second.stream_types)
+				{
+					if (i > 0)
+						PID_desc += ",";
+					PID_desc += STREAM_TYPE_NAMEA(stm_type);
+				}
+			}
+
+			if (iter.second.pcr)
+			{
+				if (PID_desc.length() > 0)
+					PID_desc += "/";
+
+				PID_desc += "PCR";
+			}
+
+			if (iter.second.pmt)
+			{
+				if (PID_desc.length() > 0)
+					PID_desc += "/";
+
+				PID_desc += "PMT";
+			}
+
+			printf("\tPID: 0x%04X\t\ttransport packet count: %10" PRIu64 " - %s\n", iter.first, iter.second.count, PID_desc.c_str());
+		}
+	}
 
 done:
 	if (fp)

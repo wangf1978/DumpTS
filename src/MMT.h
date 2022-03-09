@@ -1411,6 +1411,7 @@ namespace MMT
 				uint8_t			URL_length;
 				uint8_t			URL_byte[256];
 			}PACKED URL;
+			uint8_t				buf[260];
 		}PACKED;
 
 		bool UsePacketID(uint16_t PktID)

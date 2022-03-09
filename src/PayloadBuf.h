@@ -285,6 +285,7 @@ public:
 	int WriteBack(unsigned int off, unsigned char* pBuf, unsigned long cbSize);
 
 	unsigned short GetPID() { return m_PID; }
+	unsigned short GetPCRPID() { return m_PCR_PID; }
 };
 
 class CPSIBuf;
