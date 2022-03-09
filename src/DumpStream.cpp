@@ -2052,7 +2052,36 @@ int FlushPSIBuffer(FILE* fw, unsigned char* psi_buffer, int psi_buffer_len, int 
 {
 	int iret = 0;
 	// For PSI, store whole payload with pointer field
-	raw_data_len = psi_buffer_len;
+
+	uint8_t* p = psi_buffer;
+	int cbLeft = psi_buffer_len;
+
+	uint8_t pointer_field = *(p++); cbLeft--;
+
+	if (cbLeft < pointer_field)
+	{
+		printf("invalid 'pointer_field' value.\n");
+		return -1;
+	}
+
+	p += pointer_field;
+	cbLeft -= pointer_field;
+
+	if (cbLeft < 3)
+	{
+		printf("No enough data for PSI section.\n");
+		return -1;
+	}
+
+	uint16_t section_length = ((p[1] & 0xF) << 8) | p[2];
+
+	if (section_length + 4 > psi_buffer_len)
+	{
+		printf("The PSI section data seems not to be enough.\n");
+		return -1;
+	}
+
+	raw_data_len = (int)section_length + 4;
 	if (fw != NULL)
 		fwrite(psi_buffer, 1, raw_data_len, fw);
 
