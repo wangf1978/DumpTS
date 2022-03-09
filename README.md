@@ -119,37 +119,32 @@ Here are some examples of command lines:
 - Show TS information
     ```
     DumpTS 00001.m2ts --showinfo
-    Program Number: 1024, program_map_PID: 0X1F0(496).
+    Program Number: 103, program_map_PID: 0X1F0(496).
     Program(PID:0X01F0)
             Stream#0, PID: 0X0138, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
-            Stream#1, PID: 0X0110, stm_type: 0X0F (AAC Audio)
-            Stream#2, PID: 0X0100, stm_type: 0X02 (MPEG2 Video)
-
-    Program(PID:0X01F0)
-            Stream#0, PID: 0X0130, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
-            Stream#1, PID: 0X0138, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
+            Stream#1, PID: 0X0130, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
             Stream#2, PID: 0X0110, stm_type: 0X0F (AAC Audio)
             Stream#3, PID: 0X0100, stm_type: 0X02 (MPEG2 Video)
 
     Program(PID:0X01F0)
-            Stream#0, PID: 0X0130, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
-            Stream#1, PID: 0X0138, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
+            Stream#0, PID: 0X0138, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
+            Stream#1, PID: 0X0130, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
             Stream#2, PID: 0X0110, stm_type: 0X0F (AAC Audio)
             Stream#3, PID: 0X0100, stm_type: 0X02 (MPEG2 Video)
             Stream#4, PID: 0X0111, stm_type: 0X0F (AAC Audio)
 
-    The number of transport stream packs: 15912960
-            PID: 0x0000             transport packet count:     21208 - PAT
-            PID: 0x001E             transport packet count:         2 - DIT
-            PID: 0x001F             transport packet count:      3599 - SIT
-            PID: 0x0100             transport packet count:  15581546 - MPEG2 Video
-            PID: 0x0110             transport packet count:    250657 - AAC Audio
-            PID: 0x0111             transport packet count:       103 - AAC Audio
-            PID: 0x0130             transport packet count:      2388 - Teletext, ARIB subtitle or TTML
-            PID: 0x0138             transport packet count:      1800 - Teletext, ARIB subtitle or TTML
-            PID: 0x01F0             transport packet count:     21207 - PMT
-            PID: 0x01FF             transport packet count:     30268 - PCR
-            PID: 0x1FFF             transport packet count:       182 - Null packet
+    The number of transport packets: 9495552
+            PID: 0x0000             transport packet count:     10,579 - PAT
+            PID: 0x001E             transport packet count:          2 - DIT
+            PID: 0x001F             transport packet count:      2,216 - SIT
+            PID: 0x0100             transport packet count:  9,174,898 - MPEG2 Video
+            PID: 0x0110             transport packet count:    131,186 - AAC Audio
+            PID: 0x0111             transport packet count:    130,561 - AAC Audio
+            PID: 0x0130             transport packet count:      1,153 - Teletext, ARIB subtitle or TTML
+            PID: 0x0138             transport packet count:        222 - Teletext, ARIB subtitle or TTML
+            PID: 0x01F0             transport packet count:     10,579 - PMT
+            PID: 0x01FF             transport packet count:     29,568 - PCR
+            PID: 0x1FFF             transport packet count:      4,588 - Null packet
     ```
     it will show the PAT and PMT informations of 00001.m2ts, and the packet count for each PID.
 

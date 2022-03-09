@@ -59,7 +59,7 @@ CID is 0x0000, and packet_id is 0x0110
 ```
 3. Export the MPEG-4 AAC audio stream
 ```
-DumpTS 03001.mmts --CID=0 --pid=0x110 --output=i:\03001_mmts_AAC.loas
+DumpTS 03001.mmts --CID=0 --pid=0x110 --output=03001_mmts_AAC.loas
 Total cost: 3052.383000 ms
 Total input TLV packets: 135239.
 Total MMT/TLV packets with the packet_id(0X110): 1407
@@ -67,7 +67,7 @@ Total MFUs in MMT/TLV packets with the packet_id(0X110): 0
 ```
 4. Show the MPEG-4 AAC audio information
 ```
-DumpTS i:\03001_mmts_AAC.loas --showinfo
+DumpTS 03001_mmts_AAC.loas --showinfo
 [MP4AAC] Successfully located the syncword in LOAS AudioMuxElement.
 Audio Stream#0:
 AudioSpecificConfig:

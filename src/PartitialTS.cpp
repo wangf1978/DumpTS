@@ -90,7 +90,8 @@ int DumpPartialTS(bool bOnlyESTS = true)
 
 	if (iter_dstfmt == g_params.end() ||
 		(_stricmp(iter_dstfmt->second.c_str(), "ts") != 0 &&
-		 _stricmp(iter_dstfmt->second.c_str(), "tts") != 0))
+		 _stricmp(iter_dstfmt->second.c_str(), "tts") != 0 &&
+		 _stricmp(iter_dstfmt->second.c_str(), "m2ts") != 0))
 	{
 		nDumpRet = -1;
 		printf("Only support extracting stream/PSI to transport stream.\n");

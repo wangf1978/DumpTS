@@ -3,7 +3,7 @@
 ## Export av1 bitstream from webm file
 Here are the steps to get the AV1 bitstream from WebM file
 ```
-dumpts d:\Materials\AV1\Stream3_AV1_720p_3.9mbps.webm --showinfo | more
+DumpTS Stream3_AV1_720p_3.9mbps.webm --showinfo | more
 ```
 Show the rough information of WebM file
 ```
@@ -45,22 +45,22 @@ Show the rough information of WebM file
 ```
 It can conclude that the track number is 1, ok use the below command to show the information of this track:
 ```
-dumpts d:\Materials\AV1\Stream3_AV1_720p_3.9mbps.webm --trackid=1 --showinfo
+DumpTS Stream3_AV1_720p_3.9mbps.webm --trackid=1 --showinfo
 ```
 And then extract the AV1 stream to your local drive:
 ```
-dumpts d:\Materials\AV1\Stream3_AV1_720p_3.9mbps.webm --trackid=1 --output=i:\Stream3_AV1_720p_3.9mbps.av1
+DumpTS Stream3_AV1_720p_3.9mbps.webm --trackid=1 --output=Stream3_AV1_720p_3.9mbps.av1
 ```
 Finally to check this AV1 stream file
 ```
-dumpts i:\Stream3_AV1_720p_3.9mbps.av1 --showobu | more
+DumpTS Stream3_AV1_720p_3.9mbps.av1 --showobu | more
 [AV1] hit one temporal_unit (Leb128Bytes: 1, unit_size: 18).
 [AV1]   hit one frame_unit (Leb128Bytes: 1, unit_size: 0).
 [AV1][obu unit] The sub unit costs too many bytes(1) which exceed the upper unit size(0).
-[AV1][temporal_unit#00000000] The current file: i:\Stream3_AV1_720p_3.9mbps.av1 is NOT an Annex-B length delimited bitstream.
+[AV1][temporal_unit#00000000] The current file: Stream3_AV1_720p_3.9mbps.av1 is NOT an Annex-B length delimited bitstream.
 [AV1]           hit obu_type: Temporal delimiter OBU.
 [AV1]           hit obu_type: Sequence header OBU.
-[AV1] The current file: i:\Stream3_AV1_720p_3.9mbps.av1 is a low overhead bitstream format.
+[AV1] The current file: Stream3_AV1_720p_3.9mbps.av1 is a low overhead bitstream format.
 Low-Overhead AV1 bitstream...
 Temporal Unit#0
         Frame Unit#0
@@ -102,7 +102,7 @@ Temporal Unit#7
 
 ## Show AV1 Sequence Header OBU
 ```
-DumpTs i:\stream3_av1_720p_3.av1 --showSeqHdr
+DumpTs stream3_av1_720p_3.av1 --showSeqHdr
 ```
 And then show
 ```

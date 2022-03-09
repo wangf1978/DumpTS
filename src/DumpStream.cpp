@@ -2993,7 +2993,7 @@ int DumpOneStream()
 
 	if (dumpopt & DUMP_MEDIA_INFO_VIEW)
 	{
-		printf("The number of transport stream packs: %" PRIu64 "\n", g_dump_status.num_of_packs);
+		printf("The number of transport packets: %" PRIu64 "\n", g_dump_status.num_of_packs);
 		for (auto& iter : PID_stat)
 		{
 			std::string PID_desc;
@@ -3031,7 +3031,7 @@ int DumpOneStream()
 				PID_desc += "PMT";
 			}
 
-			printf("\tPID: 0x%04X\t\ttransport packet count: %10" PRIu64 " - %s\n", iter.first, iter.second.count, PID_desc.c_str());
+			printf("\tPID: 0x%04X\t\ttransport packet count: %10s - %s\n", iter.first, GetReadableNum(iter.second.count).c_str(), PID_desc.c_str());
 		}
 	}
 

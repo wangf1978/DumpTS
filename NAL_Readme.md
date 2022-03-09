@@ -4,7 +4,7 @@ H.264(AVC), H.265(HEVC and H.266(VVC) uses NAL bitstream
 
 ## Show the information of NAL bitstream
 ```
-Dumpts 00002.hevc --showinfo
+DumpTS 00002.hevc --showinfo
 ```
 Here is the output:
 ```
@@ -25,7 +25,7 @@ A new H.265 sequence(seq_parameter_set_id:0):
 
 ## List Access-Unit, NAL-unit and SEI messages and payloads
 ```
-Dumpts 00002.hevc --showNU
+DumpTS 00002.hevc --showNU
 ```
 Here is the output:
 ```
@@ -104,7 +104,7 @@ Access-Unit#8
 ```
 If only want to show access-unit, or nal-unit or sei-message or paylods, can specify the 'au', 'nu' or 'seimsg' or 'seipayload' w/ or w/o ',;.:' separators to filter the related objects, ex,
 ```
-Dumpts 00002.hevc --showNU=nu;seipayload
+DumpTS 00002.hevc --showNU=nu;seipayload
 ```
 Here is the output:
 ```
@@ -149,7 +149,7 @@ NAL Unit non-VCL::PREFIX_SEI_NUT -- non-VCL::PREFIX_SEI_NUT Supplemental enhance
 ## Show syntax fields:
 ### Show the HEVC VPS syntax:
 ```
-Dumpts 00002.hevc --showvps
+DumpTS 00002.hevc --showvps
 ```
 Here is the output:
 ```
@@ -368,7 +368,7 @@ seq_parameter_set_rbsp():
 ```
 ### Show PPS syntax fields
 ```
-Dumpts 00002.hevc --showpps
+DumpTS 00002.hevc --showpps
 ```
 Here is the output:
 ```
