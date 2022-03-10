@@ -4077,8 +4077,8 @@ namespace BST {
 				uint8_t				reserved : 6;
 
 				uint8_t				adjust_num[4][8] = { {0} };
-				uint8_t				alevcode[4][8][7] = { {0} };
-				uint8_t				aloccode[4][8][7] = { {0} };
+				uint8_t				alevcode[4][8][7] = { {{0}} };
+				uint8_t				aloccode[4][8][7] = { {{0}} };
 
 				INDIVIDUAL_CHANNEL_STREAM*
 									individual_channel_stream = nullptr;

@@ -4247,7 +4247,7 @@ namespace BST
 						uint8_t			cdef_bits : 2;
 						uint8_t			CdefDamping : 4;
 
-						CDEFFilter		filters[8] = { {0} };
+						CDEFFilter		filters[8] = { {{0}} };
 
 						UNCOMPRESSED_HEADER*	
 										ptr_uncompressed_header = nullptr;

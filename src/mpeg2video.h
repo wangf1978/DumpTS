@@ -1142,7 +1142,7 @@ namespace BST {
 		}PACKED frame_centre_offsets[3];
 
 		CPictureDisplayExtension(unsigned long progressive_sequence, unsigned long repeat_first_field, unsigned long top_field_first, unsigned long picture_structure)
-			: extension_start_code_identifier(0), number_of_frame_centre_offsets(0), unused_padding_0(0), frame_centre_offsets{ {0} }{
+			: extension_start_code_identifier(0), number_of_frame_centre_offsets(0), unused_padding_0(0), frame_centre_offsets{ {{0}} }{
 			if ( progressive_sequence ) {
 				if ( repeat_first_field ) {
 					if ( top_field_first )
@@ -1165,7 +1165,7 @@ namespace BST {
 		}
 
 		CPictureDisplayExtension()
-			: extension_start_code_identifier(0), number_of_frame_centre_offsets(0), unused_padding_0(0), frame_centre_offsets{ {0} } {
+			: extension_start_code_identifier(0), number_of_frame_centre_offsets(0), unused_padding_0(0), frame_centre_offsets{ {{0}} } {
 		}
 
 		int Map(AMBst in_bst)
