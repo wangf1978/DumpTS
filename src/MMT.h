@@ -2628,6 +2628,145 @@ namespace MMT
 		}
 	};
 
+	struct MHEITTable : public Table
+	{
+		struct ServiceInfo 
+		{
+			uint16_t	event_id;
+			uint64_t	start_time : 40;
+			uint32_t	duration : 24;
+			uint8_t		running_status : 3;
+			uint8_t		free_CA_mode : 1;
+			uint16_t	descriptors_loop_length;
+
+			uint16_t GetLength()
+			{
+				uint16_t cbLen = 12;
+				cbLen += descriptors_loop_length;
+				return cbLen;
+			}
+
+			int Unpack(CBitstream& bs)
+			{
+				int iRet = RET_CODE_SUCCESS;
+				uint64_t left_bits = 0;
+				bs.Tell(&left_bits);
+
+				event_id = bs.GetWord();
+				start_time = (uint64_t)bs.GetBits(40);
+				duration = (uint32_t)bs.GetBits(24);
+				running_status = (uint8_t)bs.GetBits(3);
+				free_CA_mode = (uint8_t)bs.GetBits(1);
+				descriptors_loop_length = bs.GetWord();
+				left_bits -= (uint64_t)12ULL << 3;
+
+				if (descriptors_loop_length > 0)
+				{
+					// TODO..
+					left_bits -= (uint64_t)descriptors_loop_length << 3;
+				}
+				
+				return iRet;
+			}
+		};
+
+		uint8_t		section_syntax_indicator : 1;
+		uint8_t		reserved_future_use : 1;
+		uint8_t		reserved_1 : 2;
+		uint16_t	section_length;
+		uint16_t	service_id;
+		uint8_t		reserved_2 : 2;
+		uint8_t		version_number;
+		uint8_t		current_next_indicator : 1;
+		uint8_t		section_number;
+		uint8_t		last_section_number;
+		uint16_t	tlv_stream_id;
+		uint16_t	original_network_id;
+		uint8_t		segment_last_section_number;
+		uint8_t		last_table_id;	
+		std::vector<ServiceInfo*>
+					service_info;
+
+		virtual ~MHEITTable()
+		{
+			for (auto& v : service_info)
+			{
+				if (v != nullptr) 
+				{
+					delete v;
+					v = nullptr;
+				}
+			}
+		}
+
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+
+			table_id = bs.GetByte();
+			section_syntax_indicator = (uint8_t)bs.GetBits(1);
+			reserved_future_use = (uint8_t)bs.GetBits(1);
+			reserved_1 = (uint8_t)bs.GetBits(2);
+			section_length = (uint16_t)bs.GetBits(12);
+			if (section_length > 4093)
+				return RET_CODE_BOX_INCOMPATIBLE;
+
+			service_id = bs.GetWord();
+			reserved_2 = (uint8_t)bs.GetBits(2);
+			version_number = (uint8_t)bs.GetBits(5);
+			current_next_indicator = (uint8_t)bs.GetBits(1);
+			section_number = bs.GetByte();
+			last_section_number = bs.GetByte();
+			tlv_stream_id = bs.GetWord();
+			original_network_id = bs.GetWord();
+			segment_last_section_number = bs.GetByte();
+			last_table_id = bs.GetByte();
+
+			left_bits -= (uint64_t)14ULL << 3;
+			if (left_bits < (uint64_t)16ULL/*CRC32 + loop header*/ << 3) 
+				return RET_CODE_BOX_TOO_SMALL;
+
+			while ((left_bits - (uint64_t)(16ULL << 3)) > 0)
+			{
+				ServiceInfo* ptr_service_info = new ServiceInfo();
+				if ((iRet = ptr_service_info->Unpack(bs)) < 0)
+				{
+					delete ptr_service_info;
+					break;
+				}
+				service_info.push_back(ptr_service_info);
+
+				uint16_t cbLen = ptr_service_info->GetLength();
+				if (left_bits < ((uint64_t)cbLen << 3))
+				{
+					iRet = RET_CODE_BOX_INCOMPATIBLE;
+					break;
+				}
+
+				left_bits -= (uint64_t)cbLen << 3;
+			}
+
+			return iRet;
+		}
+
+		virtual void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			Table::Print(fp, indent);
+			// TODO..
+		}
+	};
+
 	struct Message
 	{
 		uint64_t				start_bitpos;
@@ -2925,6 +3064,72 @@ namespace MMT
 		done:
 			SkipLeftBits(bs);
 			return iRet;
+		}
+
+		virtual void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			FILE* out = fp ? fp : stdout;
+			char szIndent[84];
+			memset(szIndent, 0, _countof(szIndent));
+			if (indent > 0)
+			{
+				int ccIndent = AMP_MIN(indent, 80);
+				memset(szIndent, ' ', ccIndent);
+			}
+
+			Message::Print(fp, indent);
+			if (table)
+				table->Print(fp, indent + 4);
+			return;
+		}
+	};
+
+	struct MH_EITMessage : public Message
+	{
+		Table*		table;
+
+		MH_EITMessage(uint32_t cbPayload = 0) : Message(cbPayload), table(nullptr) {
+		}
+
+		virtual ~MH_EITMessage() {
+			if (table)
+				delete table;
+		}
+
+		// Always assume the table information bitstream is complete
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = Message::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+			if (left_bits < 8ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			while (left_bits >= 24ULL)
+			{
+				uint32_t peek_dword = (uint32_t)bs.PeekBits(24);
+				uint8_t peek_table_id = (peek_dword >> 16) & 0xFF;
+				uint16_t peek_table_length = (uint16_t)(peek_dword & 0xFFF);
+				uint64_t len_bits = (peek_table_length + 3ULL) << 3;
+
+				if (left_bits < len_bits)
+					break;
+
+				if (peek_table_id == 0x8B)	// MH-Event_Information_Table
+					table = new MHEITTable();
+				else
+					table = new UnsupportedTable();
+
+				if ((iRet = table->Unpack(bs)) < 0)
+					break;
+
+				left_bits -= len_bits;
+			}
+
+			return RET_CODE_SUCCESS;
 		}
 
 		virtual void Print(FILE* fp = nullptr, int indent = 0)

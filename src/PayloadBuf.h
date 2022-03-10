@@ -46,6 +46,7 @@ using namespace std;
 #define DUMP_PMT							(1<<8)
 #define DUMP_PAT							(1<<9)
 #define DUMP_CAT							(1<<10)
+#define DUMP_EIT							(1<<11)
 
 // For all
 #define DUMP_STREAM_INFO_VIEW				(1<<16)
@@ -62,6 +63,7 @@ using namespace std;
 // For MMT/TLV
 #define DUMP_MPT							DUMP_PMT
 #define DUMP_PLT							DUMP_PAT
+#define DUMP_MH_EIT							DUMP_EIT
 
 #define SID_PROGRAM_STREAM_MAP				0xBC
 #define SID_PRIVATE_STREAM_1				0xBD

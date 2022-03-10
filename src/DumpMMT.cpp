@@ -77,7 +77,8 @@ bool NeedShowMMTTable()
 	return (g_params.find("showinfo") != g_params.end() ||
 			g_params.find("showPLT")  != g_params.end() ||
 			g_params.find("showMPT")  != g_params.end() ||
-			g_params.find("showCAT")  != g_params.end());
+			g_params.find("showCAT")  != g_params.end() ||
+			g_params.find("showEIT")  != g_params.end());
 }
 
 bool NeedShowMMTTLVPacket()
@@ -439,6 +440,9 @@ using TreeCIDPkgBuf = std::map<uint16_t, TreePkgBuf>;
 using CATables = std::list<MMT::CATable*>;
 using CIDCATables = std::map<uint16_t, CATables>;
 
+using MHEITables = std::list<MMT::MHEITTable*>;
+using CIDMHEITables = std::map<uint16_t, MHEITables>;
+
 uint32_t FindAssetType(const TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, uint16_t packet_id)
 {
 	auto iterCID = CIDPAMsgs.find(CID);
@@ -673,6 +677,77 @@ int ProcessCAMessage(
 	return RET_CODE_SUCCESS;
 }
 
+int ProcessMHEIMessage(
+	CIDMHEITables& CIDMHEITbls,
+	uint16_t CID,
+	uint64_t packet_id,
+	uint8_t* pMsgBuf,
+	int cbMsgBuf,
+	bool* pbChange = nullptr,
+	int dumpOptions = 0)
+{
+	if (cbMsgBuf <= 0)
+		return RET_CODE_INVALID_PARAMETER;
+
+	CBitstream bs(pMsgBuf, ((size_t)cbMsgBuf << 3));
+	uint16_t msg_id = (uint16_t)bs.PeekBits(16);
+
+	// If the current message is not a CA message, ignore it.
+	if (msg_id != 0x8001)
+		return RET_CODE_SUCCESS;
+
+	// Make sure the tree PA message is already there for the specified CID
+	auto iter = CIDMHEITbls.find(CID);
+	if (iter == CIDMHEITbls.end())
+		return RET_CODE_INVALID_PARAMETER;
+
+	int iRet = RET_CODE_SUCCESS;
+	MMT::MH_EITMessage MHEIMsg(cbMsgBuf);
+	if ((iRet = MHEIMsg.Unpack(bs)) < 0)
+		return iRet;
+
+	if (MHEIMsg.table == nullptr)
+		return iRet;
+
+	bool bCATChanged = false;
+	if (MHEIMsg.table->table_id == 0x86)
+	{
+		if (iter->second.size() == 0)
+		{
+			iter->second.push_back((MMT::MHEITTable*)MHEIMsg.table);
+			MHEIMsg.table = nullptr;
+			bCATChanged = true;
+		}
+		else
+		{
+			MMT::MHEITTable* pCATable = iter->second.back();
+			if (pCATable->version != MHEIMsg.table->version)
+			{
+				iter->second.push_back((MMT::MHEITTable*)MHEIMsg.table);
+				MHEIMsg.table = nullptr;
+				bCATChanged = true;
+			}
+		}
+
+		if (pbChange)
+			*pbChange = bCATChanged;
+
+		if (bCATChanged)
+		{
+			if (dumpOptions&(DUMP_CAT | DUMP_MEDIA_INFO_VIEW))
+			{
+				printf("Found a new MH-EIT with packet_id: %" PRIu64 "(0X%" PRIX64 ") in header compressed IP packet with CID: %d(0X%X)...\n", packet_id, packet_id, CID, CID);
+
+				if (dumpOptions&DUMP_CAT)
+				{
+					iter->second.back()->Print(stdout, 4);
+				}
+			}
+		}
+	}
+
+	return RET_CODE_SUCCESS;
+}
 
 int ProcessPAMessage(
 	TreeCIDPAMsgs& CIDPAMsgs, 
@@ -1138,6 +1213,253 @@ int ProcessMFU(MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, uint32_
 	return pESRepacker->Process(pMFUData, cbMFUData, &data_info);
 }
 
+int ShowInfoProcessCAMessage(
+	CIDCATables& CIDCATbls, uint16_t CID, 
+	MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, std::vector<uint8_t>& fullCAMessage,
+	std::set<uint64_t>& CID_EMM_packet_id_set,
+	int dumpopt)
+{
+	// Check there is an existed CID there or not, if it does NOT exist, add one
+	if (CIDCATbls.find(CID) == CIDCATbls.end())
+	{
+		CIDCATbls[CID] = CATables();
+	}
+
+	bool bCAMessageChanged = false;
+	// Check whether the current CA message contains a complete message
+	if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
+		pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
+		pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag == 1)
+	{
+		if (fullCAMessage.size() > 0)
+		{
+			for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+			{
+				auto& v = std::get<1>(m);
+				if (v.size() > 0)
+				{
+					size_t orig_size = fullCAMessage.size();
+					fullCAMessage.resize(orig_size + v.size());
+					memcpy(&fullCAMessage[orig_size], &v[0], v.size());
+				}
+			}
+
+			//print_mem(&fullCAMessage[0], (int)fullCAMessage.size(), 4);
+			if (ProcessCAMessage(CIDCATbls, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+				&fullCAMessage[0], (int)fullCAMessage.size(), &bCAMessageChanged, dumpopt) == 0 && bCAMessageChanged)
+			{
+				// TODO...
+			}
+
+			fullCAMessage.clear();
+		}
+		else
+		{
+			for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+			{
+				bool bChanged = false;
+				auto& v = std::get<1>(m);
+
+				//print_mem(&v[0], (int)v.size(), 4);
+				if (ProcessCAMessage(CIDCATbls, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+					&v[0], (int)v.size(), &bChanged, dumpopt) == 0 && bChanged)
+				{
+					// TODO...
+				}
+
+				if (bChanged && bCAMessageChanged == false)
+					bCAMessageChanged = true;
+			}
+		}
+
+		if (bCAMessageChanged)
+		{
+			CID_EMM_packet_id_set.clear();
+			for (const auto& CIDCA : CIDCATbls)
+			{
+				uint64_t CID_packet_id = ((uint64_t)CIDCA.first) << 16;
+
+				for (const auto& entry : CIDCA.second)
+				{
+					MMT::CATable* pCATable = (MMT::CATable*)entry;
+					for (const auto& desc : pCATable->descriptors)
+					{
+						if (desc->descriptor_tag == 0x8004)
+						{
+							MMT::AccessControlDescriptor* ac_desc = (MMT::AccessControlDescriptor*)desc;
+							if (ac_desc->MMT_general_location_info.location_type == 0 ||
+								ac_desc->MMT_general_location_info.location_type == 1 ||
+								ac_desc->MMT_general_location_info.location_type == 2)
+							{
+								CID_packet_id = CID_packet_id & 0xFFFFFFFFFFFF0000ULL;
+								CID_packet_id |= ac_desc->MMT_general_location_info.GetPacketID();
+								CID_EMM_packet_id_set.insert(CID_packet_id);
+							}
+						}
+						else
+							continue;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		assert(pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages.size() <= 1);
+		// Need add the data into the ring buffer, and parse it later
+		for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+		{
+			auto& v = std::get<1>(m);
+			if (v.size() > 0)
+			{
+				size_t orig_size = fullCAMessage.size();
+				fullCAMessage.resize(orig_size + v.size());
+				memcpy(&fullCAMessage[orig_size], &v[0], v.size());
+			}
+		}
+	}
+
+	return RET_CODE_SUCCESS;
+}
+
+int ShowInfoProcessMHEIMessage(
+	CIDMHEITables& CIDMHEITbls, uint16_t CID,
+	MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, std::vector<uint8_t>& fullMHEIMessage,
+	int dumpopt)
+{
+	if (CIDMHEITbls.find(CID) == CIDMHEITbls.end())
+	{
+		CIDMHEITbls[CID] = MHEITables();
+	}
+
+	bool bMHEIMessageChanged = false;
+	// Check whether the current MH-EI message contains a complete message
+	if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
+		pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
+		pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag == 1)
+	{
+		if (fullMHEIMessage.size() > 0)
+		{
+			for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+			{
+				auto& v = std::get<1>(m);
+				if (v.size() > 0)
+				{
+					size_t orig_size = fullMHEIMessage.size();
+					fullMHEIMessage.resize(orig_size + v.size());
+					memcpy(&fullMHEIMessage[orig_size], &v[0], v.size());
+				}
+			}
+
+			//print_mem(&fullMHEIMessage[0], (int)fullMHEIMessage.size(), 4);
+			if (ProcessMHEIMessage(CIDMHEITbls, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+				&fullMHEIMessage[0], (int)fullMHEIMessage.size(), &bMHEIMessageChanged, dumpopt) == 0 && bMHEIMessageChanged)
+			{
+				// TODO...
+			}
+
+			fullMHEIMessage.clear();
+		}
+		else
+		{
+			for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+			{
+				bool bChanged = false;
+				auto& v = std::get<1>(m);
+
+				//print_mem(&v[0], (int)v.size(), 4);
+				if (ProcessMHEIMessage(CIDMHEITbls, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
+					&v[0], (int)v.size(), &bChanged, dumpopt) == 0 && bChanged)
+				{
+					// TODO...
+				}
+
+				if (bChanged && bMHEIMessageChanged == false)
+					bMHEIMessageChanged = true;
+			}
+		}
+	}
+	else
+	{
+		assert(pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages.size() <= 1);
+		// Need add the data into the ring buffer, and parse it later
+		for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+		{
+			auto& v = std::get<1>(m);
+			if (v.size() > 0)
+			{
+				size_t orig_size = fullMHEIMessage.size();
+				fullMHEIMessage.resize(orig_size + v.size());
+				memcpy(&fullMHEIMessage[orig_size], &v[0], v.size());
+			}
+		}
+	}
+
+	return RET_CODE_SUCCESS;
+}
+
+int ShowInfoProcessPAMessage(
+	TreeCIDPAMsgs& CIDPAMsgs, uint16_t CID, 
+	MMT::HeaderCompressedIPPacket* pHeaderCompressedIPPacket, std::vector<uint8_t>& fullPAMessage,
+	std::vector<uint16_t>& fitler_packet_ids, int dumpopt)
+{
+	// Check there is an existed CID there or not, if it does NOT exist, add one
+	if (CIDPAMsgs.find(CID) == CIDPAMsgs.end())
+	{
+		TreePLTMPT emptyTreePLTMAP;
+		CIDPAMsgs[CID] = emptyTreePLTMAP;
+	}
+
+	// Check whether the current PA message contains a complete message
+	if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
+		pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
+		pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag == 1)
+	{
+		if (fullPAMessage.size() > 0)
+		{
+			for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+			{
+				auto& v = std::get<1>(m);
+				if (v.size() > 0)
+				{
+					size_t orig_size = fullPAMessage.size();
+					fullPAMessage.resize(orig_size + v.size());
+					memcpy(&fullPAMessage[orig_size], &v[0], v.size());
+				}
+			}
+
+			ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), nullptr, dumpopt, &fitler_packet_ids);
+
+			fullPAMessage.clear();
+		}
+		else
+		{
+			for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+			{
+				auto& v = std::get<1>(m);
+				ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), nullptr, dumpopt, &fitler_packet_ids);
+			}
+		}
+	}
+	else
+	{
+		assert(pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages.size() <= 1);
+		// Need add the data into the ring buffer, and parse it later
+		for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
+		{
+			auto& v = std::get<1>(m);
+			if (v.size() > 0)
+			{
+				size_t orig_size = fullPAMessage.size();
+				fullPAMessage.resize(orig_size + v.size());
+				memcpy(&fullPAMessage[orig_size], &v[0], v.size());
+			}
+		}
+	}
+
+	return RET_CODE_SUCCESS;
+}
+
 int ShowMMTPackageInfo()
 {
 	int dumpopt = 0;
@@ -1156,24 +1478,19 @@ int ShowMMTPackageInfo()
 	}
 
 	if (g_params.find("showinfo") != g_params.end())
-	{
 		dumpopt |= DUMP_MEDIA_INFO_VIEW;
-	}
 
 	if (g_params.find("showMPT") != g_params.end())
-	{
 		dumpopt |= DUMP_MPT;
-	}
 
 	if (g_params.find("showPLT") != g_params.end())
-	{
 		dumpopt |= DUMP_PLT;
-	}
 
 	if (g_params.find("showCAT") != g_params.end())
-	{
 		dumpopt |= DUMP_CAT;
-	}
+
+	if (g_params.find("showEIT") != g_params.end())
+		dumpopt |= DUMP_MH_EIT;
 
 	const char* sp;
 	const char* ep;
@@ -1235,8 +1552,10 @@ int ShowMMTPackageInfo()
 	int nIPv4Packets = 0, nIPv6Packets = 0, nHdrCompressedIPPackets = 0, nTransmissionControlSignalPackets = 0, nNullPackets = 0, nOtherPackets = 0;
 	TreeCIDPAMsgs CIDPAMsgs;
 	CIDCATables CIDCATbls;
+	CIDMHEITables CIDMHEITbls;
 	std::vector<uint8_t> fullPAMessage;
 	std::vector<uint8_t> fullCAMessage;
+	std::vector<uint8_t> fullMHEIMessage;
 	std::set<uint64_t> CID_EMM_packet_id_set;
 
 	int nLocateSyncTry = 0;
@@ -1334,161 +1653,15 @@ int ShowMMTPackageInfo()
 
 				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0x1)	// Process CA message
 				{
-					// Check there is an existed CID there or not, if it does NOT exist, add one
-					if (CIDCATbls.find(CID) == CIDCATbls.end())
-					{
-						CIDCATbls[CID] = CATables();
-					}
-
-					bool bCAMessageChanged = false;
-					// Check whether the current CA message contains a complete message
-					if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
-						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
-						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag == 1)
-					{
-						if (fullCAMessage.size() > 0)
-						{
-							for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
-							{
-								auto& v = std::get<1>(m);
-								if (v.size() > 0)
-								{
-									size_t orig_size = fullCAMessage.size();
-									fullCAMessage.resize(orig_size + v.size());
-									memcpy(&fullCAMessage[orig_size], &v[0], v.size());
-								}
-							}
-
-							//print_mem(&fullCAMessage[0], (int)fullCAMessage.size(), 4);
-							if (ProcessCAMessage(CIDCATbls, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
-								&fullCAMessage[0], (int)fullCAMessage.size(), &bCAMessageChanged, dumpopt) == 0 && bCAMessageChanged)
-							{
-								// TODO...
-							}
-
-							fullCAMessage.clear();
-						}
-						else
-						{
-							for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
-							{
-								bool bChanged = false;
-								auto& v = std::get<1>(m);
-
-								//print_mem(&v[0], (int)v.size(), 4);
-								if (ProcessCAMessage(CIDCATbls, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id,
-									&v[0], (int)v.size(), &bChanged, dumpopt) == 0 && bChanged)
-								{
-									// TODO...
-								}
-
-								if (bChanged && bCAMessageChanged == false)
-									bCAMessageChanged = true;
-							}
-						}
-
-						if (bCAMessageChanged)
-						{
-							CID_EMM_packet_id_set.clear();
-							for (const auto& CIDCA : CIDCATbls)
-							{
-								uint64_t CID_packet_id = ((uint64_t)CIDCA.first) << 16;
-
-								for (const auto& entry : CIDCA.second)
-								{
-									MMT::CATable* pCATable = (MMT::CATable*)entry;
-									for (const auto& desc : pCATable->descriptors)
-									{
-										if (desc->descriptor_tag == 0x8004)
-										{
-											MMT::AccessControlDescriptor* ac_desc = (MMT::AccessControlDescriptor*)desc;
-											if (ac_desc->MMT_general_location_info.location_type == 0 ||
-												ac_desc->MMT_general_location_info.location_type == 1 ||
-												ac_desc->MMT_general_location_info.location_type == 2)
-											{
-												CID_packet_id = CID_packet_id & 0xFFFFFFFFFFFF0000ULL;
-												CID_packet_id |= ac_desc->MMT_general_location_info.GetPacketID();
-												CID_EMM_packet_id_set.insert(CID_packet_id);
-											}
-										}
-										else
-											continue;
-									}
-								}
-							}
-						}
-					}
-					else
-					{
-						assert(pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages.size() <= 1);
-						// Need add the data into the ring buffer, and parse it later
-						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
-						{
-							auto& v = std::get<1>(m);
-							if (v.size() > 0)
-							{
-								size_t orig_size = fullCAMessage.size();
-								fullCAMessage.resize(orig_size + v.size());
-								memcpy(&fullCAMessage[orig_size], &v[0], v.size());
-							}
-						}
-					}
+					ShowInfoProcessCAMessage(CIDCATbls, CID, pHeaderCompressedIPPacket, fullCAMessage, CID_EMM_packet_id_set, dumpopt);
+				}
+				else if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0x8000)
+				{
+					ShowInfoProcessMHEIMessage(CIDMHEITbls, CID, pHeaderCompressedIPPacket, fullMHEIMessage, dumpopt);
 				}
 				else
 				{
-					// Check there is an existed CID there or not, if it does NOT exist, add one
-					if (CIDPAMsgs.find(CID) == CIDPAMsgs.end())
-					{
-						TreePLTMPT emptyTreePLTMAP;
-						CIDPAMsgs[CID] = emptyTreePLTMAP;
-					}
-
-					// Check whether the current PA message contains a complete message
-					if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 0 ||
-						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->fragmentation_indicator == 3 ||
-						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->Aggregate_flag == 1)
-					{
-						if (fullPAMessage.size() > 0)
-						{
-							for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
-							{
-								auto& v = std::get<1>(m);
-								if (v.size() > 0)
-								{
-									size_t orig_size = fullPAMessage.size();
-									fullPAMessage.resize(orig_size + v.size());
-									memcpy(&fullPAMessage[orig_size], &v[0], v.size());
-								}
-							}
-
-							ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &fullPAMessage[0], (int)fullPAMessage.size(), nullptr, dumpopt, &fitler_packet_ids);
-
-							fullPAMessage.clear();
-						}
-						else
-						{
-							for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
-							{
-								auto& v = std::get<1>(m);
-								ProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket->MMTP_Packet->Packet_id, &v[0], (int)v.size(), nullptr, dumpopt, &fitler_packet_ids);
-							}
-						}
-					}
-					else
-					{
-						assert(pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages.size() <= 1);
-						// Need add the data into the ring buffer, and parse it later
-						for (auto& m : pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->messages)
-						{
-							auto& v = std::get<1>(m);
-							if (v.size() > 0)
-							{
-								size_t orig_size = fullPAMessage.size();
-								fullPAMessage.resize(orig_size + v.size());
-								memcpy(&fullPAMessage[orig_size], &v[0], v.size());
-							}
-						}
-					}
+					ShowInfoProcessPAMessage(CIDPAMsgs, CID, pHeaderCompressedIPPacket, fullPAMessage,fitler_packet_ids, dumpopt);
 				}
 			}
 
@@ -2580,7 +2753,8 @@ int DumpMMT()
 			if (g_params.find("showinfo") != g_params.end() ||
 				g_params.find("showPLT")  != g_params.end() ||
 				g_params.find("showMPT")  != g_params.end() ||
-				g_params.find("showCAT")  != g_params.end())
+				g_params.find("showCAT")  != g_params.end() ||
+				g_params.find("showEIT")  != g_params.end())
 			{
 				ShowMMTPackageInfo();
 				goto done;

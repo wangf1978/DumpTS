@@ -286,6 +286,7 @@ SOFTWARE.
 #define RET_CODE_INVALID_PARAMETER		   -7
 #define RET_CODE_OUTOFMEMORY			   -8
 #define RET_CODE_ABORT					   -9
+#define RET_CODE_NOT_FOUND				   -10
 
 #define RET_CODE_NOT_INITIALIZED		   -500
 #define RET_CODE_MISMATCH				   -504
@@ -309,6 +310,7 @@ SOFTWARE.
 #define RET_CODE_ERROR_CRC				   -2004
 #define RET_CODE_BUFFER_OVERFLOW		   -2005
 #define RET_CODE_BUFFER_UNDERFLOW		   -2006
+#define RET_CODE_DEFERRED				   -2007
 
 #define RET_CODE_BOX_TOO_SMALL			   -2100			// ISO 14496-12 box size is too small, and can't unpack the information according to spec
 #define RET_CODE_BOX_INCOMPATIBLE		   -2101			// the current stream is incompatible with ISO 14496-12
@@ -317,6 +319,8 @@ SOFTWARE.
 
 /* For Multimedia return value (-4xxx) */
 #define RET_CODE_CLOCK_DISCONTINUITY	   -4000
+
+#define RET_CODE_FALSE						1
 
 #define RET_CODE_CONTINUE					256
 #define RET_CODE_COMPLETED					257
@@ -459,7 +463,7 @@ struct CaseInsensitiveComparator
 {
 	bool operator()(const std::string& a, const std::string& b) const noexcept
 	{
-		return STRICMP(a.c_str(), b.c_str()) < 0;
+		return MBCSICMP(a.c_str(), b.c_str()) < 0;
 	}
 };
 

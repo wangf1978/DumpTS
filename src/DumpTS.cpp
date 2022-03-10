@@ -199,6 +199,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPMT",
 		"showMPT",
 		"showCAT",
+		"showEIT",
 		"showDU",		// show the DU in the MMTP payload
 		"showPCR",
 		"showPCRDiagram",
@@ -301,7 +302,8 @@ void ParseCommandLine(int argc, char* argv[])
 					MBCSICMP(iter->first.c_str(), "showMPT") == 0 ||
 					MBCSICMP(iter->first.c_str(), "showPAT") == 0 ||
 					MBCSICMP(iter->first.c_str(), "showPLT") == 0 ||
-					MBCSICMP(iter->first.c_str(), "showCAT") == 0)
+					MBCSICMP(iter->first.c_str(), "showCAT") == 0 ||
+					MBCSICMP(iter->first.c_str(), "showEIT") == 0)
 					printf("%s : yes\n", iter->first.c_str());
 				else
 					printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
@@ -692,6 +694,7 @@ void PrintHelp()
 	printf("\t--showMPT\t\tPrint the MPT information in MMT/TLV stream\n");
 	printf("\t--showPLT\t\tPrint the PLT information in MMT/TLV stream\n");
 	printf("\t--showCAT\t\tPrint the CAT information in MMT/TLV stream\n");
+	printf("\t--showEIT\t\tPrint the MH-EIT information in MMT/TLV stream\n");
 	printf("\t--showPCR\t\tPrint the PCR clock information in TS stream\n");
 	printf("\t--showPCRDiagram\tPrint the PCR and its related PTS, DTS diagram, export PCR, ATC, PTS/DTS into csv file\n");
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
