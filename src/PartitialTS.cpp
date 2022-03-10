@@ -167,7 +167,7 @@ int DumpPartialTS(bool bOnlyESTS = true)
 		else
 			nWritten = fwrite(buf + 4, 1, ts_pack_size - 4, fw);
 
-		if (nWritten < (ts_pack_size - ((bTTSOutput || offset == 0) ? 0 : 4)))
+		if (nWritten + ((bTTSOutput || offset == 0) ? 0 : 4) < (size_t)ts_pack_size)
 		{
 			printf("Failed to write the data into destination file.\n");
 			break;
