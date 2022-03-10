@@ -1,3 +1,9 @@
+* [Terminology](#terminology)
+* [What is DumpTS](#what-is-dumpts)
+* [How to build](#how-to-build)
+* [How to run](#how-to-run)
+* [Operations Manual](#operations-manual)
+
 # Terminology
 - **TS**: transport stream, the file extension is normally *.ts, .tts, .m2ts, .mts*
 - **ISOBMFF**: ISO-based Media File Format, the file extension is normally *.mp4, .mov, m4a, m4v, .m4s, .heif, .heic, .avif*
@@ -14,10 +20,11 @@
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
 
 - Extract and repack the elementary stream data or PSI sections data from *TS, ISOBMFF, Matroska and MMT/TLV* file
-- Show media information of elementary streams, *ISOBMFF* box, *Matroska EBML* element and *MMT/TLV* packet/message/table/descriptors.
+- Show media information of elementary streams(AC3/DD+/MLP/DTS/DTS-HD/MPEG2-AAC/MPEG-4 AAC/MPEG2 Video/H.264/H.265/AV1...), *ISOBMFF* box, *Matroska EBML* element and *MMT/TLV* and *TS* packet/message/table/descriptors, container layout, ...
 - Re-factor a *TS* stream file in place
 - Extract some elementary streams, and reconstruct a partial *TS* file
-- Show the primitive syntax and structure of media file of ISOBMFF/Matroska/TS/PS/TLV-MMT/NAL/.... 
+- Show decoder HRD model information, ATC/PCR/pts/dts and so on, and do the simple verification
+- Show the primitive syntax and structure of media file of ISOBMFF/Matroska/TS/PS/TLV-MMT/NAL/AV1.... 
 - Provide some utility features for *ISOBMFF* file reconstruction
 - Provide some utility functions for codec and container technology, for example, Huffman Codebook, CRC, container layout...
 
@@ -227,7 +234,7 @@ Here are some examples of command lines:
     ```
     Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 
-# More
+# Operations Manual
 - For MMT, please see [MMT operation guideline](MMT_Readme.md)
 - For AV1/OBU, please see [AV1/OBU operation guideline](AV1_Readme.md)
 - For Audio, please see [Audio operation guideline](Audio_Readme.md)

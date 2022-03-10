@@ -11,6 +11,7 @@
   * [Show PMT](#show-pmt)
   * [Show SIT](#show-sit)
 * [Diff the ATC](#diff-the-atc)
+* [Show PCR](#show-pcr)
 
 ## Extract an elementary stream
 1. Get the transport stream rough information
@@ -688,5 +689,45 @@ The maximum diff sum of PID:0x0100 of ATC between transport packets: 4268663(158
 The minimum diff sum of PID:0x0100 of ATC between transport packets: 11904(0.4408ms).
 ```
 
+## Show PCR
+Show each PCR point, and calculate the dynamic transport rate,
+```
+DumpTS Mono_AAC_test.m2ts --showPCR
+```
+It will show:
+```
+ -> PCR_PID: 0X01FF PCR(base: 3213312641(90KHZ), ext: 184,  963993792484(27MHZ),   35703473.795(ms)), transport_rate:   0.00bps, ATC:847376356(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213316246(90KHZ), ext:  60,  963994873860(27MHZ),   35703513.846(ms)), transport_rate:  27.57Mbps, ATC:848457732(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213319850(90KHZ), ext: 248,  963995955248(27MHZ),   35703553.898(ms)), transport_rate:  26.73Mbps, ATC:849539120(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213323450(90KHZ), ext: 248,  963997035248(27MHZ),   35703593.898(ms)), transport_rate:  12.05Mbps, ATC:850619120(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213327055(90KHZ), ext:   8,  963998116508(27MHZ),   35703633.944(ms)), transport_rate:   7.32Mbps, ATC:851700380(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213330659(90KHZ), ext: 188,  963999197888(27MHZ),   35703673.995(ms)), transport_rate:  17.29Mbps, ATC:852781760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213334259(90KHZ), ext: 188,  964000277888(27MHZ),   35703713.995(ms)), transport_rate:   8.17Mbps, ATC:853861760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213337859(90KHZ), ext: 188,  964001357888(27MHZ),   35703753.995(ms)), transport_rate: 345.60Kbps, ATC:854941760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213341459(90KHZ), ext: 188,  964002437888(27MHZ),   35703793.995(ms)), transport_rate: 422.40Kbps, ATC:856021760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213345059(90KHZ), ext: 188,  964003517888(27MHZ),   35703833.995(ms)), transport_rate: 422.40Kbps, ATC:857101760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213348659(90KHZ), ext: 188,  964004597888(27MHZ),   35703873.995(ms)), transport_rate: 576.00Kbps, ATC:858181760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213352259(90KHZ), ext: 188,  964005677888(27MHZ),   35703913.995(ms)), transport_rate: 384.00Kbps, ATC:859261760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213355861(90KHZ), ext: 228,  964006758528(27MHZ),   35703954.019(ms)), transport_rate:  13.73Mbps, ATC:860342400(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213359466(90KHZ), ext: 104,  964007839904(27MHZ),   35703994.070(ms)), transport_rate:  27.57Mbps, ATC:861423776(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213363066(90KHZ), ext: 104,  964008919904(27MHZ),   35704034.070(ms)), transport_rate:  26.53Mbps, ATC:862503776(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213366670(90KHZ), ext: 168,  964010001168(27MHZ),   35704074.117(ms)), transport_rate:  25.04Mbps, ATC:863585040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213370270(90KHZ), ext: 168,  964011081168(27MHZ),   35704114.117(ms)), transport_rate:   7.71Mbps, ATC:864665040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213373870(90KHZ), ext: 168,  964012161168(27MHZ),   35704154.117(ms)), transport_rate:  12.17Mbps, ATC:865745040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213377470(90KHZ), ext: 168,  964013241168(27MHZ),   35704194.117(ms)), transport_rate:   6.45Mbps, ATC:866825040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213381070(90KHZ), ext: 168,  964014321168(27MHZ),   35704234.117(ms)), transport_rate:   6.37Mbps, ATC:867905040(27MHZ)
+...
+ -> PCR_PID: 0X01FF PCR(base: 3218914464(90KHZ), ext: 268,  965674339468(27MHZ),   35765716.276(ms)), transport_rate:  14.11Mbps, ATC:380439692(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3218918064(90KHZ), ext: 268,  965675419468(27MHZ),   35765756.276(ms)), transport_rate:   5.06Mbps, ATC:381519692(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3218921669(90KHZ), ext:  28,  965676500728(27MHZ),   35765796.323(ms)), transport_rate:   2.30Mbps, ATC:382600952(27MHZ)
+The max diff between diff ATC and diff PCR: 300(270MHZ), 0.011(ms).
+The max transport rate: 27574468bps(27.57Mbps)
+The average transport rate: 15730192bps(15.73Mbps)
+              The first pts(27MHZ)    The first dts(27MHZ)
+----------------------------------------------------------
+PID:0X0100            964008910800            964006208100
+PID:0X0110            964006295100
+PCR_PID: 0X01FF, The initial PCR value: 963993792484(27MHZ), diff with minimum dts: 12415616 (27MHZ)/459.0837(ms)
+```
 
 
