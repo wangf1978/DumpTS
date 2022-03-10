@@ -4,6 +4,8 @@
 * [Extract a PSI data stream](#extract-a-psi-data-stream)
 * [Extract a sub-stream from one elementary stream](#extract-a-sub-stream-from-one-elementary-stream)
 * [Extract a part of transport stream](#extract-a-part-of-transport-stream)
+* [Extract a program sequence](#extract-a-program-sequence)
+* [Extract a part of movie with the start and end packet number](#extract-a-part-of-movie-with-the-start-and-end-packet-number)
 * [Show PSI information](#show-psi-information)
   * [Show PAT](#show-pai)
   * [Show PMT](#show-pmt)
@@ -86,6 +88,62 @@ DumpTS Mono_AAC_test.m2ts --pid=0x0,0x1f,0x100,0x110,0x1f0 --outputfmt=m2ts --ou
 ```
 The transport packet with PID 0, 0x1F, 0x100, 0x110 and 0x1F0,will extracted consequently, and save them to new file.
 *(\*)No PSI sections will be modified in this case, it may cause some players with more strict check can't play it*
+
+## Extract a program sequence
+There may be multiple program sequence with different version of PMTs, the below steps can be used to extract one of them
+1. Get the program sequence layout
+    ```
+    DumpTS 5.1ch_stereo.m2ts --showinfo
+    Program Number: 103, program_map_PID: 0X1F0(496).
+    Program(PID:0X01F0)
+            Stream#0, PID: 0X0138, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
+            Stream#1, PID: 0X0130, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
+            Stream#2, PID: 0X0110, stm_type: 0X0F (AAC Audio)
+            Stream#3, PID: 0X0100, stm_type: 0X02 (MPEG2 Video)
+
+    Program(PID:0X01F0)
+            Stream#0, PID: 0X0138, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
+            Stream#1, PID: 0X0130, stm_type: 0X06 (Teletext, ARIB subtitle or TTML)
+            Stream#2, PID: 0X0110, stm_type: 0X0F (AAC Audio)
+            Stream#3, PID: 0X0100, stm_type: 0X02 (MPEG2 Video)
+            Stream#4, PID: 0X0111, stm_type: 0X0F (AAC Audio)
+
+    The number of transport packets: 9495552
+            PID: 0x0000             transport packet count:     10,579 - PAT
+            PID: 0x001E             transport packet count:          2 - DIT
+            PID: 0x001F             transport packet count:      2,216 - SIT
+            PID: 0x0100             transport packet count:  9,174,898 - MPEG2 Video
+            PID: 0x0110             transport packet count:    131,186 - AAC Audio
+            PID: 0x0111             transport packet count:    130,561 - AAC Audio
+            PID: 0x0130             transport packet count:      1,153 - Teletext, ARIB subtitle or TTML
+            PID: 0x0138             transport packet count:        222 - Teletext, ARIB subtitle or TTML
+            PID: 0x01F0             transport packet count:     10,579 - PMT
+            PID: 0x01FF             transport packet count:     29,568 - PCR
+            PID: 0x1FFF             transport packet count:      4,588 - Null packet
+    ```
+    There are 2 program sequences, the 2nd program sequence carries stereo AAC audio.
+2. Extract the 2nd program sequence
+```
+DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=m2ts -output=stereo.m2ts
+DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=m2ts
+DumpTS 5.1ch_stereo.m2ts --progseq=0 --outputfmt=es --output=5.1ch.m2v --pid=0x100
+DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=copy -output=stereo.m2ts
+```
+The first command copy the 2nd program sequence of m2ts file to another new m2ts file `stereo.m2ts`
+If the output path is not specified, the second command will extract it into `stereo_ps_1.m2ts` at the same directory with the source file
+the third command extract the video elementary stream from program sequence#0.
+When it is NOT sure for the source format, specify outputfmt to copy, it means both source and destination use the same format
+
+## Extract a part of movie with the start and end packet number
+You may know the start and end packet number of a clip of movie with some way, for example, the EP_MAP, this part of video can be extracted,
+```
+DumpTS 00005.m2ts --start=0x2060B --end=0x3ef38 --outputfmt=m2ts
+DumpTS 00005.m2ts --start=0x2060B --end=0x3ef38 --outputfmt=m2ts --output=test.m2ts
+DumpTS 00005.m2ts --start=0x2060B --end=0x3ef38 --outputfmt=es --pid=0x1011 --output=test.h264
+```
+The first command will generate the file `00005_spnstart_0x2060B_spnend_0x3ef38.m2ts` at the same directory with the source file.
+The second command will generate the output file with the specified destination file.
+The third command will extract the H.264 elementary stream packetized with PID#0x1011 from the specified packet range.
 
 ## Show PSI information
 ### Show PAT

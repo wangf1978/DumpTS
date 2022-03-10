@@ -928,6 +928,7 @@ int main(int argc, char* argv[])
 	}
 
 	auto iter_srcfmt = g_params.find("srcfmt");
+	auto iter_dstfmt = g_params.find("outputfmt");
 
 	// If the output format is ES/PES, and PID is also specified, go into the DumpOneStream mode
 	if (g_params.find("crc") != g_params.end())
@@ -981,10 +982,10 @@ int main(int argc, char* argv[])
 	{
 		if (g_params.find("stream_id") != g_params.end())
 		{
-			if (g_params.find("outputfmt") == g_params.end())
-				g_params["outputfmt"] = "es";
+			if (iter_dstfmt == g_params.end())
+				iter_dstfmt = g_params.insert({ "outputfmt", "es" }).first;
 
-			std::string& str_output_fmt = g_params["outputfmt"];
+			std::string& str_output_fmt = iter_dstfmt->second;
 
 			if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 			{
@@ -994,10 +995,10 @@ int main(int argc, char* argv[])
 	}
 	else if (g_params.find("pid") != g_params.end() && (g_params.find("diffATC") == g_params.end() && g_params.find("diffATCDTS") == g_params.end()))
 	{
-		if (g_params.find("outputfmt") == g_params.end())
-			g_params["outputfmt"] = "es";
+		if (iter_dstfmt == g_params.end())
+			iter_dstfmt = g_params.insert({ "outputfmt", "es" }).first;
 
-		std::string& str_output_fmt = g_params["outputfmt"];
+		std::string& str_output_fmt = iter_dstfmt->second;
 
 		if ((str_output_fmt.compare("es") == 0 || str_output_fmt.compare("pes") == 0 || str_output_fmt.compare("wav") == 0 || str_output_fmt.compare("pcm") == 0))
 		{
@@ -1013,8 +1014,20 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
+		bool bSimiliarFormatConverting = false;
+		if (iter_dstfmt != g_params.end() && _stricmp(iter_dstfmt->second.c_str(), "copy") == 0)
+			bSimiliarFormatConverting = true;
+		else if (iter_srcfmt != g_params.end())
+		{
+			if (_stricmp(iter_dstfmt->second.c_str(), iter_srcfmt->second.c_str()) == 0)
+				bSimiliarFormatConverting = true;
+			else if ((_stricmp(iter_srcfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "tts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "ts") == 0) &&
+					 (_stricmp(iter_dstfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "tts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "ts") == 0))
+				bSimiliarFormatConverting = true;
+		}
+
 		// copy whole TS or a part of TS
-		if (g_params.find("outputfmt") != g_params.end() && _stricmp(g_params["outputfmt"].c_str(), "copy") == 0)
+		if (bSimiliarFormatConverting)
 		{
 			if (g_params.find("output") == g_params.end())
 			{
@@ -1044,7 +1057,6 @@ int main(int argc, char* argv[])
 				g_params["output"] = strNewFilePath;
 			}
 
-			g_params["outputfmt"] = "copy";
 			g_params["pid"] = "-1";
 			nDumpRet = DumpOneStream();
 			goto done;

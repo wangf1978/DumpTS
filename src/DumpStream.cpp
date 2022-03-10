@@ -2523,6 +2523,8 @@ int DumpOneStream()
 	pPSIBufs[0x1F] = new CPSIBuf(&psi_process_ctx, PID_SELECTION_INFORMATION_TABLE);
 
 	unsigned char buf[1024];
+	auto iterSrcFmt = g_params.find("srcfmt");
+	auto iterDstFmt = g_params.find("outputfmt");
 
 	if (g_params.find("pid") == g_params.end())
 	{
@@ -2549,7 +2551,7 @@ int DumpOneStream()
 		}
 	}
 
-	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("m2ts") == 0)
+	if (iterSrcFmt != g_params.end() && iterSrcFmt->second.compare("m2ts") == 0)
 		dumpopt |= DUMP_BD_M2TS;
 
 	if (g_params.find("stream_id_extension") != g_params.end())
@@ -2563,16 +2565,25 @@ int DumpOneStream()
 	}
 
 	// Make sure the dump option
-	if (g_params.find("outputfmt") != g_params.end())
+	if (iterDstFmt != g_params.end())
 	{
-		std::string& strOutputFmt = g_params["outputfmt"];
-		if (strOutputFmt.compare("es") == 0)
+		// Don't support converting ts to tts or m2ts at present
+		if (iterSrcFmt != g_params.end() &&
+			_stricmp(iterSrcFmt->second.c_str(), "ts") == 0 && (
+				_stricmp(iterDstFmt->second.c_str(), "tts") == 0 ||
+				_stricmp(iterDstFmt->second.c_str(), "m2ts") == 0))
+		{
+			printf("Don't support convert source format: %s to destination format: %s!\n", iterSrcFmt->second.c_str(), iterDstFmt->second.c_str());
+			goto done;
+		}
+
+		if (_stricmp(iterDstFmt->second.c_str(), "es") == 0)
 			dumpopt |= DUMP_RAW_OUTPUT;
-		else if (strOutputFmt.compare("pes") == 0)
+		else if (_stricmp(iterDstFmt->second.c_str(), "pes") == 0)
 			dumpopt |= DUMP_PES_OUTPUT;
-		else if (strOutputFmt.compare("pcm") == 0)
+		else if (_stricmp(iterDstFmt->second.c_str(), "pcm") == 0)
 			dumpopt |= DUMP_PCM;
-		else if (strOutputFmt.compare("wav") == 0)
+		else if (_stricmp(iterDstFmt->second.c_str(), "wav") == 0)
 			dumpopt |= DUMP_WAV;
 	}
 
@@ -2664,9 +2675,12 @@ int DumpOneStream()
 	if (g_params.find("progseq") != g_params.end())
 		sProgSeqID = (int)ConvertToLongLong(g_params["progseq"]);
 
-	if (g_params.find("outputfmt") != g_params.end())
+	if (iterDstFmt != g_params.end())
 	{
-		bCopyOriginalStream = _stricmp(g_params["outputfmt"].c_str(), "copy") == 0 ? true : false;
+		bCopyOriginalStream = (_stricmp(iterDstFmt->second.c_str(), "copy") == 0 ||
+							   _stricmp(iterDstFmt->second.c_str(), "m2ts") == 0 ||
+							   _stricmp(iterDstFmt->second.c_str(), "tts") == 0 ||
+							   _stricmp(iterDstFmt->second.c_str(), "ts") == 0) ? true : false;
 		if (g_verbose_level > 0)
 		{
 			if (start_tspck_pos > 0 || (end_tspck_pos > 0 && end_tspck_pos != std::numeric_limits<decltype(end_tspck_pos)>::max()))
@@ -2678,7 +2692,7 @@ int DumpOneStream()
 		}
 	}
 
-	if (sProgSeqID >= 0)
+	if (sProgSeqID >= 0 && bCopyOriginalStream)
 	{
 		unwritten_pat_buf.reserve(6144);
 		unwritten_pmt_buf.reserve(6144);	// 32 TS packets
@@ -2693,6 +2707,12 @@ int DumpOneStream()
 		{
 			if (end_tspck_pos != std::numeric_limits<decltype(end_tspck_pos)>::max())
 				printf("Reach the end position: %" PRId64 ", stop dumping the stream.\n", end_tspck_pos);
+			break;
+		}
+
+		if (sProgSeqID >= 0 && curProgSeqID > sProgSeqID)
+		{
+			printf("Now reach to program sequence#%d, stop dumping the stream.\n", curProgSeqID);
 			break;
 		}
 
@@ -2726,6 +2746,18 @@ int DumpOneStream()
 			{
 				if (sProgSeqID >= 0 && curProgSeqID == sProgSeqID && !bPSI)
 				{
+					if (unwritten_pat_buf.size() > 0)
+					{
+						fwrite(unwritten_pat_buf.data(), 1, unwritten_pat_buf.size(), fw);
+						unwritten_pat_buf.clear();
+					}
+
+					if (unwritten_pmt_buf.size() > 0)
+					{
+						fwrite(unwritten_pmt_buf.data(), 1, unwritten_pmt_buf.size(), fw);
+						unwritten_pmt_buf.clear();
+					}
+
 					fwrite(buf, 1, ts_pack_size, fw);
 				}
 			}
@@ -2768,7 +2800,7 @@ int DumpOneStream()
 					iterPSIBuf->second->Reset();
 				}
 
-				if (PID == PID_PROGRAM_ASSOCIATION_TABLE)
+				if (PID == PID_PROGRAM_ASSOCIATION_TABLE && bCopyOriginalStream)
 					unwritten_pat_buf.clear();
 			}
 
@@ -2787,8 +2819,7 @@ int DumpOneStream()
 					pes_filter_info.TS.stream_id_extension = stream_id_extension;
 					pes_filter_info.TS.stream_type = stream_types.find(sPID) == stream_types.end() ? -1 : stream_types[sPID];
 
-					if ((dump_ret = FlushPESBuffer(
-						pes_buffer, pes_buffer_len, raw_data_len, pes_filter_info, fw, dumpopt)) < 0)
+					if ((dump_ret = FlushPESBuffer(pes_buffer, pes_buffer_len, raw_data_len, pes_filter_info, fw, dumpopt)) < 0)
 						printf(dump_msg[-dump_ret - 1], ftell(fp), ftell(fw));
 				}
 
@@ -2827,15 +2858,21 @@ int DumpOneStream()
 							if (bNewProgramSeq)
 							{
 								curProgSeqID++;
-								if (curProgSeqID == sProgSeqID)
+								if (curProgSeqID == sProgSeqID && bCopyOriginalStream)
 								{
 									if (fw != NULL)
 									{
 										if (unwritten_pat_buf.size() > 0)
+										{
 											fwrite(unwritten_pat_buf.data(), 1, unwritten_pat_buf.size(), fw);
+											unwritten_pat_buf.clear();
+										}
 
 										if (unwritten_pmt_buf.size() > 0)
+										{
 											fwrite(unwritten_pmt_buf.data(), 1, unwritten_pmt_buf.size(), fw);
+											unwritten_pmt_buf.clear();
+										}
 
 										fwrite(buf, 1, ts_pack_size, fw);
 									}
@@ -2844,8 +2881,10 @@ int DumpOneStream()
 								mapPSIVersionNumbers[PID] = iterPSIBuf->second->version_number;
 							}
 
-							unwritten_pat_buf.clear();
-							unwritten_pmt_buf.clear();
+							if (curProgSeqID == sProgSeqID)
+							{
+								std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pmt_buf));
+							}
 						}
 						else if (PID == PID_PROGRAM_ASSOCIATION_TABLE)
 						{
@@ -2864,7 +2903,8 @@ int DumpOneStream()
 								goto done;
 							}
 
-							std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pat_buf));
+							if (bCopyOriginalStream)
+								std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pat_buf));
 						}
 					}
 
@@ -2872,10 +2912,10 @@ int DumpOneStream()
 				}
 				else
 				{
-					if (sProgSeqID >= 0 && iterPSIBuf->second->table_id == TID_TS_program_map_section)
+					if (sProgSeqID >= 0 && iterPSIBuf->second->table_id == TID_TS_program_map_section && bCopyOriginalStream)
 						std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pmt_buf));
 
-					if (sProgSeqID >= 0 && PID == PID_PROGRAM_ASSOCIATION_TABLE)
+					if (sProgSeqID >= 0 && PID == PID_PROGRAM_ASSOCIATION_TABLE && bCopyOriginalStream)
 						std::copy(buf, buf + ts_pack_size, std::back_inserter(unwritten_pat_buf));
 				}
 
