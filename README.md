@@ -1,7 +1,8 @@
+# Table of Content
 * [Terminology](#terminology)
-* [What is DumpTS](#what-is-dumpts)
-* [How to build](#how-to-build)
-* [How to run](#how-to-run)
+* [What is DumpTS?](#what-is-dumpts)
+* [How to build?](#how-to-build)
+* [How to run it?](#how-to-run-it)
 * [Operations Manual](#operations-manual)
 
 # Terminology
@@ -16,6 +17,8 @@
 - **ADTS** The elementary stream exported from MPEG2-AAC stream which is packetized in TS stream, the file extension is normally *.adts*
 - **LOAS/LATM** The elementary stream exported from MPEG4-AAC stream which is packetized in TS or MMT/TLV stream, the file extension is normally .loas(with sync layer) or .latm, normally exported MPEG4-AAC as *.loas*
 
+[top](#table-of-content)
+
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
 
@@ -27,6 +30,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 - Show the primitive syntax and structure of media file of ISOBMFF/Matroska/TS/PS/TLV-MMT/NAL/AV1.... 
 - Provide some utility features for *ISOBMFF* file reconstruction
 - Provide some utility functions for codec and container technology, for example, Huffman Codebook, CRC, container layout...
+
+[top](#table-of-content)
 
 
 # How to build?
@@ -60,6 +65,8 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     ```
     ***(\*) both x64 and x86 are supported***
 
+[top](#table-of-content)
+
 # How to run it?
 
 *Usage: DumpTS.exe MediaFileName \[OPTION\]...*
@@ -91,6 +98,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--showMPT**|*N/A*|print the MPT information in MMT/TLV stream|
 |**--showCAT**|*N/A*|print the CAT information in MMT/TLV stream|
 |**--showPLT**|*N/A*|print the PLT information in MMT/TLV stream|
+|**--showEIT**|*N/A*|print the MH-EIT information in MMT/TLV stream or EIT in transport stream|
 |**--showPCR**|*[video][audio][full]*|print the PCR clock information in TS stream|
 |**--showPCRDiagram**|*[csv filename]*|Export ATC, PCR, PTS/DTS of elementary streams into csv database based on 27MHZ|
 |**--showNTP**|*N/A*|print the NTP information in MMT/TLV stream|
@@ -234,6 +242,8 @@ Here are some examples of command lines:
     ```
     Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 
+[top](#table-of-content)
+
 # Operations Manual
 - For MMT, please see [MMT operation guideline](MMT_Readme.md)
 - For AV1/OBU, please see [AV1/OBU operation guideline](AV1_Readme.md)
@@ -242,3 +252,4 @@ Here are some examples of command lines:
 - For Transport-Stream, please see [TS bitstream operation guideline](TS_Readme.md)
 - Some utility features are also provided, please see [Utility operation guideline](Utility_Readme.md)
 
+[top](#table-of-content)
