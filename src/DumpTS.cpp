@@ -1015,15 +1015,18 @@ int main(int argc, char* argv[])
 	else
 	{
 		bool bSimiliarFormatConverting = false;
-		if (iter_dstfmt != g_params.end() && _stricmp(iter_dstfmt->second.c_str(), "copy") == 0)
-			bSimiliarFormatConverting = true;
-		else if (iter_srcfmt != g_params.end())
+		if (iter_dstfmt != g_params.end())
 		{
-			if (_stricmp(iter_dstfmt->second.c_str(), iter_srcfmt->second.c_str()) == 0)
+			if (_stricmp(iter_dstfmt->second.c_str(), "copy") == 0)
 				bSimiliarFormatConverting = true;
-			else if ((_stricmp(iter_srcfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "tts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "ts") == 0) &&
-					 (_stricmp(iter_dstfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "tts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "ts") == 0))
-				bSimiliarFormatConverting = true;
+			else if (iter_srcfmt != g_params.end())
+			{
+				if (_stricmp(iter_dstfmt->second.c_str(), iter_srcfmt->second.c_str()) == 0)
+					bSimiliarFormatConverting = true;
+				else if ((_stricmp(iter_srcfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "tts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "ts") == 0) &&
+						 (_stricmp(iter_dstfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "tts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "ts") == 0))
+					bSimiliarFormatConverting = true;
+			}
 		}
 
 		// copy whole TS or a part of TS

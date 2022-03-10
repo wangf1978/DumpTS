@@ -10,6 +10,7 @@
   * [Show PAT](#show-pai)
   * [Show PMT](#show-pmt)
   * [Show SIT](#show-sit)
+* [Diff the ATC](#diff-the-atc)
 
 ## Extract an elementary stream
 1. Get the transport stream rough information
@@ -458,4 +459,234 @@ SIT(ver: 5):
 
 ......
 ```
+
+## Diff the ATC
+The tts or m2ts transport packet carry arrive time value based on 27MHZ in the first 4 bytes LSB 30bit, the below command be used to show its difference between 2 adjacent packets,
+```
+DumpTS 5.1ch_stereo.m2ts --diffATC | more
+```
+It will show like as:
+```
+pkt_idx:          0 [PID: 0X001E][header 4bytes: C0 00 00 01] CC:01 ATC: 0x00000001(         1), diff:
+pkt_idx:          1 [PID: 0X001E][header 4bytes: C0 00 00 02] CC:02 ATC: 0x00000002(         2), diff: 1(0.000037ms)
+pkt_idx:          2 [PID: 0X001F][header 4bytes: C0 00 00 03] CC:14 ATC: 0x00000003(         3), diff: 1(0.000037ms)
+pkt_idx:          3 [PID: 0X001F][header 4bytes: C0 00 00 04] CC:15 ATC: 0x00000004(         4), diff: 1(0.000037ms)
+pkt_idx:          4 [PID: 0X001F][header 4bytes: C0 00 00 05] CC:00 ATC: 0x00000005(         5), diff: 1(0.000037ms)
+pkt_idx:          5 [PID: 0X001F][header 4bytes: C0 00 00 06] CC:01 ATC: 0x00000006(         6), diff: 1(0.000037ms)
+pkt_idx:          6 [PID: 0X0100][header 4bytes: C0 09 80 75] CC:03 ATC: 0x00098075(    622709), diff: 622703(23.063074ms)
+pkt_idx:          7 [PID: 0X0100][header 4bytes: C0 09 90 AF] CC:04 ATC: 0x000990AF(    626863), diff: 4154(0.153852ms)
+pkt_idx:          8 [PID: 0X0100][header 4bytes: C0 09 98 C8] CC:05 ATC: 0x000998C8(    628936), diff: 2073(0.076778ms)
+pkt_idx:          9 [PID: 0X0100][header 4bytes: C0 09 A0 E5] CC:06 ATC: 0x0009A0E5(    631013), diff: 2077(0.076926ms)
+pkt_idx:         10 [PID: 0X0100][header 4bytes: C0 09 B1 1B] CC:07 ATC: 0x0009B11B(    635163), diff: 4150(0.153704ms)
+pkt_idx:         11 [PID: 0X0100][header 4bytes: C0 09 B9 38] CC:08 ATC: 0x0009B938(    637240), diff: 2077(0.076926ms)
+pkt_idx:         12 [PID: 0X0100][header 4bytes: C0 09 C1 55] CC:09 ATC: 0x0009C155(    639317), diff: 2077(0.076926ms)
+pkt_idx:         13 [PID: 0X0100][header 4bytes: C0 09 C9 6E] CC:10 ATC: 0x0009C96E(    641390), diff: 2073(0.076778ms)
+pkt_idx:         14 [PID: 0X0100][header 4bytes: C0 09 D1 8B] CC:11 ATC: 0x0009D18B(    643467), diff: 2077(0.076926ms)
+pkt_idx:         15 [PID: 0X0100][header 4bytes: C0 09 D9 A8] CC:12 ATC: 0x0009D9A8(    645544), diff: 2077(0.076926ms)
+pkt_idx:         16 [PID: 0X0100][header 4bytes: C0 09 E9 DE] CC:13 ATC: 0x0009E9DE(    649694), diff: 4150(0.153704ms)
+pkt_idx:         17 [PID: 0X0100][header 4bytes: C0 09 F1 FB] CC:14 ATC: 0x0009F1FB(    651771), diff: 2077(0.076926ms)
+pkt_idx:         18 [PID: 0X0100][header 4bytes: C0 09 FA 14] CC:15 ATC: 0x0009FA14(    653844), diff: 2073(0.076778ms)
+pkt_idx:         19 [PID: 0X0100][header 4bytes: C0 0A 02 31] CC:00 ATC: 0x000A0231(    655921), diff: 2077(0.076926ms)
+pkt_idx:         20 [PID: 0X0100][header 4bytes: C0 0A 12 68] CC:01 ATC: 0x000A1268(    660072), diff: 4151(0.153741ms)
+pkt_idx:         21 [PID: 0X0100][header 4bytes: C0 0A 1A 84] CC:02 ATC: 0x000A1A84(    662148), diff: 2076(0.076889ms)
+pkt_idx:         22 [PID: 0X0100][header 4bytes: C0 0A 22 A1] CC:03 ATC: 0x000A22A1(    664225), diff: 2077(0.076926ms)
+pkt_idx:         23 [PID: 0X0100][header 4bytes: C0 0A 32 D7] CC:04 ATC: 0x000A32D7(    668375), diff: 4150(0.153704ms)
+pkt_idx:         24 [PID: 0X0100][header 4bytes: C0 0A 3A F5] CC:05 ATC: 0x000A3AF5(    670453), diff: 2078(0.076963ms)
+pkt_idx:         25 [PID: 0X0100][header 4bytes: C0 0A 43 0D] CC:06 ATC: 0x000A430D(    672525), diff: 2072(0.076741ms)
+pkt_idx:         26 [PID: 0X0100][header 4bytes: C0 0A 4B 2B] CC:07 ATC: 0x000A4B2B(    674603), diff: 2078(0.076963ms)
+pkt_idx:         27 [PID: 0X0100][header 4bytes: C0 0A 53 48] CC:08 ATC: 0x000A5348(    676680), diff: 2077(0.076926ms)
+pkt_idx:         28 [PID: 0X0100][header 4bytes: C0 0A 63 7D] CC:09 ATC: 0x000A637D(    680829), diff: 4149(0.153667ms)
+pkt_idx:         29 [PID: 0X0100][header 4bytes: C0 0A 6B 9A] CC:10 ATC: 0x000A6B9A(    682906), diff: 2077(0.076926ms)
+pkt_idx:         30 [PID: 0X0100][header 4bytes: C0 0A 73 B4] CC:11 ATC: 0x000A73B4(    684980), diff: 2074(0.076815ms)
+pkt_idx:         31 [PID: 0X0100][header 4bytes: C0 0A 7B D0] CC:12 ATC: 0x000A7BD0(    687056), diff: 2076(0.076889ms)
+pkt_idx:         32 [PID: 0X0100][header 4bytes: C0 0A 83 ED] CC:13 ATC: 0x000A83ED(    689133), diff: 2077(0.076926ms)
+pkt_idx:         33 [PID: 0X0100][header 4bytes: C0 0A 94 24] CC:14 ATC: 0x000A9424(    693284), diff: 4151(0.153741ms)
+pkt_idx:         34 [PID: 0X0100][header 4bytes: C0 0A 9C 41] CC:15 ATC: 0x000A9C41(    695361), diff: 2077(0.076926ms)
+pkt_idx:         35 [PID: 0X0100][header 4bytes: C0 0A A4 5A] CC:00 ATC: 0x000AA45A(    697434), diff: 2073(0.076778ms)
+pkt_idx:         36 [PID: 0X0100][header 4bytes: C0 0A AC 77] CC:01 ATC: 0x000AAC77(    699511), diff: 2077(0.076926ms)
+pkt_idx:         37 [PID: 0X0100][header 4bytes: C0 0A B4 94] CC:02 ATC: 0x000AB494(    701588), diff: 2077(0.076926ms)
+pkt_idx:         38 [PID: 0X0100][header 4bytes: C0 0A BC AD] CC:03 ATC: 0x000ABCAD(    703661), diff: 2073(0.076778ms)
+pkt_idx:         39 [PID: 0X0100][header 4bytes: C0 0A CC E7] CC:04 ATC: 0x000ACCE7(    707815), diff: 4154(0.153852ms)
+pkt_idx:         40 [PID: 0X0100][header 4bytes: C0 0A D5 00] CC:05 ATC: 0x000AD500(    709888), diff: 2073(0.076778ms)
+pkt_idx:         41 [PID: 0X0100][header 4bytes: C0 0A ED 53] CC:06 ATC: 0x000AED53(    716115), diff: 6227(0.230630ms)
+pkt_idx:         42 [PID: 0X0100][header 4bytes: C0 0A FD 8D] CC:07 ATC: 0x000AFD8D(    720269), diff: 4154(0.153852ms)
+pkt_idx:         43 [PID: 0X0100][header 4bytes: C0 0B 05 A6] CC:08 ATC: 0x000B05A6(    722342), diff: 2073(0.076778ms)
+```
     
+Since there are so many packets in one transport stream file, you may only want to show the abnormal difference, for example, the difference exceeds 16.6 milliseconds(16.6*27000 = 448200 27MHZ), you can specify the threshold with --diffATC
+```
+DumpTS 00001.m2ts --diffATC=448200
+```
+It will all transport packets which difference with its preceded packets is NOT less than 448200(27MHZ):
+```
+pkt_idx:          0 [PID: 0X0000][header 4bytes: 00 00 00 00] CC:00 ATC: 0x00000000(         0), diff:
+pkt_idx:      20805 [PID: 0X1011][header 4bytes: 13 4E 03 FC] CC:11 ATC: 0x134E03FC( 323879932), diff: 449395(16.644260ms)
+pkt_idx:      22398 [PID: 0X1011][header 4bytes: 15 05 E9 29] CC:09 ATC: 0x1505E929( 352708905), diff: 449395(16.644260ms)
+pkt_idx:      22588 [PID: 0X1011][header 4bytes: 15 66 23 A0] CC:02 ATC: 0x156623A0( 359015328), diff: 449396(16.644297ms)
+pkt_idx:      23213 [PID: 0X1011][header 4bytes: 15 E1 DB C0] CC:01 ATC: 0x15E1DBC0( 367123392), diff: 449396(16.644297ms)
+pkt_idx:      23297 [PID: 0X1011][header 4bytes: 16 1F B7 D0] CC:06 ATC: 0x161FB7D0( 371177424), diff: 449396(16.644297ms)
+pkt_idx:      23972 [PID: 0X1011][header 4bytes: 16 BD CE 56] CC:04 ATC: 0x16BDCE56( 381537878), diff: 449395(16.644260ms)
+pkt_idx:      28672 [PID: 0X1011][header 4bytes: 1B AE 7D 40] CC:04 ATC: 0x1BAE7D40( 464420160), diff: 449396(16.644297ms)
+pkt_idx:      29488 [PID: 0X1011][header 4bytes: 1C 8A 6F D6] CC:13 ATC: 0x1C8A6FD6( 478834646), diff: 449395(16.644260ms)
+pkt_idx:      29561 [PID: 0X1011][header 4bytes: 1C C8 4B E6] CC:07 ATC: 0x1CC84BE6( 482888678), diff: 449395(16.644260ms)
+pkt_idx:      30304 [PID: 0X1011][header 4bytes: 1D 66 62 6C] CC:09 ATC: 0x1D66626C( 493249132), diff: 449395(16.644260ms)
+pkt_idx:      40747 [PID: 0X1011][header 4bytes: 26 A2 CE 46] CC:03 ATC: 0x26A2CE46( 648203846), diff: 449395(16.644260ms)
+pkt_idx:      42362 [PID: 0X1011][header 4bytes: 28 5A B3 73] CC:07 ATC: 0x285AB373( 677032819), diff: 449395(16.644260ms)
+pkt_idx:      44614 [PID: 0X1011][header 4bytes: 2A 72 D3 16] CC:06 ATC: 0x2A72D316( 712168214), diff: 449395(16.644260ms)
+pkt_idx:      46364 [PID: 0X1011][header 4bytes: 2C 6F 6F C6] CC:07 ATC: 0x2C6F6FC6( 745500614), diff: 449395(16.644260ms)
+pkt_idx:      46443 [PID: 0X1011][header 4bytes: 2C AD 4B D6] CC:04 ATC: 0x2CAD4BD6( 749554646), diff: 449395(16.644260ms)
+pkt_idx:      47170 [PID: 0X1011][header 4bytes: 2D 4B 62 5C] CC:06 ATC: 0x2D4B625C( 759915100), diff: 449395(16.644260ms)
+pkt_idx:      47247 [PID: 0X1011][header 4bytes: 2D 89 3E 6C] CC:04 ATC: 0x2D893E6C( 763969132), diff: 449395(16.644260ms)
+pkt_idx:      48801 [PID: 0X1011][header 4bytes: 2F 03 47 89] CC:10 ATC: 0x2F034789( 788744073), diff: 449395(16.644260ms)
+pkt_idx:      48874 [PID: 0X1011][header 4bytes: 2F 41 23 99] CC:04 ATC: 0x2F412399( 792798105), diff: 449395(16.644260ms)
+pkt_idx:      49599 [PID: 0X1011][header 4bytes: 2F DF 3A 20] CC:04 ATC: 0x2FDF3A20( 803158560), diff: 449396(16.644297ms)
+pkt_idx:      49651 [PID: 0X1011][header 4bytes: 30 01 98 86] CC:05 ATC: 0x30019886( 805410950), diff: 449395(16.644260ms)
+pkt_idx:      50238 [PID: 0X1011][header 4bytes: 30 3F 74 96] CC:00 ATC: 0x303F7496( 809464982), diff: 449395(16.644260ms)
+pkt_idx:      50411 [PID: 0X1011][header 4bytes: 30 BB 2C B6] CC:12 ATC: 0x30BB2CB6( 817573046), diff: 449395(16.644260ms)
+pkt_idx:      50464 [PID: 0X1011][header 4bytes: 30 DD 8B 1C] CC:14 ATC: 0x30DD8B1C( 819825436), diff: 449395(16.644260ms)
+pkt_idx:      51049 [PID: 0X1011][header 4bytes: 31 1B 67 2C] CC:04 ATC: 0x311B672C( 823879468), diff: 449395(16.644260ms)
+pkt_idx:      51847 [PID: 0X1011][header 4bytes: 31 F7 59 C3] CC:11 ATC: 0x31F759C3( 838293955), diff: 449395(16.644260ms)
+pkt_idx:      52851 [PID: 0X1011][header 4bytes: 33 71 62 E0] CC:14 ATC: 0x337162E0( 863068896), diff: 449396(16.644297ms)
+pkt_idx:      55386 [PID: 0X1011][header 4bytes: 35 AB DB A0] CC:05 ATC: 0x35ABDBA0( 900455328), diff: 449396(16.644297ms)
+pkt_idx:      55444 [PID: 0X1011][header 4bytes: 35 E9 B7 B0] CC:12 ATC: 0x35E9B7B0( 904509360), diff: 449396(16.644297ms)
+pkt_idx:      56081 [PID: 0X1011][header 4bytes: 36 87 CE 36] CC:05 ATC: 0x3687CE36( 914869814), diff: 449395(16.644260ms)
+pkt_idx:      56140 [PID: 0X1011][header 4bytes: 36 C5 AA 46] CC:00 ATC: 0x36C5AA46( 918923846), diff: 449395(16.644260ms)
+pkt_idx:      56173 [PID: 0X1011][header 4bytes: 36 E8 08 AC] CC:14 ATC: 0x36E808AC( 921176236), diff: 449395(16.644260ms)
+pkt_idx:      56787 [PID: 0X1011][header 4bytes: 37 63 C0 CC] CC:03 ATC: 0x3763C0CC( 929284300), diff: 449395(16.644260ms)
+pkt_idx:      56848 [PID: 0X1011][header 4bytes: 37 A1 9C DC] CC:13 ATC: 0x37A19CDC( 933338332), diff: 449395(16.644260ms)
+pkt_idx:      57575 [PID: 0X1011][header 4bytes: 38 7D 8F 73] CC:00 ATC: 0x387D8F73( 947752819), diff: 449395(16.644260ms)
+pkt_idx:      57610 [PID: 0X1011][header 4bytes: 38 9F ED D9] CC:00 ATC: 0x389FEDD9( 950005209), diff: 449395(16.644260ms)
+pkt_idx:      58229 [PID: 0X1011][header 4bytes: 39 1B A5 F9] CC:09 ATC: 0x391BA5F9( 958113273), diff: 449395(16.644260ms)
+pkt_idx:      58266 [PID: 0X1011][header 4bytes: 39 3E 04 60] CC:11 ATC: 0x393E0460( 960365664), diff: 449396(16.644297ms)
+pkt_idx:      58320 [PID: 0X1011][header 4bytes: 39 7B E0 70] CC:02 ATC: 0x397BE070( 964419696), diff: 449396(16.644297ms)
+pkt_idx:      58978 [PID: 0X1011][header 4bytes: 3A 19 F6 F6] CC:15 ATC: 0x3A19F6F6( 974780150), diff: 449395(16.644260ms)
+pkt_idx:      59605 [PID: 0X1011][header 4bytes: 3A B8 0D 7C] CC:13 ATC: 0x3AB80D7C( 985140604), diff: 449395(16.644260ms)
+pkt_idx:      59667 [PID: 0X1011][header 4bytes: 3A F5 E9 8C] CC:09 ATC: 0x3AF5E98C( 989194636), diff: 449395(16.644260ms)
+pkt_idx:      59721 [PID: 0X1011][header 4bytes: 3B 33 C5 9C] CC:00 ATC: 0x3B33C59C( 993248668), diff: 449395(16.644260ms)
+pkt_idx:      60327 [PID: 0X1011][header 4bytes: 3B D1 DC 23] CC:09 ATC: 0x3BD1DC23(1003609123), diff: 449395(16.644260ms)
+pkt_idx:      60988 [PID: 0X1011][header 4bytes: 3C 6F F2 A9] CC:09 ATC: 0x3C6FF2A9(1013969577), diff: 449395(16.644260ms)
+pkt_idx:      61018 [PID: 0X1011][header 4bytes: 3C 92 51 10] CC:04 ATC: 0x3C925110(1016221968), diff: 449396(16.644297ms)
+pkt_idx:      61053 [PID: 0X1011][header 4bytes: 3C AD CE B9] CC:11 ATC: 0x3CADCEB9(1018023609), diff: 449395(16.644260ms)
+pkt_idx:      63379 [PID: 0X1011][header 4bytes: 3F 86 5E 00] CC:11 ATC: 0x3F865E00(1065770496), diff: 449396(16.644297ms)
+pkt_idx:      63957 [PID: 0X1011][header 4bytes: 3F C4 3A 10] CC:11 ATC: 0x3FC43A10(1069824528), diff: 449396(16.644297ms)
+pkt_idx:      64028 [PID: 0X1011][header 4bytes: 00 02 16 20] CC:03 ATC: 0x00021620(    136736), diff: 449396(16.644297ms)
+pkt_idx:      64063 [PID: 0X1011][header 4bytes: 00 24 74 86] CC:03 ATC: 0x00247486(   2389126), diff: 449395(16.644260ms)
+pkt_idx:      64132 [PID: 0X1011][header 4bytes: 00 62 50 96] CC:05 ATC: 0x00625096(   6443158), diff: 449395(16.644260ms)
+pkt_idx:      64708 [PID: 0X1011][header 4bytes: 00 A0 2C A6] CC:06 ATC: 0x00A02CA6(  10497190), diff: 449395(16.644260ms)
+pkt_idx:      64758 [PID: 0X1011][header 4bytes: 00 C2 8B 0C] CC:05 ATC: 0x00C28B0C(  12749580), diff: 449395(16.644260ms)
+pkt_idx:      64781 [PID: 0X1011][header 4bytes: 00 DE 08 B6] CC:13 ATC: 0x00DE08B6(  14551222), diff: 449395(16.644260ms)
+pkt_idx:      64884 [PID: 0X1011][header 4bytes: 01 3E 43 2C] CC:01 ATC: 0x013E432C(  20857644), diff: 449395(16.644260ms)
+pkt_idx:      65589 [PID: 0X1011][header 4bytes: 01 DC 59 B3] CC:13 ATC: 0x01DC59B3(  31218099), diff: 449395(16.644260ms)
+pkt_idx:      66289 [PID: 0X1011][header 4bytes: 02 7A 70 39] CC:05 ATC: 0x027A7039(  41578553), diff: 449395(16.644260ms)
+pkt_idx:      66348 [PID: 0X1011][header 4bytes: 02 B8 4C 49] CC:00 ATC: 0x02B84C49(  45632585), diff: 449395(16.644260ms)
+pkt_idx:      66407 [PID: 0X1011][header 4bytes: 02 F6 28 59] CC:09 ATC: 0x02F62859(  49686617), diff: 449395(16.644260ms)
+pkt_idx:      67148 [PID: 0X1011][header 4bytes: 03 94 3E E0] CC:00 ATC: 0x03943EE0(  60047072), diff: 449396(16.644297ms)
+pkt_idx:      67870 [PID: 0X1011][header 4bytes: 04 32 55 66] CC:14 ATC: 0x04325566(  70407526), diff: 449395(16.644260ms)
+pkt_idx:      71809 [PID: 0X1011][header 4bytes: 08 84 ED C9] CC:02 ATC: 0x0884EDC9( 142929353), diff: 449395(16.644260ms)
+pkt_idx:      72623 [PID: 0X1011][header 4bytes: 09 60 E0 60] CC:12 ATC: 0x0960E060( 157343840), diff: 449396(16.644297ms)
+pkt_idx:      72688 [PID: 0X1011][header 4bytes: 09 9E BC 70] CC:11 ATC: 0x099EBC70( 161397872), diff: 449396(16.644297ms)
+pkt_idx:      74279 [PID: 0X1011][header 4bytes: 0B 18 C5 8C] CC:09 ATC: 0x0B18C58C( 186172812), diff: 449395(16.644260ms)
+pkt_idx:      75129 [PID: 0X1011][header 4bytes: 0B F4 B8 23] CC:01 ATC: 0x0BF4B823( 200587299), diff: 449395(16.644260ms)
+pkt_idx:      75256 [PID: 0X1011][header 4bytes: 0C 54 F2 99] CC:10 ATC: 0x0C54F299( 206893721), diff: 449395(16.644260ms)
+pkt_idx:      77878 [PID: 0X1011][header 4bytes: 0E 2F 36 2C] CC:13 ATC: 0x0E2F362C( 237975084), diff: 449395(16.644260ms)
+pkt_idx:      87676 [PID: 0X1011][header 4bytes: 16 8F AF 70] CC:14 ATC: 0x168FAF70( 378515312), diff: 449396(16.644297ms)
+pkt_idx:      88557 [PID: 0X1011][header 4bytes: 17 2D C5 F6] CC:10 ATC: 0x172DC5F6( 388875766), diff: 449395(16.644260ms)
+pkt_idx:      88648 [PID: 0X1011][header 4bytes: 17 6B A2 06] CC:06 ATC: 0x176BA206( 392929798), diff: 449395(16.644260ms)
+pkt_idx:      90615 [PID: 0X1011][header 4bytes: 19 23 87 33] CC:09 ATC: 0x19238733( 421758771), diff: 449395(16.644260ms)
+pkt_idx:      90680 [PID: 0X1011][header 4bytes: 19 45 E5 99] CC:07 ATC: 0x1945E599( 424011161), diff: 449395(16.644260ms)
+pkt_idx:      91488 [PID: 0X1011][header 4bytes: 19 C1 9D B9] CC:14 ATC: 0x19C19DB9( 432119225), diff: 449395(16.644260ms)
+pkt_idx:      92550 [PID: 0X1100][header 4bytes: 1A DB 6C 60] CC:04 ATC: 0x1ADB6C60( 450587744), diff: 449396(16.644297ms)
+pkt_idx:      99029 [PID: 0X1011][header 4bytes: 20 6A 31 D0] CC:04 ATC: 0x206A31D0( 543830480), diff: 449396(16.644297ms)
+pkt_idx:      99098 [PID: 0X1011][header 4bytes: 20 A8 0D E0] CC:10 ATC: 0x20A80DE0( 547884512), diff: 449396(16.644297ms)
+pkt_idx:      99879 [PID: 0X1011][header 4bytes: 21 46 24 66] CC:02 ATC: 0x21462466( 558244966), diff: 449395(16.644260ms)
+pkt_idx:      99954 [PID: 0X1011][header 4bytes: 21 84 00 76] CC:11 ATC: 0x21840076( 562298998), diff: 449395(16.644260ms)
+pkt_idx:     100880 [PID: 0X1011][header 4bytes: 22 82 51 73] CC:02 ATC: 0x22825173( 578965875), diff: 449395(16.644260ms)
+pkt_idx:     101613 [PID: 0X1011][header 4bytes: 22 FE 09 93] CC:13 ATC: 0x22FE0993( 587073939), diff: 449395(16.644260ms)
+pkt_idx:     101666 [PID: 0X1011][header 4bytes: 23 20 67 F9] CC:15 ATC: 0x232067F9( 589326329), diff: 449395(16.644260ms)
+pkt_idx:     101733 [PID: 0X1011][header 4bytes: 23 5E 44 09] CC:03 ATC: 0x235E4409( 593380361), diff: 449395(16.644260ms)
+pkt_idx:     102481 [PID: 0X1011][header 4bytes: 23 D9 FC 29] CC:13 ATC: 0x23D9FC29( 601488425), diff: 449395(16.644260ms)
+pkt_idx:     105116 [PID: 0X1011][header 4bytes: 26 90 2D 09] CC:06 ATC: 0x26902D09( 646982921), diff: 449395(16.644260ms)
+pkt_idx:     105193 [PID: 0X1100][header 4bytes: 26 CE 09 19] CC:04 ATC: 0x26CE0919( 651036953), diff: 449395(16.644260ms)
+pkt_idx:     107789 [PID: 0X1011][header 4bytes: 29 08 87 23] CC:04 ATC: 0x29088723( 688424739), diff: 449395(16.644260ms)
+pkt_idx:     109001 [PID: 0X1011][header 4bytes: 2A 82 90 40] CC:07 ATC: 0x2A829040( 713199680), diff: 449396(16.644297ms)
+pkt_idx:     110586 [PID: 0X1011][header 4bytes: 2B 9C 5E E6] CC:01 ATC: 0x2B9C5EE6( 731668198), diff: 449395(16.644260ms)
+pkt_idx:     110657 [PID: 0X1011][header 4bytes: 2B BE BD 4C] CC:05 ATC: 0x2BBEBD4C( 733920588), diff: 449395(16.644260ms)
+pkt_idx:     111486 [PID: 0X1011][header 4bytes: 2C 5C D3 D3] CC:14 ATC: 0x2C5CD3D3( 744281043), diff: 449395(16.644260ms)
+pkt_idx:     111590 [PID: 0X1011][header 4bytes: 2C 9A AF E3] CC:06 ATC: 0x2C9AAFE3( 748335075), diff: 449395(16.644260ms)
+pkt_idx:     111793 [PID: 0X1011][header 4bytes: 2D 16 68 03] CC:00 ATC: 0x2D166803( 756443139), diff: 449395(16.644260ms)
+pkt_idx:     112420 [PID: 0X1011][header 4bytes: 2D 38 C6 69] CC:15 ATC: 0x2D38C669( 758695529), diff: 449395(16.644260ms)
+pkt_idx:     112523 [PID: 0X1011][header 4bytes: 2D 76 A2 79] CC:04 ATC: 0x2D76A279( 762749561), diff: 449395(16.644260ms)
+pkt_idx:     116402 [PID: 0X1011][header 4bytes: 31 2B 24 56] CC:02 ATC: 0x312B2456( 824910934), diff: 449395(16.644260ms)
+pkt_idx:     117357 [PID: 0X1011][header 4bytes: 32 07 16 EC] CC:08 ATC: 0x320716EC( 839325420), diff: 449395(16.644260ms)
+
+The maximum diff of ATC between transport packets: 449396(16.6442ms).
+The minimum diff of ATC between transport packets: 1353(0.0501ms).
+```
+And the maximum and minimum difference can also be displayed.
+
+Sometimes, you may want to check the ATC difference only for the transport with the same PID, --pid can be specified for it:
+```
+DumpTS 00001.m2ts --diffATC --pid=0
+```
+It will show the difference between 2 adjacent PAT transport packets
+```
+pkt_idx:          0 [PID: 0X0000][header 4bytes: 00 00 00 00] CC:00 ATC: 0x00000000(         0), diff:
+pkt_idx:        362 [PID: 0X0000][header 4bytes: 00 28 C5 86] CC:01 ATC: 0x0028C586(   2672006), diff: 2672006(98.963181ms)
+pkt_idx:        447 [PID: 0X0000][header 4bytes: 00 51 85 C3] CC:02 ATC: 0x005185C3(   5342659), diff: 2670653(98.913071ms)
+pkt_idx:        543 [PID: 0X0000][header 4bytes: 00 7A 46 00] CC:03 ATC: 0x007A4600(   8013312), diff: 2670653(98.913071ms)
+pkt_idx:        583 [PID: 0X0000][header 4bytes: 00 A3 0B 86] CC:04 ATC: 0x00A30B86(  10685318), diff: 2672006(98.963181ms)
+pkt_idx:        682 [PID: 0X0000][header 4bytes: 00 CB D1 0C] CC:05 ATC: 0x00CBD10C(  13357324), diff: 2672006(98.963181ms)
+pkt_idx:        997 [PID: 0X0000][header 4bytes: 00 F4 96 93] CC:06 ATC: 0x00F49693(  16029331), diff: 2672007(98.963219ms)
+pkt_idx:       1113 [PID: 0X0000][header 4bytes: 01 1D 5C 19] CC:07 ATC: 0x011D5C19(  18701337), diff: 2672006(98.963181ms)
+pkt_idx:       1158 [PID: 0X0000][header 4bytes: 01 46 21 A0] CC:08 ATC: 0x014621A0(  21373344), diff: 2672007(98.963219ms)
+pkt_idx:       1266 [PID: 0X0000][header 4bytes: 01 6E E7 26] CC:09 ATC: 0x016EE726(  24045350), diff: 2672006(98.963181ms)
+pkt_idx:       1366 [PID: 0X0000][header 4bytes: 01 97 AC AC] CC:10 ATC: 0x0197ACAC(  26717356), diff: 2672006(98.963181ms)
+pkt_idx:       1751 [PID: 0X0000][header 4bytes: 01 C0 72 33] CC:11 ATC: 0x01C07233(  29389363), diff: 2672007(98.963219ms)
+pkt_idx:       1802 [PID: 0X0000][header 4bytes: 01 E9 37 B9] CC:12 ATC: 0x01E937B9(  32061369), diff: 2672006(98.963181ms)
+...
+The maximum diff of ATC between transport packets: 2673360(99.0133ms).
+The minimum diff of ATC between transport packets: 2670653(98.9130ms).
+```
+You may want to show the ATC difference between the first and last transport packets of each AU or PES payload in a specified stream, `--payload_first_last` can be specified for it,
+```
+DumpTS Mono_AAC_test.m2ts --diffATC --pid=0x100 --payload_first_last
+```
+It will show the result with more detailed, pure_duration only sum the duration of transport packets of current AU or PES payload, diff will sum all durations of transport packets between the first and last transport stream of each AU/PES payload:
+```
+payload_idx:    0 [PID: 0X0100] len:   300480(B) diff[packet first:      2 ~ last:   1577]: 2374048( 87.9277ms), pure duration: 2353216( 87.1561ms)
+payload_idx:    1 [PID: 0X0100] len:    18432(B) diff[packet first:   1578 ~ last:   1675]:  145824(  5.4008ms), pure duration:  142848(  5.2906ms)
+payload_idx:    2 [PID: 0X0100] len:    18432(B) diff[packet first:   1676 ~ last:   1771]:  172640(  6.3940ms), pure duration:  172640(  6.3940ms)
+payload_idx:    3 [PID: 0X0100] len:    96960(B) diff[packet first:   1772 ~ last:   2279]:  902888( 33.4402ms), pure duration:  844386( 31.2735ms)
+payload_idx:    4 [PID: 0X0100] len:    32064(B) diff[packet first:   2281 ~ last:   2447]:  902829( 33.4381ms), pure duration:  727252( 26.9352ms)
+payload_idx:    5 [PID: 0X0100] len:    36096(B) diff[packet first:   2449 ~ last:   2636]:  891711( 33.0263ms), pure duration:  891711( 33.0263ms)
+payload_idx:    6 [PID: 0X0100] len:    63360(B) diff[packet first:   2637 ~ last:   2967]:  902570( 33.4285ms), pure duration:  901082( 33.3734ms)
+payload_idx:    7 [PID: 0X0100] len:    32064(B) diff[packet first:   2968 ~ last:   3135]:  902974( 33.4434ms), pure duration:  901486( 33.3883ms)
+payload_idx:    8 [PID: 0X0100] len:    32064(B) diff[packet first:   3136 ~ last:   3302]:  902736( 33.4346ms), pure duration:  369808( 13.6965ms)
+payload_idx:    9 [PID: 0X0100] len:     1536(B) diff[packet first:   3304 ~ last:   3311]:  902690( 33.4329ms), pure duration:  547072( 20.2619ms)
+payload_idx:   10 [PID: 0X0100] len:     1920(B) diff[packet first:   3313 ~ last:   3322]:  902692( 33.4330ms), pure duration:  724382( 26.8289ms)
+payload_idx:   11 [PID: 0X0100] len:     1920(B) diff[packet first:   3324 ~ last:   3333]:  903178( 33.4510ms), pure duration:  901690( 33.3959ms)
+payload_idx:   12 [PID: 0X0100] len:     1152(B) diff[packet first:   3335 ~ last:   3340]:  891398( 33.0147ms), pure duration:  891398( 33.0147ms)
+payload_idx:   13 [PID: 0X0100] len:     1536(B) diff[packet first:   3341 ~ last:   3348]:  902697( 33.4332ms), pure duration:  187114(  6.9301ms)
+payload_idx:   14 [PID: 0X0100] len:     1728(B) diff[packet first:   3350 ~ last:   3358]:  902690( 33.4329ms), pure duration:  364417( 13.4969ms)
+payload_idx:   15 [PID: 0X0100] len:   300288(B) diff[packet first:   3360 ~ last:   4933]: 2367743( 87.6941ms), pure duration: 2352863( 87.1430ms)
+payload_idx:   16 [PID: 0X0100] len:    18240(B) diff[packet first:   4934 ~ last:   5030]:  144336(  5.3457ms), pure duration:  141360(  5.2355ms)
+payload_idx:   17 [PID: 0X0100] len:    18432(B) diff[packet first:   5031 ~ last:   5126]:  196016(  7.2598ms), pure duration:  191664(  7.0986ms)
+payload_idx:   18 [PID: 0X0100] len:   101952(B) diff[packet first:   5128 ~ last:   5660]:  891379( 33.0140ms), pure duration:  815045( 30.1868ms)
+payload_idx:   19 [PID: 0X0100] len:    27264(B) diff[packet first:   5663 ~ last:   5805]:  903189( 33.4514ms), pure duration:  506692( 18.7663ms)
+payload_idx:   20 [PID: 0X0100] len:    32832(B) diff[packet first:   5808 ~ last:   5980]:  902716( 33.4339ms), pure duration:  359368( 13.3099ms)
+payload_idx:   21 [PID: 0X0100] len:    59904(B) diff[packet first:   5984 ~ last:   6296]:  902691( 33.4330ms), pure duration:  464256( 17.1946ms)
+payload_idx:   22 [PID: 0X0100] len:    31104(B) diff[packet first:   6299 ~ last:   6463]:  902692( 33.4330ms), pure duration:  667786( 24.7328ms)
+payload_idx:   23 [PID: 0X0100] len:    31296(B) diff[packet first:   6467 ~ last:   6629]:  902691( 33.4330ms), pure duration:  350601( 12.9852ms)
+payload_idx:   24 [PID: 0X0100] len:     1536(B) diff[packet first:   6633 ~ last:   6640]:  891881( 33.0326ms), pure duration:   29099(  1.0777ms)
+......                                                              
+payload_idx: 1869 [PID: 0X0100] len:    89088(B) diff[packet first: 638472 ~ last: 638938]:  902308( 33.4188ms), pure duration:  701301( 25.9741ms)
+payload_idx: 1870 [PID: 0X0100] len:    19392(B) diff[packet first: 638944 ~ last: 639045]:  151776(  5.6213ms), pure duration:  151776(  5.6213ms)
+
+The maximum diff of ATC between transport packets: 4295447(159.0906ms).
+The minimum diff of ATC between transport packets: 14880(0.5511ms).
+The maximum diff sum of PID:0x0100 of ATC between transport packets: 4268663(158.0986ms).
+The minimum diff sum of PID:0x0100 of ATC between transport packets: 11904(0.4408ms).
+```
+
+
+

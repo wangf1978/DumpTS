@@ -673,11 +673,13 @@ int DiffTSATC()
 	uint16_t pid_filter = UINT16_MAX;
 	uint16_t previous_PID = UINT16_MAX;
 	bool diff_AU_first_last = false;
-	uint64_t sum_duration = 0;
-	uint64_t pure_sum_duration = 0;
+	int64_t sum_duration = 0;
+	int64_t pure_sum_duration = 0;
 	int payload_unit_length = 0;
 	long long payload_unit_count = 0;
 	long long first_pkt_idx = -1LL, last_pkt_idx = -1LL;
+	int64_t max_diff = INT64_MIN, min_diff = INT64_MAX;
+	int64_t max_pure_diff = INT64_MIN, min_pure_diff = INT64_MAX;
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -749,28 +751,59 @@ int DiffTSATC()
 			if (pid_filter == PID)
 				payload_unit_length += 192;
 
-			if ((diff_threshold == -1LL || (diff_threshold > 0 && (long long)diff > diff_threshold)) &&
-				(start_pkt_idx == -1LL || (start_pkt_idx >= 0 && pkt_idx >= start_pkt_idx)) &&
+			bool bFiltered = false;
+			if ((start_pkt_idx == -1LL || (start_pkt_idx >= 0 && pkt_idx >= start_pkt_idx)) &&
 				(end_pkt_idx == -1LL || (end_pkt_idx >= 0 && pkt_idx < end_pkt_idx)))
 			{
-				if (pid_filter == UINT16_MAX || pid_filter == PID)
+				if (diff_threshold == -1LL)
+					bFiltered = true;
+				else if (diff_threshold > 0 && (long long)diff > diff_threshold)
+					bFiltered = true;
+			}
+			
+			if (pid_filter == UINT16_MAX || pid_filter == PID)
+			{
+				if (diff_AU_first_last == false)
 				{
-					if (diff_AU_first_last == false)
+					if (bFiltered)
 					{
 						printf("pkt_idx: %10lld [PID: 0X%04X][header 4bytes: %02X %02X %02X %02X] CC:%02d ATC: 0x%08" PRIX32 "(%10" PRIu32 "), diff: %" PRId64 "(%fms)\n",
 							pkt_idx, PID, buf[0], buf[1], buf[2], buf[3], cc,
 							arrive_time, arrive_time, sum_duration, sum_duration*1000.0f / 27000000.f);
-						sum_duration = 0;
-						pure_sum_duration = 0;
 					}
-					else if (payload_unit_start_indicator)
+
+					if (min_diff > sum_duration)
+						min_diff = sum_duration;
+
+					if (max_diff < sum_duration)
+						max_diff = sum_duration;
+
+					sum_duration = 0;
+					pure_sum_duration = 0;
+				}
+				else if (bFiltered)
+				{
+					if (payload_unit_start_indicator)
 					{
 						if (diff_AU_first_last == true && payload_unit_count > 0)
 						{
 							printf("payload_idx: %8lld [PID: 0X%04X] len: %8d(B) diff[packet first:%8lld ~ last:%8lld]: %10" PRId64 "(%3d.%04dms), pure duration:%10" PRId64 "(%3d.%04dms)\n",
-								payload_unit_count-1, PID, payload_unit_length, first_pkt_idx, last_pkt_idx,
+								payload_unit_count - 1, PID, payload_unit_length, first_pkt_idx, last_pkt_idx,
 								sum_duration, (int)(sum_duration / 27000), (int)(sum_duration * 10000 / 27000 % 10000),
 								pure_sum_duration, (int)(pure_sum_duration / 27000), (int)(pure_sum_duration * 10000 / 27000 % 10000));
+
+							if (min_diff > sum_duration)
+								min_diff = sum_duration;
+
+							if (max_diff < sum_duration)
+								max_diff = sum_duration;
+
+							if (min_pure_diff > pure_sum_duration)
+								min_pure_diff = pure_sum_duration;
+
+							if (max_pure_diff < pure_sum_duration)
+								max_pure_diff = pure_sum_duration;
+
 							sum_duration = 0;
 							pure_sum_duration = 0;
 							payload_unit_length = 0;
@@ -800,14 +833,28 @@ int DiffTSATC()
 	{
 		if (diff_AU_first_last == true)
 		{
-			printf("payload_idx: %8lld [PID: 0X%04X] length: %8d(B) diff between first and last packet: %10" PRId64 "(%3d.%04dms), pure duration:%10" PRId64 "(%3d.%04dms)\n",
-				payload_unit_count, pid_filter, payload_unit_length,
+			printf("payload_idx: %8lld [PID: 0X%04X] len: %8d(B) diff[packet first:%8lld ~ last:%8lld]: %10" PRId64 "(%3d.%04dms), pure duration:%10" PRId64 "(%3d.%04dms)\n",
+				payload_unit_count - 1, pid_filter, payload_unit_length, first_pkt_idx, last_pkt_idx,
 				sum_duration, (int)(sum_duration / 27000), (int)(sum_duration * 10000 / 27000 % 10000),
 				pure_sum_duration, (int)(pure_sum_duration / 27000), (int)(pure_sum_duration * 10000 / 27000 % 10000));
 			sum_duration = 0;
 			pure_sum_duration = 0;
 			payload_unit_length = 0;
 		}
+	}
+
+	printf("\n");
+	printf("The maximum diff of ATC between transport packets: %" PRId64 "(%" PRId64 ".%04" PRId64 "ms).\n",
+		max_diff, max_diff/27000, max_diff*10000/27000%10000);
+	printf("The minimum diff of ATC between transport packets: %" PRId64 "(%" PRId64 ".%04" PRId64 "ms).\n",
+		min_diff, min_diff / 27000, min_diff * 10000 / 27000 % 10000);
+
+	if (diff_AU_first_last == true && max_pure_diff != INT64_MIN && min_pure_diff != INT64_MAX)
+	{
+		printf("The maximum diff sum of PID:0x%04X of ATC between transport packets: %" PRId64 "(%" PRId64 ".%04" PRId64 "ms).\n",
+			pid_filter, max_pure_diff, max_pure_diff / 27000, max_pure_diff * 10000 / 27000 % 10000);
+		printf("The minimum diff sum of PID:0x%04X of ATC between transport packets: %" PRId64 "(%" PRId64 ".%04" PRId64 "ms).\n",
+			pid_filter, min_pure_diff, min_pure_diff / 27000, min_pure_diff * 10000 / 27000 % 10000);
 	}
 
 	iRet = 0;
