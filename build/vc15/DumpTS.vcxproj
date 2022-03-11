@@ -233,6 +233,7 @@
   <ItemGroup>
     <None Include="..\..\Audio_Readme.md" />
     <None Include="..\..\AV1_Readme.md" />
+    <None Include="..\..\doc\diagrams.vsdx" />
     <None Include="..\..\doc\index.html" />
     <None Include="..\..\doc\references.md" />
     <None Include="..\..\MMT_Readme.md" />

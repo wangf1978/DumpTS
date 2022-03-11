@@ -730,4 +730,44 @@ PID:0X0110            964006295100
 PCR_PID: 0X01FF, The initial PCR value: 963993792484(27MHZ), diff with minimum dts: 12415616 (27MHZ)/459.0837(ms)
 ```
 
-
+## Diff ATC clock and dts clock
+Multiplex system normally used the dts clock system to construct the PCR and decide the multiplex policy, use the option `--diffATCDTS` to check the total difference of 2 clock system for audio and video elementary
+```
+DumpTS Mono_AAC_test.m2ts --diffATCDTS --pid=0x110,0x100
+```
+It will check ATC timeline and DTS timeline of the latest audio and video payload/AU:
+```
+...
+pkt# 62887 PID: 0X0110 delta_atc_sum: 663902(27MHZ)/  24.588(ms) -- delta_dts: -8222700(27MHZ)/-304.544(ms) | delta: -8886602(27MHZ)/-329.133(ms)
+pkt# 62889 PID: 0X0100 delta_atc_sum:-238789(27MHZ)/  -8.844(ms) -- delta_dts: -9123600(27MHZ)/-337.911(ms) | delta: -8884811(27MHZ)/-329.067(ms)
+pkt# 63154 PID: 0X0110 delta_atc_sum: 394320(27MHZ)/  14.604(ms) -- delta_dts: -8547600(27MHZ)/-316.577(ms) | delta: -8941920(27MHZ)/-331.182(ms)
+pkt# 63164 PID: 0X0100 delta_atc_sum:-497307(27MHZ)/ -18.418(ms) -- delta_dts: -9448500(27MHZ)/-349.944(ms) | delta: -8951193(27MHZ)/-331.525(ms)
+pkt# 63179 PID: 0X0110 delta_atc_sum:  22320(27MHZ)/   0.826(ms) -- delta_dts: -8872500(27MHZ)/-328.611(ms) | delta: -8894820(27MHZ)/-329.437(ms)
+pkt# 63182 PID: 0X0110 delta_atc_sum: 602097(27MHZ)/  22.299(ms) -- delta_dts: -8296500(27MHZ)/-307.277(ms) | delta: -8898597(27MHZ)/-329.577(ms)
+pkt# 63183 PID: 0X0100 delta_atc_sum:-300855(27MHZ)/ -11.142(ms) -- delta_dts: -9197400(27MHZ)/-340.644(ms) | delta: -8896545(27MHZ)/-329.501(ms)
+pkt# 63200 PID: 0X0110 delta_atc_sum: 280185(27MHZ)/  10.377(ms) -- delta_dts: -8621400(27MHZ)/-319.311(ms) | delta: -8901585(27MHZ)/-329.688(ms)
+pkt# 63202 PID: 0X0110 delta_atc_sum: 850424(27MHZ)/  31.497(ms) -- delta_dts: -8045400(27MHZ)/-297.977(ms) | delta: -8895824(27MHZ)/-329.474(ms)
+pkt# 63203 PID: 0X0100 delta_atc_sum: -52268(27MHZ)/  -1.935(ms) -- delta_dts: -8946300(27MHZ)/-331.344(ms) | delta: -8894032(27MHZ)/-329.408(ms)
+pkt# 63213 PID: 0X0110 delta_atc_sum: 530262(27MHZ)/  19.639(ms) -- delta_dts: -8370300(27MHZ)/-310.011(ms) | delta: -8900562(27MHZ)/-329.650(ms)
+pkt# 63214 PID: 0X0100 delta_atc_sum:-372430(27MHZ)/ -13.793(ms) -- delta_dts: -9271200(27MHZ)/-343.377(ms) | delta: -8898770(27MHZ)/-329.584(ms)
+pkt# 63225 PID: 0X0110 delta_atc_sum: 196310(27MHZ)/   7.270(ms) -- delta_dts: -8695200(27MHZ)/-322.044(ms) | delta: -8891510(27MHZ)/-329.315(ms)
+pkt# 63227 PID: 0X0110 delta_atc_sum: 775873(27MHZ)/  28.736(ms) -- delta_dts: -8119200(27MHZ)/-300.711(ms) | delta: -8895073(27MHZ)/-329.447(ms)
+pkt# 63228 PID: 0X0100 delta_atc_sum:-126819(27MHZ)/  -4.697(ms) -- delta_dts: -9020100(27MHZ)/-334.077(ms) | delta: -8893281(27MHZ)/-329.380(ms)
+pkt# 63239 PID: 0X0110 delta_atc_sum: 444900(27MHZ)/  16.477(ms) -- delta_dts: -8444100(27MHZ)/-312.744(ms) | delta: -8889000(27MHZ)/-329.222(ms)
+pkt# 63241 PID: 0X0100 delta_atc_sum:-457791(27MHZ)/ -16.955(ms) -- delta_dts: -9345000(27MHZ)/-346.111(ms) | delta: -8887209(27MHZ)/-329.155(ms)
+pkt# 63330 PID: 0X0110 delta_atc_sum: 132432(27MHZ)/   4.904(ms) -- delta_dts: -8769000(27MHZ)/-324.777(ms) | delta: -8901432(27MHZ)/-329.682(ms)
+pkt# 63706 PID: 0X0110 delta_atc_sum: 694896(27MHZ)/  25.736(ms) -- delta_dts: -8193000(27MHZ)/-303.444(ms) | delta: -8887896(27MHZ)/-329.181(ms)
+pkt# 63752 PID: 0X0110 delta_atc_sum: 763344(27MHZ)/  28.272(ms) -- delta_dts: -7617000(27MHZ)/-282.111(ms) | delta: -8380344(27MHZ)/-310.383(ms)
+pkt# 64474 PID: 0X0110 delta_atc_sum:1849099(27MHZ)/  68.485(ms) -- delta_dts: -7041000(27MHZ)/-260.777(ms) | delta: -8890099(27MHZ)/-329.262(ms)
+pkt# 64520 PID: 0X0110 delta_atc_sum:1917547(27MHZ)/  71.020(ms) -- delta_dts: -6465000(27MHZ)/-239.444(ms) | delta: -8382547(27MHZ)/-310.464(ms)
+pkt# 65186 PID: 0X0100 delta_atc_sum:1005488(27MHZ)/ -37.240(ms) -- delta_dts: -7365900(27MHZ)/-272.811(ms) | delta: -6360412(27MHZ)/-235.570(ms)
+pkt# 65241 PID: 0X0110 delta_atc_sum:  81840(27MHZ)/   3.031(ms) -- delta_dts: -6789900(27MHZ)/-251.477(ms) | delta: -6871740(27MHZ)/-254.508(ms)
+pkt# 65242 PID: 0X0100 delta_atc_sum:  -1488(27MHZ)/   0.055(ms) -- delta_dts: -7690800(27MHZ)/-284.844(ms) | delta: -7689312(27MHZ)/-284.789(ms)
+pkt# 65316 PID: 0X0100 delta_atc_sum:-123104(27MHZ)/  -4.559(ms) -- delta_dts: -8591700(27MHZ)/-318.211(ms) | delta: -8468596(27MHZ)/-313.651(ms)
+...
+```
+![diff_atc_dts](doc/images/diff_atc_dts.png)
+If you want to compare ATC and DTS clock of itself, you can specify the same PIDs
+```
+DumpTS Mono_AAC_test.m2ts --diffATCDTS --pid=0x110,0x110
+```

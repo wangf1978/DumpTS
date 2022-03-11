@@ -63,6 +63,9 @@
     <None Include="..\..\NAL_Readme.md" />
     <None Include="..\..\TS_Readme.md" />
     <None Include="..\..\Utility_Readme.md" />
+    <None Include="..\..\doc\diagrams.vsdx">
+      <Filter>doc</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">

@@ -1068,6 +1068,9 @@ int DiffATCDTS()
 	for (size_t i = 0; i < the_latest_stream_dts.size(); i++)
 		the_latest_stream_dts[i] = UINT64_MAX;
 
+	for (size_t i = 0; i < the_latest_stream_atc_sum.size(); i++)
+		the_latest_stream_atc_sum[i] = UINT64_MAX;
+
 	while (true)
 	{
 		size_t nRead = fread(buf, 1, ts_pack_size, fp);
@@ -1152,7 +1155,7 @@ int DiffATCDTS()
 							uint8_t PTS_DTS_flags = (pes_buf[7] >> 6) & 0x3;
 							uint8_t PES_header_data_length = pes_buf[8];
 
-							uint64_t pts = UINT64_MAX, dts = UINT64_MAX, start_atc_tm = UINT64_MAX;
+							uint64_t pts = UINT64_MAX, dts = UINT64_MAX;
 
 							if ((PTS_DTS_flags == 0x2 && ((pes_buf[9] >> 4) & 0xF) == 0x2 && pes_buf_size > 14 && PES_header_data_length >= 5) ||
 								(PTS_DTS_flags == 0x3 && ((pes_buf[9] >> 4) & 0xF) == 0x3 && pes_buf_size > 19 && PES_header_data_length >= 10))
@@ -1180,16 +1183,20 @@ int DiffATCDTS()
 
 								the_latest_stream_atc_sum[idxPID] = the_payload_start_atc_sum[idxPID];
 
-								if (the_latest_stream_dts[0] != UINT64_MAX && the_latest_stream_dts[1] != UINT64_MAX)
+								if (the_latest_stream_dts[0] != UINT64_MAX && the_latest_stream_dts[1] != UINT64_MAX &&
+									the_latest_stream_atc_sum[0] != UINT64_MAX && the_latest_stream_atc_sum[1] != UINT64_MAX)
 								{
 									int64_t delta_atc_sum = (int64_t)(the_latest_stream_atc_sum[0] - the_latest_stream_atc_sum[1]);
 									int64_t delta_dts = (int64_t)(the_latest_stream_dts[0] - the_latest_stream_dts[1]) * 300LL;
 
-									printf("pkt#%10lld PID: 0X%04X delta_atc_sum: %12" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms) -- delta_dts: %12" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms) | delta: %14" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms)\n",
-										pkt_idx, PID, 
-										delta_atc_sum, delta_atc_sum / 27000, abs(delta_atc_sum) / 27 % 1000, 
-										delta_dts, delta_dts / 27000, abs(delta_dts) / 27 % 1000,
-										delta_dts - delta_atc_sum, (delta_dts - delta_atc_sum)/27000, abs(delta_dts - delta_atc_sum)/27%1000);
+									if (delta_atc_sum != 0 || delta_dts != 0)
+									{
+										printf("pkt#%10lld PID: 0X%04X delta_atc_sum: %12" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms) -- delta_dts: %12" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms) | delta: %14" PRId64 "(27MHZ)/%4" PRId64 ".%03" PRId64 "(ms)\n",
+											pkt_idx, PID,
+											delta_atc_sum, delta_atc_sum / 27000, abs(delta_atc_sum) / 27 % 1000,
+											delta_dts, delta_dts / 27000, abs(delta_dts) / 27 % 1000,
+											delta_dts - delta_atc_sum, (delta_dts - delta_atc_sum) / 27000, abs(delta_dts - delta_atc_sum) / 27 % 1000);
+									}
 								}
 
 								pes_hdr_bufs[idxPID].clear();
