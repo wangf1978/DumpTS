@@ -231,8 +231,8 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="..\..\Audio_Readme.md" />
-    <None Include="..\..\AV1_Readme.md" />
+    <None Include="..\..\doc\Audio_Readme.md" />
+    <None Include="..\..\doc\AV1_Readme.md" />
     <None Include="..\..\doc\diagrams.vsdx" />
     <None Include="..\..\doc\index.html" />
     <None Include="..\..\doc\MMT_Readme.md" />
@@ -240,11 +240,7 @@
     <None Include="..\..\doc\references.md" />
     <None Include="..\..\doc\TS_Readme.md" />
     <None Include="..\..\doc\Utility_Readme.md" />
-    <None Include="..\..\MMT_Readme.md" />
-    <None Include="..\..\NAL_Readme.md" />
     <None Include="..\..\README.md" />
-    <None Include="..\..\TS_Readme.md" />
-    <None Include="..\..\Utility_Readme.md" />
     <None Include="..\linux\common\Toolchain.mk">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

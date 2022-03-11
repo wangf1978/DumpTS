@@ -54,15 +54,9 @@
     <None Include="..\linux\Makefile">
       <Filter>build\linux</Filter>
     </None>
-    <None Include="..\..\MMT_Readme.md" />
     <None Include="..\macos\Makefile">
       <Filter>build\macos</Filter>
     </None>
-    <None Include="..\..\AV1_Readme.md" />
-    <None Include="..\..\Audio_Readme.md" />
-    <None Include="..\..\NAL_Readme.md" />
-    <None Include="..\..\TS_Readme.md" />
-    <None Include="..\..\Utility_Readme.md" />
     <None Include="..\..\doc\diagrams.vsdx">
       <Filter>doc</Filter>
     </None>
@@ -76,6 +70,12 @@
       <Filter>doc</Filter>
     </None>
     <None Include="..\..\doc\Utility_Readme.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\AV1_Readme.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\Audio_Readme.md">
       <Filter>doc</Filter>
     </None>
   </ItemGroup>
