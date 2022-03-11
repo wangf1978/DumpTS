@@ -246,12 +246,12 @@ Here are some examples of command lines:
 [top](#table-of-content)
 
 # Operations Manual
-- For MMT, please see [MMT operation guideline](MMT_Readme.md)
-- For AV1/OBU, please see [AV1/OBU operation guideline](AV1_Readme.md)
-- For Audio, please see [Audio operation guideline](Audio_Readme.md)
-- For NAL, please see [NAL bitstream operation guideline](NAL_Readme.md)
-- For Transport-Stream, please see [TS bitstream operation guideline](TS_Readme.md)
-- Some utility features are also provided, please see [Utility operation guideline](Utility_Readme.md)
+- For MMT, please see [MMT operation guideline](doc/MMT_Readme.md)
+- For AV1/OBU, please see [AV1/OBU operation guideline](doc/AV1_Readme.md)
+- For Audio, please see [Audio operation guideline](doc/Audio_Readme.md)
+- For NAL, please see [NAL bitstream operation guideline](doc/NAL_Readme.md)
+- For Transport-Stream, please see [TS bitstream operation guideline](doc/TS_Readme.md)
+- Some utility features are also provided, please see [Utility operation guideline](doc/Utility_Readme.md)
 
 [top](#table-of-content)
 
