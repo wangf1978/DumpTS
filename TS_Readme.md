@@ -12,6 +12,7 @@
   * [Show SIT](#show-sit)
 * [Diff the ATC](#diff-the-atc)
 * [Show PCR](#show-pcr)
+* [Diff ATC clock and DTS clock](#diff-atc-clock-and-dts-clock)
 
 ## Extract an elementary stream
 1. Get the transport stream rough information
@@ -730,7 +731,7 @@ PID:0X0110            964006295100
 PCR_PID: 0X01FF, The initial PCR value: 963993792484(27MHZ), diff with minimum dts: 12415616 (27MHZ)/459.0837(ms)
 ```
 
-## Diff ATC clock and dts clock
+## Diff ATC clock and DTS clock
 Multiplex system normally used the dts clock system to construct the PCR and decide the multiplex policy, use the option `--diffATCDTS` to check the total difference of 2 clock system for audio and video elementary
 ```
 DumpTS Mono_AAC_test.m2ts --diffATCDTS --pid=0x110,0x100
