@@ -1418,7 +1418,7 @@ int DumpTransportPackets()
 
 		curr_ts_pkt_idx++;
 
-		if (curr_ts_pkt_idx < nEnd && (curr_ts_pkt_idx%display_pages) == 0 && display_pages != std::numeric_limits<decltype(display_pages)>::max())
+		if (curr_ts_pkt_idx < nEnd && ((curr_ts_pkt_idx- nStart)%display_pages) == 0 && display_pages != std::numeric_limits<decltype(display_pages)>::max())
 		{
 			printf("Press any key to continue('q': quit)...\n");
 			char chk = _getch();
