@@ -1,5 +1,5 @@
 # TS/TTS/M2TS Operation Guideline
-
+## Contents
 * [Extract an elementary stream](#extract-an-elementary-stream)
 * [Extract a PSI data stream](#extract-a-psi-data-stream)
 * [Extract a sub-stream from one elementary stream](#extract-a-sub-stream-from-one-elementary-stream)
@@ -10,6 +10,7 @@
   * [Show PAT](#show-pai)
   * [Show PMT](#show-pmt)
   * [Show SIT](#show-sit)
+* [Show transport packets](#show-transport-packets)
 * [Diff the ATC](#diff-the-atc)
 * [Show PCR](#show-pcr)
 * [Diff ATC clock and DTS clock](#diff-atc-clock-and-dts-clock)
@@ -44,6 +45,8 @@
     ```
     But this ts file can't be played because there only exists the pack with PID '0x10111', there is no PAT or PMT
 
+[top](#contents)
+
 ## Extract a PSI data stream
 PSI data can also be extracted when specifying the corresponding PID,
 ```
@@ -51,6 +54,8 @@ DumpTs 00024.m2ts --pid=0X0 --output=00024.pat
 DumpTS mono_dualmono.m2ts --pid=0x1F --output=I:\NHK.sit
 ```
 The PSI data will start from 'pointer_field', and then follow with PSI section data
+
+[top](#contents)
 
 ## Extract a sub-stream from one elementary stream
 Some audio stream may have multiple sub-stream, for example, Dolby-TrueHD, the sub-streams can be extracted separately by adding stream_id_extension filter
@@ -84,13 +89,18 @@ Some audio stream may have multiple sub-stream, for example, Dolby-TrueHD, the s
     ```
     DumpTs 00024.m2ts --pid=0x1100 --stream_id_extension=0x76 --output=00024.ac3
     ```
+
+[top](#contents)
 ## Extract a part of transport stream
 When output format is set to ts/tts/m2ts, and source file is also a transport stream, you can specify multiple PIDs in --pid delimited with one of ,;:., and then related transport packets will be extracted
 ```
 DumpTS Mono_AAC_test.m2ts --pid=0x0,0x1f,0x100,0x110,0x1f0 --outputfmt=m2ts --output=Mono_AAC_partial.m2ts
 ```
 The transport packet with PID 0, 0x1F, 0x100, 0x110 and 0x1F0,will extracted consequently, and save them to new file.
+
 *(\*)No PSI sections will be modified in this case, it may cause some players with more strict check can't play it*
+
+[top](#contents)
 
 ## Extract a program sequence
 There may be multiple program sequence with different version of PMTs, the below steps can be used to extract one of them
@@ -137,6 +147,7 @@ If the output path is not specified, the second command will extract it into `st
 the third command extract the video elementary stream from program sequence#0.
 When it is NOT sure for the source format, specify outputfmt to copy, it means both source and destination use the same format
 
+[top](#contents)
 ## Extract a part of movie with the start and end packet number
 You may know the start and end packet number of a clip of movie with some way, for example, the EP_MAP, this part of video can be extracted,
 ```
@@ -148,6 +159,7 @@ The first command will generate the file `00005_spnstart_0x2060B_spnend_0x3ef38.
 The second command will generate the output file with the specified destination file.
 The third command will extract the H.264 elementary stream packetized with PID#0x1011 from the specified packet range.
 
+[top](#contents)
 ## Show PSI information
 ### Show PAT
 ```
@@ -156,6 +168,8 @@ PAT(ver: 0):
     program number: 0x0000(00000), Network_PID:0x1F
     program number: 0x0065(00101), program_map_PID:0x1F0
 ```
+
+[top](#contents)
 ### Show PMT
 ```
 DumpTs mono_dualmono.m2ts --showPMT
@@ -257,6 +271,8 @@ PMT(ver: 5):
             descriptor_tag/descriptor_length: 0XFD/  3 - Data component descriptor
 
 ```
+
+[top](#contents)
 ### Show SIT
 ```
 DumpTs DualMono_AAC_test.m2ts --showSIT
@@ -462,6 +478,130 @@ SIT(ver: 5):
 ......
 ```
 
+[top](#contents)
+## Show transport packets
+Every transport packet can be shown,
+```
+DumpTS Mono_AC3.m2ts --showpack
+```
+It will show one transport packet every time at default, and then prompt to press any key to continue showing the next packet,
+```
+transport_packet#0:
+    timestamp: 1048840924(0X3E840ADC)   // additional time stamp for network streaming usage
+    sync_byte: 71(0X47)                 // Should be 0x47 for plain-text
+    transport_error_indicator: 0(0X0)
+    payload_unit_start_indicator: 1(0X1)// Transport stream packets that carry PES packets or transport stream...
+    transport_priority: 0(0X0)
+    PID: 0(0X0)                         // Program association table
+    transport_scrambling_control: 0(0X0)// Not scrambled
+    adaptation_field_control: 1(0X1)    // No adaptation_field, payload only
+    continuity_counter: 1(0X1)          // wraps around to 0 after its maximum value, and shall not be increme...
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  3E  84  0A  DC  47  40  00  11    00  00  B0  11  00  00  C1  00 | >...G@..........
+     000010  00  00  00  E0  1F  00  01  E1    00  23  5A  AB  82  FF  FF  FF | .........#Z.....
+     000020  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     000030  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     000040  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     000050  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     000060  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     000070  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     000080  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     000090  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     0000A0  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+     0000B0  FF  FF  FF  FF  FF  FF  FF  FF    FF  FF  FF  FF  FF  FF  FF  FF | ................
+Press any key to continue('q': quit)...
+```
+You can show any transport packet exactly by specifying packet index(start from zero) or number(start from 1),
+```
+DumpTS Mono_AC3.m2ts --showpack --pktid=100
+DumpTS Mono_AC3.m2ts --showpack --pktid=101
+```
+2 commands to show the same transport packet#100(start from zero)
+```
+transport_packet#100:
+    timestamp: 1049247004(0X3E8A3D1C)   // additional time stamp for network streaming usage
+    sync_byte: 71(0X47)                 // Should be 0x47 for plain-text
+    transport_error_indicator: 0(0X0)
+    payload_unit_start_indicator: 0(0X0)
+    transport_priority: 0(0X0)
+    PID: 4113(0X1011)
+    transport_scrambling_control: 0(0X0)// Not scrambled
+    adaptation_field_control: 1(0X1)    // No adaptation_field, payload only
+    continuity_counter: 0(0X0)          // wraps around to 0 after its maximum value, and shall not be increme...
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  3E  8A  3D  1C  47  10  11  10    16  59  06  58  DA  A3  73  75 | >.=.G....Y.X..su
+     000010  12  A5  0C  5A  4A  6A  97  2C    7D  52  8B  3A  D8  48  6D  F6 | ...ZJj.,}R.:.Hm.
+     000020  3F  70  AB  76  1E  71  B0  94    D4  D9  BB  5F  2E  5A  30  F9 | ?p.v.q....._.Z0.
+     000030  10  84  C5  AC  59  E0  48  6D    97  6E  06  A5  6B  2E  E6  EC | ....Y.Hm.n..k...
+     000040  89  52  86  29  21  AF  33  90    DD  8C  F6  3E  C5  96  EC  3D | .R.)!.3....>...=
+     000050  2C  51  81  4C  32  AA  A3  2C    6D  8D  65  8F  AA  51  67  5B | ,Q.L2..,m.e..Qg[
+     000060  23  2E  DC  0D  4A  DA  AC  D7    F9  CB  96  8C  3E  44  62  67 | #...J.......>Dbg
+     000070  21  BB  18  AC  59  50  65  8D    A9  BB  8F  DC  89  52  85  92 | !...YPe......R..
+     000080  19  56  58  FA  A5  16  70  74    6D  B6  3F  72  59  6E  C3  D2 | .VX...ptm.?rYn..
+     000090  96  48  6A  A9  AF  AF  97  2D    18  50  75  F5  62  B5  25  0A | .Hj....-.Pu.b.%.
+     0000A0  24  36  C9  B7  03  52  B5  B7    71  FB  90  B4  A1  20  53  5C | $6...R..q.... S\
+     0000B0  67  21  BB  1A  DB  1F  B2  59    6E  C3  CB  08  0A  61  A6  CB | g!.....Yn....a..
+```
+You can also show some transport packets by specifying its start and end index(0-based), and how many packets to be displayed, and then show the message to prompt continuing show next batch,
+```
+DumpTS Mono_AC3.m2ts --showpack=3 --start=100 --end=200
+```
+It will show 3 transport packets, and prompt to press some keys to continue,
+```
+transport_packet#100:
+    timestamp: 1049247004(0X3E8A3D1C)   // additional time stamp for network streaming usage
+    sync_byte: 71(0X47)                 // Should be 0x47 for plain-text
+    transport_error_indicator: 0(0X0)
+    payload_unit_start_indicator: 0(0X0)
+    transport_priority: 0(0X0)
+    PID: 4113(0X1011)
+    transport_scrambling_control: 0(0X0)// Not scrambled
+    adaptation_field_control: 1(0X1)    // No adaptation_field, payload only
+    continuity_counter: 0(0X0)          // wraps around to 0 after its maximum value, and shall not be increme...
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  3E  8A  3D  1C  47  10  11  10    16  59  06  58  DA  A3  73  75 | >.=.G....Y.X..su
+     000010  12  A5  0C  5A  4A  6A  97  2C    7D  52  8B  3A  D8  48  6D  F6 | ...ZJj.,}R.:.Hm.
+     000020  3F  70  AB  76  1E  71  B0  94    D4  D9  BB  5F  2E  5A  30  F9 | ?p.v.q....._.Z0.
+     000030  10  84  C5  AC  59  E0  48  6D    97  6E  06  A5  6B  2E  E6  EC | ....Y.Hm.n..k...
+     000040  89  52  86  29  21  AF  33  90    DD  8C  F6  3E  C5  96  EC  3D | .R.)!.3....>...=
+     000050  2C  51  81  4C  32  AA  A3  2C    6D  8D  65  8F  AA  51  67  5B | ,Q.L2..,m.e..Qg[
+     000060  23  2E  DC  0D  4A  DA  AC  D7    F9  CB  96  8C  3E  44  62  67 | #...J.......>Dbg
+     000070  21  BB  18  AC  59  50  65  8D    A9  BB  8F  DC  89  52  85  92 | !...YPe......R..
+     000080  19  56  58  FA  A5  16  70  74    6D  B6  3F  72  59  6E  C3  D2 | .VX...ptm.?rYn..
+     000090  96  48  6A  A9  AF  AF  97  2D    18  50  75  F5  62  B5  25  0A | .Hj....-.Pu.b.%.
+     0000A0  24  36  C9  B7  03  52  B5  B7    71  FB  90  B4  A1  20  53  5C | $6...R..q.... S\
+     0000B0  67  21  BB  1A  DB  1F  B2  59    6E  C3  CB  08  0A  61  A6  CB | g!.....Yn....a..
+transport_packet#101:
+    timestamp: 1049251064(0X3E8A4CF8)   // additional time stamp for network streaming usage
+    sync_byte: 71(0X47)                 // Should be 0x47 for plain-text
+    transport_error_indicator: 0(0X0)
+    payload_unit_start_indicator: 0(0X0)
+    transport_priority: 0(0X0)
+    PID: 4113(0X1011)
+    transport_scrambling_control: 0(0X0)// Not scrambled
+    adaptation_field_control: 1(0X1)    // No adaptation_field, payload only
+    continuity_counter: 1(0X1)          // wraps around to 0 after its maximum value, and shall not be increme...
+             00  01  02  03  04  05  06  07    08  09  0A  0B  0C  0D  0E  0F
+             ----------------------------------------------------------------
+     000000  3E  8A  4C  F8  47  10  11  11    47  59  5B  61  59  63  EA  94 | >.L.G...GY[aYc..
+     000010  58  C3  23  2E  DC  0D  4A  DA    A9  AF  AF  97  2D  18  54  32 | X.#...J.....-.T2
+     000020  FA  B1  33  90  DD  8C  56  76    54  29  2C  6D  4D  DC  7E  E4 | ..3...VvT),mM.~.
+     000030  2D  28  6D  6A  D6  59  B5  4A    2F  F5  32  36  FB  1E  FC  CB | -(mj.Y.J/.26....
+     000040  17  60  6D  8D  45  35  F7  65    CB  46  15  86  5F  56  2D  62 | .`m.E5.e.F.._V-b
+     000050  CF  00  96  D9  B6  B8  35  2B    59  77  36  C8  5A  50  DA  D7 | ......5+Yw6.ZP..
+     000060  99  C8  6E  C6  B0  C7  EC  96    2E  C0  DB  0A  61  95  96  8E | ..n.........a...
+     000070  B2  B5  1F  12  CA  B5  40  20    92  37  A0  ED  F3  EF  D1  13 | ......@ .7......
+     000080  97  65  45  B5  77  DD  C2  B7    21  40  4D  E7  32  C8  DC  6A | .eE.w...!@M.2..j
+     000090  BA  B2  CB  46  13  11  BD  79    9A  00  F4  00  C8  FB  01  1F | ...F...y........
+     0000A0  FD  40  0F  81  37  FE  8C  24    B7  28  04  D5  F2  82  58  01 | .@..7..$.(....X.
+     0000B0  9A  48  56  BA  B6  41  C1  28    D4  AF  EC  78  03  90  04  3D | .HV..A.(...x...=
+Press any key to continue('q': quit)...
+```
+
+[top](#contents)
 ## Diff the ATC
 The tts or m2ts transport packet carry arrive time value based on 27MHZ in the first 4 bytes LSB 30bit, the below command be used to show its difference between 2 adjacent packets,
 ```
@@ -655,40 +795,41 @@ DumpTS Mono_AAC_test.m2ts --diffATC --pid=0x100 --payload_first_last
 ```
 It will show the result with more detailed, pure_duration only sum the duration of transport packets of current AU or PES payload, diff will sum all durations of transport packets between the first and last transport stream of each AU/PES payload:
 ```
-payload_idx:    0 [PID: 0X0100] len:   300480(B) diff[packet first:      2 ~ last:   1577]: 2374048( 87.9277ms), pure duration: 2353216( 87.1561ms)
-payload_idx:    1 [PID: 0X0100] len:    18432(B) diff[packet first:   1578 ~ last:   1675]:  145824(  5.4008ms), pure duration:  142848(  5.2906ms)
-payload_idx:    2 [PID: 0X0100] len:    18432(B) diff[packet first:   1676 ~ last:   1771]:  172640(  6.3940ms), pure duration:  172640(  6.3940ms)
-payload_idx:    3 [PID: 0X0100] len:    96960(B) diff[packet first:   1772 ~ last:   2279]:  902888( 33.4402ms), pure duration:  844386( 31.2735ms)
-payload_idx:    4 [PID: 0X0100] len:    32064(B) diff[packet first:   2281 ~ last:   2447]:  902829( 33.4381ms), pure duration:  727252( 26.9352ms)
-payload_idx:    5 [PID: 0X0100] len:    36096(B) diff[packet first:   2449 ~ last:   2636]:  891711( 33.0263ms), pure duration:  891711( 33.0263ms)
-payload_idx:    6 [PID: 0X0100] len:    63360(B) diff[packet first:   2637 ~ last:   2967]:  902570( 33.4285ms), pure duration:  901082( 33.3734ms)
-payload_idx:    7 [PID: 0X0100] len:    32064(B) diff[packet first:   2968 ~ last:   3135]:  902974( 33.4434ms), pure duration:  901486( 33.3883ms)
-payload_idx:    8 [PID: 0X0100] len:    32064(B) diff[packet first:   3136 ~ last:   3302]:  902736( 33.4346ms), pure duration:  369808( 13.6965ms)
-payload_idx:    9 [PID: 0X0100] len:     1536(B) diff[packet first:   3304 ~ last:   3311]:  902690( 33.4329ms), pure duration:  547072( 20.2619ms)
-payload_idx:   10 [PID: 0X0100] len:     1920(B) diff[packet first:   3313 ~ last:   3322]:  902692( 33.4330ms), pure duration:  724382( 26.8289ms)
-payload_idx:   11 [PID: 0X0100] len:     1920(B) diff[packet first:   3324 ~ last:   3333]:  903178( 33.4510ms), pure duration:  901690( 33.3959ms)
-payload_idx:   12 [PID: 0X0100] len:     1152(B) diff[packet first:   3335 ~ last:   3340]:  891398( 33.0147ms), pure duration:  891398( 33.0147ms)
-payload_idx:   13 [PID: 0X0100] len:     1536(B) diff[packet first:   3341 ~ last:   3348]:  902697( 33.4332ms), pure duration:  187114(  6.9301ms)
-payload_idx:   14 [PID: 0X0100] len:     1728(B) diff[packet first:   3350 ~ last:   3358]:  902690( 33.4329ms), pure duration:  364417( 13.4969ms)
-payload_idx:   15 [PID: 0X0100] len:   300288(B) diff[packet first:   3360 ~ last:   4933]: 2367743( 87.6941ms), pure duration: 2352863( 87.1430ms)
-payload_idx:   16 [PID: 0X0100] len:    18240(B) diff[packet first:   4934 ~ last:   5030]:  144336(  5.3457ms), pure duration:  141360(  5.2355ms)
-payload_idx:   17 [PID: 0X0100] len:    18432(B) diff[packet first:   5031 ~ last:   5126]:  196016(  7.2598ms), pure duration:  191664(  7.0986ms)
-payload_idx:   18 [PID: 0X0100] len:   101952(B) diff[packet first:   5128 ~ last:   5660]:  891379( 33.0140ms), pure duration:  815045( 30.1868ms)
-payload_idx:   19 [PID: 0X0100] len:    27264(B) diff[packet first:   5663 ~ last:   5805]:  903189( 33.4514ms), pure duration:  506692( 18.7663ms)
-payload_idx:   20 [PID: 0X0100] len:    32832(B) diff[packet first:   5808 ~ last:   5980]:  902716( 33.4339ms), pure duration:  359368( 13.3099ms)
-payload_idx:   21 [PID: 0X0100] len:    59904(B) diff[packet first:   5984 ~ last:   6296]:  902691( 33.4330ms), pure duration:  464256( 17.1946ms)
-payload_idx:   22 [PID: 0X0100] len:    31104(B) diff[packet first:   6299 ~ last:   6463]:  902692( 33.4330ms), pure duration:  667786( 24.7328ms)
-payload_idx:   23 [PID: 0X0100] len:    31296(B) diff[packet first:   6467 ~ last:   6629]:  902691( 33.4330ms), pure duration:  350601( 12.9852ms)
-payload_idx:   24 [PID: 0X0100] len:     1536(B) diff[packet first:   6633 ~ last:   6640]:  891881( 33.0326ms), pure duration:   29099(  1.0777ms)
-......                                                              
-payload_idx: 1869 [PID: 0X0100] len:    89088(B) diff[packet first: 638472 ~ last: 638938]:  902308( 33.4188ms), pure duration:  701301( 25.9741ms)
-payload_idx: 1870 [PID: 0X0100] len:    19392(B) diff[packet first: 638944 ~ last: 639045]:  151776(  5.6213ms), pure duration:  151776(  5.6213ms)
+payload_idx:    0 [PID: 0X0100] len:300480(B) diff[packet first:     2 ~ last:   1577]: 2374048( 87.9277ms), pure duration: 2353216( 87.1561ms)
+payload_idx:    1 [PID: 0X0100] len: 18432(B) diff[packet first:  1578 ~ last:   1675]:  145824(  5.4008ms), pure duration:  142848(  5.2906ms)
+payload_idx:    2 [PID: 0X0100] len: 18432(B) diff[packet first:  1676 ~ last:   1771]:  172640(  6.3940ms), pure duration:  172640(  6.3940ms)
+payload_idx:    3 [PID: 0X0100] len: 96960(B) diff[packet first:  1772 ~ last:   2279]:  902888( 33.4402ms), pure duration:  844386( 31.2735ms)
+payload_idx:    4 [PID: 0X0100] len: 32064(B) diff[packet first:  2281 ~ last:   2447]:  902829( 33.4381ms), pure duration:  727252( 26.9352ms)
+payload_idx:    5 [PID: 0X0100] len: 36096(B) diff[packet first:  2449 ~ last:   2636]:  891711( 33.0263ms), pure duration:  891711( 33.0263ms)
+payload_idx:    6 [PID: 0X0100] len: 63360(B) diff[packet first:  2637 ~ last:   2967]:  902570( 33.4285ms), pure duration:  901082( 33.3734ms)
+payload_idx:    7 [PID: 0X0100] len: 32064(B) diff[packet first:  2968 ~ last:   3135]:  902974( 33.4434ms), pure duration:  901486( 33.3883ms)
+payload_idx:    8 [PID: 0X0100] len: 32064(B) diff[packet first:  3136 ~ last:   3302]:  902736( 33.4346ms), pure duration:  369808( 13.6965ms)
+payload_idx:    9 [PID: 0X0100] len:  1536(B) diff[packet first:  3304 ~ last:   3311]:  902690( 33.4329ms), pure duration:  547072( 20.2619ms)
+payload_idx:   10 [PID: 0X0100] len:  1920(B) diff[packet first:  3313 ~ last:   3322]:  902692( 33.4330ms), pure duration:  724382( 26.8289ms)
+payload_idx:   11 [PID: 0X0100] len:  1920(B) diff[packet first:  3324 ~ last:   3333]:  903178( 33.4510ms), pure duration:  901690( 33.3959ms)
+payload_idx:   12 [PID: 0X0100] len:  1152(B) diff[packet first:  3335 ~ last:   3340]:  891398( 33.0147ms), pure duration:  891398( 33.0147ms)
+payload_idx:   13 [PID: 0X0100] len:  1536(B) diff[packet first:  3341 ~ last:   3348]:  902697( 33.4332ms), pure duration:  187114(  6.9301ms)
+payload_idx:   14 [PID: 0X0100] len:  1728(B) diff[packet first:  3350 ~ last:   3358]:  902690( 33.4329ms), pure duration:  364417( 13.4969ms)
+payload_idx:   15 [PID: 0X0100] len:300288(B) diff[packet first:  3360 ~ last:   4933]: 2367743( 87.6941ms), pure duration: 2352863( 87.1430ms)
+payload_idx:   16 [PID: 0X0100] len: 18240(B) diff[packet first:  4934 ~ last:   5030]:  144336(  5.3457ms), pure duration:  141360(  5.2355ms)
+payload_idx:   17 [PID: 0X0100] len: 18432(B) diff[packet first:  5031 ~ last:   5126]:  196016(  7.2598ms), pure duration:  191664(  7.0986ms)
+payload_idx:   18 [PID: 0X0100] len:101952(B) diff[packet first:  5128 ~ last:   5660]:  891379( 33.0140ms), pure duration:  815045( 30.1868ms)
+payload_idx:   19 [PID: 0X0100] len: 27264(B) diff[packet first:  5663 ~ last:   5805]:  903189( 33.4514ms), pure duration:  506692( 18.7663ms)
+payload_idx:   20 [PID: 0X0100] len: 32832(B) diff[packet first:  5808 ~ last:   5980]:  902716( 33.4339ms), pure duration:  359368( 13.3099ms)
+payload_idx:   21 [PID: 0X0100] len: 59904(B) diff[packet first:  5984 ~ last:   6296]:  902691( 33.4330ms), pure duration:  464256( 17.1946ms)
+payload_idx:   22 [PID: 0X0100] len: 31104(B) diff[packet first:  6299 ~ last:   6463]:  902692( 33.4330ms), pure duration:  667786( 24.7328ms)
+payload_idx:   23 [PID: 0X0100] len: 31296(B) diff[packet first:  6467 ~ last:   6629]:  902691( 33.4330ms), pure duration:  350601( 12.9852ms)
+payload_idx:   24 [PID: 0X0100] len:  1536(B) diff[packet first:  6633 ~ last:   6640]:  891881( 33.0326ms), pure duration:   29099(  1.0777ms)
+......
+payload_idx: 1869 [PID: 0X0100] len: 89088(B) diff[packet first:638472 ~ last: 638938]:  902308( 33.4188ms), pure duration:  701301( 25.9741ms)
+payload_idx: 1870 [PID: 0X0100] len: 19392(B) diff[packet first:638944 ~ last: 639045]:  151776(  5.6213ms), pure duration:  151776(  5.6213ms)
 
 The maximum diff of ATC between transport packets: 4295447(159.0906ms).
 The minimum diff of ATC between transport packets: 14880(0.5511ms).
 The maximum diff sum of PID:0x0100 of ATC between transport packets: 4268663(158.0986ms).
 The minimum diff sum of PID:0x0100 of ATC between transport packets: 11904(0.4408ms).
 ```
+[top](#contents)
 
 ## Show PCR
 Show each PCR point, and calculate the dynamic transport rate,
@@ -697,30 +838,30 @@ DumpTS Mono_AAC_test.m2ts --showPCR
 ```
 It will show:
 ```
- -> PCR_PID: 0X01FF PCR(base: 3213312641(90KHZ), ext: 184,  963993792484(27MHZ),   35703473.795(ms)), transport_rate:   0.00bps, ATC:847376356(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213316246(90KHZ), ext:  60,  963994873860(27MHZ),   35703513.846(ms)), transport_rate:  27.57Mbps, ATC:848457732(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213319850(90KHZ), ext: 248,  963995955248(27MHZ),   35703553.898(ms)), transport_rate:  26.73Mbps, ATC:849539120(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213323450(90KHZ), ext: 248,  963997035248(27MHZ),   35703593.898(ms)), transport_rate:  12.05Mbps, ATC:850619120(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213327055(90KHZ), ext:   8,  963998116508(27MHZ),   35703633.944(ms)), transport_rate:   7.32Mbps, ATC:851700380(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213330659(90KHZ), ext: 188,  963999197888(27MHZ),   35703673.995(ms)), transport_rate:  17.29Mbps, ATC:852781760(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213334259(90KHZ), ext: 188,  964000277888(27MHZ),   35703713.995(ms)), transport_rate:   8.17Mbps, ATC:853861760(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213337859(90KHZ), ext: 188,  964001357888(27MHZ),   35703753.995(ms)), transport_rate: 345.60Kbps, ATC:854941760(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213341459(90KHZ), ext: 188,  964002437888(27MHZ),   35703793.995(ms)), transport_rate: 422.40Kbps, ATC:856021760(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213345059(90KHZ), ext: 188,  964003517888(27MHZ),   35703833.995(ms)), transport_rate: 422.40Kbps, ATC:857101760(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213348659(90KHZ), ext: 188,  964004597888(27MHZ),   35703873.995(ms)), transport_rate: 576.00Kbps, ATC:858181760(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213352259(90KHZ), ext: 188,  964005677888(27MHZ),   35703913.995(ms)), transport_rate: 384.00Kbps, ATC:859261760(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213355861(90KHZ), ext: 228,  964006758528(27MHZ),   35703954.019(ms)), transport_rate:  13.73Mbps, ATC:860342400(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213359466(90KHZ), ext: 104,  964007839904(27MHZ),   35703994.070(ms)), transport_rate:  27.57Mbps, ATC:861423776(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213363066(90KHZ), ext: 104,  964008919904(27MHZ),   35704034.070(ms)), transport_rate:  26.53Mbps, ATC:862503776(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213366670(90KHZ), ext: 168,  964010001168(27MHZ),   35704074.117(ms)), transport_rate:  25.04Mbps, ATC:863585040(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213370270(90KHZ), ext: 168,  964011081168(27MHZ),   35704114.117(ms)), transport_rate:   7.71Mbps, ATC:864665040(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213373870(90KHZ), ext: 168,  964012161168(27MHZ),   35704154.117(ms)), transport_rate:  12.17Mbps, ATC:865745040(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213377470(90KHZ), ext: 168,  964013241168(27MHZ),   35704194.117(ms)), transport_rate:   6.45Mbps, ATC:866825040(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3213381070(90KHZ), ext: 168,  964014321168(27MHZ),   35704234.117(ms)), transport_rate:   6.37Mbps, ATC:867905040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213312641(90KHZ), ext: 184,963993792484(27MHZ),35703473.795(ms)), transport_rate:   0.00bps, ATC:847376356(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213316246(90KHZ), ext:  60,963994873860(27MHZ),35703513.846(ms)), transport_rate: 27.57Mbps, ATC:848457732(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213319850(90KHZ), ext: 248,963995955248(27MHZ),35703553.898(ms)), transport_rate: 26.73Mbps, ATC:849539120(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213323450(90KHZ), ext: 248,963997035248(27MHZ),35703593.898(ms)), transport_rate: 12.05Mbps, ATC:850619120(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213327055(90KHZ), ext:   8,963998116508(27MHZ),35703633.944(ms)), transport_rate:  7.32Mbps, ATC:851700380(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213330659(90KHZ), ext: 188,963999197888(27MHZ),35703673.995(ms)), transport_rate: 17.29Mbps, ATC:852781760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213334259(90KHZ), ext: 188,964000277888(27MHZ),35703713.995(ms)), transport_rate:  8.17Mbps, ATC:853861760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213337859(90KHZ), ext: 188,964001357888(27MHZ),35703753.995(ms)), transport_rate:345.60Kbps, ATC:854941760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213341459(90KHZ), ext: 188,964002437888(27MHZ),35703793.995(ms)), transport_rate:422.40Kbps, ATC:856021760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213345059(90KHZ), ext: 188,964003517888(27MHZ),35703833.995(ms)), transport_rate:422.40Kbps, ATC:857101760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213348659(90KHZ), ext: 188,964004597888(27MHZ),35703873.995(ms)), transport_rate:576.00Kbps, ATC:858181760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213352259(90KHZ), ext: 188,964005677888(27MHZ),35703913.995(ms)), transport_rate:384.00Kbps, ATC:859261760(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213355861(90KHZ), ext: 228,964006758528(27MHZ),35703954.019(ms)), transport_rate: 13.73Mbps, ATC:860342400(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213359466(90KHZ), ext: 104,964007839904(27MHZ),35703994.070(ms)), transport_rate: 27.57Mbps, ATC:861423776(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213363066(90KHZ), ext: 104,964008919904(27MHZ),35704034.070(ms)), transport_rate: 26.53Mbps, ATC:862503776(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213366670(90KHZ), ext: 168,964010001168(27MHZ),35704074.117(ms)), transport_rate: 25.04Mbps, ATC:863585040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213370270(90KHZ), ext: 168,964011081168(27MHZ),35704114.117(ms)), transport_rate:  7.71Mbps, ATC:864665040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213373870(90KHZ), ext: 168,964012161168(27MHZ),35704154.117(ms)), transport_rate: 12.17Mbps, ATC:865745040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213377470(90KHZ), ext: 168,964013241168(27MHZ),35704194.117(ms)), transport_rate:  6.45Mbps, ATC:866825040(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3213381070(90KHZ), ext: 168,964014321168(27MHZ),35704234.117(ms)), transport_rate:  6.37Mbps, ATC:867905040(27MHZ)
 ...
- -> PCR_PID: 0X01FF PCR(base: 3218914464(90KHZ), ext: 268,  965674339468(27MHZ),   35765716.276(ms)), transport_rate:  14.11Mbps, ATC:380439692(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3218918064(90KHZ), ext: 268,  965675419468(27MHZ),   35765756.276(ms)), transport_rate:   5.06Mbps, ATC:381519692(27MHZ)
- -> PCR_PID: 0X01FF PCR(base: 3218921669(90KHZ), ext:  28,  965676500728(27MHZ),   35765796.323(ms)), transport_rate:   2.30Mbps, ATC:382600952(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3218914464(90KHZ), ext: 268,965674339468(27MHZ),35765716.276(ms)), transport_rate: 14.11Mbps, ATC:380439692(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3218918064(90KHZ), ext: 268,965675419468(27MHZ),35765756.276(ms)), transport_rate:  5.06Mbps, ATC:381519692(27MHZ)
+ -> PCR_PID: 0X01FF PCR(base: 3218921669(90KHZ), ext:  28,965676500728(27MHZ),35765796.323(ms)), transport_rate:  2.30Mbps, ATC:382600952(27MHZ)
 The max diff between diff ATC and diff PCR: 300(270MHZ), 0.011(ms).
 The max transport rate: 27574468bps(27.57Mbps)
 The average transport rate: 15730192bps(15.73Mbps)
@@ -730,6 +871,7 @@ PID:0X0100            964008910800            964006208100
 PID:0X0110            964006295100
 PCR_PID: 0X01FF, The initial PCR value: 963993792484(27MHZ), diff with minimum dts: 12415616 (27MHZ)/459.0837(ms)
 ```
+[top](#contents)
 
 ## Diff ATC clock and DTS clock
 Multiplex system normally used the dts clock system to construct the PCR and decide the multiplex policy, use the option `--diffATCDTS` to check the total difference of 2 clock system for audio and video elementary
@@ -739,32 +881,32 @@ DumpTS Mono_AAC_test.m2ts --diffATCDTS --pid=0x110,0x100
 It will check ATC timeline and DTS timeline of the latest audio and video payload/AU:
 ```
 ...
-pkt# 62887 PID: 0X0110 delta_atc_sum: 663902(27MHZ)/  24.588(ms) -- delta_dts: -8222700(27MHZ)/-304.544(ms) | delta: -8886602(27MHZ)/-329.133(ms)
-pkt# 62889 PID: 0X0100 delta_atc_sum:-238789(27MHZ)/  -8.844(ms) -- delta_dts: -9123600(27MHZ)/-337.911(ms) | delta: -8884811(27MHZ)/-329.067(ms)
-pkt# 63154 PID: 0X0110 delta_atc_sum: 394320(27MHZ)/  14.604(ms) -- delta_dts: -8547600(27MHZ)/-316.577(ms) | delta: -8941920(27MHZ)/-331.182(ms)
-pkt# 63164 PID: 0X0100 delta_atc_sum:-497307(27MHZ)/ -18.418(ms) -- delta_dts: -9448500(27MHZ)/-349.944(ms) | delta: -8951193(27MHZ)/-331.525(ms)
-pkt# 63179 PID: 0X0110 delta_atc_sum:  22320(27MHZ)/   0.826(ms) -- delta_dts: -8872500(27MHZ)/-328.611(ms) | delta: -8894820(27MHZ)/-329.437(ms)
-pkt# 63182 PID: 0X0110 delta_atc_sum: 602097(27MHZ)/  22.299(ms) -- delta_dts: -8296500(27MHZ)/-307.277(ms) | delta: -8898597(27MHZ)/-329.577(ms)
-pkt# 63183 PID: 0X0100 delta_atc_sum:-300855(27MHZ)/ -11.142(ms) -- delta_dts: -9197400(27MHZ)/-340.644(ms) | delta: -8896545(27MHZ)/-329.501(ms)
-pkt# 63200 PID: 0X0110 delta_atc_sum: 280185(27MHZ)/  10.377(ms) -- delta_dts: -8621400(27MHZ)/-319.311(ms) | delta: -8901585(27MHZ)/-329.688(ms)
-pkt# 63202 PID: 0X0110 delta_atc_sum: 850424(27MHZ)/  31.497(ms) -- delta_dts: -8045400(27MHZ)/-297.977(ms) | delta: -8895824(27MHZ)/-329.474(ms)
-pkt# 63203 PID: 0X0100 delta_atc_sum: -52268(27MHZ)/  -1.935(ms) -- delta_dts: -8946300(27MHZ)/-331.344(ms) | delta: -8894032(27MHZ)/-329.408(ms)
-pkt# 63213 PID: 0X0110 delta_atc_sum: 530262(27MHZ)/  19.639(ms) -- delta_dts: -8370300(27MHZ)/-310.011(ms) | delta: -8900562(27MHZ)/-329.650(ms)
-pkt# 63214 PID: 0X0100 delta_atc_sum:-372430(27MHZ)/ -13.793(ms) -- delta_dts: -9271200(27MHZ)/-343.377(ms) | delta: -8898770(27MHZ)/-329.584(ms)
-pkt# 63225 PID: 0X0110 delta_atc_sum: 196310(27MHZ)/   7.270(ms) -- delta_dts: -8695200(27MHZ)/-322.044(ms) | delta: -8891510(27MHZ)/-329.315(ms)
-pkt# 63227 PID: 0X0110 delta_atc_sum: 775873(27MHZ)/  28.736(ms) -- delta_dts: -8119200(27MHZ)/-300.711(ms) | delta: -8895073(27MHZ)/-329.447(ms)
-pkt# 63228 PID: 0X0100 delta_atc_sum:-126819(27MHZ)/  -4.697(ms) -- delta_dts: -9020100(27MHZ)/-334.077(ms) | delta: -8893281(27MHZ)/-329.380(ms)
-pkt# 63239 PID: 0X0110 delta_atc_sum: 444900(27MHZ)/  16.477(ms) -- delta_dts: -8444100(27MHZ)/-312.744(ms) | delta: -8889000(27MHZ)/-329.222(ms)
-pkt# 63241 PID: 0X0100 delta_atc_sum:-457791(27MHZ)/ -16.955(ms) -- delta_dts: -9345000(27MHZ)/-346.111(ms) | delta: -8887209(27MHZ)/-329.155(ms)
-pkt# 63330 PID: 0X0110 delta_atc_sum: 132432(27MHZ)/   4.904(ms) -- delta_dts: -8769000(27MHZ)/-324.777(ms) | delta: -8901432(27MHZ)/-329.682(ms)
-pkt# 63706 PID: 0X0110 delta_atc_sum: 694896(27MHZ)/  25.736(ms) -- delta_dts: -8193000(27MHZ)/-303.444(ms) | delta: -8887896(27MHZ)/-329.181(ms)
-pkt# 63752 PID: 0X0110 delta_atc_sum: 763344(27MHZ)/  28.272(ms) -- delta_dts: -7617000(27MHZ)/-282.111(ms) | delta: -8380344(27MHZ)/-310.383(ms)
-pkt# 64474 PID: 0X0110 delta_atc_sum:1849099(27MHZ)/  68.485(ms) -- delta_dts: -7041000(27MHZ)/-260.777(ms) | delta: -8890099(27MHZ)/-329.262(ms)
-pkt# 64520 PID: 0X0110 delta_atc_sum:1917547(27MHZ)/  71.020(ms) -- delta_dts: -6465000(27MHZ)/-239.444(ms) | delta: -8382547(27MHZ)/-310.464(ms)
-pkt# 65186 PID: 0X0100 delta_atc_sum:1005488(27MHZ)/ -37.240(ms) -- delta_dts: -7365900(27MHZ)/-272.811(ms) | delta: -6360412(27MHZ)/-235.570(ms)
-pkt# 65241 PID: 0X0110 delta_atc_sum:  81840(27MHZ)/   3.031(ms) -- delta_dts: -6789900(27MHZ)/-251.477(ms) | delta: -6871740(27MHZ)/-254.508(ms)
-pkt# 65242 PID: 0X0100 delta_atc_sum:  -1488(27MHZ)/   0.055(ms) -- delta_dts: -7690800(27MHZ)/-284.844(ms) | delta: -7689312(27MHZ)/-284.789(ms)
-pkt# 65316 PID: 0X0100 delta_atc_sum:-123104(27MHZ)/  -4.559(ms) -- delta_dts: -8591700(27MHZ)/-318.211(ms) | delta: -8468596(27MHZ)/-313.651(ms)
+pkt# 62887 PID: 0X0110 delta_atc_sum: 663902(27MHZ)/ 24.588(ms)--delta_dts:-8222700(27MHZ)/-304.544(ms) | delta: -8886602(27MHZ)/-329.133(ms)
+pkt# 62889 PID: 0X0100 delta_atc_sum:-238789(27MHZ)/ -8.844(ms)--delta_dts:-9123600(27MHZ)/-337.911(ms) | delta: -8884811(27MHZ)/-329.067(ms)
+pkt# 63154 PID: 0X0110 delta_atc_sum: 394320(27MHZ)/ 14.604(ms)--delta_dts:-8547600(27MHZ)/-316.577(ms) | delta: -8941920(27MHZ)/-331.182(ms)
+pkt# 63164 PID: 0X0100 delta_atc_sum:-497307(27MHZ)/-18.418(ms)--delta_dts:-9448500(27MHZ)/-349.944(ms) | delta: -8951193(27MHZ)/-331.525(ms)
+pkt# 63179 PID: 0X0110 delta_atc_sum:  22320(27MHZ)/  0.826(ms)--delta_dts:-8872500(27MHZ)/-328.611(ms) | delta: -8894820(27MHZ)/-329.437(ms)
+pkt# 63182 PID: 0X0110 delta_atc_sum: 602097(27MHZ)/ 22.299(ms)--delta_dts:-8296500(27MHZ)/-307.277(ms) | delta: -8898597(27MHZ)/-329.577(ms)
+pkt# 63183 PID: 0X0100 delta_atc_sum:-300855(27MHZ)/-11.142(ms)--delta_dts:-9197400(27MHZ)/-340.644(ms) | delta: -8896545(27MHZ)/-329.501(ms)
+pkt# 63200 PID: 0X0110 delta_atc_sum: 280185(27MHZ)/ 10.377(ms)--delta_dts:-8621400(27MHZ)/-319.311(ms) | delta: -8901585(27MHZ)/-329.688(ms)
+pkt# 63202 PID: 0X0110 delta_atc_sum: 850424(27MHZ)/ 31.497(ms)--delta_dts:-8045400(27MHZ)/-297.977(ms) | delta: -8895824(27MHZ)/-329.474(ms)
+pkt# 63203 PID: 0X0100 delta_atc_sum: -52268(27MHZ)/ -1.935(ms)--delta_dts:-8946300(27MHZ)/-331.344(ms) | delta: -8894032(27MHZ)/-329.408(ms)
+pkt# 63213 PID: 0X0110 delta_atc_sum: 530262(27MHZ)/ 19.639(ms)--delta_dts:-8370300(27MHZ)/-310.011(ms) | delta: -8900562(27MHZ)/-329.650(ms)
+pkt# 63214 PID: 0X0100 delta_atc_sum:-372430(27MHZ)/-13.793(ms)--delta_dts:-9271200(27MHZ)/-343.377(ms) | delta: -8898770(27MHZ)/-329.584(ms)
+pkt# 63225 PID: 0X0110 delta_atc_sum: 196310(27MHZ)/  7.270(ms)--delta_dts:-8695200(27MHZ)/-322.044(ms) | delta: -8891510(27MHZ)/-329.315(ms)
+pkt# 63227 PID: 0X0110 delta_atc_sum: 775873(27MHZ)/ 28.736(ms)--delta_dts:-8119200(27MHZ)/-300.711(ms) | delta: -8895073(27MHZ)/-329.447(ms)
+pkt# 63228 PID: 0X0100 delta_atc_sum:-126819(27MHZ)/ -4.697(ms)--delta_dts:-9020100(27MHZ)/-334.077(ms) | delta: -8893281(27MHZ)/-329.380(ms)
+pkt# 63239 PID: 0X0110 delta_atc_sum: 444900(27MHZ)/ 16.477(ms)--delta_dts:-8444100(27MHZ)/-312.744(ms) | delta: -8889000(27MHZ)/-329.222(ms)
+pkt# 63241 PID: 0X0100 delta_atc_sum:-457791(27MHZ)/-16.955(ms)--delta_dts:-9345000(27MHZ)/-346.111(ms) | delta: -8887209(27MHZ)/-329.155(ms)
+pkt# 63330 PID: 0X0110 delta_atc_sum: 132432(27MHZ)/  4.904(ms)--delta_dts:-8769000(27MHZ)/-324.777(ms) | delta: -8901432(27MHZ)/-329.682(ms)
+pkt# 63706 PID: 0X0110 delta_atc_sum: 694896(27MHZ)/ 25.736(ms)--delta_dts:-8193000(27MHZ)/-303.444(ms) | delta: -8887896(27MHZ)/-329.181(ms)
+pkt# 63752 PID: 0X0110 delta_atc_sum: 763344(27MHZ)/ 28.272(ms)--delta_dts:-7617000(27MHZ)/-282.111(ms) | delta: -8380344(27MHZ)/-310.383(ms)
+pkt# 64474 PID: 0X0110 delta_atc_sum:1849099(27MHZ)/ 68.485(ms)--delta_dts:-7041000(27MHZ)/-260.777(ms) | delta: -8890099(27MHZ)/-329.262(ms)
+pkt# 64520 PID: 0X0110 delta_atc_sum:1917547(27MHZ)/ 71.020(ms)--delta_dts:-6465000(27MHZ)/-239.444(ms) | delta: -8382547(27MHZ)/-310.464(ms)
+pkt# 65186 PID: 0X0100 delta_atc_sum:1005488(27MHZ)/-37.240(ms)--delta_dts:-7365900(27MHZ)/-272.811(ms) | delta: -6360412(27MHZ)/-235.570(ms)
+pkt# 65241 PID: 0X0110 delta_atc_sum:  81840(27MHZ)/  3.031(ms)--delta_dts:-6789900(27MHZ)/-251.477(ms) | delta: -6871740(27MHZ)/-254.508(ms)
+pkt# 65242 PID: 0X0100 delta_atc_sum:  -1488(27MHZ)/  0.055(ms)--delta_dts:-7690800(27MHZ)/-284.844(ms) | delta: -7689312(27MHZ)/-284.789(ms)
+pkt# 65316 PID: 0X0100 delta_atc_sum:-123104(27MHZ)/ -4.559(ms)--delta_dts:-8591700(27MHZ)/-318.211(ms) | delta: -8468596(27MHZ)/-313.651(ms)
 ...
 ```
 ![diff_atc_dts](doc/images/diff_atc_dts.png)
@@ -772,3 +914,4 @@ If you want to compare ATC and DTS clock of itself, you can specify the same PID
 ```
 DumpTS Mono_AAC_test.m2ts --diffATCDTS --pid=0x110,0x110
 ```
+[top](#contents)

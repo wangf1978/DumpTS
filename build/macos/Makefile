@@ -65,6 +65,8 @@ SOURCES := \
 	$(SOURCEDIR)/platcomm.cpp \
 	$(SOURCEDIR)/combase.cpp \
 	$(SOURCEDIR)/system_13818_1.cpp \
+	$(SOURCEDIR)/descriptors_13818_1.cpp \
+	$(SOURCEDIR)/descriptors_hdmv.cpp \
 	$(SOURCEDIR)/Syncer.cpp \
 	$(SOURCEDIR)/TSTD.cpp \
 	$(SOURCEDIR)/crc.cpp \

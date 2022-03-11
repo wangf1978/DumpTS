@@ -5,7 +5,7 @@
 #include "tinyxml2.h"
 
 template<class T>
-int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
+int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false)
 {
 	char* szXmlOutput = NULL;
 	int iRet = RET_CODE_SUCCESS;
@@ -32,7 +32,7 @@ int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
 		{
 			struct MaxLenTestUtil : tinyxml2::XMLVisitor
 			{
-				MaxLenTestUtil() : level(0), szLongSpace{ 0 }, max_length(0){
+				MaxLenTestUtil(bool bIgnoreBin) : level(0), szLongSpace{ 0 }, max_length(0), ignore_bin(bIgnoreBin){
 					memset(szLongSpace, ' ', 240);
 				}
 				/// Visit an element.
@@ -41,12 +41,17 @@ int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
 					const char* szValue = element.Attribute("Value");
 					const char* szAlias = element.Attribute("Alias");
 					const char* szDesc = element.Attribute("Desc");
-					int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4, szLongSpace,
-						szAlias ? szAlias : element.Name(),
-						szValue ? szValue : "");
+					const char* szType = element.Attribute("Type");
 
-					if (ccWritten > max_length && szDesc != NULL && strcmp(szDesc, "") != 0)
-						max_length = ccWritten;
+					if (!ignore_bin || (ignore_bin && (szType == nullptr || !(szType[0] == 'B' && szType[1]== '\0'))))
+					{
+						int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4, szLongSpace,
+							szAlias ? szAlias : element.Name(),
+							szValue ? szValue : "");
+
+						if (ccWritten > max_length && szDesc != NULL && strcmp(szDesc, "") != 0)
+							max_length = ccWritten;
+					}
 
 					level++;
 					return true;
@@ -60,8 +65,9 @@ int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
 				int level;
 				char szLongSpace[241];
 				int max_length;
+				bool ignore_bin = false;
 
-			} max_length_tester;
+			} max_length_tester(bIgnoreBin);
 
 			xmlDoc.Accept(&max_length_tester);
 			max_len_of_fixed_part = max_length_tester.max_length;
@@ -69,7 +75,7 @@ int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
 
 		struct TestUtil : tinyxml2::XMLVisitor
 		{
-			TestUtil(int max_length) : level(0), szLongSpace{ 0 }, max_fixed_part_length(max_length){
+			TestUtil(int max_length, bool bIgnoreBin) : level(0), szLongSpace{ 0 }, max_fixed_part_length(max_length), ignore_bin(bIgnoreBin){
 				memset(szLongSpace, ' ', 240);
 			}
 			/// Visit an element.
@@ -78,14 +84,19 @@ int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
 				const char* szValue = element.Attribute("Value");
 				const char* szAlias = element.Attribute("Alias");
 				const char* szDesc = element.Attribute("Desc");
-				int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4, szLongSpace,
-					szAlias ? szAlias : element.Name(),
-					szValue ? szValue : "");
+				const char* szType = element.Attribute("Type");
+				if (!ignore_bin || (ignore_bin && (szType == nullptr || !(szType[0] == 'B' && szType[1] == '\0'))))
+				{
+					int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4, szLongSpace,
+						szAlias ? szAlias : element.Name(),
+						szValue ? szValue : "");
 
-				printf("%s%.*s%s%s\n", szTmp,
-					max_fixed_part_length > ccWritten ? (max_fixed_part_length - ccWritten) : 0, szLongSpace,
-					szDesc && strcmp(szDesc, "") != 0 ? "// " : "",
-					szDesc ? GetFixedWidthStrWithEllipsis(szDesc, 70).c_str() : "");
+					printf("%s%.*s%s%s\n", szTmp,
+						max_fixed_part_length > ccWritten ? (max_fixed_part_length - ccWritten) : 0, szLongSpace,
+						szDesc && strcmp(szDesc, "") != 0 ? "// " : "",
+						szDesc ? GetFixedWidthStrWithEllipsis(szDesc, 70).c_str() : "");
+				}
+
 				level++;
 				return true;
 			}
@@ -98,8 +109,9 @@ int PrintMediaObject(std::shared_ptr<T> pNavFieldProp)
 			int level;
 			char szLongSpace[241];
 			int max_fixed_part_length;
+			bool ignore_bin = false;
 
-		} tester(max_len_of_fixed_part);
+		} tester(max_len_of_fixed_part, bIgnoreBin);
 
 		xmlDoc.Accept(&tester);
 	}

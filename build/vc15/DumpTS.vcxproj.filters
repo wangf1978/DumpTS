@@ -66,6 +66,18 @@
     <None Include="..\..\doc\diagrams.vsdx">
       <Filter>doc</Filter>
     </None>
+    <None Include="..\..\doc\MMT_Readme.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\NAL_Readme.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\TS_Readme.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\Utility_Readme.md">
+      <Filter>doc</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">
@@ -204,6 +216,12 @@
       <Filter>src\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\DumpAV1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\descriptors_13818_1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\descriptors_hdmv.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -359,6 +377,18 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\av1parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system_13818_1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\descriptors_13818_1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\systemdef.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\descriptors_hdmv.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

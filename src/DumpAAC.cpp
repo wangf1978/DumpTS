@@ -90,7 +90,7 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 						if (m_bOnlyShowAudioSpecificConfig)
 						{
 							printf("Audio Stream#%d:\n", mux_stream_config->streamID[prog][lay]);
-							PrintMediaObject(mux_stream_config->AudioSpecificConfig[prog][lay]);
+							PrintMediaObject(mux_stream_config->AudioSpecificConfig[prog][lay].get());
 
 							// Also show the audio frame duration
 							auto audio_specific_config = mux_stream_config->AudioSpecificConfig[prog][lay];
@@ -136,7 +136,7 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 						else
 						{
 							printf("Updated Stream Mux Config:\n");
-							PrintMediaObject(mux_stream_config);
+							PrintMediaObject(mux_stream_config.get());
 						}
 						memcpy(audio_specific_config_sha1[prog][lay], mux_stream_config->AudioSpecificConfig[prog][lay]->sha1_value, sizeof(AMSHA1_RET));
 					}

@@ -4,6 +4,7 @@
 * [How to build?](#how-to-build)
 * [How to run it?](#how-to-run-it)
 * [Operations Manual](#operations-manual)
+* [References](#)
 
 # Terminology
 - **TS**: transport stream, the file extension is normally *.ts, .tts, .m2ts, .mts*
@@ -253,3 +254,6 @@ Here are some examples of command lines:
 - Some utility features are also provided, please see [Utility operation guideline](Utility_Readme.md)
 
 [top](#table-of-content)
+
+# References
+Please see [references](doc/references.md)

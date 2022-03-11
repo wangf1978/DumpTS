@@ -40,6 +40,8 @@ SOFTWARE.
 #include "MMT.h"
 #include "nal_parser.h"
 #include "version.h"
+#include "system_13818_1.h"
+#include "mediaobjprint.h"
 
 using namespace std;
 
@@ -62,6 +64,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	DumpTransportPackets();
 extern int	ShowOBUs();
 extern int	DiffATCDTS();
 extern int	LayoutTSPacket();
@@ -186,6 +189,8 @@ void ParseCommandLine(int argc, char* argv[])
 		"outputfmt",
 		"MPUseqno",
 		"PKTseqno",
+		"PKTno",
+		"PKTid",
 		"showinfo",
 		"showpts", 
 		"showpack",
@@ -1105,6 +1110,11 @@ int main(int argc, char* argv[])
 					goto done;
 				}
 			}
+			else if (g_params.find("showpack") != g_params.end())
+			{
+				nDumpRet = DumpTransportPackets();
+				goto done;
+			}
 			else if (g_params.find("showSIT") != g_params.end() || 
 					 g_params.find("showPAT") != g_params.end() || 
 					 g_params.find("showPMT") != g_params.end())
@@ -1242,3 +1252,183 @@ done:
 	return nDumpRet;
 }
 
+#define DEFAULT_TRANSPORT_PACKETS_PER_DISPLAY		1
+
+int DumpTransportPackets()
+{
+	int nDumpRet = 0;
+	FILE* fp = nullptr;
+	long long file_size = -1LL;
+	uint8_t ts_pack_size = 192;
+	uint8_t hdr_offset = 4;
+	uint8_t buf[192] = { 0 };
+	uint8_t obuf[192] = { 0 };
+	MPEG_SYSTEM_TYPE mpeg_sys = MPEG_SYSTEM_TTS;
+
+	int nRet = RET_CODE_SUCCESS;
+	if (g_params.find("input") == g_params.end())
+		return -1;
+
+	std::string& szInputFile = g_params["input"];
+
+	auto iterStart = g_params.find("start");
+	auto iterEnd = g_params.find("end");
+	auto iterPKTNo = g_params.find("PKTno");
+	auto iterPKTId = g_params.find("PKTid");
+	auto iterPID = g_params.find("pid");
+	auto iterSrcFmt = g_params.find("srcfmt");
+
+	if (iterSrcFmt == g_params.end() || (
+		_stricmp(iterSrcFmt->second.c_str(), "ts") != 0 &&
+		_stricmp(iterSrcFmt->second.c_str(), "tts") != 0 &&
+		_stricmp(iterSrcFmt->second.c_str(), "m2ts") != 0))
+	{
+		printf("Please specify a transport stream file.\n ");
+		return -1;
+	}
+
+	if (_stricmp(iterSrcFmt->second.c_str(), "ts") == 0)
+	{
+		ts_pack_size = 188;
+		hdr_offset = 0;
+		mpeg_sys = MPEG_SYSTEM_TS;
+	}
+
+	int64_t display_pages = DEFAULT_TRANSPORT_PACKETS_PER_DISPLAY;
+	auto iter_showpack = g_params.find("showpack");
+	if ((iter_showpack) != g_params.end())
+	{
+		int64_t iVal64 = -1;
+		const char* szPages = iter_showpack->second.c_str();
+		if (ConvertToInt((char*)szPages, (char*)szPages + iter_showpack->second.length(), iVal64))
+		{
+			if (iVal64 <= 0)
+				display_pages = std::numeric_limits<decltype(display_pages)>::max();
+			else
+				display_pages = iVal64;
+		}	
+	}
+
+	int64_t nStart = 0, nEnd = INT64_MAX, filter_PKTID = -1, iVal = -1LL, filter_PID = -1LL;
+	if (iterStart != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterStart->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nStart = (uint32_t)iVal;
+	}
+
+	if (iterEnd != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterEnd->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nEnd = (uint32_t)iVal;
+	}
+
+	if (iterPKTNo != g_params.end())
+	{
+		if (ConvertToInt(iterPKTNo->second, iVal) && iVal > 0 && iVal <= UINT32_MAX)
+			filter_PKTID = iVal - 1;
+	}
+
+	if (iterPKTId != g_params.end())
+	{
+		if (ConvertToInt(iterPKTId->second, iVal) && iVal >= 0 && iVal <= UINT32_MAX)
+			filter_PKTID = iVal;
+	}
+
+	if (iterPID != g_params.end())
+	{
+		if (ConvertToInt(iterPID->second, iVal) && iVal >= 0 && iVal <= 0x1FFF)
+			filter_PID = iVal;
+	}
+
+	FOPEN(fp, szInputFile.c_str(), "rb");
+	if (fp == nullptr)
+	{
+		printf("Failed to open the file '%s'\n", szInputFile.c_str());
+		return -1;
+	}
+
+	// Get file size
+	_fseeki64(fp, 0, SEEK_END);
+	file_size = _ftelli64(fp);
+	_fseeki64(fp, 0, SEEK_SET);
+
+	if (file_size <= 0)
+	{
+		printf("The file '%s' seems NOT to be valid.\n", szInputFile.c_str());
+		fclose(fp);
+		return -1;
+	}
+
+	int64_t number_of_ts_packs = (int64_t)(file_size / ts_pack_size);
+
+	if (filter_PKTID >= number_of_ts_packs)
+	{
+		printf("The specified packet id or number is out of range.\n");
+		filter_PKTID = -1;
+	}
+	else if (filter_PKTID >= 0)
+	{
+		nStart = filter_PKTID;
+		nEnd = filter_PKTID + 1;
+	}
+
+	if (filter_PKTID == -1)
+	{
+		if (nStart >= number_of_ts_packs)
+		{
+			printf("The specified start transport packet id(start from 0) should be NOT greater than %zu\n", number_of_ts_packs);
+			fclose(fp);
+			return -1;
+		}
+	}
+
+	if (_fseeki64(fp, nStart*ts_pack_size, SEEK_SET) != 0)
+	{
+		printf("Failed to seek to the start position.\n");
+		fclose(fp);
+		return -1;
+	}
+
+	int64_t curr_ts_pkt_idx = nStart;
+	while (!feof(fp))
+	{
+		if (curr_ts_pkt_idx >= nEnd)
+		{
+			printf("Reach the end of range, cease showing the pack.\n");
+			break;
+		}
+
+		if (fread(buf, 1, ts_pack_size, fp) != ts_pack_size)
+		{
+			printf("Hitting error to read the data from the file, cease showing the pack.\n");
+			break;
+		}
+
+		memcpy(obuf, buf, ts_pack_size);
+		BST::CVarTSPacket var_ts_pack(mpeg_sys, curr_ts_pkt_idx);
+		var_ts_pack.AttachBuf(buf, ts_pack_size);
+		if (AMP_SUCCEEDED(var_ts_pack.Map()))
+		{
+			PrintMediaObject(&var_ts_pack, true);
+
+			print_mem(obuf, ts_pack_size, 4);
+		}
+
+		curr_ts_pkt_idx++;
+
+		if (curr_ts_pkt_idx < nEnd && (curr_ts_pkt_idx%display_pages) == 0 && display_pages != std::numeric_limits<decltype(display_pages)>::max())
+		{
+			printf("Press any key to continue('q': quit)...\n");
+			char chk = _getch();
+			if (chk == 0x3 || chk == 0x1A || chk == 'q' || chk == 'Q')	// Ctrl + C/Z, quit the loop
+				break;
+		}
+	}
+
+	if (fp != nullptr)
+		fclose(fp);
+
+	return nDumpRet;
+}

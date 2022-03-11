@@ -235,7 +235,11 @@
     <None Include="..\..\AV1_Readme.md" />
     <None Include="..\..\doc\diagrams.vsdx" />
     <None Include="..\..\doc\index.html" />
+    <None Include="..\..\doc\MMT_Readme.md" />
+    <None Include="..\..\doc\NAL_Readme.md" />
     <None Include="..\..\doc\references.md" />
+    <None Include="..\..\doc\TS_Readme.md" />
+    <None Include="..\..\doc\Utility_Readme.md" />
     <None Include="..\..\MMT_Readme.md" />
     <None Include="..\..\NAL_Readme.md" />
     <None Include="..\..\README.md" />
@@ -272,6 +276,8 @@
     <ClCompile Include="..\..\src\Bitstream.cpp" />
     <ClCompile Include="..\..\src\combase.cpp" />
     <ClCompile Include="..\..\src\crc.cpp" />
+    <ClCompile Include="..\..\src\descriptors_13818_1.cpp" />
+    <ClCompile Include="..\..\src\descriptors_hdmv.cpp" />
     <ClCompile Include="..\..\src\DumpAAC.cpp" />
     <ClCompile Include="..\..\src\DumpAV1.cpp" />
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
@@ -323,6 +329,8 @@
     <ClInclude Include="..\..\src\combase.h" />
     <ClInclude Include="..\..\src\crc.h" />
     <ClInclude Include="..\..\src\DataUtil.h" />
+    <ClInclude Include="..\..\src\descriptors_13818_1.h" />
+    <ClInclude Include="..\..\src\descriptors_hdmv.h" />
     <ClInclude Include="..\..\src\DumpTS.h" />
     <ClInclude Include="..\..\src\DumpUtil.h" />
     <ClInclude Include="..\..\src\dump_data_type.h" />
@@ -403,6 +411,8 @@
     <ClInclude Include="..\..\src\sei.h" />
     <ClInclude Include="..\..\src\platcomm.h" />
     <ClInclude Include="..\..\src\Syncer.h" />
+    <ClInclude Include="..\..\src\systemdef.h" />
+    <ClInclude Include="..\..\src\system_13818_1.h" />
     <ClInclude Include="..\..\src\tinyxml2.h" />
     <ClInclude Include="..\..\src\version.h" />
   </ItemGroup>

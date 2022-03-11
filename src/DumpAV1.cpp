@@ -900,7 +900,7 @@ public:
 					{
 						m_pAV1Context->UpdateSeqHdrOBU(sp_obu_seq_hdr);
 
-						PrintMediaObject(sp_obu_seq_hdr);
+						PrintMediaObject(sp_obu_seq_hdr.get());
 
 						memcpy(m_sha1SeqHdrOBU, retSHA1, sizeof(AMSHA1));
 					}

@@ -76,12 +76,13 @@ SOFTWARE.
 					goto done;\
 				}
 
+extern const char* audioProfileLevelIndication_names[256];
+
 namespace BST {
 
 	namespace AACAudio {
 
 		extern const char* Audio_Object_Type_Names[42];
-		extern const char* audioProfileLevelIndication_names[256];
 
 		extern const char* ADTS_profile_ObjectType_names[2][4];
 

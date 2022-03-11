@@ -1388,7 +1388,7 @@ int ShowNALObj(int object_type)
 						m_pNALAVCContext->UpdateAVCSPS(nu);
 
 						if (object_type == 2)
-							PrintMediaObject(nu);
+							PrintMediaObject(nu.get());
 						else if (object_type == 82)
 							PrintAVCSPSRoughInfo(nu);
 						else if (object_type == 12)
@@ -1404,7 +1404,7 @@ int ShowNALObj(int object_type)
 						m_pNALAVCContext->UpdateAVCPPS(nu);
 
 						if (object_type == 3)
-							PrintMediaObject(nu);
+							PrintMediaObject(nu.get());
 					}
 				}
 			}
@@ -1438,7 +1438,7 @@ int ShowNALObj(int object_type)
 						m_pNALHEVCContext->UpdateHEVCVPS(nu);
 
 						if (object_type == 1)
-							PrintMediaObject(nu);
+							PrintMediaObject(nu.get());
 					}
 					else if (nal_unit_type == BST::H265Video::SPS_NUT)
 					{
@@ -1450,7 +1450,7 @@ int ShowNALObj(int object_type)
 						m_pNALHEVCContext->UpdateHEVCSPS(nu);
 
 						if (object_type == 2)
-							PrintMediaObject(nu);
+							PrintMediaObject(nu.get());
 						else if (object_type == 82)
 							PrintHEVCSPSRoughInfo(nu);
 						else if (object_type == 12)
@@ -1466,7 +1466,7 @@ int ShowNALObj(int object_type)
 						m_pNALHEVCContext->UpdateHEVCPPS(nu);
 
 						if (object_type == 3)
-							PrintMediaObject(nu);
+							PrintMediaObject(nu.get());
 					}
 				}
 			}

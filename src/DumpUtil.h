@@ -31,6 +31,7 @@ SOFTWARE.
 #include <assert.h>
 #include <stdint.h>
 #include "AMBitStream.h"
+#include "combase.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -1113,7 +1114,7 @@ SOFTWARE.
 	unsigned long jjj=0;\
 	auto ptr_field_value = Field_Value;\
 	memset(szTemp2, 0, sizeof(szTemp2));\
-	for(jjj=0;jjj<((Value_Size)>(unsigned char)255?(unsigned char)255:(Value_Size));jjj++)\
+	for(jjj=0;jjj<((Value_Size)>255UL?255UL:(Value_Size));jjj++)\
 	{\
 		MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%02x ", ptr_field_value[jjj]);\
 		MBCSCAT(szTemp2, TEMP2_SIZE, szTemp3);\
@@ -1609,6 +1610,127 @@ struct SYNTAX_BITSTREAM_MAP: public BITSTREAM_MAP
 		return RET_CODE_SUCCESS;
 	}
 }PACKED;
+
+enum AM_MEM_USAGE
+{
+	MEM_USAGE_UNKNOWN,								/* Unknown memory usage. */
+	MEM_USAGE_SOUND_BDMV,							/* Alloc/dealloc the memory hold by sound.bdmv. */
+	MEM_USAGE_FONT_0,								/* The first font buffer with 2MB. */
+	MEM_USAGE_FONT_1,								/* The second font buffer with 2MB. */
+	MEM_USAGE_READ_BUF1,							/* Which is used for B SSIF content pre-read */
+	MEM_USAGE_READ_BUF2,							/* Which is used for D SSIF content pre-read */
+};
+
+/*!	@brief Playback memory management.
+	@remark In some case, in order to decrease the memory usage, it is necessary to implement this interface. */
+class IAMMemMgr : public IUnknown
+{
+public:
+	/*!	@brief Allocate the big block memory for specified usage. */
+	virtual uint8_t*	AllocMem(AM_MEM_USAGE mem_usage, int cbSize = 0) = 0;
+	/*!	@brief Free the memory allocated by AllocMem. */
+	virtual void		FreeMem(AM_MEM_USAGE mem_usage, uint8_t* binData = NULL) = 0;
+	/*!	@brief Copy the memory from one place to another place, HW acceleration may be used. */
+	virtual void		MemCopy(_Out_writes_(cbSize) uint8_t* pDst, uint8_t* pSrc, int cbSize) = 0;
+};
+
+class MEM_MAP_MGR: public INavFieldProp
+{
+public:
+	virtual int		Map(unsigned long *desired_size = NULL,unsigned long *stuffing_size = NULL) = 0;
+	virtual int		Unmap(/* Out */ unsigned char* pBuf=NULL, /* In/Out */unsigned long* pcbSize=NULL) = 0;
+	virtual size_t	ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint=false, long long* bit_offset = NULL)=0;
+	virtual bool	IsValid(){return true;}
+	virtual void	Endian(bool bBig2SysByteOrder=true){UNREFERENCED_PARAMETER(bBig2SysByteOrder); return;}
+
+	virtual unsigned char* AllocMem(unsigned long cbSize, AM_MEM_USAGE mem_usage=MEM_USAGE_UNKNOWN)
+	{
+		assert(m_binData == NULL && m_cbDataSize == 0);
+		m_mem_usage = mem_usage;
+		if (m_pExMemMgr == NULL)
+		{
+			m_binData = new unsigned char[cbSize];
+			//AMP_RegisterMem(GetCurrentModule(), m_binData, cbSize);
+		}
+		else
+			m_binData = m_pExMemMgr->AllocMem(mem_usage, cbSize);
+		m_cbDataSize = m_binData == NULL?0:cbSize;
+		m_is_external_buf = false;
+		return m_binData;
+	}
+
+	virtual void FreeMem(uint8_t* &pBinData, AM_MEM_USAGE mem_usage=MEM_USAGE_UNKNOWN)
+	{
+		if (m_is_external_buf == true)
+			return;
+
+		if (m_pExMemMgr == NULL)
+		{
+			AMP_SAFEDELA(pBinData);
+		}
+		else
+		{
+			m_pExMemMgr->FreeMem(mem_usage, pBinData);
+			pBinData = NULL;
+		}
+	}
+
+	virtual void FreeMem()
+	{
+		FreeMem(m_binData, m_mem_usage);
+		m_cbDataSize = 0;
+	}
+
+	virtual int AttachBuf(uint8_t* pBinData, int cbSize){
+		assert(m_binData == NULL && m_cbDataSize == 0);
+		if (pBinData == NULL || cbSize <= 0)
+			return RET_CODE_INVALID_PARAMETER;
+
+		m_binData = pBinData;
+		m_cbDataSize = cbSize;
+		m_is_external_buf = true;
+		return RET_CODE_SUCCESS;
+	}
+
+	virtual void DetachBuf(uint8_t* pBinData){
+		if (pBinData >= m_binData && pBinData < m_binData + m_cbDataSize)
+		{
+			m_binData = NULL;
+			m_cbDataSize = 0;
+			m_is_external_buf = false;
+		}
+	}
+
+	virtual void CommitExternalBuf(){
+		if (m_is_external_buf == false)
+			return;
+
+		m_is_external_buf = false;
+	}
+
+	virtual uint8_t* GetMemInfo(int &cbSize)
+	{
+		cbSize = m_cbDataSize;
+		return m_binData;
+	}
+
+	virtual int GetNavFileType(){
+		return m_nav_file_type;
+	}
+
+	MEM_MAP_MGR(int nav_file_type, IAMMemMgr* pExMemMgr)
+		: m_pExMemMgr(pExMemMgr), m_nav_file_type(nav_file_type), m_is_external_buf(false){
+	}
+	virtual ~MEM_MAP_MGR(){FreeMem();}
+
+protected:
+	unsigned char*	m_binData = nullptr;
+	unsigned int	m_cbDataSize = 0;
+	IAMMemMgr*		m_pExMemMgr = nullptr;
+	AM_MEM_USAGE	m_mem_usage = MEM_USAGE_UNKNOWN;
+	int				m_nav_file_type = -1;
+	bool			m_is_external_buf = false;
+};
 
 }	// namespace BST
 

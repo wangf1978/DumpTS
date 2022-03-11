@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -541,63 +541,6 @@ const char* table_id_names[256]={
 /*0xfd*/ "User private",
 /*0xfe*/ "User private",
 /*0xFF*/ "Forbidden",
-};
-
-const char* frame_rate_names[16] = {
-	/* 0*/ "reserved",
-	/* 1*/ "24 000/1001 (23.976...)",
-	/* 2*/ "24",
-	/* 3*/ "25",
-	/* 4*/ "30 000/1001 (29.97...)",
-	/* 5*/ "30",
-	/* 6*/ "50",
-	/* 7*/ "60 000/1001 (59.94...)",
-	/* 8*/ "reserved",
-	/* 9*/ "reserved",
-	/*10*/ "reserved",
-	/*11*/ "reserved",
-	/*12*/ "reserved",
-	/*13*/ "reserved",
-	/*14*/ "reserved",
-	/*15*/ "No information"
-};
-
-const char* video_format_names[16] = {
-	/* 0*/ "reserved",
-	/* 1*/ "480i ITU-R BT.601-5",
-	/* 2*/ "576i ITU-R BT.601-5",
-	/* 3*/ "480p SMPTE 293M",
-	/* 4*/ "1080i SMPTE 274M",
-	/* 5*/ "720p SMPTE 296M",
-	/* 6*/ "1080p SMPTE 274M",
-	/* 7*/ "576p ITU-R BT.1358",
-	/* 8*/ "2160p SMPTE ST 2036",
-	/* 9*/ "540p ETSI TS 101 154",
-	/*10*/ "900p ETSI TS 101 154",
-	/*11*/ "4320p SMPTE ST 2036",
-	/*12*/ "reserved",
-	/*13*/ "reserved",
-	/*14*/ "reserved",
-	/*15*/ "No information"
-};
-
-const char* aspect_ratio_names[16] = {
-	/* 0*/ "reserved",
-	/* 1*/ "reserved",
-	/* 2*/ "4:3 display aspect ratio",
-	/* 3*/ "16:9 display aspect ratio",
-	/* 4*/ "reserved",
-	/* 5*/ "reserved",
-	/* 6*/ "reserved",
-	/* 7*/ "reserved",
-	/* 8*/ "reserved",
-	/* 9*/ "reserved",
-	/*10*/ "reserved",
-	/*11*/ "reserved",
-	/*12*/ "reserved",
-	/*13*/ "reserved",
-	/*14*/ "reserved",
-	/*15*/ "No information"
 };
 
 const char* bit_depth_names[16] = {

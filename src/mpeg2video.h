@@ -2882,7 +2882,7 @@ namespace BST {
 
 		CExtensionAndUserDatas(int idx): extension_and_userdata_idx(idx){}
 		~CExtensionAndUserDatas(){
-			for(int i=0;i<(int)datas.size();i++){
+			for(size_t i=0;i<datas.size();i++){
 				AMP_SAFEDEL(datas[i]);
 			}
 		}
@@ -3261,7 +3261,7 @@ namespace BST {
 			virtual ~CVideoPayload()
 			{
 				AMP_SAFEDEL(ptr_sequence_payload);
-				for(int i=0;i<(int)picture_payloads.size();i++)
+				for(size_t i=0;i<picture_payloads.size();i++)
 				{
 					AMP_SAFEDEL(picture_payloads[i]);
 				}
@@ -3546,7 +3546,7 @@ namespace BST {
 			ctx_video_bst.m_start_code_filters = start_code_filters;
 		}
 		virtual ~CVideoBitstream(){
-			for(int i=0;i<(int)video_payloads.size();i++)
+			for(size_t i=0;i<video_payloads.size();i++)
 			{
 				AMP_SAFEDEL(video_payloads[i]);
 			}
