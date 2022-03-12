@@ -2,6 +2,7 @@
 ## Contents
 * [Extract a MPEG-4 AAC stream from MMT stream file](#extract-a-mpeg-4-aac-stream-from-mmt-stream-file)
 * [Show the channel layout and mapping](#show-the-channel-layout-and-mapping)
+* [Show MPEG4 AAC StreamMuxConfig](#show-mpeg4-aac-streammuxconfig)
 
 [Return to Main](../README.md)
 ## Extract a MPEG-4 AAC stream from MMT stream file
@@ -281,6 +282,73 @@ MPEG4 AAC Audio Stream information:
         Sample Frequency: 48000 (HZ).
         Bits Per Sample: 16.
         Channel Layout: 2ch(L, R)@ITU-R BS.
+```
+
+[top](#contents)
+## Show MPEG4 AAC StreamMuxConfig
+Show `StreamMuxConfig` syntax fields of the MPEG4 AAC stream,
+```
+DumpTS test.loas --showStreamMuxConfig
+```
+And then,
+```
+[MP4AAC] Successfully located the syncword in LOAS AudioMuxElement.
+Updated Stream Mux Config:
+audioMuxVersion: 0
+audioMuxVersionA: 0                                            // default
+streamCnt: 0                                                   // The count of streams present in this structure
+allStreamsSameTimeFraming: 1                                   // A data element indicating whether all payloads, which are multiplex...
+numSubFrames: 0(0X0)                                           // 1 PayloadMux() frames are multiplexed
+numProgram: 0(0X0)                                             // 1 programs are multiplexed
+for (prog = 0; prog <= numProgram:0; prog++):
+    numLayer[0]: 0                                             // 1 scalable layers are multiplexed
+    for (lay = 0; lay <= numLayer:0; lay++):
+        progSIndx[streamCnt:0]: 0(0X0)
+        laySIndx[streamCnt:0]: 0(0X0)
+        streamID[prog:0][lay:0]=0: 0(0X0)
+        useSameConfig: 0                                       // AudioSpecificConfig() is present
+        AudioSpecificConfig():
+            AudioSpecificConfig:
+                audioObjectType: 2(0X2)                        // AAC LC
+                samplingFrequencyIndex: 3(0X3)                 // 48000HZ
+                channelConfiguration: 2(0X2)                   // left, right front speakers
+                GASpecificConfig:
+                    frameLengthFlag: 0(0X0)                    // 1024/128 lines IMDCT is used and frameLength is set to 1024
+                    dependsOnCoreCoder: 0(0X0)                 // Signals that a core coder has been used in an underlying base layer...
+                    extensionFlag: 0(0X0)                      // Shall be '0' for audio object types 1, 2, 3, 4, 6, 7. Shall be '1' ...
+        frameLengthType[streamID[prog:0][lay:0]:0]: 0(0X0)     // Payload with variable frame length
+        latmBufferFullness[streamID[prog:0][lay:0]:0]: 96(0X60)// the state of the bit reservoir in the course of encoding the first ...
+otherDataPresent: 0                                            // The other data than audio payload otherData is not multiplexed
+crcCheckPresent: 1                                             // CRC check bits are present
+crcCheckSum: 109(0X6D)                                         // CRC error detection data
+Updated Stream Mux Config:
+audioMuxVersion: 0
+audioMuxVersionA: 0                                             // default
+streamCnt: 0                                                    // The count of streams present in this structure
+allStreamsSameTimeFraming: 1                                    // A data element indicating whether all payloads, which are multiplex...
+numSubFrames: 0(0X0)                                            // 1 PayloadMux() frames are multiplexed
+numProgram: 0(0X0)                                              // 1 programs are multiplexed
+for (prog = 0; prog <= numProgram:0; prog++):
+    numLayer[0]: 0                                              // 1 scalable layers are multiplexed
+    for (lay = 0; lay <= numLayer:0; lay++):
+        progSIndx[streamCnt:0]: 0(0X0)
+        laySIndx[streamCnt:0]: 0(0X0)
+        streamID[prog:0][lay:0]=0: 0(0X0)
+        useSameConfig: 0                                        // AudioSpecificConfig() is present
+        AudioSpecificConfig():
+            AudioSpecificConfig:
+                audioObjectType: 2(0X2)                         // AAC LC
+                samplingFrequencyIndex: 3(0X3)                  // 48000HZ
+                channelConfiguration: 6(0X6)                    // center front speaker, left, right front speakers,left surround, rig...
+                GASpecificConfig:
+                    frameLengthFlag: 0(0X0)                     // 1024/128 lines IMDCT is used and frameLength is set to 1024
+                    dependsOnCoreCoder: 0(0X0)                  // Signals that a core coder has been used in an underlying base layer...
+                    extensionFlag: 0(0X0)                       // Shall be '0' for audio object types 1, 2, 3, 4, 6, 7. Shall be '1' ...
+        frameLengthType[streamID[prog:0][lay:0]:0]: 0(0X0)      // Payload with variable frame length
+        latmBufferFullness[streamID[prog:0][lay:0]:0]: 149(0X95)// the state of the bit reservoir in the course of encoding the first ...
+otherDataPresent: 0                                             // The other data than audio payload otherData is not multiplexed
+crcCheckPresent: 1                                              // CRC check bits are present
+crcCheckSum: 54(0X36)                                           // CRC error detection data
 ```
 
 [top](#contents)

@@ -85,20 +85,24 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 |**--stream_id_extension**|*0xhh*|the stream_id_extension in PES header of dumped stream|
 |**--MPUseqno**|*xxxx*|the MPU sequence number of MMT stream|
 |**--PKTseqno**|*xxxx*|the packet sequence number of MMT stream|
+|**--PKTno**|*xxxx*|the packet number 1-based of media stream|
+|**--PKTid**|*xxxx*|the packet index 0-based of media stream|
 |**--MFU**|N/A|Dumping the each MFU as a saparate file, filename will be {MPUseqno}_xxxx.{assert_type}|
 |**--removebox**|*xxxx*|remove the box elements in MP4 file|
 |**--boxtype**|*xxxx*|**For ISOBMFF/mp4 source:**<BR>the box type FOURCC, i.e. --boxtype=stsd<BR>**For Matroska/mkv source:**<BR>the EBML ID, i.e. --boxtype=0x1A45DFA3|
 |**--crc**|*crc-type, all*|Specify the crc type, if crc type is not specified, list all crc types, if 'all' is specified, calculate all types of crc values|
 |**--showinfo**|*N/A*|print the media information of elementary stream, for example, PMT stream types, stream type, audio sample rate, audio channel mapping, video resolution, frame-rate and so on|
 |**--showpack<br>--showIPv4pack<br>--showIPv6pack<br>--showHCIPpack<br>--showTCSpack**|*page size<br>default:20*|Show packs in the specified TS/MMT/TLV stream file, pagesize<=0, show all packs w/o interrupt  |
+|**--showOBU**|*[tu[\|fu[\|obu]]]*|Show AV1 bitstream hierarchical layer|
 |**--showpts**|*N/A*|print the pts of every elementary stream packet|
 |**--showSIT**|*N/A*|print the SIT information, at present only supported ISDB Transport Stream|
 |**--showPMT**|*N/A*|print the PMT information in TS stream|
 |**--showPAT**|*N/A*|print the PAT information in TS stream|
 |**--showMPT**|*N/A*|print the MPT information in MMT/TLV stream|
-|**--showCAT**|*N/A*|print the CAT information in MMT/TLV stream|
+|**--showCAT**|*N/A*|print the CAT information in MMT/TLV stream or transport stream|
 |**--showPLT**|*N/A*|print the PLT information in MMT/TLV stream|
 |**--showEIT**|*N/A*|print the MH-EIT information in MMT/TLV stream or EIT in transport stream|
+|**--showDU**|*N/A*|show the data unit of MMT payload of the MMT/TLV stream|
 |**--showPCR**|*[video][audio][full]*|print the PCR clock information in TS stream|
 |**--showPCRDiagram**|*[csv filename]*|Export ATC, PCR, PTS/DTS of elementary streams into csv database based on 27MHZ|
 |**--showNTP**|*N/A*|print the NTP information in MMT/TLV stream|
