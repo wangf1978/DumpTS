@@ -387,45 +387,48 @@ int ShowPCR(int option)
 		if (first_PCR_values.find(PID) == first_PCR_values.end())
 			first_PCR_values[PID] = program_clock_reference_base * 300 + program_clock_reference_extension;
 
-		if (OPCR_flag)
+		if (option != 5)
 		{
-			original_program_clock_reference_base = 0;
-			for (int i = 0; i < 4; i++)
-				original_program_clock_reference_base = (original_program_clock_reference_base << 8) | *(p++);
+			if (OPCR_flag)
+			{
+				original_program_clock_reference_base = 0;
+				for (int i = 0; i < 4; i++)
+					original_program_clock_reference_base = (original_program_clock_reference_base << 8) | *(p++);
 
-			original_program_clock_reference_base = (original_program_clock_reference_base << 1) | (((*p) >> 7) & 1);
+				original_program_clock_reference_base = (original_program_clock_reference_base << 1) | (((*p) >> 7) & 1);
 
-			original_program_clock_reference_extension = (*p) & 1;
-			p++;
-			original_program_clock_reference_extension = (original_program_clock_reference_extension << 8) | *(p++);
+				original_program_clock_reference_extension = (*p) & 1;
+				p++;
+				original_program_clock_reference_extension = (original_program_clock_reference_extension << 8) | *(p++);
 
-			printf(" -> PCR_PID: 0X%04X PCR(base: %10" PRIu64 "(90KHZ), ext: %3" PRIu16 ", %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), OPCR(base: %10" PRIu64 ", ext: %3" PRIu16 ", %" PRIu64 "(27MHZ), %" PRIu64 ".%03" PRIu64 "(ms)), "
-				"transport_rate: %sbps%s\n",
-				PID,
-				program_clock_reference_base, program_clock_reference_extension,
-				program_clock_reference_base * 300 + program_clock_reference_extension,
-				(program_clock_reference_base * 300 + program_clock_reference_extension) / 27000,
-				(program_clock_reference_base * 300 + program_clock_reference_extension) / 27 % 1000,
-				original_program_clock_reference_base, original_program_clock_reference_extension,
-				original_program_clock_reference_base * 300 + original_program_clock_reference_extension,
-				(original_program_clock_reference_base * 300 + original_program_clock_reference_extension) / 27000,
-				(original_program_clock_reference_base * 300 + original_program_clock_reference_extension) / 27 % 1000,
-				GetHumanReadNumber(transport_rate, false, 2, 3, true).c_str(),
-				szATC
-			);
-		}
-		else
-		{
-			printf(" -> PCR_PID: 0X%04X PCR(base: %10" PRIu64 "(90KHZ), ext: %3" PRIu16 ", %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), "
-				"transport_rate: %sbps%s\n",
-				PID,
-				program_clock_reference_base, program_clock_reference_extension,
-				program_clock_reference_base * 300 + program_clock_reference_extension,
-				(program_clock_reference_base * 300 + program_clock_reference_extension) / 27000,
-				(program_clock_reference_base * 300 + program_clock_reference_extension) / 27 % 1000,
-				GetHumanReadNumber(transport_rate, false, 2, 3, true).c_str(),
-				szATC
-			);
+				printf(" -> PCR_PID: 0X%04X PCR(base: %10" PRIu64 "(90KHZ), ext: %3" PRIu16 ", %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), OPCR(base: %10" PRIu64 ", ext: %3" PRIu16 ", %" PRIu64 "(27MHZ), %" PRIu64 ".%03" PRIu64 "(ms)), "
+					"transport_rate: %sbps%s\n",
+					PID,
+					program_clock_reference_base, program_clock_reference_extension,
+					program_clock_reference_base * 300 + program_clock_reference_extension,
+					(program_clock_reference_base * 300 + program_clock_reference_extension) / 27000,
+					(program_clock_reference_base * 300 + program_clock_reference_extension) / 27 % 1000,
+					original_program_clock_reference_base, original_program_clock_reference_extension,
+					original_program_clock_reference_base * 300 + original_program_clock_reference_extension,
+					(original_program_clock_reference_base * 300 + original_program_clock_reference_extension) / 27000,
+					(original_program_clock_reference_base * 300 + original_program_clock_reference_extension) / 27 % 1000,
+					GetHumanReadNumber(transport_rate, false, 2, 3, true).c_str(),
+					szATC
+				);
+			}
+			else
+			{
+				printf(" -> PCR_PID: 0X%04X PCR(base: %10" PRIu64 "(90KHZ), ext: %3" PRIu16 ", %13" PRIu64 "(27MHZ), %10" PRIu64 ".%03" PRIu64 "(ms)), "
+					"transport_rate: %sbps%s\n",
+					PID,
+					program_clock_reference_base, program_clock_reference_extension,
+					program_clock_reference_base * 300 + program_clock_reference_extension,
+					(program_clock_reference_base * 300 + program_clock_reference_extension) / 27000,
+					(program_clock_reference_base * 300 + program_clock_reference_extension) / 27 % 1000,
+					GetHumanReadNumber(transport_rate, false, 2, 3, true).c_str(),
+					szATC
+				);
+			}
 		}
 
 		uint32_t diff_ATC = atc_tm >= prev_ATC ? (atc_tm - prev_ATC) : (0x40000000 + atc_tm - prev_ATC);
@@ -510,148 +513,186 @@ done:
 
 	if (option == 5)
 	{
+		int dataset_option = 0;		// 0: simple data set;1: full data set including every transport packet
+		FILE* fp_csv = NULL;
 		auto iterShowDiagram = g_params.find("showPCRDiagram");
+		auto iterOutput = g_params.find("output");
 
-		if (iterShowDiagram != g_params.end())
+		if (iterOutput != g_params.end())
 		{
-			FILE* fp_csv = NULL;
-			FOPEN(fp_csv, iterShowDiagram->second.c_str(), "wb");
-			if (fp_csv != NULL)
+			int retOutput = -1;
+			if (_stricmp(iterOutput->second.c_str(), "stdout") == 0)
+				fp_csv = stdout;
+
+			if ((retOutput = _access(iterOutput->second.c_str(), W_OK)) != 0)
 			{
-				int ccWritten = 0;
-				int ccWrittenOnce = 0;
+				if (errno != ENOENT)
+				{
+					printf("The output file: %s can't be written {error code: %d}.\n", iterOutput->second.c_str(), errno);
+					return -1;
+				}
+			}
+		}
+		else
+		{
+			printf("Please specify a .csv file to save the PCR diagram dataset.\n");
+			return -1;
+		}
 
-				char szRow[1024] = { 0 };
-				size_t max_number_of_rows = 0;
-				if (max_number_of_rows < SPN_ATC.size())
-					max_number_of_rows = SPN_ATC.size();
+		if (iterShowDiagram != g_params.end() && _stricmp(iterShowDiagram->second.c_str(), "full") == 0)
+		{
+			dataset_option = 1;
+		}
 
-				if (max_number_of_rows < SPN_PCR.size())
-					max_number_of_rows = SPN_PCR.size();
+		if (fp_csv == nullptr) {
+			FOPEN(fp_csv, iterOutput->second.c_str(), "wb");
+		}
 
-				ccWrittenOnce = MBCSPRINTF_S(szRow, sizeof(szRow) / sizeof(szRow[0]), "SPN,ATC(27MHZ),PCR(27MHZ)");
+		if (fp_csv != NULL)
+		{
+			int ccWritten = 0;
+			int ccWrittenOnce = 0;
+
+			char szRow[1024] = { 0 };
+			size_t max_number_of_rows = 0;
+			if (max_number_of_rows < SPN_ATC.size())
+				max_number_of_rows = SPN_ATC.size();
+
+			if (max_number_of_rows < SPN_PCR.size())
+				max_number_of_rows = SPN_PCR.size();
+
+			ccWrittenOnce = MBCSPRINTF_S(szRow, sizeof(szRow) / sizeof(szRow[0]), "SPN,ATC(27MHZ),PCR(27MHZ)");
+			if (ccWrittenOnce > 0)
+				ccWritten += ccWrittenOnce;
+
+			size_t next_PCR_idx = SIZE_MAX;
+			size_t next_SPN_for_PCR = SIZE_MAX;
+			std::vector<
+				std::tuple<
+				size_t/*next_stm_pts_dts_entry_idx*/,
+				size_t/*next_stm_SPN*/,
+				std::vector<std::tuple<uint32_t, uint64_t, uint64_t>>&>
+			> next_stm_spn_entry;
+
+			for (auto& stm : STM_SPN_PTS_DTS)
+			{
+				if (stm.second.size() > 0)
+				{
+					if (max_number_of_rows < stm.second.size())
+						max_number_of_rows = stm.second.size();
+
+					next_stm_spn_entry.emplace_back(0, std::get<0>(stm.second[0]), stm.second);
+				}
+				else
+					next_stm_spn_entry.emplace_back(SIZE_MAX, SIZE_MAX, stm.second);
+
+				ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten,
+					",PTS(27MHZ)(0x%04x),DTS(27MHZ)(0x%04x)", stm.first, stm.first);
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+			}
+			if ((size_t)ccWritten + 1 < _countof(szRow))
+				szRow[ccWritten++] = '\n';
+			else
+				szRow[_countof(szRow) - 1] = '\n';
+
+			fwrite(szRow, 1, ccWritten, fp_csv);
+
+			if (SPN_PCR.size() > 0)
+			{
+				next_PCR_idx = 0;
+				next_SPN_for_PCR = std::get<0>(SPN_PCR[next_PCR_idx]);
+			}
+
+			for (size_t i = 0; i < max_number_of_rows; i++)
+			{
+				bool bFirstTSPackPayload = dataset_option ? true : false;
+				ccWritten = 0;
+				ccWrittenOnce = 0;
+				if (i >= SPN_ATC.size())
+					ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
+				else
+					ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu32 ",%" PRIu32 ",",
+						std::get<0>(SPN_ATC[i]), std::get<1>(SPN_ATC[i]));
+
 				if (ccWrittenOnce > 0)
 					ccWritten += ccWrittenOnce;
 
-				size_t next_PCR_idx = SIZE_MAX;
-				size_t next_SPN_for_PCR = SIZE_MAX;
-				std::vector<
-					std::tuple<
-					size_t/*next_stm_pts_dts_entry_idx*/,
-					size_t/*next_stm_SPN*/,
-					std::vector<std::tuple<uint32_t, uint64_t, uint64_t>>&>
-				> next_stm_spn_entry;
-
-				for (auto& stm : STM_SPN_PTS_DTS)
+				if (std::get<0>(SPN_ATC[i]) != next_SPN_for_PCR)
+					ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",");
+				else
 				{
-					if (stm.second.size() > 0)
+					ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",",
+						std::get<1>(SPN_PCR[next_PCR_idx]));
+					if (next_PCR_idx + 1 >= SPN_PCR.size())
 					{
-						if (max_number_of_rows < stm.second.size())
-							max_number_of_rows = stm.second.size();
-
-						next_stm_spn_entry.emplace_back(0, std::get<0>(stm.second[0]), stm.second);
+						next_PCR_idx = SIZE_MAX;
+						next_SPN_for_PCR = SIZE_MAX;
 					}
 					else
-						next_stm_spn_entry.emplace_back(SIZE_MAX, SIZE_MAX, stm.second);
+					{
+						next_PCR_idx++;
+						next_SPN_for_PCR = std::get<0>(SPN_PCR[next_PCR_idx]);
+					}
+					bFirstTSPackPayload = true;
+				}
 
-					ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten,
-						",PTS(27MHZ)(0x%04x),DTS(27MHZ)(0x%04x)", stm.first, stm.first);
+				if (ccWrittenOnce > 0)
+					ccWritten += ccWrittenOnce;
+
+				// For stream SPN and PTS/DTS(27MHZ)
+				for (size_t j = 0; j < next_stm_spn_entry.size(); j++)
+				{
+					size_t next_stm_entry_idx = std::get<0>(next_stm_spn_entry[j]);
+					size_t next_SPN_for_stm = std::get<1>(next_stm_spn_entry[j]);
+					auto pts_dts_entry = std::get<2>(next_stm_spn_entry[j]);
+
+					if (std::get<0>(SPN_ATC[i]) != next_SPN_for_stm)
+					{
+						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
+					}
+					else
+					{
+						uint64_t pts = std::get<1>(std::get<2>(next_stm_spn_entry[j])[next_stm_entry_idx]);
+						uint64_t dts = std::get<2>(std::get<2>(next_stm_spn_entry[j])[next_stm_entry_idx]);
+
+						if (pts != UINT64_MAX && dts != UINT64_MAX)
+							ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",%" PRIu64 ",", pts * 300, dts * 300);
+						else if (pts != UINT64_MAX)
+							ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",,", pts * 300);
+						else
+							ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
+
+						if (next_stm_entry_idx + 1 >= pts_dts_entry.size())
+						{
+							std::get<0>(next_stm_spn_entry[j]) = SIZE_MAX;
+							std::get<1>(next_stm_spn_entry[j]) = SIZE_MAX;
+						}
+						else
+						{
+							next_stm_entry_idx++;
+							std::get<0>(next_stm_spn_entry[j]) = next_stm_entry_idx;
+							next_SPN_for_stm = std::get<0>(pts_dts_entry[next_stm_entry_idx]);
+							std::get<1>(next_stm_spn_entry[j]) = next_SPN_for_stm;
+						}
+
+						bFirstTSPackPayload = true;
+					}
+
 					if (ccWrittenOnce > 0)
 						ccWritten += ccWrittenOnce;
 				}
-				if ((size_t)ccWritten + 1 < _countof(szRow))
-					szRow[ccWritten++] = '\n';
-				else
-					szRow[_countof(szRow) - 1] = '\n';
+
+				szRow[ccWritten++] = '\n';
+
+				if (bFirstTSPackPayload == false)
+					continue;
 
 				fwrite(szRow, 1, ccWritten, fp_csv);
-
-				if (SPN_PCR.size() > 0)
-				{
-					next_PCR_idx = 0;
-					next_SPN_for_PCR = std::get<0>(SPN_PCR[next_PCR_idx]);
-				}
-
-				for (size_t i = 0; i < max_number_of_rows; i++)
-				{
-					ccWritten = 0;
-					ccWrittenOnce = 0;
-					if (i >= SPN_ATC.size())
-						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
-					else
-						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu32 ",%" PRIu32 ",",
-							std::get<0>(SPN_ATC[i]), std::get<1>(SPN_ATC[i]));
-
-					if (ccWrittenOnce > 0)
-						ccWritten += ccWrittenOnce;
-
-					if (std::get<0>(SPN_ATC[i]) != next_SPN_for_PCR)
-						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",");
-					else
-					{
-						ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",",
-							std::get<1>(SPN_PCR[next_PCR_idx]));
-						if (next_PCR_idx + 1 >= SPN_PCR.size())
-						{
-							next_PCR_idx = SIZE_MAX;
-							next_SPN_for_PCR = SIZE_MAX;
-						}
-						else
-						{
-							next_PCR_idx++;
-							next_SPN_for_PCR = std::get<0>(SPN_PCR[next_PCR_idx]);
-						}
-					}
-
-					if (ccWrittenOnce > 0)
-						ccWritten += ccWrittenOnce;
-
-					// For stream SPN and PTS/DTS(27MHZ)
-					for (size_t j = 0; j < next_stm_spn_entry.size(); j++)
-					{
-						size_t next_stm_entry_idx = std::get<0>(next_stm_spn_entry[j]);
-						size_t next_SPN_for_stm = std::get<1>(next_stm_spn_entry[j]);
-						auto pts_dts_entry = std::get<2>(next_stm_spn_entry[j]);
-
-						if (std::get<0>(SPN_ATC[i]) != next_SPN_for_stm)
-							ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
-						else
-						{
-							uint64_t pts = std::get<1>(std::get<2>(next_stm_spn_entry[j])[next_stm_entry_idx]);
-							uint64_t dts = std::get<2>(std::get<2>(next_stm_spn_entry[j])[next_stm_entry_idx]);
-
-							if (pts != UINT64_MAX && dts != UINT64_MAX)
-								ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",%" PRIu64 ",", pts * 300, dts * 300);
-							else if (pts != UINT64_MAX)
-								ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, "%" PRIu64 ",,", pts * 300);
-							else
-								ccWrittenOnce = MBCSPRINTF_S(szRow + ccWritten, sizeof(szRow) / sizeof(szRow[0]) - ccWritten, ",,");
-
-							if (next_stm_entry_idx + 1 >= pts_dts_entry.size())
-							{
-								std::get<0>(next_stm_spn_entry[j]) = SIZE_MAX;
-								std::get<1>(next_stm_spn_entry[j]) = SIZE_MAX;
-							}
-							else
-							{
-								next_stm_entry_idx++;
-								std::get<0>(next_stm_spn_entry[j]) = next_stm_entry_idx;
-								next_SPN_for_stm = std::get<0>(pts_dts_entry[next_stm_entry_idx]);
-								std::get<1>(next_stm_spn_entry[j]) = next_SPN_for_stm;
-							}
-						}
-
-						if (ccWrittenOnce > 0)
-							ccWritten += ccWrittenOnce;
-					}
-
-					szRow[ccWritten++] = '\n';
-
-					fwrite(szRow, 1, ccWritten, fp_csv);
-				}
-
-				fclose(fp_csv);
 			}
+
+			if (fp_csv != stdout)
+				fclose(fp_csv);
 		}
 	}
 

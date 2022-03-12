@@ -1083,7 +1083,7 @@ int main(int argc, char* argv[])
 			nDumpRet = DumpOneStream();
 			goto done;
 		}
-		else if (g_params.find("output") == g_params.end())
+		else if (g_params.find("output") == g_params.end() || g_params.find("showPCRDiagram") != g_params.end())
 		{
 			if (g_params.find("showinfo") != g_params.end())
 			{
