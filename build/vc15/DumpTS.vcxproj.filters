@@ -57,6 +57,33 @@
     <None Include="..\..\doc\diagrams.vsdx">
       <Filter>doc</Filter>
     </None>
+    <None Include="..\..\doc\AV1_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\ISOBMFF_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MKV_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MMT_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\NAL_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\REFERENCES.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\TS_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\UTILITY_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\AUDIO_README.md">
+      <Filter>doc</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">
