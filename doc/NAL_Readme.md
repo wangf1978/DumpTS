@@ -8,7 +8,7 @@
   * [Show PPS syntax fields](#show-pps-syntax-fields)
 * [Show HRD model information](#show-hrd-model-information)
 
-[Return to Main](../Readme.md)
+[Return to Main](../README.md)
 
 H.264(AVC), H.265(HEVC and H.266(VVC) uses NAL bitstream
 
@@ -31,6 +31,19 @@ A new H.265 sequence(seq_parameter_set_id:0):
         Transfer Characteristics: 14(BT.2020)
         Matrix Coeffs: 9(KR = 0.2627; KB = 0.0593 -- BT.2020 constant luminance system)
         Frame-Rate: 59.940060 fps
+```
+For H.264 stream,
+```
+DumpTS 00005.h264 --showinfo
+A new H.264 sequence(seq_parameter_set_id:0):
+        AVC Profile: High Profile
+        AVC Level: 4
+        Chroma: 4:2:0
+        Scan type: Progressive
+        Coded Frame resolution: 1920x1088
+        Display resolution: 1920x1080
+        Sample Aspect-Ratio: 1:1(Square), example: 3840x2160 16:9 frame without horizontal overscan
+        Frame-Rate: 23.976025 fps
 ```
 
 [top](#contents)

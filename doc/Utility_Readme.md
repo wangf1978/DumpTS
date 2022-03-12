@@ -3,7 +3,7 @@
 * [Other utilities](#other-utilities)
 * [CRC](#crc)
 
-[Return to Main](../Readme.md)
+[Return to Main](../README.md)
 ## Other utilities
 ```
 DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook

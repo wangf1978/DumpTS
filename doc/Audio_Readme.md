@@ -3,7 +3,7 @@
 * [Extract a MPEG-4 AAC stream from MMT stream file](#extract-a-mpeg-4-aac-stream-from-mmt-stream-file)
 * [Show the channel layout and mapping](#show-the-channel-layout-and-mapping)
 
-[Return to Main](../Readme.md)
+[Return to Main](../README.md)
 ## Extract a MPEG-4 AAC stream from MMT stream file
 1. Get the MMT information 
 ```

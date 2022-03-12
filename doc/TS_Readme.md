@@ -16,7 +16,7 @@
 * [Generate diagram with ATC, PCR, PTSes and DTSes](#generate-diagram-with-atc-pcr-ptses-and-dtses)
 * [Diff ATC clock and DTS clock](#diff-atc-clock-and-dts-clock)
 
-[Return to Main](../Readme.md)
+[Return to Main](../README.md)
 ## Extract an elementary stream
 1. Get the transport stream rough information
     ```
