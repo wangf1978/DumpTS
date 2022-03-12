@@ -10,6 +10,7 @@
 * [Show MMT/TLV packs](#show-mmttlv-packs)
 * [Show IPv6 packs](#show-ipv6-packs)
 * [Show Transmission Control Signal packets](#show-transmission-control-signal-packets)
+* [Show NTP packet](#show-ntp-packet)
 * [Show the pts/dts of each AU](#show-the-ptsdts-of-each-au)
 * [Show the MFU data](#show-the-mfu-data)
 * [Utility options for MMTP/TLV](#utility-options-for-mmtptlv)
@@ -924,6 +925,50 @@ section_syntax_indicator: 1
            reserved_2: 0x03
        version_number: 1
        ......
+```
+
+[top](#contents)
+## Show NTP packet
+List the NTP TLV packets,
+```
+DumpTS test.mmts --showNTP
+```
+All NTP packets will be shown like as,
+```
+......
+NTP Pkt# 1804 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985367.844 (ms)[2019-04-05 04h:56m:25.367845s],size: 100(bytes)
+NTP Pkt# 1805 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985400.891 (ms)[2019-04-05 04h:56m:25.400891s],size: 100(bytes)
+NTP Pkt# 1806 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985433.937 (ms)[2019-04-05 04h:56m:25.433938s],size: 100(bytes)
+NTP Pkt# 1807 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985466.984 (ms)[2019-04-05 04h:56m:25.466984s],size: 100(bytes)
+NTP Pkt# 1808 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985500.031 (ms)[2019-04-05 04h:56m:25.500031s],size: 100(bytes)
+NTP Pkt# 1809 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985533.077 (ms)[2019-04-05 04h:56m:25.533078s],size: 100(bytes)
+NTP Pkt# 1810 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985566.123 (ms)[2019-04-05 04h:56m:25.566124s],size: 100(bytes)
+NTP Pkt# 1811 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985599.170 (ms)[2019-04-05 04h:56m:25.599170s],size: 100(bytes)
+NTP Pkt# 1812 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985632.216 (ms)[2019-04-05 04h:56m:25.632217s],size: 100(bytes)
+NTP Pkt# 1813 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985665.263 (ms)[2019-04-05 04h:56m:25.665263s],size: 100(bytes)
+NTP Pkt# 1814 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985698.309 (ms)[2019-04-05 04h:56m:25.698310s],size: 100(bytes)
+NTP Pkt# 1815 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985731.356 (ms)[2019-04-05 04h:56m:25.731356s],size: 100(bytes)
+NTP Pkt# 1816 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985764.402 (ms)[2019-04-05 04h:56m:25.764403s],size: 100(bytes)
+NTP Pkt# 1817 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985797.448 (ms)[2019-04-05 04h:56m:25.797449s],size: 100(bytes)
+NTP Pkt# 1818 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985830.495 (ms)[2019-04-05 04h:56m:25.830495s],size: 100(bytes)
+NTP Pkt# 1819 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985863.541 (ms)[2019-04-05 04h:56m:25.863542s],size: 100(bytes)
+NTP Pkt# 1820 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985896.588 (ms)[2019-04-05 04h:56m:25.896588s],size: 100(bytes)
+NTP Pkt# 1821 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985929.634 (ms)[2019-04-05 04h:56m:25.929635s],size: 100(bytes)
+NTP Pkt# 1822 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985962.680 (ms)[2019-04-05 04h:56m:25.962681s],size: 100(bytes)
+NTP Pkt# 1823 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428985995.727 (ms)[2019-04-05 04h:56m:25.995728s],size: 100(bytes)
+NTP Pkt# 1824 [LEA:0,WM:broadcast,S:0,PO:0,Prec:0] Tx: 3763428986028.774 (ms)[2019-04-05 04h:56m:26.028774s],size: 100(bytes)
+......
+--------------------------------------------------------------
+(*) LEA: leap indicator, 0: without alarm; 1: Last one minute is 61 seconds, 2: Last one minute is 59 seconds, 3: Alarm
+(*) WM: work mode, S: stratum, PO: poll, Prec: precision, Rx: receive timestamp, Tx: transmit timestamp
+
+The total number of TLV packets: 150437.
+The number of IPv4 TLV packets: 0.
+The number of IPv6 TLV packets: 1849.
+The number of Header Compressed IP packets: 148589.
+The number of Transmission Control Signal TLV packets: 0.
+The number of Null TLV packets: 0.
+The number of other TLV packets: 0.
 ```
 
 [top](#contents)

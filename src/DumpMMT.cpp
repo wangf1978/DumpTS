@@ -259,6 +259,7 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 	int nLocateSyncTry = 0;
 	bool bFindSync = false;
 	uint64_t file_pos = 0ULL;
+	int64_t NTP_pkt_idx = 0;
 	try
 	{
 		uint32_t tlv_hdr = 0;
@@ -358,9 +359,11 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 										bNTP = true;
 										auto pNTPData = pIPv6packet->UDP_packet->NTPv4_data;
 										TM_HNS hns = pNTPData->transmit_timestamp.ToHns();
+										TM_HNS rx_hns = pNTPData->receive_timestamp.ToHns();
 
 										uint64_t curr_file_pos = bs.Tell();
-										printf("NTP packet [leap indicator: %d, working mode: %9s, stratum: %d, poll: %d, precision: %d] transmit_timestamp: %" PRId64 ".%03" PRId64 " (ms), size: %" PRIu64 "(bytes)\n",
+										printf("NTP Pkt#%8" PRId64 " [LEA:%d,WM:%9s,S:%d,PO:%d,Prec:%d] Tx: %" PRId64 ".%03" PRId64 " (ms)[%s],size: %" PRIu64 "(bytes)\n",
+											NTP_pkt_idx,
 											pNTPData->leap_indicator,
 											pNTPData->mode == 5?"broadcast":(
 											pNTPData->mode == 3?"client":(
@@ -372,10 +375,13 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 											pNTPData->poll,
 											pNTPData->precision,
 											hns/10000L, hns/10%1000,
-											(curr_file_pos - file_pos)>>3
+											pNTPData->transmit_timestamp.IsUnknown() ? "" : DateTimeStr(pNTPData->transmit_timestamp.Seconds, 1900, pNTPData->transmit_timestamp.Fraction).c_str(),
+											(uint64_t)pTLVPacket->Data_length + 4
 										);
 
 										file_pos = curr_file_pos;
+
+										NTP_pkt_idx++;
 									}
 								}
 							}
@@ -417,6 +423,14 @@ int ShowMMTTLVPacks(SHOW_TLV_PACK_OPTION option)
 	catch (...)
 	{
 		nRet = RET_CODE_ERROR;
+	}
+
+	if (option == SHOW_TLV_NTP)
+	{
+		printf("--------------------------------------------------------------\n");
+		printf("(*) LEA: leap indicator, 0: without alarm; 1: Last one minute is 61 seconds, 2: Last one minute is 59 seconds, 3: Alarm\n");
+		printf("(*) WM: work mode, S: stratum, PO: poll, Prec: precision, Rx: receive timestamp, Tx: transmit timestamp\n");
+		printf("\n");
 	}
 
 	printf("The total number of TLV packets: %d.\n", nParsedTLVPackets);
