@@ -78,6 +78,12 @@
     <None Include="..\..\doc\Audio_Readme.md">
       <Filter>doc</Filter>
     </None>
+    <None Include="..\..\doc\ISOBMFF_Readme.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MKV_Readme.md">
+      <Filter>doc</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">

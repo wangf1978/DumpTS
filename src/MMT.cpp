@@ -281,27 +281,27 @@ namespace MMT
 		printf("*****************************************************************************\n");
 		printf("             ** Assignment of message identifier of MMT-SI **\n");
 		printf("*****************************************************************************\n");
-		printf("Message ID                                        Message\n");
+		printf("Message ID                 Message\n");
 		printf("-----------------------------------------------------------------------------\n");
-		printf("0x0000                                            PA message\n");
-		printf("0x0001 - 0x000F                                   MPI message\n");
-		printf("0x0010 - 0x001F                                   MPT message\n");
-		printf("0x0200                                            CRI message\n");
-		printf("0x0201                                            DCI message\n");
-		printf("0x0202                                            AL-FEC message\n");
-		printf("0x0203                                            HRBM message\n");
-		printf("0x0204 - 0x6FFF                                   reserved for ISO/IEC (16-bit length message)\n");
-		printf("0x7000 - 0x7FFF                                   reserved for ISO/IEC (32-bit length message)\n");
-		printf("0x8000                                            M2 section message*1\n");
-		printf("0x8001                                            CA message*1\n");
-		printf("0x8002                                            M2 short section message\n");
-		printf("0x8003                                            Data transmission message\n");
-		printf("0x8004 - 0xDFFF                                   reserved (message whose length field is 16 bits)\n"
-			  "                                                   (provided by the Ministry or private standardization organization)\n");
-		printf("0xE000 - 0xEFFF                                   message which is prepared by broadcasters (message whose length field is 16 bits)\n");
-		printf("0xF000 - 0xF7FF                                   reserved (message whose length field is 32 bits)\n"
-			  "                                                   (provided by the Ministry or private standardization organization)\n");
-		printf("0xF800 - 0xFFFF                                   message which is prepared by broadcasters (message whose length field is 32 bits)\n");
+		printf("0x0000                     PA message\n");
+		printf("0x0001 - 0x000F            MPI message\n");
+		printf("0x0010 - 0x001F            MPT message\n");
+		printf("0x0200                     CRI message\n");
+		printf("0x0201                     DCI message\n");
+		printf("0x0202                     AL-FEC message\n");
+		printf("0x0203                     HRBM message\n");
+		printf("0x0204 - 0x6FFF            reserved for ISO/IEC (16-bit length message)\n");
+		printf("0x7000 - 0x7FFF            reserved for ISO/IEC (32-bit length message)\n");
+		printf("0x8000                     M2 section message*1\n");
+		printf("0x8001                     CA message*1\n");
+		printf("0x8002                     M2 short section message\n");
+		printf("0x8003                     Data transmission message\n");
+		printf("0x8004 - 0xDFFF            reserved (message whose length field is 16 bits)\n"
+			   "                           (provided by the Ministry or private standardization organization)\n");
+		printf("0xE000 - 0xEFFF            message which is prepared by broadcasters (message whose length field is 16 bits)\n");
+		printf("0xF000 - 0xF7FF            reserved (message whose length field is 32 bits)\n"
+			   "                           (provided by the Ministry or private standardization organization)\n");
+		printf("0xF800 - 0xFFFF            message which is prepared by broadcasters (message whose length field is 32 bits)\n");
 	}
 
 	void PrintMMTSIDescriptor()

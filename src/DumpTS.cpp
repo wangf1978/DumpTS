@@ -837,25 +837,8 @@ void CalculateCRC()
 	}
 }
 
-int main(int argc, char* argv[])
+int CheckFixedFeature(int argc, char* argv[])
 {
-#if defined(_WIN32) && defined(_DEBUG)
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
-	int nDumpRet = 0;
-	auto tm_prog_start = std::chrono::system_clock::now();
-
-	memset(&g_dump_status, 0, sizeof(g_dump_status));
-
-	//for (int i = 0; i < argc; i++)
-	//	printf("%s\n", argv[i]);
-
-	if (argc < 2)
-	{
-		PrintHelp();
-		return -1;
-	}
-
 	if (_stricmp(argv[1], "--huffmantree") == 0)
 	{
 		INT_VALUE_LITERAL_FORMAT fmts[3] = { FMT_AUTO, FMT_AUTO, FMT_AUTO };
@@ -908,6 +891,34 @@ int main(int argc, char* argv[])
 	{
 		printf("version: %s\n", APP_VERSION);
 		return 0;
+	}
+
+	return -1;
+}
+
+int main(int argc, char* argv[])
+{
+#if defined(_WIN32) && defined(_DEBUG)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+	int nDumpRet = 0;
+	auto tm_prog_start = std::chrono::system_clock::now();
+
+	memset(&g_dump_status, 0, sizeof(g_dump_status));
+
+	//for (int i = 0; i < argc; i++)
+	//	printf("%s\n", argv[i]);
+
+	if (argc < 2)
+	{
+		PrintHelp();
+		return -1;
+	}
+
+	// Check whether it is a fixed command to only show the information
+	if (AMP_SUCCEEDED(nDumpRet = CheckFixedFeature(argc, argv)))
+	{
+		return nDumpRet;
 	}
 
 	// Parse the command line

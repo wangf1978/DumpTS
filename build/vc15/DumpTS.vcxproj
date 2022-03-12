@@ -235,6 +235,8 @@
     <None Include="..\..\doc\AV1_Readme.md" />
     <None Include="..\..\doc\diagrams.vsdx" />
     <None Include="..\..\doc\index.html" />
+    <None Include="..\..\doc\ISOBMFF_Readme.md" />
+    <None Include="..\..\doc\MKV_Readme.md" />
     <None Include="..\..\doc\MMT_Readme.md" />
     <None Include="..\..\doc\NAL_Readme.md" />
     <None Include="..\..\doc\references.md" />

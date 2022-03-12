@@ -1,6 +1,22 @@
 # MMT operation guideline
-
-
+## Contents
+* [Show MMT information](#show-mmt-information)
+* [Dump the specified elementary stream](#dump-the-specified-elementary-stream)
+* [List the MPUs and the presentation time](##list-the-mpus-and-the-presentation-time)
+* [Dump one MPU](#dump-one-mpu)
+* [Dump multiple MPUs](#dump-multiple-mpus)
+* [List MMTP packets](#list-mmtp-packets)
+* [List MMTP payloads](#list-mmtp-payloads)
+* [Show MMT/TLV packs](#show-mmttlv-packs)
+* [Show IPv6 packs](#show-ipv6-packs)
+* [Show Transmission Control Signal packets](#show-transmission-control-signal-packets)
+* [Show the pts/dts of each AU](#show-the-ptsdts-of-each-au)
+* [Show the MFU data](#show-the-mfu-data)
+* [Utility options for MMTP/TLV](#utility-options-for-mmtptlv)
+  * [Packet ID assignment](#packet-id-assignment)
+  * [Message-ID assignment](#message-id-assignment)
+  * [Table-ID assignment](#table-id-assignment)
+  * [Descriptor-Tag assignment](#descriptor-tag-assignment)
 
 ## Show MMT information
 
@@ -131,6 +147,7 @@ The number of other TLV packets: 0.
 
 From the above text, you can see the PLT and MPT rough information, and the related assets in MPT, and the Stat. of every CID/packet_id stream or message, for example, there is one HEVC stream which CID and packet_id is 0x0001 and 0xF100 separately.
 
+[top](#contents)
 ## Dump the specified elementary stream
 
 Specified the CID and packet_id to dump the elementary stream raw data, or the control message raw data, for HEVC and MP4A, the assistant NAL length header and MP4 LOAS header will be removed at default
@@ -157,6 +174,8 @@ After dumping it, you can use ffmpeg to verify the output
 ffmpeg -i 00001_loas.mp4a -acodec pcm_s16le -ac 2 audio.wav
 ```
 The output .wav file can be played well expectedly.
+
+[top](#contents)
 ## List the MPUs and the presentation time
 
 List all MPU entries for the stream with the specified CID and packet_id
@@ -401,6 +420,7 @@ DumpTS 29999.mmts --CID=1 --pid=0xF100 --listMPUtime=full --MPUseqno=0x3BE023
 
 Show the every AU pts and dts with NTP time format and 90KHZ of MPU#3924003
 
+[top](#contents)
 ## Dump one MPU
 
 Can specify the option 'MPUseqno' with the specified value
@@ -411,6 +431,7 @@ DumpTS 29999.mmts --CID=1 --pid=0xF100 --MPUseqno=0x3BDFBB --output=29999_3BDFBB
 
 It will dump all elementary stream raw data of MPU which sequence number is 0x3BDFBB, and save it to 29999_3BDFBB.hevc
 
+[top](#contents)
 ## Dump multiple MPUs
 
 From the command options 'listMPUtime', get the every MPU start packet sequence number
@@ -429,6 +450,7 @@ If want to dump the elementary stream of MPU#3924003 and 3924004, get the start 
 DumpTS 29999.mmts --CID=1 --pid=0xF100 --start=0xE802FFA6 --end=0xE80309D6 --output=29999_3BE023_3BE024.hevc
 ```
 
+[top](#contents)
 ## List MMTP packets
 
 ```
@@ -471,6 +493,7 @@ DumpTS.exe 29999.mmts --CID=1 --pid=0xF100 --listMMTPpacket --start=0xE802FFA6 -
 
 List all MMTP packets in one MPU which sequence number is 3924003.
 
+[top](#contents)
 ## List MMTP payloads
 
 ```
@@ -504,6 +527,7 @@ list all MMTP payloads, and if the MMTP payload is a random access point(RAP), t
 *PKTSeqNo:0xE80103EC,   MFU, tf: 1,  1+ DU, aggr: 1, Fc: 000, MPUSeqNo: 0x003BDFBB, Len:    21, MFSeqNo: 0x00000000, SampleNo: 0x00000000, Offset: 0x00000000, DepC: 0
 ```
 
+[top](#contents)
 ## Show MMT/TLV packs
 
 The option 'showpack' can be used to print all TLV, MMT data syntax
@@ -672,6 +696,7 @@ DumpTS 29999.mmts --CID=1 --pid=0xF100 --showpack --start=0xE80103EC --end=0xE80
 
 Show the MMTP packet with CID and packet_id setting to 1 and 0xF100 separately, and its packet sequence number is 0xE80103EC. 
 
+[top](#contents)
 ## Show IPv6 packs
 
 ```
@@ -804,6 +829,7 @@ reference_identification: .... (0X00000000)
 ......
 ```
 
+[top](#contents)
 ## Show Transmission Control Signal packets
 
 ```
@@ -899,66 +925,7 @@ section_syntax_indicator: 1
        ......
 ```
 
-## List MMT stream MPU time
-   ```
-   DumpTS 00002.mmts --CID=1 --pid=0xF200 --listMPUtime --start=0x3ea --end=0x3ed
-   0, CID: 0x0001(1), packet_id: 0xF200(61952):
-     0, MPU_SeqNo: 0x000003ea(1002), presentation_time: 3690620935.983657s, scale: 180,000HZ, decoding_time_offset:9010
-     1, MPU_SeqNo: 0x000003eb(1003), presentation_time: 3690620936.517528s, scale: 180,000HZ, decoding_time_offset:9010
-     2, MPU_SeqNo: 0x000003ec(1004), presentation_time: 3690620937.051399s, scale: 180,000HZ, decoding_time_offset:9010
-   ```
-   List the MPU presentation time for the stream with CID=1 and packet_id=0xF200 which MPU_sequence_number is between [0x3ea, 0x3ed)
-
-
- ## Show the pts/dts of each AU
-
-```
-DumpTS 29999.mmts --CID=1 --pid=0xF100 --showpts
-#0 , MPU/packet sequence number: 0x003BDFBA/0xE80101AC, Trailing, pts: N/A                    , dts: N/A                    .
-#1 , MPU/packet sequence number: 0x003BDFBA/0xE80101BB, Trailing, pts: N/A                    , dts: N/A                    .
-#2 , MPU/packet sequence number: 0x003BDFBA/0xE80101C4, Trailing, pts: N/A                    , dts: N/A                    .
-#3 , MPU/packet sequence number: 0x003BDFBA/0xE80101CC, Trailing, pts: N/A                    , dts: N/A                    .
-#4 , MPU/packet sequence number: 0x003BDFBA/0xE80101D2, Trailing, pts: N/A                    , dts: N/A                    .
-#5 , MPU/packet sequence number: 0x003BDFBA/0xE80101D7, Trailing, pts: N/A                    , dts: N/A                    .
-#6 , MPU/packet sequence number: 0x003BDFBA/0xE80101DC, Trailing, pts: N/A                    , dts: N/A                    .
-#7 , MPU/packet sequence number: 0x003BDFBA/0xE8010284, Trailing, pts: N/A                    , dts: N/A                    .
-#8 , MPU/packet sequence number: 0x003BDFBA/0xE80102F9, Trailing, pts: N/A                    , dts: N/A                    .
-#9 , MPU/packet sequence number: 0x003BDFBA/0xE8010307, Trailing, pts: N/A                    , dts: N/A                    .
-#10, MPU/packet sequence number: 0x003BDFBA/0xE801030C, Trailing, pts: N/A                    , dts: N/A                    .
-#11, MPU/packet sequence number: 0x003BDFBA/0xE801031C, Trailing, pts: N/A                    , dts: N/A                    .
-#12, MPU/packet sequence number: 0x003BDFBA/0xE801032B, Trailing, pts: N/A                    , dts: N/A                    .
-#13, MPU/packet sequence number: 0x003BDFBA/0xE8010336, Trailing, pts: N/A                    , dts: N/A                    .
-#14, MPU/packet sequence number: 0x003BDFBA/0xE8010346, Trailing, pts: N/A                    , dts: N/A                    .
-#15, MPU/packet sequence number: 0x003BDFBA/0xE8010388, Trailing, pts: N/A                    , dts: N/A                    .
-#16, MPU/packet sequence number: 0x003BDFBA/0xE80103AF, Trailing, pts: N/A                    , dts: N/A                    .
-#17, MPU/packet sequence number: 0x003BDFBA/0xE80103BB, Trailing, pts: N/A                    , dts: N/A                    .
-#18, MPU/packet sequence number: 0x003BDFBA/0xE80103C6, Trailing, pts: N/A                    , dts: N/A                    .
-#19, MPU/packet sequence number: 0x003BDFBA/0xE80103D0, Trailing, pts: N/A                    , dts: N/A                    .
-#20, MPU/packet sequence number: 0x003BDFBA/0xE80103D8, Trailing, pts: N/A                    , dts: N/A                    .
-#21, MPU/packet sequence number: 0x003BDFBA/0xE80103E6, Trailing, pts: N/A                    , dts: N/A                    .
-#22, MPU/packet sequence number: 0x003BDFBB/0xE80103EC, CRA     , pts: 0x1BDFD05E6(7482443238), dts: 0x1BDFCCB3F(7482428223).
-#23, MPU/packet sequence number: 0x003BDFBB/0xE80105C8, Leading , pts: 0x1BDFCEE6F(7482437231), dts: 0x1BDFCD11C(7482429724).
-#24, MPU/packet sequence number: 0x003BDFBB/0xE80105D8, Leading , pts: 0x1BDFCE2B5(7482434229), dts: 0x1BDFCD6FA(7482431226).
-#25, MPU/packet sequence number: 0x003BDFBB/0xE80105E3, Leading , pts: 0x1BDFCDCD7(7482432727), dts: 0x1BDFCDCD7(7482432727).
-#26, MPU/packet sequence number: 0x003BDFBB/0xE80105EA, Leading , pts: 0x1BDFCE893(7482435731), dts: 0x1BDFCE2B5(7482434229).
-#27, MPU/packet sequence number: 0x003BDFBB/0xE80105F1, Leading , pts: 0x1BDFCFA2A(7482440234), dts: 0x1BDFCE892(7482435730).
-#28, MPU/packet sequence number: 0x003BDFBB/0xE80105F7, Leading , pts: 0x1BDFCF44E(7482438734), dts: 0x1BDFCEE70(7482437232).
-#29, MPU/packet sequence number: 0x003BDFBB/0xE80105FC, Leading , pts: 0x1BDFD0008(7482441736), dts: 0x1BDFCF44D(7482438733).
-#30, MPU/packet sequence number: 0x003BDFBB/0xE8010602, Trailing, pts: 0x1BDFD34D2(7482455250), dts: 0x1BDFCFA2B(7482440235).
-#31, MPU/packet sequence number: 0x003BDFBB/0xE8010695, Trailing, pts: 0x1BDFD1D5B(7482449243), dts: 0x1BDFD0008(7482441736).
-#32, MPU/packet sequence number: 0x003BDFBB/0xE80106AE, Trailing, pts: 0x1BDFD11A1(7482446241), dts: 0x1BDFD05E6(7482443238).
-#33, MPU/packet sequence number: 0x003BDFBB/0xE80106B5, Trailing, pts: 0x1BDFD0BC3(7482444739), dts: 0x1BDFD0BC3(7482444739).
-#34, MPU/packet sequence number: 0x003BDFBB/0xE80106BC, Trailing, pts: 0x1BDFD177F(7482447743), dts: 0x1BDFD11A1(7482446241).
-#35, MPU/packet sequence number: 0x003BDFBB/0xE80106C1, Trailing, pts: 0x1BDFD2916(7482452246), dts: 0x1BDFD177E(7482447742).
-#36, MPU/packet sequence number: 0x003BDFBB/0xE80106CD, Trailing, pts: 0x1BDFD233A(7482450746), dts: 0x1BDFD1D5C(7482449244).
-#37, MPU/packet sequence number: 0x003BDFBB/0xE80106D3, Trailing, pts: 0x1BDFD2EF4(7482453748), dts: 0x1BDFD2339(7482450745).
-#38, MPU/packet sequence number: 0x003BDFBB/0xE80106DB, Trailing, pts: 0x1BDFD63BE(7482467262), dts: 0x1BDFD2917(7482452247).
-#39, MPU/packet sequence number: 0x003BDFBB/0xE8010789, Trailing, pts: 0x1BDFD4C47(7482461255), dts: 0x1BDFD2EF4(7482453748).
-#40, MPU/packet sequence number: 0x003BDFBB/0xE80107F3, Trailing, pts: 0x1BDFD408D(7482458253), dts: 0x1BDFD34D2(7482455250).
-#41, MPU/packet sequence number: 0x003BDFBB/0xE8010804, Trailing, pts: 0x1BDFD3AAF(7482456751), dts: 0x1BDFD3AAF(7482456751).
-#42, MPU/packet sequence number: 0x003BDFBB/0xE8010814, Trailing, pts: 0x1BDFD466B(7482459755), dts: 0x1BDFD408D(7482458253).
-#43, MPU/packet sequence number: 0x003BDFBB/0xE801081E, Trailing, pts: 0x1BDFD5802(7482464258), dts: 0x1BDFD466A(7482459754).
-```
+[top](#contents)
 ## Show the MFU data
 The option 'showDU' can be used to print the MFU data units
 ```
@@ -1064,7 +1031,238 @@ packet_sequence_number: 0x1BD50E63, packet_id: 0xF310, MPU sequence number: 0x00
      0002A0  4B  4B  4B  4B  4B  4B  F8                                       | KKKKKK.
 ```
 
+[top](#contents)
+## Utility options for MMTP/TLV
+### Packet ID assignment
+```
+DumpTS --listMMTPpacketid
+```
+List Assignment of Packet ID of MMTP transmitting message and MMTP,
+```
+*****************************************************************************
+          ** Assignment of Packet ID of MMTP transmitting message **
+*****************************************************************************
+            Message                                       Packet ID
+-----------------------------------------------------------------------------
+PA message                                        0x0000 or indirect designation by PLT
+CA message                                        0x0001
+M2 section message which stores ECM*              Indirect designation by MPT
+M2 section message which stores EMM*              Indirect designation by CAT
+M2 section message which stores DCM*              Indirect designation by MPT
+M2 section message which stores DMM*              Indirect designation by MH - SDTT
+M2 section message which stores MH-EIT            0x8000
+M2 section message which stores MH-AIT            0x8001 or indirect designation by MPT
+M2 section message which stores MH-BIT            0x8002
+M2 section message which stores MH-SDTT           0x8003
+M2 section message which stores MH-SDT            0x8004
+M2 short section message which stores MH-TOT      0x8005
+M2 section message which stores MH-CDT            0x8006
+Data transmission message                         0x8007 or indirect designation by MPT
+M2 short section message which stores MH-DIT      0x8008
+M2 section message which stores MH-SIT            0x8009
+M2 section message which stores EMT               Indirect designation by MPT
 
-
-
-
+*****************************************************************************
+                     ** Assignment of Packet ID of MMTP **
+*****************************************************************************
+Packet ID                                         Meaning of Packet ID
+-----------------------------------------------------------------------------
+0x0000                                            PA message
+0x0001                                            CA message
+0x0002                                            AL-FEC message
+0x0003 - 0x00FF                                   Undefined
+0x0100 - 0x7FFF                                   Provided by the Ministry or private standardization organization
+                                                  (region which can be assigned except for control message)
+0x8000                                            M2 section message (MH-EIT is stored)
+0x8001                                            M2 section message (MH-AIT is stored)
+0x8002                                            M2 section message (MH-BIT is stored)
+0x8003                                            M2 section message (H-SDTT is stored)
+0x8004                                            M2 section message (MH-SDT is stored)
+0x8005                                            M2 short section message (MH-TOT is stored)
+0x8006                                            M2 section message (MH-CDT is stored)
+0x8007                                            Data transmission message
+0x8008                                            M2 short section message (MH-DIT is stored)
+0x8009                                            M2 section message (MH-SIT is stored)
+0x800A - 0x8FFF                                   Reserved (provided by the Ministry or private standardization organization)
+0x9000 - 0xFFFF                                   prepared by broadcasters
+```
+### Message-ID assignment
+```
+DumpTS --listMMTSImsg
+```
+List Assignment of message identifier of MMT-SI
+```
+*****************************************************************************
+             ** Assignment of message identifier of MMT-SI **
+*****************************************************************************
+Message ID                 Message
+-----------------------------------------------------------------------------
+0x0000                     PA message
+0x0001 - 0x000F            MPI message
+0x0010 - 0x001F            MPT message
+0x0200                     CRI message
+0x0201                     DCI message
+0x0202                     AL-FEC message
+0x0203                     HRBM message
+0x0204 - 0x6FFF            reserved for ISO/IEC (16-bit length message)
+0x7000 - 0x7FFF            reserved for ISO/IEC (32-bit length message)
+0x8000                     M2 section message*1
+0x8001                     CA message*1
+0x8002                     M2 short section message
+0x8003                     Data transmission message
+0x8004 - 0xDFFF            reserved (message whose length field is 16 bits)
+                           (provided by the Ministry or private standardization organization)
+0xE000 - 0xEFFF            message which is prepared by broadcasters (message whose length field is 16 bits)
+0xF000 - 0xF7FF            reserved (message whose length field is 32 bits)
+                           (provided by the Ministry or private standardization organization)
+0xF800 - 0xFFFF            message which is prepared by broadcasters (message whose length field is 32 bits)
+```
+### Table-ID assignment
+```
+DumpTS --listMMTSItable
+```
+List Assignment of identifier of table of MMT-SI
+```
+*****************************************************************************
+             ** Assignment of identifier of table of MMT-SI **
+*****************************************************************************
+Table ID                                          Table Name
+-----------------------------------------------------------------------------
+0x00                                              PA Table
+0x01                                              Subset 0 MPI Table
+0x02 - 0x0F                                       Subset 1 MPI Table to subset 14 MPI Table
+0x10                                              Complete MPI Table
+0x11 - 0x1F                                       Subset 0 MP Table to subset 14 MP Table
+0x20                                              Complete MP Table
+0x21                                              CRI Table
+0x22                                              DCI Table
+0x23 - 0x7F                                       reserved for ISO/IEC (16-bit length table)
+0x80                                              PLT
+0x81                                              LCT
+0x82 - 0x83                                       ECM*1
+0x84 - 0x85                                       EMM*1
+0x86                                              CAT (MH)
+0x87 - 0x88                                       DCM
+0x89 - 0x8A                                       DMM
+0x8B                                              MH-EIT (present and next program of self-stream)
+0x8C - 0x9B                                       MH-EIT (schedule of self-stream)
+0x9C                                              MH-AIT (AIT controlled application)
+0x9D                                              MH-BIT
+0x9E                                              MH-SDTT
+0x9F                                              MH-SDT (self-stream)
+0xA0                                              MH-SDT (other stream)
+0xA1                                              MH-TOT
+0xA2                                              MH-CDT
+0xA3                                              DDM Table
+0xA4                                              DAM Table
+0xA5                                              DCC Table
+0xA6                                              EMT
+0xA7                                              MH-DIT
+0xA8                                              MH-SIT
+0xA9 - 0xDF                                       Reserved (provided by the Ministry or private standardization organization)
+0xE0 - 0xFF                                       Table which is prepared by broadcasters
+```
+### Descriptor-Tag assignment
+```
+DumpTS --listMMTSIdesc
+```
+List Assignment of descriptor tag of MMT-SI
+```
+*****************************************************************************
+             ** Assignment of descriptor tag of MMT-SI **
+*****************************************************************************
+Descriptor tag value                              Descriptor name
+-----------------------------------------------------------------------------
+0x0000                                            CRI Descriptor*2
+0x0001                                            MPU Time stamp Descriptor*1
+0x0002                                            Dependency relationship Descriptor *1
+0x0003                                            GFDT Descriptor*2
+0x0004 - 0x3FFF                                   reserved for ISO/IEC (8-bit length descriptor)
+0x4000 - 0x6FFF                                   reserved for ISO/IEC (16-bit length descriptor)
+0x7000 - 0x7FFF                                   reserved for ISO/IEC (32-bit length descriptor)
+0x8000                                            Asset group Descriptor
+0x8001                                            Event package Descriptor
+0x8002                                            Background color designation Descriptor
+0x8003                                            MPU presentation area designation Descriptor
+0x8004                                            Access control Descriptor*1
+0x8005                                            Scramble system Descriptor*1
+0x8006                                            Message certification system Descriptor
+0x8007                                            Emergency information Descriptor (MH)*1
+0x8008                                            MH-MPEG-4 audio Descriptor
+0x8009                                            MH-MPEG-4 audio extension Descriptor
+0x800A                                            MH-HEVC video Descriptor
+0x800B                                            Reserved (those of which descriptor length field is 8 bits)
+                                                  (provided by the Ministry or private standardization organization)
+0x800C                                            MH-Event group Descriptor
+0x800D                                            MH-Service list Descriptor
+0x800E - 0x800F                                   Reserved (those of which descriptor length field is 8 bits)
+                                                  (provided by the Ministry or private standardization organization)
+0x8010                                            Video component Descriptor
+0x8011                                            MH-Stream identification Descriptor
+0x8012                                            MH-Content Descriptor
+0x8013                                            MH-Parental rate Descriptor
+0x8014                                            MH-Audio component Descriptor
+0x8015                                            MH-Object area Descriptor
+0x8016                                            MH-Series Descriptor
+0x8017                                            MH-SI transmission parameter Descriptor
+0x8018                                            MH-Broadcaster name Descriptor
+0x8019                                            MH-Service Descriptor
+0x801A                                            IP data flow Descriptor
+0x801B                                            MH-CA starting Descriptor
+0x801C                                            MH-Type Descriptor
+0x801D                                            MH-Info Descriptor
+0x801E                                            MH-Expire Descriptor
+0x801F                                            MH-CompressionType Descriptor
+0x8020                                            MH-Data coding system Descriptor
+0x8021                                            UTC-NPT reference Descriptor
+0x8022                                            Reserved (those of which descriptor length field is 8 bits)
+                                                  (provided by the Ministry or private standardization organization)
+0x8023                                            MH-Local time offset Descriptor
+0x8024                                            MH-Component group Descriptor
+0x8025                                            MH-Logo transmission Descriptor
+0x8026                                            MPU Extension time stamp Descriptor
+0x8027                                            MPU download content Descriptor
+0x8028                                            MH-Network download content Descriptor
+0x8029                                            MH-Application Descriptor
+0x802A                                            MH-Transmission protocol Descriptor
+0x802B                                            MH-Simple application location Descriptor
+0x802C                                            MH-Application boundary authority setting Descriptor
+0x802D                                            MH-Starting priority information Descriptor
+0x802E                                            MH-Cache information Descriptor
+0x802F                                            MH-Probabilistic application delay Descriptor
+0x8030                                            Link destination PU Descriptor
+0x8031                                            Lock cache designation Descriptor
+0x8032                                            Unlock cache designation Descriptor
+0x8033                                            MH-Download protection Descriptor*3
+0x8034                                            Application service Descriptor
+0x8035                                            MPU node Descriptor
+0x8036                                            PU configuration Descriptor
+0x8037                                            MH-Layered coding Descriptor
+0x8038                                            Content copy control Descriptor
+0x8039                                            Content usage control Descriptor
+0x803A                                            MH-External application control Descriptor
+0x803B                                            MH-Video recording and reproduction application Descriptor
+0x803C                                            MH-Simple video recording and reproduction application location Descriptor
+0x803D                                            MH-Application valid term Descriptor
+0x803E                                            Related broadcaster Descriptor
+0x803F                                            Multimedia service information Descriptor
+0x8040                                            Emergency news Descriptor
+0x8041                                            MH-CA contract information Descriptor*3
+0x8042                                            MH-CA service Descriptor*3
+0x8043 - 0xEBFF                                   Reserved (those of which descriptor length field is 8 bits)
+                                                  (provided by the Ministry or private standardization organization)
+0xEC00 - 0xEFFF                                   Descriptor which is prepared by broadcasters
+                                                  (those of which descriptor length field is 8 bits)
+0xF000                                            MH-Link Descriptor
+0xF001                                            MH-Short format event Descriptor
+0xF002                                            MH-Extension format event Descriptor
+0xF003                                            Event message Descriptor
+0xF004                                            MH-stuffing Descriptor*4
+0xF005                                            MH-broadcast ID Descriptor*4
+0xF006                                            MH-network identification Descriptor*4
+0xF007 - 0xFBFF                                   Reserved (those of which descriptor length field is 16 bits)
+                                                   (provided by the Ministry or private standardization organization)
+0xFC00 - 0xFFFF                                   Descriptor which is prepared by broadcasters
+                                                  (those of which descriptor length field is 16 bits)
+```
+[top](#contents)
