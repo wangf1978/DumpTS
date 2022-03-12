@@ -42,9 +42,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\README.md" />
-    <None Include="..\..\doc\references.md">
-      <Filter>doc</Filter>
-    </None>
     <None Include="..\..\doc\index.html">
       <Filter>doc</Filter>
     </None>
@@ -58,30 +55,6 @@
       <Filter>build\macos</Filter>
     </None>
     <None Include="..\..\doc\diagrams.vsdx">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\MMT_Readme.md">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\NAL_Readme.md">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\TS_Readme.md">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\Utility_Readme.md">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\AV1_Readme.md">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\Audio_Readme.md">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\ISOBMFF_Readme.md">
-      <Filter>doc</Filter>
-    </None>
-    <None Include="..\..\doc\MKV_Readme.md">
       <Filter>doc</Filter>
     </None>
   </ItemGroup>

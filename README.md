@@ -247,16 +247,16 @@ Here are some examples of command lines:
 # Operations Manual
 - For MMT, please see [MMT operation guideline](doc/MMT_README.md)
 - For AV1/OBU, please see [AV1/OBU operation guideline](doc/AV1_README.md)
-- For Audio, please see [Audio operation guideline](doc/Audio_README.md)
+- For Audio, please see [Audio operation guideline](doc/AUDIO_README.md)
 - For NAL, please see [NAL bitstream operation guideline](doc/NAL_README.md)
 - For Transport-Stream, please see [TS bitstream operation guideline](doc/TS_README.md)
 - For ISOBMFF, please see [ISOBMF media operation guideline](doc/ISOBMFF_README.md)
 - For Matroska, please see [Matroska media operation guideline](doc/MKV_README.md)
-- Some utility features are also provided, please see [Utility operation guideline](doc/Utility_README.md)
+- Some utility features are also provided, please see [Utility operation guideline](doc/UTILITY_README.md)
 
 [top](#contents)
 
 # References
-Please see [References](doc/references.md)
+Please see [References](doc/REFERENCES.md)
 
 [top](#contents)
