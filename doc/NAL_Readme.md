@@ -1,7 +1,14 @@
 # NAL bitstream operation guide(For H.264/.265/.266)
 ## Contents
+* [Show the information of NAL bitstream](#Show-the-information-of-nal-bitstream)
+* [List Access-Unit, NAL-unit and SEI messages and payloads](#list-access-unit-nal-unit-and-sei-messages-and-payloads)
+* [Show syntax fields](#show-syntax-fields)
+  * [Show VPS syntax fields](#show-vps-syntax-fields)
+  * [Show SPS syntax fields](#show-sps-syntax-fields)
+  * [Show PPS syntax fields](#show-pps-syntax-fields)
+* [Show HRD model information](#show-hrd-model-information)
 
-
+[Return to Main](../Readme.md)
 
 H.264(AVC), H.265(HEVC and H.266(VVC) uses NAL bitstream
 
@@ -26,6 +33,7 @@ A new H.265 sequence(seq_parameter_set_id:0):
         Frame-Rate: 59.940060 fps
 ```
 
+[top](#contents)
 ## List Access-Unit, NAL-unit and SEI messages and payloads
 ```
 DumpTS 00002.hevc --showNU
@@ -149,8 +157,9 @@ NAL Unit non-VCL::PREFIX_SEI_NUT -- non-VCL::PREFIX_SEI_NUT Supplemental enhance
 ...
 ```
 
-## Show syntax fields:
-### Show the HEVC VPS syntax:
+[top](#contents)
+## Show syntax fields
+### Show VPS syntax fields
 ```
 DumpTS 00002.hevc --showvps
 ```
@@ -242,7 +251,8 @@ rbsp_trailing_bits:
     rbsp_alignment_zero_bit: 0                    // Should be 0
 ```
 
-### Show the AVC SPS syntax to learn the configuration of AVC stream
+[top](#contents)
+### Show SPS syntax fields
 ```
 DumpTS 00005.h264 --showSPS
 ```
@@ -369,6 +379,8 @@ seq_parameter_set_rbsp():
         rbsp_alignment_zero_bit: 0                             // Should be 0
         rbsp_alignment_zero_bit: 0                             // Should be 0
 ```
+
+[top](#contents)
 ### Show PPS syntax fields
 ```
 DumpTS 00002.hevc --showpps
@@ -465,3 +477,110 @@ NAL_UNIT:                                         // non-VCL::PPS_NUT Picture pa
 ...
 ```
 
+[top](#contents)
+## Show HRD model information
+HRD model information may exist in SPS, SEI payload, 
+```
+DumpTS 00005.h264 --showHRD
+```
+And then
+```
+Type-I HRD:
+        SchedSelIdx#0:
+                the maximum input bit rate for the CPB: 20000000bps/20Mbps
+                the CPB size: 20000000b/20Mb
+                VBR mode
+Type-II HRD:
+        SchedSelIdx#0:
+                the maximum input bit rate for the CPB: 20000000bps/20Mbps
+                the CPB size: 30000000b/30Mb
+                VBR mode
+Type-I HRD:
+        SchedSelIdx#0:
+                initial_cpb_removal_delay: 90000
+                initial_cpb_removal_delay_offset: 0
+Type-II HRD:
+        SchedSelIdx#0:
+                initial_cpb_removal_delay: 90000
+                initial_cpb_removal_delay_offset: 0
+Picture Timing(payloadLength: 9):
+        cpb_removal_delay: 0
+        dpb_output_delay: 2
+        pic_struct: 0 (progressive frame)
+        ClockTS#0:
+                clock_timestamp_flag: 1
+                ct_type: 0(progressive)
+                nuit_field_based_flag: 1
+                counting_type: 3
+                full_timestamp_flag: 0
+                discontinuity_flag: 1
+                cnt_dropped_flag: 0
+                time code: 0f
+                time offset: 0
+Picture Timing(payloadLength: 9):
+        cpb_removal_delay: 2
+        dpb_output_delay: 6
+        pic_struct: 0 (progressive frame)
+        ClockTS#0:
+                clock_timestamp_flag: 1
+                ct_type: 0(progressive)
+                nuit_field_based_flag: 1
+                counting_type: 3
+                full_timestamp_flag: 0
+                discontinuity_flag: 1
+                cnt_dropped_flag: 0
+......
+```
+For HEVC stream,
+```
+DumpTS 02021_interlaced.hevc --showHRD
+```
+And then
+```
+Type-I HRD:
+        Sublayer#0:
+                SchedSelIdx#0:
+                        the maximum input bit rate for the CPB: 10000000bps/10Mbps
+                        the CPB size: 10000000b/10Mb
+                        VBR mode
+Type-II HRD:
+        Sublayer#0:
+                SchedSelIdx#0:
+                        the maximum input bit rate for the CPB: 10000000bps/10Mbps
+                        the CPB size: 10000000b/10Mb
+                        VBR mode
+Picture Timing(payloadLength: 3):
+        pic_struct: 1 (top field)
+        source_scan_type: 0 (Interlaced)
+        duplicate_flag: 0
+        au_cpb_removal_delay: 1
+        pic_dpb_output_delay: 4
+Picture Timing(payloadLength: 3):
+        pic_struct: 2 (bottom field)
+        source_scan_type: 0 (Interlaced)
+        duplicate_flag: 0
+        au_cpb_removal_delay: 1
+        pic_dpb_output_delay: 4
+Picture Timing(payloadLength: 3):
+        pic_struct: 1 (top field)
+        source_scan_type: 0 (Interlaced)
+        duplicate_flag: 0
+        au_cpb_removal_delay: 2
+        pic_dpb_output_delay: 10
+Picture Timing(payloadLength: 3):
+        pic_struct: 2 (bottom field)
+        source_scan_type: 0 (Interlaced)
+        duplicate_flag: 0
+        au_cpb_removal_delay: 3
+        pic_dpb_output_delay: 10
+Picture Timing(payloadLength: 3):
+        pic_struct: 1 (top field)
+        source_scan_type: 0 (Interlaced)
+        duplicate_flag: 0
+        au_cpb_removal_delay: 4
+        pic_dpb_output_delay: 4
+Picture Timing(payloadLength: 3):
+        pic_struct: 2 (bottom field)
+...
+```
+[top](#contents)
