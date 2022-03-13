@@ -32,6 +32,7 @@ SOFTWARE.
 #include "ISO14496_12.h"
 #include "ISO14496_15.h"
 #include "NAL.h"
+#include "AMRFC3986.h"
 
 using namespace std;
 using namespace ISOBMFF;
@@ -975,6 +976,56 @@ void PrintTree(Box* ptr_box, int level)
 	return;
 }
 
+Box* FindBox(Box* ptr_box, std::string strBoxPath)
+{
+	URI_Components box_uri;
+	int nRet = AMURI_Split(strBoxPath.c_str(), box_uri);
+
+	if (AMP_FAILED(nRet))
+		return nullptr;
+
+	if (box_uri.Ranges[URI_COMPONENT_PATH].IsEmpty())
+		return nullptr;
+
+	std::vector<URI_Segment> component_segments;
+	if (AMP_FAILED(AMURI_SplitComponent(strBoxPath.c_str() + box_uri.Ranges[URI_COMPONENT_PATH].start, box_uri.Ranges[URI_COMPONENT_PATH].length, component_segments)))
+		return nullptr;
+
+	for (auto& seg : component_segments)
+	{
+		int64_t idx = INT64_MAX;
+		std::string strBoxSeg;
+		if (AMP_FAILED(AMURI_DecodeSegment(strBoxPath.c_str() + seg.start, seg.length, strBoxSeg)))
+			return nullptr;
+
+		const char* p = strBoxSeg.c_str();
+		if (strBoxSeg.length() > 4)
+			ConvertToInt((char*)p + 4, (char*)p + strBoxSeg.length(), idx);
+		else if (strBoxSeg.length() < 4)
+			return nullptr;
+
+		int found_idx = -1;
+		uint32_t seg_box_type = ((uint32_t)(*p) << 24) | ((uint32_t)(*(p + 1)) << 16) | ((uint32_t)(*(p + 2)) << 8) | *(p + 3);
+		for (auto child = ptr_box->first_child; child != nullptr; child = child->next_sibling)
+		{
+			if (child->type == seg_box_type)
+			{
+				found_idx++;
+				if (idx == found_idx || idx == INT64_MAX)
+				{
+					ptr_box = child;
+					break;
+				}
+			}
+		}
+
+		if (found_idx <= -1 || (idx != INT64_MAX && idx != found_idx))
+			return nullptr;
+	}
+
+	return ptr_box;
+}
+
 Box* FindBox(Box* ptr_box, uint32_t track_id, uint32_t box_type)
 {
 	if (ptr_box == nullptr)
@@ -1037,7 +1088,11 @@ done:
 #else
 	if (g_params.find("trackid") == g_params.end() || ptr_box == nullptr)
 	{
-		PrintTree(root_box, 0);
+		if (ptr_box != nullptr)
+			PrintTree(ptr_box, 0);
+		else
+			PrintTree(root_box, 0);
+
 		return iRet;
 	}
 
@@ -1683,6 +1738,9 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* f
 				}
 			}
 		}
+
+		if (pSampleDescBox == nullptr)
+			printf("Can't find the track box with the specified track-id: %" PRIu32 ".\n", track_id);
 	}
 
 	int sample_id = 0;
@@ -1999,6 +2057,15 @@ int DumpMP4()
 	}
 
 	Box* ptr_box = nullptr;
+
+	std::string strBoxType;
+	auto iterBoxType = g_params.find("boxtype");
+	if (iterBoxType != g_params.end())
+	{
+		strBoxType = iterBoxType->second;
+		ptr_box = FindBox(&root_box, strBoxType);
+	}
+
 	bool bMovieTrackAbsent = false;
 	uint32_t select_track_id = UINT32_MAX;
 	if (g_params.find("trackid") != g_params.end())
@@ -2032,7 +2099,7 @@ int DumpMP4()
 		{
 			if (box_type == UINT32_MAX)
 			{
-				printf("Can't find the track box with the specified track-id: %lld.\n", track_id);
+				//printf("Can't find the track box with the specified track-id: %lld.\n", track_id);
 				// There may be still movie fragments
 				bMovieTrackAbsent = true;
 			}
@@ -2110,7 +2177,7 @@ int DumpMP4()
 		if ((iRet = RefineMP4File(&root_box, g_params["input"], g_params.find("output") == g_params.end() ? g_params["input"] : g_params["output"], removed_box_types)) < 0)
 			return iRet;
 	}
-	else if (g_params.find("trackid") != g_params.end())
+	else if (g_params.find("trackid") != g_params.end() && g_params.find("output") != g_params.end())
 	{
 		if (g_params.find("outputfmt") == g_params.end())
 			g_params["outputfmt"] = "es";

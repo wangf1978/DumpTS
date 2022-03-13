@@ -230,6 +230,9 @@
     <ClCompile Include="..\..\src\descriptors_hdmv.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\AMRFC3986.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
@@ -395,6 +398,9 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\descriptors_hdmv.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMRFC3986.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

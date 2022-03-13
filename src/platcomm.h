@@ -222,6 +222,12 @@ SOFTWARE.
 #define AMP_FAILED(retcode)					(((int)(retcode)) < 0)
 #define AMP_SUCCEEDED(retcode)				(((int)(retcode)) >= 0)
 
+#define AMP_CHKRETBREAK(retcode)			if(AMP_FAILED(retcode))break;
+#define AMP_CHKBOOL1(retcode, lb)			if(!(retcode))goto lb
+#define AMP_CHKBOOL(retcode)				AMP_CHKBOOL1(retcode, done)
+#define AMP_CHKRET1(retcode, lb)			if(AMP_FAILED((retcode)))goto lb
+#define AMP_CHKRET(retcode)					AMP_CHKRET1(retcode, done)
+
 #ifdef _DEBUG
 #define _AMP_NEW(mtype, size)				(size)<=0?NULL:(new mtype[size])
 #define _AMP_NEWT(mtype, ...)				new mtype(__VA_ARGS__)

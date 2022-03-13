@@ -25,6 +25,7 @@ SOURCES := \
 	$(SOURCEDIR)/AMRingBuffer.cpp \
 	$(SOURCEDIR)/AMBitArray.cpp \
 	$(SOURCEDIR)/AMSHA1.cpp \
+	$(SOURCEDIR)/AMRFC3986.cpp \
 	$(SOURCEDIR)/AudChMap.cpp \
 	$(SOURCEDIR)/Bitstream.cpp \
 	$(SOURCEDIR)/AMBitStream.cpp \

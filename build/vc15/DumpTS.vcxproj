@@ -266,6 +266,7 @@
     <ClCompile Include="..\..\src\AIFF.cpp" />
     <ClCompile Include="..\..\src\AMBitArray.cpp" />
     <ClCompile Include="..\..\src\AMBitStream.cpp" />
+    <ClCompile Include="..\..\src\AMRFC3986.cpp" />
     <ClCompile Include="..\..\src\AMRingBuffer.cpp" />
     <ClCompile Include="..\..\src\AMSHA1.cpp" />
     <ClCompile Include="..\..\src\AudChMap.cpp" />
@@ -316,6 +317,7 @@
     <ClInclude Include="..\..\src\AIFF.h" />
     <ClInclude Include="..\..\src\AMArray.h" />
     <ClInclude Include="..\..\src\AMBitStream.h" />
+    <ClInclude Include="..\..\src\AMRFC3986.h" />
     <ClInclude Include="..\..\src\AMRingBuffer.h" />
     <ClInclude Include="..\..\src\AMSHA1.h" />
     <ClInclude Include="..\..\src\AudChMap.h" />
