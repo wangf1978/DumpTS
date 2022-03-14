@@ -106,7 +106,7 @@ int CESRepacker::Open(const char* szSrcFile)
 
 int CESRepacker::PreProcessMatroskaBlock()
 {
-	using namespace Matroska;
+	using namespace BST::Matroska;
 
 	int iRet = RET_CODE_SUCCESS;
 

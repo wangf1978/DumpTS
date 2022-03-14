@@ -859,7 +859,7 @@ int CheckFixedFeature(int argc, char* argv[])
 	}
 	else if (_stricmp(argv[1], "--listmkvEBML") == 0)
 	{
-		Matroska::PrintEBMLElements(INVALID_EBML_ID);
+		BST::Matroska::PrintEBMLElements(INVALID_EBML_ID);
 		return 0;
 	}
 	else if (_stricmp(argv[1], "--listMMTPpacketid") == 0)

@@ -220,7 +220,7 @@ static crc  A_crcLookupTable[256] = {0};
  * Description: A value/register is reflected if it's bits are swapped around its centre.
  * For example: 0101 is the 4-bit reflection of 1010
  *
- * Descripcion: Un valor es reflejado cuando sus bits son intercambiados utilizando como punto de referencia el centro.
+ * Description: Un valor es reflejado cuando sus bits son intercambiados utilizando como punto de referencia el centro.
  * Por ejemplo: 0101 es el reflejo de 1010
  *
  *********************************************************************/
