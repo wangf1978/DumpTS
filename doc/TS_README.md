@@ -138,16 +138,16 @@ There may be multiple program sequence with different version of PMTs, the below
     ```
     There are 2 program sequences, the 2nd program sequence carries stereo AAC audio.
 2. Extract the 2nd program sequence
-```
-DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=m2ts -output=stereo.m2ts
-DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=m2ts
-DumpTS 5.1ch_stereo.m2ts --progseq=0 --outputfmt=es --output=5.1ch.m2v --pid=0x100
-DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=copy -output=stereo.m2ts
-```
-The first command copy the 2nd program sequence of m2ts file to another new m2ts file `stereo.m2ts`
-If the output path is not specified, the second command will extract it into `stereo_ps_1.m2ts` at the same directory with the source file
-the third command extract the video elementary stream from program sequence#0.
-When it is NOT sure for the source format, specify outputfmt to copy, it means both source and destination use the same format
+    ```
+    DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=m2ts -output=stereo.m2ts
+    DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=m2ts
+    DumpTS 5.1ch_stereo.m2ts --progseq=0 --outputfmt=es --output=5.1ch.m2v --pid=0x100
+    DumpTS 5.1ch_stereo.m2ts --progseq=1 --outputfmt=copy -output=stereo.m2ts
+    ```
+    The first command copy the 2nd program sequence of m2ts file to another new m2ts file `stereo.m2ts`
+    If the output path is not specified, the second command will extract it into `stereo_ps_1.m2ts` at the same directory with the source file
+    the third command extract the video elementary stream from program sequence#0.
+    When it is NOT sure for the source format, specify outputfmt to copy, it means both source and destination use the same format
 
 [top](#contents)
 ## Extract a part of movie with the start and end packet number
