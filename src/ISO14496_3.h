@@ -2824,7 +2824,7 @@ namespace BST {
 					}
 					NAV_FIELD_PROP_2NUMBER1(ltp_coef, 3, "");
 
-					NAV_WRITE_TAG_WITH_ALIAS("Tag0", "for(sfb=0;sfb&lt;min(max_sfb,MAX_LTP_LONG_SFB);sfb++)", "");
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", "for(sfb=0;sfb&lt;min(max_sfb,MAX_LTP_LONG_SFB);sfb++)", "");
 					for (int sfb = 0; sfb < AMP_MIN(ics_info->max_sfb, MAX_LTP_LONG_SFB); sfb++)
 					{
 						NAV_ARRAY_FIELD_PROP_NUMBER_("ltp_long_used", "sfb", sfb, 1, ltp_long_used[sfb], ltp_long_used[sfb] ? "used" : "NOT used");
@@ -2836,7 +2836,7 @@ namespace BST {
 					NAV_FIELD_PROP_2NUMBER1(ltp_lag, 11, "");
 					NAV_FIELD_PROP_2NUMBER1(ltp_coef, 3, "");
 					if (ics_info->window_sequence != EIGHT_SHORT_SEQUENCE) {
-						NAV_WRITE_TAG_WITH_ALIAS("Tag0", "for(sfb=0;sfb&lt;min(max_sfb,MAX_LTP_LONG_SFB);sfb++)", "");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", "for(sfb=0;sfb&lt;min(max_sfb,MAX_LTP_LONG_SFB);sfb++)", "");
 						for (int sfb = 0; sfb < AMP_MIN(ics_info->max_sfb, MAX_LTP_LONG_SFB); sfb++)
 						{
 							NAV_ARRAY_FIELD_PROP_NUMBER_("ltp_long_used", "sfb", sfb, 1, ltp_long_used[sfb], ltp_long_used[sfb] ? "used" : "NOT used");
@@ -3040,7 +3040,7 @@ namespace BST {
 						NAV_FIELD_PROP_2NUMBER1(predictor_reset_group_number, 5, "specifying the reset group to be reset in current frame");
 						NAV_FIELD_PROP_END("predictor_reset");
 
-						NAV_WRITE_TAG_WITH_ALIAS("Tag0", "for(sfb=0;sfb&lt;min(max_sfb,PRED_SFB_MAX);sfb++)", "");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", "for(sfb=0;sfb&lt;min(max_sfb,PRED_SFB_MAX);sfb++)", "");
 						for (int sfb = 0; sfb < AMP_MIN(max_sfb, PRED_SFB_MAX[ctx_audio_stream->audio_specific_config->samplingFrequencyIndex]); sfb++)
 						{
 							NAV_ARRAY_FIELD_PROP_NUMBER_("prediction_used", "sfb", sfb, 1, prediction_used[sfb], prediction_used[sfb] ? "used" : "NOT used");
@@ -3165,7 +3165,7 @@ namespace BST {
 				{
 					char szAlias[256];
 					MBCSPRINTF_S(szAlias, _countof(szAlias), "for(g=0;g&lt;num_window_groups(%d);g++)", individual_channel_stream->ics_info->num_window_groups);
-					NAV_WRITE_TAG_WITH_ALIAS("Tag0", szAlias, "the section data for each window group");
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", szAlias, "the section data for each window group");
 					for (uint8_t g = 0; g < individual_channel_stream->ics_info->num_window_groups; g++)
 					{
 						int k = 0, i = 0;
@@ -3207,7 +3207,7 @@ namespace BST {
 						}
 
 						if (sect_start[g].size() > 0) {
-							NAV_WRITE_TAG_WITH_ALIAS("Tag00", "for(sfb=0;sfb&lt;sect_end[g];sfb++)", "scalefactor band codebooks");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag00", "for(sfb=0;sfb&lt;sect_end[g];sfb++)", "scalefactor band codebooks");
 							for (uint32_t sfb = sect_start[g][0]; sfb < sect_end[g].back(); sfb++)
 							{
 								NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("sfb_cb", "sfb_cb[group#%d][sfb#%d]", "%d(0X%X)", sfb_cb[g][sfb],
@@ -3429,11 +3429,11 @@ namespace BST {
 					{
 						char szAlias[256];
 						MBCSPRINTF_S(szAlias, _countof(szAlias), "for(g=0;g&lt;num_window_groups(%d);g++)", individual_channel_stream->ics_info->num_window_groups);
-						NAV_WRITE_TAG_WITH_ALIAS("Tag0", szAlias, "");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", szAlias, "");
 						for (uint8_t g = 0; g < individual_channel_stream->ics_info->num_window_groups; g++)
 						{
 							MBCSPRINTF_S(szAlias, _countof(szAlias), "for(sfb=0;sfb&lt;max_sfb(%d);sfb++)", individual_channel_stream->ics_info->max_sfb);
-							NAV_WRITE_TAG_WITH_ALIAS("Tag00", szAlias, "");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag00", szAlias, "");
 							for (uint8_t sfb = 0; sfb < individual_channel_stream->ics_info->max_sfb; sfb++)
 							{
 								if (individual_channel_stream->section_data->sfb_cb[g][sfb] != ZERO_HCB)
@@ -3498,11 +3498,11 @@ namespace BST {
 
 					char szAlias[256];
 					MBCSPRINTF_S(szAlias, _countof(szAlias), "for(g=0;g&lt;num_window_groups(%d);g++)", individual_channel_stream->ics_info->num_window_groups);
-					NAV_WRITE_TAG_WITH_ALIAS("Tag0", szAlias, "");
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", szAlias, "");
 					for (uint8_t g = 0; g < individual_channel_stream->ics_info->num_window_groups; g++)
 					{
 						MBCSPRINTF_S(szAlias, _countof(szAlias), "for(sfb=0;sfb&lt;max_sfb(%d);sfb++)", individual_channel_stream->ics_info->max_sfb);
-						NAV_WRITE_TAG_WITH_ALIAS("Tag00", szAlias, "");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag00", szAlias, "");
 						for (uint8_t sfb = 0; sfb < individual_channel_stream->ics_info->max_sfb; sfb++)
 						{
 							if (individual_channel_stream->section_data->sfb_cb[g][sfb] != ZERO_HCB)
@@ -3583,11 +3583,11 @@ namespace BST {
 						NAV_FIELD_PROP_2NUMBER1(length_of_rvlc_escapes, 8, "the length of the current RVLC escape data part in bits");
 
 						MBCSPRINTF_S(szAlias, _countof(szAlias), "for(g=0;g&lt;num_window_groups(%d);g++)", individual_channel_stream->ics_info->num_window_groups);
-						NAV_WRITE_TAG_WITH_ALIAS("Tag3", szAlias, "");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag3", szAlias, "");
 						for (uint8_t g = 0; g < individual_channel_stream->ics_info->num_window_groups; g++)
 						{
 							MBCSPRINTF_S(szAlias, _countof(szAlias), "for(sfb=0;sfb&lt;max_sfb(%d);sfb++)", individual_channel_stream->ics_info->max_sfb);
-							NAV_WRITE_TAG_WITH_ALIAS("Tag30", szAlias, "");
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag30", szAlias, "");
 							for (uint8_t sfb = 0; sfb < individual_channel_stream->ics_info->max_sfb; sfb++)
 							{
 								if (individual_channel_stream->section_data->sfb_cb[g][sfb] != ZERO_HCB)
@@ -3717,7 +3717,7 @@ namespace BST {
 
 				DECLARE_FIELDPROP_BEGIN()
 				bool window_with_128_spectral_lines = individual_channel_stream->ics_info->window_sequence == EIGHT_SHORT_SEQUENCE ? true : false;
-				NAV_WRITE_TAG_WITH_ALIAS("Tag0", "for(w=0;w&lt;num_windows;w++)", "");
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", "for(w=0;w&lt;num_windows;w++)", "");
 				for (uint8_t w = 0; w < individual_channel_stream->ics_info->num_windows; w++)
 				{
 					MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "n_filt[window#%d]", w);
@@ -3728,7 +3728,7 @@ namespace BST {
 					{
 						MBCSPRINTF_S(szTemp4, TEMP4_SIZE, "the resolution of the transmitted filter coefficients for window w: %d", coef_res[w] + 3);
 						NAV_ARRAY_FIELD_PROP_NUMBER_("coef_res", "window#", w, 1, coef_res[w], szTemp4);
-						NAV_WRITE_TAG_WITH_ALIAS("Tag00", "for(filt=0;filt&lt;n_filt[w];filt++)", "");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag00", "for(filt=0;filt&lt;n_filt[w];filt++)", "");
 						for (uint8_t filt = 0; filt < n_filt[w]; filt++) {
 							NAV_2ARRAY_FIELD_PROP_2NUMBER_("length", "window#", w, "filt#", filt, window_with_128_spectral_lines ? 4 : 6, length[w][filt], 
 								"length of the region to which one filter is applied in window w (in units of scalefactor bands)");
@@ -3742,7 +3742,7 @@ namespace BST {
 								NAV_2ARRAY_FIELD_PROP_NUMBER_("coef_compress", "window#", w, "filt#", filt, 1, coef_compress[w][filt], coef_compress[w][filt] ? 
 									"the most significant bit of the coefficients of the noise shaping filter filt in window w are omitted from transmission" : 
 									"the most significant bit of the coefficients of the noise shaping filter filt in window w are NOT omitted from transmission");
-								NAV_WRITE_TAG_WITH_ALIAS("Tag000", "for(i=0;i&lt;order[w][filt];i++)", "");
+								NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag000", "for(i=0;i&lt;order[w][filt];i++)", "");
 								uint8_t coef_len = coef_res[w] + 3 - coef_compress[w][filt];
 								for (uint8_t i = 0; i < order[w][filt]; i++) {
 									NAV_FIELD_PROP_2NUMBER_ALIAS_F("coef", "coef[window#%d][filt#%d][%d]", coef_len, "%d(0X%X)", coef[w][filt][i], "coefficients of one noise shaping filter applied to window w", w, filt, i);
@@ -4063,7 +4063,7 @@ namespace BST {
 				DECLARE_FIELDPROP_BEGIN()
 				NAV_FIELD_PROP_2NUMBER1(number_pulse, 2, "how many pulse escapes are used. The number of pulse escapes is from 1 to 4");
 				NAV_FIELD_PROP_2NUMBER1(pulse_start_sfb, 6, "the index of the lowest scalefactor band where the pulse escape is achieved");
-				NAV_WRITE_TAG_WITH_ALIAS("Tag0", "for(i=0;i&lt;number_pulse+1;i++)", "");
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", "for(i=0;i&lt;number_pulse+1;i++)", "");
 				for (int i = 0; i < number_pulse + 1; i++) {
 					NAV_ARRAY_FIELD_PROP_2NUMBER("pulse_offset", i, 5, std::get<0>(pulse[i]), "the offset");
 					NAV_ARRAY_FIELD_PROP_2NUMBER("pulse_amp", i, 4, std::get<1>(pulse[i]), "the unsigned magnitude of the pulse");
@@ -4434,10 +4434,10 @@ namespace BST {
 															ms_mask_present==3?"2 bit mask of stereo_info is located in the layer sfb side information part layer_sfb_si())":"Unknown"))));
 				if (ms_mask_present == 1)
 				{
-					NAV_WRITE_TAG_WITH_ALIAS("Tag0", "for(g=0;g&lt;num_window_groups;g++)", "");
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag0", "for(g=0;g&lt;num_window_groups;g++)", "");
 					for (uint8_t g = 0; g < ics_info->num_window_groups; g++)
 					{
-						NAV_WRITE_TAG_WITH_ALIAS("Tag00", "for(sfb=0;sfb&lt;max_sfb;sfb++)", "");
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS_DESC_F("Tag00", "for(sfb=0;sfb&lt;max_sfb;sfb++)", "");
 						for (uint8_t sfb = 0; sfb < ics_info->max_sfb; sfb++)
 						{
 							NAV_2ARRAY_FIELD_PROP_NUMBER_("ms_used", "group#", g, "sfb#", sfb, 1, ms_used[g*ics_info->num_window_groups + sfb], ms_used[g*ics_info->num_window_groups + sfb] ? "M/S coding used" : "M/S coding NOT used");
