@@ -30,6 +30,7 @@ SOFTWARE.
 #include <tchar.h>
 #include <assert.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include "AMBitStream.h"
 #include "combase.h"
 
@@ -1082,6 +1083,7 @@ SOFTWARE.
 	BST_FIELD_PROP_2NUMBER1(Field_Name, Field_Bits, szTemp2);}\
 
 #define BST_FIELD_PROP_UE(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
+#define BST_FIELD_PROP_UE1(Field_Name, AliasName, Field_Desc)			BST_FIELD_PROP_2NUMBER_ALIAS_F_(#Field_Name, "%s", (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc, AliasName)
 #define BST_FIELD_PROP_SE(Field_Name, Field_Desc)						BST_FIELD_PROP_SIGNNUMBER(#Field_Name, (long long)quick_log2((Field_Name>=0?Field_Name:((-Field_Name) + 1)) + 1)*2 + 1, Field_Name, Field_Desc)
 #define BST_FIELD_PROP_UVLC(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
 
