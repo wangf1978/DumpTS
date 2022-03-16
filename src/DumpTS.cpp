@@ -854,7 +854,7 @@ int CheckFixedFeature(int argc, char* argv[])
 	}
 	else if (_stricmp(argv[1], "--listmp4box") == 0)
 	{
-		ISOBMFF::PrintISOBMFFBox(-1LL);
+		BST::ISOBMFF::PrintISOBMFFBox(-1LL);
 		return 0;
 	}
 	else if (_stricmp(argv[1], "--listmkvEBML") == 0)

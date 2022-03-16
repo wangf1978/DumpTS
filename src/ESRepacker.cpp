@@ -473,11 +473,11 @@ int CNALRepacker::Open(const char* szSrcFile)
 	{
 		if (m_config.codec_id == CODEC_ID_V_MPEG4_AVC)
 		{
-			m_NALAURepacker = new ISOBMFF::AVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pMMTESDataOutputAgent, m_config.pAVCConfigRecord);
+			m_NALAURepacker = new BST::ISOBMFF::AVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pMMTESDataOutputAgent, m_config.pAVCConfigRecord);
 		}
 		else if (m_config.codec_id == CODEC_ID_V_MPEGH_HEVC)
 		{
-			m_NALAURepacker = new ISOBMFF::HEVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pMMTESDataOutputAgent, m_config.pHEVCConfigRecord);
+			m_NALAURepacker = new BST::ISOBMFF::HEVCSampleRepacker(m_fpSrc, m_fpDst, m_config.pMMTESDataOutputAgent, m_config.pHEVCConfigRecord);
 		}
 	}
 

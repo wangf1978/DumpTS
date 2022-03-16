@@ -35,7 +35,7 @@ SOFTWARE.
 #include "AMRFC3986.h"
 
 using namespace std;
-using namespace ISOBMFF;
+using namespace BST::ISOBMFF;
 
 extern const char *dump_msg[];
 extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
@@ -1725,7 +1725,7 @@ int DumpMP4OneStreamFromMovieFragments(Box* root_box, uint32_t track_id, FILE* f
 					if (v == nullptr)
 						continue;
 
-					ISOBMFF::MovieBox::TrackBox* ptr_trak_box = (ISOBMFF::MovieBox::TrackBox*)result[0];
+					BST::ISOBMFF::MovieBox::TrackBox* ptr_trak_box = (BST::ISOBMFF::MovieBox::TrackBox*)result[0];
 					if (ptr_trak_box->GetTrackID() == track_id)
 					{
 						// Try to find the 'stsd' box, and update the current null one

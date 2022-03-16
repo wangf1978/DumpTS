@@ -387,9 +387,9 @@ namespace BST {
 
 						virtual ~SUB_LAYER_HRD_PARAMETERS() {
 							for (unsigned long i = 0; i <= m_sub_layer_info->cpb_cnt_minus1 && sub_layer_hrd_parameters != NULL; i++) {
-								AMP_SAFEDEL(sub_layer_hrd_parameters[i]);
+								AMP_SAFEDEL2(sub_layer_hrd_parameters[i]);
 							}
-							AMP_SAFEDELA(sub_layer_hrd_parameters);
+							AMP_SAFEDELA3(sub_layer_hrd_parameters);
 						}
 
 						int Map(AMBst bst)
@@ -567,9 +567,9 @@ namespace BST {
 
 				virtual ~HRD_PARAMETERS() {
 					for (int i = 0; i <= m_maxNumSubLayersMinus1; i++) {
-						AMP_SAFEDEL(sub_layer_infos[i]);
+						AMP_SAFEDEL2(sub_layer_infos[i]);
 					}
-					AMP_SAFEDELA(sub_layer_infos);
+					AMP_SAFEDELA3(sub_layer_infos);
 				}
 
 
@@ -1508,9 +1508,9 @@ namespace BST {
 					if (st_ref_pic_set != NULL)
 					{
 						for (uint8_t i = 0; i < num_short_term_ref_pic_sets; i++) {
-							AMP_SAFEDEL(st_ref_pic_set[i]);
+							AMP_SAFEDEL2(st_ref_pic_set[i]);
 						}
-						AMP_SAFEDELA(st_ref_pic_set);
+						AMP_SAFEDELA3(st_ref_pic_set);
 					}
 				}
 
@@ -1677,14 +1677,14 @@ namespace BST {
 							UNMAP_STRUCT_POINTER5(vps_hrd_parameters[i])
 						}
 
-						AMP_SAFEDELA(vps_hrd_parameters);
+						AMP_SAFEDELA3(vps_hrd_parameters);
 					}
 
 					if (vps_num_layer_sets_minus1 >= 1) {
-						AMP_SAFEDELA(layer_id_included_flag);
+						AMP_SAFEDELA2(layer_id_included_flag);
 					}
 
-					AMP_SAFEDELA(vps_ordering_info);
+					AMP_SAFEDELA2(vps_ordering_info);
 
 					UNMAP_STRUCT_POINTER5(profile_tier_level);
 				}
@@ -1928,7 +1928,7 @@ namespace BST {
 						, seq_parameter_set_rbsp(ptr_seq_parameter_set_rbsp){}
 
 					virtual ~VUI_PARAMETERS() {
-						AMP_SAFEDEL(hrd_parameters);
+						AMP_SAFEDEL2(hrd_parameters);
 					}
 
 					int Map(AMBst in_bst)
@@ -2296,22 +2296,22 @@ namespace BST {
 					, scaling_list_data(NULL)
 					, st_ref_pic_sets(NULL)
 					, vui_parameters(NULL)
+					, sps_range_extension_flag(0)
+					, sps_multilayer_extension_flag(0)
+					, sps_3d_extension_flag(0)
+					, sps_scc_extension_flag(0)
+					, sps_extension_4bits(0)
 					, ptr_ctx_video_bst(ctx)
 				{
-					sps_range_extension_flag = 0;
-					sps_multilayer_extension_flag = 0;
-					sps_3d_extension_flag = 0;
-					sps_extension_4bits = 0;
-					sps_scc_extension_flag = 0;
 				}
 
 				virtual ~SEQ_PARAMETER_SET_RBSP()
 				{
-					AMP_SAFEDEL(vui_parameters);
-					AMP_SAFEDEL(st_ref_pic_sets);
-					AMP_SAFEDEL(scaling_list_data);
-					AMP_SAFEDELA(sps_ordering_info);
-					AMP_SAFEDEL(profile_tier_level);
+					AMP_SAFEDEL2(vui_parameters);
+					AMP_SAFEDEL2(st_ref_pic_sets);
+					AMP_SAFEDEL2(scaling_list_data);
+					AMP_SAFEDELA2(sps_ordering_info);
+					AMP_SAFEDEL2(profile_tier_level);
 				}
 
 				int Map(AMBst in_bst)
@@ -3263,7 +3263,7 @@ namespace BST {
 
 					virtual ~PPS_MULTILAYER_EXTENSION() {
 						UNMAP_STRUCT_POINTER5(colour_mapping_table);
-						AMP_SAFEDELA(ref_loc_info);
+						AMP_SAFEDELA2(ref_loc_info);
 					}
 
 					int Map(AMBst in_bst)
@@ -3489,7 +3489,6 @@ namespace BST {
 
 							uint32_t curr_delta_list = delta_dlt_val0;
 							for (uint32_t k = 0; k < num_val_delta_dlt; k++) {
-								char szDeltaList[32] = { 0 };
 								if (k == 0)
 								{
 									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag0200", "deltaList[%d]", curr_delta_list, "", (int)k);
@@ -3713,8 +3712,8 @@ namespace BST {
 					UNMAP_STRUCT_POINTER5(pps_multilayer_extension);
 					UNMAP_STRUCT_POINTER5(pps_range_extension);
 					UNMAP_STRUCT_POINTER5(scaling_list_data);
-					AMP_SAFEDELA(column_width_minus1);
-					AMP_SAFEDELA(row_height_minus1);
+					AMP_SAFEDELA2(column_width_minus1);
+					AMP_SAFEDELA2(row_height_minus1);
 				}
 
 				int Map(AMBst in_bst)
@@ -3990,7 +3989,7 @@ namespace BST {
 						virtual ~REF_PIC_LISTS_MODIFICATION()
 						{
 							for (int i = 0; i < 2; i++) {
-								AMP_SAFEDELA(list_entry[i]);
+								AMP_SAFEDELA2(list_entry[i]);
 							}
 						}
 
@@ -4113,8 +4112,8 @@ namespace BST {
 						}
 
 						virtual ~PRED_WEIGHT_TABLE() {
-							AMP_SAFEDELA(weight_factors[0]);
-							AMP_SAFEDELA(weight_factors[1]);
+							AMP_SAFEDELA2(weight_factors[0]);
+							AMP_SAFEDELA2(weight_factors[1]);
 						}
 
 						int Map(AMBst in_bst)
@@ -4421,8 +4420,8 @@ namespace BST {
 					uint8_t		NumPicTotalCurr;
 
 					SLICE_SEGMENT_HEADER(NAL_UNIT* pNALUnit)
-						//, pic_output_flag(1)
-						: short_term_ref_pic_set_idx(0)
+						: pic_output_flag(1)
+						, short_term_ref_pic_set_idx(0)
 						, dependent_slice_segment_flag(0)
 						, slice_segment_address(0)
 						, num_long_term_sps(0)
@@ -4439,14 +4438,13 @@ namespace BST {
 						, slice_segment_header_extension_length(0)
 						, ptr_nal_unit(pNALUnit)
 					{
-						pic_output_flag = 1;
 					}
 
 					~SLICE_SEGMENT_HEADER()
 					{
-						AMP_SAFEDEL(ref_pic_lists_modification);
-						AMP_SAFEDEL(pred_weight_table);
-						AMP_SAFEDEL(st_ref_pic_set);
+						AMP_SAFEDEL2(ref_pic_lists_modification);
+						AMP_SAFEDEL2(pred_weight_table);
+						AMP_SAFEDEL2(st_ref_pic_set);
 					}
 
 					int Map(AMBst in_bst)
@@ -4970,7 +4968,7 @@ namespace BST {
 
 				virtual ~SLICE_SEGMENT_LAYER_RBSP()
 				{
-					AMP_SAFEDEL(ptr_slice_header);
+					AMP_SAFEDEL2(ptr_slice_header);
 				}
 
 				int Map(AMBst in_bst)

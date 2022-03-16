@@ -111,9 +111,9 @@ struct ES_REPACK_CONFIG
 	union
 	{
 		void*		pCodecPrivObj;
-		ISOBMFF::AVCDecoderConfigurationRecord*
+		BST::ISOBMFF::AVCDecoderConfigurationRecord*
 					pAVCConfigRecord;
-		ISOBMFF::HEVCDecoderConfigurationRecord*
+		BST::ISOBMFF::HEVCDecoderConfigurationRecord*
 					pHEVCConfigRecord;
 	};
 	char			es_output_file_path[MAX_PATH];
@@ -227,7 +227,7 @@ protected:
 
 	// Data
 protected:
-	ISOBMFF::INALAUSampleRepacker* 
+	BST::ISOBMFF::INALAUSampleRepacker* 
 							m_NALAURepacker;
 	AMLinearRingBuffer		m_lrb_NAL;
 

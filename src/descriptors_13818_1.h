@@ -946,7 +946,7 @@ namespace BST {
 					for(int i=0;i<substructureCount;i++){
 						UNMAP_STRUCT_POINTER(substructures[i])
 					}
-					AMP_SAFEDELA(substructures);
+					AMP_SAFEDELA2(substructures);
 				}
 				else
 				{
@@ -2706,7 +2706,7 @@ namespace BST {
 				for(unsigned char i=0;i<operation_points_count && operation_points != NULL;i++){
 					UNMAP_STRUCT_POINTER(operation_points[i])
 				}
-				AMP_SAFEDELA(operation_points);
+				AMP_SAFEDELA2(operation_points);
 				return RET_CODE_SUCCESS;
 			}
 
@@ -2769,7 +2769,7 @@ namespace BST {
 				for(unsigned char i=0;i<level_count && levels != NULL;i++){
 					UNMAP_STRUCT_POINTER2(levels[i])
 				}
-				AMP_SAFEDELA(levels);
+				AMP_SAFEDELA2(levels);
 			}
 			else
 			{

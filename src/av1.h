@@ -413,7 +413,7 @@ namespace BST
 		{
 			/* The current bitstream is annex-b: length delimited bitstream format or not */
 			bool				AnnexB;
-			/* For Single oBU parsing, no reference frame information at all, so all refer-frame related process will be ignored. */
+			/* For Single OBU parsing, no reference frame information at all, so all refer-frame related process will be ignored. */
 			bool				SingleOBUParse;
 			bool				SeenFrameHeader;
 			bool				camera_frame_header_ready;
@@ -7743,131 +7743,6 @@ namespace BST
 			DECLARE_FIELDPROP_END()
 
 		};
-
-		struct AV1CodecConfigurationRecord
-		{
-			uint8_t			marker : 1;
-			uint8_t			version : 7;
-			uint8_t			seq_profile : 3;
-			uint8_t			seq_level_idx_0 : 5;
-			uint8_t			seq_tier_0 : 1;
-			uint8_t			high_bitdepth : 1;
-			uint8_t			twelve_bit : 1;
-			uint8_t			monochrome : 1;
-			uint8_t			chroma_subsampling_x : 1;
-			uint8_t			chroma_subsampling_y : 1;
-			uint8_t			chroma_sample_position : 2;
-
-			uint8_t			reserved : 3;
-			uint8_t			initial_presentation_delay_present : 1;
-			uint8_t			initial_presentation_delay_minus_one : 4;
-
-			std::vector<uint8_t>
-							configOBUs;
-
-			int Unpack(CBitstream& bs, int cbRecord)
-			{
-				if (cbRecord < 4)
-					return RET_CODE_BOX_TOO_SMALL;
-
-				marker = (uint8_t)bs.GetBits(1);
-				version = (uint8_t)bs.GetBits(7);
-				
-				seq_profile = (uint8_t)bs.GetBits(3);
-				seq_level_idx_0 = (uint8_t)bs.GetBits(5);
-
-				seq_tier_0 = (uint8_t)bs.GetBits(1);
-				high_bitdepth = (uint8_t)bs.GetBits(1);
-				twelve_bit = (uint8_t)bs.GetBits(1);
-				monochrome = (uint8_t)bs.GetBits(1);
-				chroma_subsampling_x = (uint8_t)bs.GetBits(1);
-				chroma_subsampling_y = (uint8_t)bs.GetBits(1);
-				chroma_sample_position = (uint8_t)bs.GetBits(2);
-
-				reserved = (uint8_t)bs.GetBits(3);
-				initial_presentation_delay_present = (uint8_t)bs.GetBits(1);
-				initial_presentation_delay_minus_one = (uint8_t)bs.GetBits(4);
-
-				cbRecord -= 4;
-
-				configOBUs.resize(cbRecord);
-
-				if (bs.Read(&configOBUs[0], cbRecord) != cbRecord)
-				{
-					return RET_CODE_BOX_INCOMPATIBLE;
-				}
-				
-				return RET_CODE_SUCCESS;
-			}
-
-			DECLARE_FIELDPROP_BEGIN()
-				NAV_FIELD_PROP_NUMBER1(marker, 1, "SHALL be set to 1");
-				NAV_FIELD_PROP_2NUMBER1(version, 7, "indicates the version of the AV1CodecConfigurationRecord. The value SHALL be set to 1 for AV1CodecConfigurationRecord.");
-				NAV_FIELD_PROP_2NUMBER1(seq_profile, 3, "specifies the features that can be used in the coded video sequence");
-				NAV_FIELD_PROP_2NUMBER1(seq_level_idx_0, 5, "indicates the value of seq_level_idx[0] found in the Sequence Header OBU and SHALL be equal to the value of seq_level_idx[0] in the Sequence Header OBU.");
-				NAV_FIELD_PROP_NUMBER1(seq_tier_0, 1, "indicates the value of seq_tier[0] found in the Sequence Header OBU and SHALL be equal to the value of seq_tier[0] in the Sequence Header OBU.");
-				NAV_FIELD_PROP_NUMBER1(high_bitdepth, 1, "indicates the value of the high_bitdepth flag from the Sequence Header OBU");
-				NAV_FIELD_PROP_NUMBER1(twelve_bit, 1, " indicates the value of the twelve_bit flag from the Sequence Header OBU. When twelve_bit is not present in the Sequence Header OBU the AV1CodecConfigurationRecord twelve_bit value SHALL be 0");
-				NAV_FIELD_PROP_NUMBER1(monochrome, 1, "indicates the value of the mono_chrome flag from the Sequence Header OBU.");
-				NAV_FIELD_PROP_NUMBER1(chroma_subsampling_x, 1, "indicates the subsampling_x value from the Sequence Header OBU.");
-				NAV_FIELD_PROP_NUMBER1(chroma_subsampling_y, 1, "indicates the subsampling_y value from the Sequence Header OBU.");
-				NAV_FIELD_PROP_2NUMBER1(chroma_sample_position, 2, "indicates the chroma_sample_position value from the Sequence Header OBU.");
-
-				uint8_t BitDepth = 8;
-				if (seq_profile == 2 && high_bitdepth)
-					BitDepth = twelve_bit ? 12 : 10;
-				else if (seq_profile <= 2)
-					BitDepth = high_bitdepth ? 10 : 8;
-				NAV_WRITE_TAG_WITH_1NUMBER_VALUE1(BitDepth, "The bitdepth of each output sample");
-				DECLARE_FIELDPROP_END()
-		};
-
-		struct AV1CodecConfigurationBox : public ISOBMFF::Box
-		{
-			AV1CodecConfigurationRecord*	AV1Config = nullptr;
-
-			virtual ~AV1CodecConfigurationBox() {
-				if (AV1Config != nullptr)
-					delete AV1Config;
-			}
-
-			virtual int Unpack(CBitstream& bs)
-			{
-				int iRet = RET_CODE_SUCCESS;
-
-				if ((iRet = Box::Unpack(bs)) < 0)
-					return iRet;
-
-				uint64_t left_bytes = LeftBytes(bs);
-				if (left_bytes < 4)
-				{
-					iRet = RET_CODE_BOX_TOO_SMALL;
-					goto done;
-				}
-
-				if (left_bytes > INT_MAX)
-				{
-					iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
-					goto done;
-				}
-
-				AV1Config = new AV1CodecConfigurationRecord();
-				iRet = AV1Config->Unpack(bs, (int)left_bytes);
-
-			done:
-
-				return iRet;
-			}
-
-#if 0
-			DECLARE_FIELDPROP_BEGIN()
-				BASECLASS_IMPLEMENT(Box);
-				NAV_FIELD_PROP_REF2_2(AV1Config, "AV1Config", "AV1CodecConfigurationBox");
-			DECLARE_FIELDPROP_END()
-#endif
-
-		};
-
 	}	// AV1
 }	// BST
 

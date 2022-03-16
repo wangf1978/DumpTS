@@ -217,7 +217,14 @@ SOFTWARE.
 #define AMP_SAFEASSIGN1(p, v)				if(p){*(p) = (v); if(v)v->ProcAddRef();}CODE_NOP1(p)
 
 #define AMP_SAFEDEL(p)						if(p){delete p;p = NULL;}CODE_NOP1(p)
+#define AMP_SAFEDEL2(p)						if(p){/*AMP_UnregisterMem(GetCurrentModule(), (void*)p); */delete p;p = NULL;}AMP_NOP1(p)
+#define AMP_SAFEDEL3(p)						/*AMP_UnregisterMem(GetCurrentModule(), (void*)p); */delete p; p = NULL
+#define AMP_SAFEDEL4(p)						/*AMP_UnregisterMem(GetCurrentModule(), (void*)p); */delete p
+
 #define AMP_SAFEDELA(p)						if(p){delete [] p;p = NULL;}CODE_NOP1(p)
+#define AMP_SAFEDELA2(p)					if(p){/*AMP_UnregisterMem(GetCurrentModule(), (void*)p);*/ delete [] p;p = NULL;}AMP_NOP1(p)
+#define AMP_SAFEDELA3(p)					/*AMP_UnregisterMem(GetCurrentModule(), (void*)p); */delete [] p; p = NULL
+#define AMP_SAFEDELA4(p)					/*AMP_UnregisterMem(GetCurrentModule(), (void*)p); */delete [] p
 
 #define AMP_FAILED(retcode)					(((int)(retcode)) < 0)
 #define AMP_SUCCEEDED(retcode)				(((int)(retcode)) >= 0)

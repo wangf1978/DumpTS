@@ -2966,9 +2966,9 @@ namespace BST {
 		}PACKED;
 
 		std::vector<C13818_1_Descriptor*>	
-									descriptors;
+							descriptors;
 		std::vector<CElementStreamInfo*>
-									elementary_stream_infos;
+							elementary_stream_infos;
 
 		unsigned long		CRC_32;
 		CPSIContext*		ptr_ctx;
@@ -3988,7 +3988,7 @@ namespace BST {
 
 		~CPSITable(){
 			for(size_t i=0;i<_countof(sections);i++){
-				AMP_SAFEDEL(sections[i]);
+				AMP_SAFEDEL2(sections[i]);
 			}
 		}
 

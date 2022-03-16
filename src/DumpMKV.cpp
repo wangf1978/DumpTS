@@ -225,13 +225,13 @@ int DumpMKVOneStream(BST::Matroska::EBMLElement* root, BST::Matroska::EBMLElemen
 		auto pCodecPrivElement = (BST::Matroska::CodecPrivateElement*)results[0];
 		if (codec_id == CODEC_ID_V_MPEG4_AVC)
 		{
-			codec_priv_obj = new ISOBMFF::AVCDecoderConfigurationRecord();
-			pCodecPrivElement->UnpacksAsAVC((ISOBMFF::AVCDecoderConfigurationRecord*)codec_priv_obj);
+			codec_priv_obj = new BST::ISOBMFF::AVCDecoderConfigurationRecord();
+			pCodecPrivElement->UnpacksAsAVC((BST::ISOBMFF::AVCDecoderConfigurationRecord*)codec_priv_obj);
 		}
 		else if (codec_id == CODEC_ID_V_MPEGH_HEVC)
 		{
-			codec_priv_obj = new ISOBMFF::HEVCDecoderConfigurationRecord();
-			pCodecPrivElement->UnpackAsHEVC((ISOBMFF::HEVCDecoderConfigurationRecord*)codec_priv_obj);
+			codec_priv_obj = new BST::ISOBMFF::HEVCDecoderConfigurationRecord();
+			pCodecPrivElement->UnpackAsHEVC((BST::ISOBMFF::HEVCDecoderConfigurationRecord*)codec_priv_obj);
 		}
 		else
 			codec_priv_obj = (void*)pCodecPrivElement;
@@ -297,9 +297,9 @@ done:
 	if (codec_priv_obj != nullptr)
 	{
 		if (codec_id == CODEC_ID_V_MPEG4_AVC)
-			delete (ISOBMFF::AVCDecoderConfigurationRecord*)codec_priv_obj;
+			delete (BST::ISOBMFF::AVCDecoderConfigurationRecord*)codec_priv_obj;
 		else if (codec_id == CODEC_ID_V_MPEGH_HEVC)
-			delete (ISOBMFF::HEVCDecoderConfigurationRecord*)codec_priv_obj;
+			delete (BST::ISOBMFF::HEVCDecoderConfigurationRecord*)codec_priv_obj;
 	}
 
 	if (pESRepacker != nullptr)

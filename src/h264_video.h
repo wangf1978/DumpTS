@@ -675,8 +675,8 @@ namespace BST {
 						, seq_parameter_set_data(ptr_seq_parameter_set_data) {}
 
 					virtual ~VUI_PARAMETERS() {
-						AMP_SAFEDEL(vcl_hrd_parameters);
-						AMP_SAFEDEL(nal_hrd_parameters);
+						AMP_SAFEDEL2(vcl_hrd_parameters);
+						AMP_SAFEDEL2(nal_hrd_parameters);
 					}
 
 					int Map(AMBst in_bst)
@@ -831,12 +831,12 @@ namespace BST {
 
 					BST_FIELD_PROP_BOOL(nal_hrd_parameters_present_flag, "NAL HRD parameters (pertaining to Type II bitstream conformance) are present", "NAL HRD parameters are not present");
 					if (nal_hrd_parameters_present_flag) {
-						BST_FIELD_PROP_REF4(nal_hrd_parameters, "hrd_parameters", "NAL HRD parameters");
+						BST_FIELD_PROP_REF4(nal_hrd_parameters, "nal_hrd_parameters", "NAL HRD parameters");
 					}
 
 					BST_FIELD_PROP_BOOL(vcl_hrd_parameters_present_flag, "VCL HRD parameters (clauses E.1.2 and E.2.2) immediately follow the flag", "VCL HRD parameters are not present");
 					if (vcl_hrd_parameters_present_flag) {
-						BST_FIELD_PROP_REF4(vcl_hrd_parameters, "vcl_parameters", "VCL HRD parameters");
+							BST_FIELD_PROP_REF4(vcl_hrd_parameters, "vcl_hrd_parameters", "VCL HRD parameters");
 					}
 
 					BST_FIELD_PROP_BOOL(low_delay_hrd_flag, "", "");
@@ -1707,42 +1707,42 @@ namespace BST {
 				}
 
 				virtual ~SEQ_PARAMETER_SET_MVC_EXTENSION() {
-					AMP_SAFEDELA(view_id);
+					AMP_SAFEDELA2(view_id);
 
 					for (int i = 1; i <= num_views_minus1; i++) {
-						AMP_SAFEDELA(anchor_ref_l0[i]);
-						AMP_SAFEDELA(anchor_ref_l1[i]);
-						AMP_SAFEDELA(non_anchor_ref_l0[i]);
-						AMP_SAFEDELA(non_anchor_ref_l1[i]);
+						AMP_SAFEDELA2(anchor_ref_l0[i]);
+						AMP_SAFEDELA2(anchor_ref_l1[i]);
+						AMP_SAFEDELA2(non_anchor_ref_l0[i]);
+						AMP_SAFEDELA2(non_anchor_ref_l1[i]);
 					}
 
-					AMP_SAFEDELA(num_anchor_refs_l0);
-					AMP_SAFEDELA(anchor_ref_l0);
-					AMP_SAFEDELA(num_anchor_refs_l1);
-					AMP_SAFEDELA(anchor_ref_l1);
+					AMP_SAFEDELA2(num_anchor_refs_l0);
+					AMP_SAFEDELA2(anchor_ref_l0);
+					AMP_SAFEDELA2(num_anchor_refs_l1);
+					AMP_SAFEDELA2(anchor_ref_l1);
 
-					AMP_SAFEDELA(num_non_anchor_refs_l0);
-					AMP_SAFEDELA(non_anchor_ref_l0);
-					AMP_SAFEDELA(num_non_anchor_refs_l1);
-					AMP_SAFEDELA(non_anchor_ref_l1);
+					AMP_SAFEDELA2(num_non_anchor_refs_l0);
+					AMP_SAFEDELA2(non_anchor_ref_l0);
+					AMP_SAFEDELA2(num_non_anchor_refs_l1);
+					AMP_SAFEDELA2(non_anchor_ref_l1);
 
 					for (int i = 0; i <= num_level_values_signalled_minus1; i++) {
 						for (int j = 0; j <= num_applicable_ops_minus1[i]; j++) {
-							AMP_SAFEDELA(applicable_op_target_view_id[i][j]);
+							AMP_SAFEDELA2(applicable_op_target_view_id[i][j]);
 						}
 
-						AMP_SAFEDELA(applicable_op_temporal_id[i]);
-						AMP_SAFEDELA(applicable_op_num_target_views_minus1[i]);
-						AMP_SAFEDELA(applicable_op_target_view_id[i]);
-						AMP_SAFEDELA(applicable_op_num_views_minus1[i]);
+						AMP_SAFEDELA2(applicable_op_temporal_id[i]);
+						AMP_SAFEDELA2(applicable_op_num_target_views_minus1[i]);
+						AMP_SAFEDELA2(applicable_op_target_view_id[i]);
+						AMP_SAFEDELA2(applicable_op_num_views_minus1[i]);
 					}
 
-					AMP_SAFEDELA(level_idc);
-					AMP_SAFEDELA(num_applicable_ops_minus1);
-					AMP_SAFEDELA(applicable_op_temporal_id);
-					AMP_SAFEDELA(applicable_op_num_target_views_minus1);
-					AMP_SAFEDELA(applicable_op_target_view_id);
-					AMP_SAFEDELA(applicable_op_num_views_minus1);
+					AMP_SAFEDELA2(level_idc);
+					AMP_SAFEDELA2(num_applicable_ops_minus1);
+					AMP_SAFEDELA2(applicable_op_temporal_id);
+					AMP_SAFEDELA2(applicable_op_num_target_views_minus1);
+					AMP_SAFEDELA2(applicable_op_target_view_id);
+					AMP_SAFEDELA2(applicable_op_num_views_minus1);
 				}
 
 				int Map(AMBst in_bst)
@@ -2321,44 +2321,44 @@ namespace BST {
 				}
 
 				virtual ~SEQ_PARAMETER_SET_MVCD_EXTENSION() {
-					AMP_SAFEDELA(view_id);
+					AMP_SAFEDELA2(view_id);
 
 					for (int i = 1; i <= num_views_minus1; i++) {
-						AMP_SAFEDELA(anchor_ref_l0[i]);
-						AMP_SAFEDELA(anchor_ref_l1[i]);
-						AMP_SAFEDELA(non_anchor_ref_l0[i]);
-						AMP_SAFEDELA(non_anchor_ref_l1[i]);
+						AMP_SAFEDELA2(anchor_ref_l0[i]);
+						AMP_SAFEDELA2(anchor_ref_l1[i]);
+						AMP_SAFEDELA2(non_anchor_ref_l0[i]);
+						AMP_SAFEDELA2(non_anchor_ref_l1[i]);
 					}
 
-					AMP_SAFEDELA(num_anchor_refs_l0);
-					AMP_SAFEDELA(anchor_ref_l0);
-					AMP_SAFEDELA(num_anchor_refs_l1);
-					AMP_SAFEDELA(anchor_ref_l1);
+					AMP_SAFEDELA2(num_anchor_refs_l0);
+					AMP_SAFEDELA2(anchor_ref_l0);
+					AMP_SAFEDELA2(num_anchor_refs_l1);
+					AMP_SAFEDELA2(anchor_ref_l1);
 
-					AMP_SAFEDELA(num_non_anchor_refs_l0);
-					AMP_SAFEDELA(non_anchor_ref_l0);
-					AMP_SAFEDELA(num_non_anchor_refs_l1);
-					AMP_SAFEDELA(non_anchor_ref_l1);
+					AMP_SAFEDELA2(num_non_anchor_refs_l0);
+					AMP_SAFEDELA2(non_anchor_ref_l0);
+					AMP_SAFEDELA2(num_non_anchor_refs_l1);
+					AMP_SAFEDELA2(non_anchor_ref_l1);
 
 					for (int i = 0; i <= num_level_values_signalled_minus1; i++) {
 						for (int j = 0; j <= num_applicable_ops_minus1[i]; j++) {
-							AMP_SAFEDELA(applicable_op_target_view[i][j]);
+							AMP_SAFEDELA2(applicable_op_target_view[i][j]);
 						}
 
-						AMP_SAFEDELA(applicable_op_temporal_id[i]);
-						AMP_SAFEDELA(applicable_op_num_target_views_minus1[i]);
-						AMP_SAFEDELA(applicable_op_target_view[i]);
-						AMP_SAFEDELA(applicable_op_num_texture_views_minus1[i]);
-						AMP_SAFEDELA(applicable_op_num_depth_views[i]);
+						AMP_SAFEDELA2(applicable_op_temporal_id[i]);
+						AMP_SAFEDELA2(applicable_op_num_target_views_minus1[i]);
+						AMP_SAFEDELA2(applicable_op_target_view[i]);
+						AMP_SAFEDELA2(applicable_op_num_texture_views_minus1[i]);
+						AMP_SAFEDELA2(applicable_op_num_depth_views[i]);
 					}
 
-					AMP_SAFEDELA(applicable_op_temporal_id);
-					AMP_SAFEDELA(applicable_op_num_target_views_minus1);
-					AMP_SAFEDELA(applicable_op_num_texture_views_minus1);
-					AMP_SAFEDELA(applicable_op_num_depth_views);
-					AMP_SAFEDELA(applicable_op_target_view);
-					AMP_SAFEDELA(level_idc);
-					AMP_SAFEDELA(num_applicable_ops_minus1);
+					AMP_SAFEDELA2(applicable_op_temporal_id);
+					AMP_SAFEDELA2(applicable_op_num_target_views_minus1);
+					AMP_SAFEDELA2(applicable_op_num_texture_views_minus1);
+					AMP_SAFEDELA2(applicable_op_num_depth_views);
+					AMP_SAFEDELA2(applicable_op_target_view);
+					AMP_SAFEDELA2(level_idc);
+					AMP_SAFEDELA2(num_applicable_ops_minus1);
 				}
 
 				int Map(AMBst in_bst)
@@ -2957,7 +2957,7 @@ namespace BST {
 					{
 						for (int i = 0; i < 2; i++)
 						{
-							AMP_SAFEDEL(modification_of_pic_num[i]);
+							AMP_SAFEDEL2(modification_of_pic_num[i]);
 						}
 					}
 
@@ -3122,7 +3122,7 @@ namespace BST {
 					{
 						for (int i = 0; i < 2; i++)
 						{
-							AMP_SAFEDELA(modification_of_pic_num[i]);
+							AMP_SAFEDELA2(modification_of_pic_num[i]);
 						}
 					}
 
@@ -3325,8 +3325,8 @@ namespace BST {
 					}
 
 					virtual ~PRED_WEIGHT_TABLE() {
-						AMP_SAFEDELA(weight_factors[0]);
-						AMP_SAFEDELA(weight_factors[1]);
+						AMP_SAFEDELA2(weight_factors[0]);
+						AMP_SAFEDELA2(weight_factors[1]);
 					}
 
 					int Map(AMBst in_bst)
@@ -3589,7 +3589,7 @@ namespace BST {
 						{
 							ADAPTIVE_REF_PIC_MARKING* pMarking = adaptive_ref_pic_marking;
 							adaptive_ref_pic_marking = adaptive_ref_pic_marking->pNext;
-							AMP_SAFEDEL(pMarking);
+							AMP_SAFEDEL4(pMarking);
 						}
 					}
 
@@ -3806,14 +3806,14 @@ namespace BST {
 				{
 					if (ptr_nal_unit->nal_unit_header.nal_unit_type == 20 || ptr_nal_unit->nal_unit_header.nal_unit_type == 21)
 					{
-						AMP_SAFEDEL(ptr_ref_pic_list_mvc_modification);
+						AMP_SAFEDEL2(ptr_ref_pic_list_mvc_modification);
 					}
 					else
 					{
-						AMP_SAFEDEL(ptr_ref_pic_list_modification);
+						AMP_SAFEDEL2(ptr_ref_pic_list_modification);
 					}
-					AMP_SAFEDEL(ptr_pred_weight_table);
-					AMP_SAFEDEL(ptr_dec_ref_pic_marking);
+					AMP_SAFEDEL2(ptr_pred_weight_table);
+					AMP_SAFEDEL2(ptr_dec_ref_pic_marking);
 				}
 
 				int Map(AMBst in_bst)
@@ -4158,7 +4158,7 @@ namespace BST {
 				}
 
 				virtual ~SLICE_LAYER_WITHOUT_PARTITIONING_RBSP(){
-					AMP_SAFEDEL(ptr_slice_header);
+					AMP_SAFEDEL2(ptr_slice_header);
 				}
 
 				int Map(AMBst in_bst)
@@ -4205,7 +4205,7 @@ namespace BST {
 				}
 
 				virtual ~SLICE_DATA_PARTITION_A_LAYER_RBSP() {
-					AMP_SAFEDEL(ptr_slice_header);
+					AMP_SAFEDEL2(ptr_slice_header);
 				}
 
 				int Map(AMBst in_bst)
