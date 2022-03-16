@@ -832,7 +832,7 @@ namespace BST {
 
 					virtual ~USER_DATA_REGISTERED_ITU_T_T35()
 					{
-						AMP_SAFEDEL(ptr_st2094_40);
+						AMP_SAFEDEL2(ptr_st2094_40);
 					}
 
 					int Map(AMBst in_bst)
@@ -1996,10 +1996,10 @@ namespace BST {
 
 					virtual ~TONE_MAPPING_INFO() {
 						if (tone_map_model_id == 2) {
-							AMP_SAFEDELA(start_of_coded_interval);
+							AMP_SAFEDELA2(start_of_coded_interval);
 						}
 						else if (tone_map_model_id == 3) {
-							AMP_SAFEDEL(pivot_layout);
+							AMP_SAFEDEL2(pivot_layout);
 						}
 					}
 
@@ -3815,7 +3815,7 @@ namespace BST {
 			}
 			catch (AMException e)
 			{
-				AMP_SAFEDEL(ptr_sei_message);
+				AMP_SAFEDEL2(ptr_sei_message);
 				return e.RetCode();
 			}
 
