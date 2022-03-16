@@ -330,6 +330,8 @@ namespace BST
 				for (size_t i = 0; i < sizeof(usertype); i++)
 					usertype[i] = bs.GetByte();
 
+				SkipLeftBits(bs);
+
 				return 0;
 			}
 		}PACKED;
@@ -1085,8 +1087,7 @@ namespace BST
 			{
 				for (auto& v : entries)
 				{
-					if (v.sample_group_description_entry != nullptr)
-						delete v.sample_group_description_entry;
+					AMP_SAFEDEL2(v.sample_group_description_entry);
 				}
 			}
 
@@ -2179,13 +2180,13 @@ namespace BST
 					virtual ~ItemInfoEntry()
 					{
 						if (version == 0) {
-							if (item_info_entry_v0 != nullptr) { delete item_info_entry_v0; }
+							AMP_SAFEDEL2(item_info_entry_v0);
 						}
 						else if (version == 1) {
-							if (item_info_entry_v1 != nullptr) { delete item_info_entry_v1; }
+							AMP_SAFEDEL2(item_info_entry_v1);
 						}
 						else if (version == 2) {
-							if (item_info_entry_v2 != nullptr) { delete item_info_entry_v2; }
+							AMP_SAFEDEL2(item_info_entry_v2);
 						}
 					}
 

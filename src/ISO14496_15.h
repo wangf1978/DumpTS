@@ -380,7 +380,8 @@ namespace BST
 					array_completeness((uint8_t)bs.GetBits(1)),
 					reserved((uint8_t)bs.GetBits(1)),
 					NAL_unit_type((uint8_t)bs.GetBits(6)),
-					numNalus(bs.GetWord()) {
+					numNalus(bs.GetWord()) 
+				{
 					try {
 						Nalus.resize(numNalus, nullptr);
 						for (size_t i = 0; i < Nalus.size(); i++)
