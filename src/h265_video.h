@@ -2554,7 +2554,7 @@ namespace BST {
 						uint32_t sub_width_c = ((1 == chroma_format_idc) || (2 == chroma_format_idc)) && (0 == separate_colour_plane_flag) ? 2 : 1;
 						uint32_t sub_height_c = (1 == chroma_format_idc) && (0 == separate_colour_plane_flag) ? 2 : 1;
 						display_width -= sub_width_c*(conf_win_left_offset + conf_win_right_offset);
-						display_height = sub_height_c*(conf_win_top_offset + conf_win_bottom_offset);
+						display_height -= sub_height_c*(conf_win_top_offset + conf_win_bottom_offset);
 					}
 
 					NAV_WRITE_TAG_WITH_NUMBER_VALUE1(display_width, "The display width");
