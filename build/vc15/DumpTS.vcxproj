@@ -239,6 +239,7 @@
     <None Include="..\..\doc\MKV_README.md" />
     <None Include="..\..\doc\MMT_README.md" />
     <None Include="..\..\doc\NAL_README.md" />
+    <None Include="..\..\doc\OPT_SYNTAX.md" />
     <None Include="..\..\doc\REFERENCES.md" />
     <None Include="..\..\doc\TS_README.md" />
     <None Include="..\..\doc\UTILITY_README.md" />

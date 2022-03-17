@@ -84,6 +84,9 @@
     <None Include="..\..\doc\AUDIO_README.md">
       <Filter>doc</Filter>
     </None>
+    <None Include="..\..\doc\OPT_SYNTAX.md">
+      <Filter>doc</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp">
