@@ -1129,6 +1129,12 @@ namespace BST {
 
 				struct USER_DATA_UNREGISTERED : public SYNTAX_BITSTREAM_MAP
 				{
+					/*
+						MPEG_cc_data() {
+						cc_data()
+						marker_bits
+						}
+					*/
 					struct CC_DATA : public SYNTAX_BITSTREAM_MAP
 					{
 						struct CC_DATA_ITEM {
@@ -1178,6 +1184,8 @@ namespace BST {
 									nal_read_u(in_bst, items[i].cc_data_1, 8, uint8_t);
 									nal_read_u(in_bst, items[i].cc_data_2, 8, uint8_t);
 								}
+
+								nal_read_u(in_bst, marker_bits, 8, uint8_t);
 
 								MAP_BST_END();
 							}
@@ -1529,17 +1537,15 @@ namespace BST {
 								}
 								else if (ptr_sei_payload->payload_size > 20)
 								{
-									user_data_payload_byte.reserve((size_t)ptr_sei_payload->payload_size - 20);
-									for (int i = 0; i < ptr_sei_payload->payload_size - 20; i++) {
-										nal_read_b(in_bst, user_data_payload_byte[i], 8, uint8_t);
-									}
+									user_data_payload_byte.resize(ptr_sei_payload->payload_size - 20);
+									uint8_t* pPayloadBytes = &user_data_payload_byte[0];
+									nal_read_bytes(in_bst, pPayloadBytes, ptr_sei_payload->payload_size - 20);
 								}
 							}
 							else if (ptr_sei_payload->payload_size > 16) {
-								user_data_payload_byte.reserve((size_t)ptr_sei_payload->payload_size - 16);
-								for (int i = 0; i < ptr_sei_payload->payload_size - 16; i++) {
-									nal_read_b(in_bst, user_data_payload_byte[i], 8, uint8_t);
-								}
+								user_data_payload_byte.resize(ptr_sei_payload->payload_size - 16);
+								uint8_t* pPayloadBytes = &user_data_payload_byte[0];
+								nal_read_bytes(in_bst, pPayloadBytes, ptr_sei_payload->payload_size - 16);
 							}
 							MAP_BST_END();
 						}
@@ -1558,12 +1564,13 @@ namespace BST {
 					}
 
 					DECLARE_FIELDPROP_BEGIN()
-						MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+						//BST_FIELD_PROP_FIXSIZE_BINSTR("uuid_iso_iec_11578", 128, uuid_iso_iec_11578, 16, szTemp2);
+						BST_FIELD_PROP_UUID1(uuid_iso_iec_11578, "A UUID according to the procedures of ISO/IEC 11578:1996 Annex A");
+						MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
 							uuid_iso_iec_11578[0x00], uuid_iso_iec_11578[0x01], uuid_iso_iec_11578[0x02], uuid_iso_iec_11578[0x03],
 							uuid_iso_iec_11578[0x04], uuid_iso_iec_11578[0x05], uuid_iso_iec_11578[0x06], uuid_iso_iec_11578[0x07],
 							uuid_iso_iec_11578[0x08], uuid_iso_iec_11578[0x09], uuid_iso_iec_11578[0x0a], uuid_iso_iec_11578[0x0b],
 							uuid_iso_iec_11578[0x0c], uuid_iso_iec_11578[0x0d], uuid_iso_iec_11578[0x0e], uuid_iso_iec_11578[0x0f]);
-						BST_FIELD_PROP_FIXSIZE_BINSTR("uuid_iso_iec_11578", 128, uuid_iso_iec_11578, 16, szTemp2);
 						if (MBCSICMP(szTemp2, "17ee8c60-f84d-11d9-8cd6-0800200c9a66") == 0)
 						{
 							if (type_indicator == 0x47413934)	// Closed_caption: 0x4741 3934 (same as ATSC_indicator for Closed Caption) 'OA94'
@@ -1591,15 +1598,32 @@ namespace BST {
 								MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "'%c%c%c%c'", (type_indicator >> 24) & 0xFF, (type_indicator >> 16) & 0xFF, (type_indicator >> 8) & 0xFF, type_indicator & 0xFF);
 								BST_FIELD_PROP_2NUMBER1(type_indicator, 32, type_indicator== 0x48445230?"Reserved for BDMV HDR dynamic metadata":(
 																			type_indicator== 0x48445232?"hdr_processing_data() of Philips HDR SEI message: 0x4844 5232": szTemp3));
+								if (map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields)) {
 								for (i = 0; i < (int)user_data_payload_byte.size(); i++) {
-									BST_ARRAY_FIELD_PROP_NUMBER("user_data_payload_byte", i, 8, user_data_payload_byte[i], "");
+										NAV_ARRAY_FIELD_PROP_NUMBER_("user_data_payload_byte", "", i, 8, user_data_payload_byte[i], "");
+									}
+									field_prop_idx++;
 								}
+							}
+						}
+						else if (MBCSICMP(szTemp2, "dc45e9bd-e6d9-48b7-962c-d820d923eeef") == 0)	// X264 build information
+						{
+							if (map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields)) {
+								uint8_t* x264_params = &user_data_payload_byte[0];
+								std::string str_x264_sei_version((const char*)x264_params, user_data_payload_byte.size());
+								unsigned long field_bits = (unsigned long)((uint64_t)user_data_payload_byte.size() * 8);
+								//NAV_FIELD_PROP_FIXSIZE_STR("x264_sei_version", field_bits, x264_params, user_data_payload_byte.size(), "");
+								BST_FIELD_PROP_FIXSIZE_BINSTR("x264_sei_version", field_bits, x264_params, user_data_payload_byte.size(), str_x264_sei_version.c_str());
+								field_prop_idx++;
 							}
 						}
 						else
 						{
+							if (map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields)) {
 							for (i = 0; i < (int)user_data_payload_byte.size(); i++) {
-								BST_ARRAY_FIELD_PROP_NUMBER("user_data_payload_byte", i, 8, user_data_payload_byte[i], "");
+									NAV_ARRAY_FIELD_PROP_NUMBER_("user_data_payload_byte", "", i, 8, user_data_payload_byte[i], "");
+								}
+								field_prop_idx++;
 							}
 						}
 					DECLARE_FIELDPROP_END()

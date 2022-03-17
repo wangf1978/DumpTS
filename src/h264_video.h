@@ -5037,7 +5037,7 @@ namespace BST {
 					return RET_CODE_INVALID_PARAMETER;
 
 				nal_length_delimiter_size = cbNALLengthDelimiterSize;
-				AMBst bst = AMBst_CreateFromBuffer(pStartBuf, cbBufSize);
+				AMBst bst = nullptr;// AMBst_CreateFromBuffer(pStartBuf, cbBufSize);
 
 				while (cbSize >= cbNALLengthDelimiterSize)
 				{
@@ -5059,31 +5059,32 @@ namespace BST {
 						if (std::find(ctx_video_bst.nal_unit_type_filters.begin(), ctx_video_bst.nal_unit_type_filters.end(), nal_unit_type) ==
 							ctx_video_bst.nal_unit_type_filters.end())
 						{
-							cbSize -= cbNALLengthDelimiterSize + 2;
-							pBuf += (ptrdiff_t)cbNALLengthDelimiterSize + 2;
+							cbSize -= cbNALLengthDelimiterSize + nal_length;
+							pBuf += (ptrdiff_t)cbNALLengthDelimiterSize + nal_length;
 							continue;
 						}
 					}
 
 					AMP_NEWT1(ptr_bst_nal_unit, BYTE_STREAM_NAL_UNIT, &ctx_video_bst, cbNALLengthDelimiterSize);
 					std::shared_ptr<BYTE_STREAM_NAL_UNIT> sp_bst_nal_unit(ptr_bst_nal_unit);
+					if (bst != nullptr)
+						AMBst_Destroy(bst);
+
+					bst = AMBst_CreateFromBuffer(pStartBuf, cbBufSize - cbSize + cbNALLengthDelimiterSize + nal_length);
 					AMBst_Seek(bst, (cbBufSize - cbSize) * 8);
 					if (AMP_FAILED(iRet = ptr_bst_nal_unit->Map(bst)))
-						printf("[H264] Failed to map byte stream NAL unit {retcode: %d}.\n", iRet);
+					{
+						if (iRet != RET_CODE_NO_MORE_DATA)
+							printf("[H264] Failed to map byte stream NAL unit {retcode: %d}.\n", iRet);
+					}
 
 					bst_nal_units.push_back(sp_bst_nal_unit);
 					ptr_bst_nal_unit = NULL;
 
-					if (iRet == RET_CODE_NO_MORE_DATA)
-					{
-						AMBst_Destroy(bst);
-						iRet = RET_CODE_SUCCESS;
-						break;
-					}
-
 					cbSize -= cbNALLengthDelimiterSize + nal_length;
 					pBuf += (ptrdiff_t)cbNALLengthDelimiterSize + nal_length;
 				}
+
 				AMBst_Destroy(bst);
 
 				return RET_CODE_SUCCESS;

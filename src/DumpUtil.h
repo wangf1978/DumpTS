@@ -1132,6 +1132,18 @@ SOFTWARE.
 		NAV_FIELD_PROP_FIXSIZE_BINSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
 		field_prop_idx++;}\
 
+#define BST_FIELD_PROP_UUID(Field_Name, Field_Value, Field_Desc) \
+	if (map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		auto uuid = Field_Value;\
+		MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",\
+			uuid[0x00], uuid[0x01], uuid[0x02], uuid[0x03],uuid[0x04], uuid[0x05], uuid[0x06], uuid[0x07],\
+			uuid[0x08], uuid[0x09], uuid[0x0a], uuid[0x0b],uuid[0x0c], uuid[0x0d], uuid[0x0e], uuid[0x0f]);\
+		NAV_FIELD_PROP(Field_Name, 128, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "S");\
+		if (bit_offset)*bit_offset += 128LL;\
+		field_prop_idx++;}\
+
+#define BST_FIELD_PROP_UUID1(Field_Name, Field_Desc)	BST_FIELD_PROP_UUID(#Field_Name, Field_Name, Field_Desc)
+
 #define BST_FIELD_PROP_FIXSIZE_BINSTR1(Field_Name, Field_Bits, Field_Desc)	BST_FIELD_PROP_FIXSIZE_BINSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), "")
 
 #define NAV_FIELD_PROP_FIXSIZE_BINCHARSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
