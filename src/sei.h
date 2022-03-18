@@ -865,6 +865,9 @@ namespace BST {
 								{
 									map_status.number_of_fields = start_num_of_fields;
 									AMP_NEWT(ptr_st2094_40, ST2094_40);
+									if (ptr_st2094_40 == nullptr)
+										throw AMException(RET_CODE_OUTOFMEMORY);
+
 									AMBst bst_st_2094_40 = AMBst_CreateFromBuffer(&itu_t_t35_payload_byte[0], (int)itu_t_t35_payload_byte.size());
 
 									nal_read_u(bst_st_2094_40, ptr_st2094_40->itu_t_t35_terminal_provider_code, 16, uint16_t);
@@ -1537,13 +1540,13 @@ namespace BST {
 								}
 								else if (ptr_sei_payload->payload_size > 20)
 								{
-									user_data_payload_byte.resize(ptr_sei_payload->payload_size - 20);
+									user_data_payload_byte.resize((size_t)((int64_t)ptr_sei_payload->payload_size - 20));
 									uint8_t* pPayloadBytes = &user_data_payload_byte[0];
 									nal_read_bytes(in_bst, pPayloadBytes, ptr_sei_payload->payload_size - 20);
 								}
 							}
 							else if (ptr_sei_payload->payload_size > 16) {
-								user_data_payload_byte.resize(ptr_sei_payload->payload_size - 16);
+								user_data_payload_byte.resize((size_t)((int64_t)ptr_sei_payload->payload_size - 16));
 								uint8_t* pPayloadBytes = &user_data_payload_byte[0];
 								nal_read_bytes(in_bst, pPayloadBytes, ptr_sei_payload->payload_size - 16);
 							}
@@ -2069,6 +2072,9 @@ namespace BST {
 								else if (tone_map_model_id == 3)
 								{
 									AMP_NEWT(pivot_layout, PIVOT_LAYOUT);
+									if (pivot_layout == nullptr)
+										throw AMException(RET_CODE_OUTOFMEMORY);
+
 									nal_read_u(in_bst, pivot_layout->num_pivots, 16, uint16_t);
 									pivot_layout->coded_pivot_value.reserve(pivot_layout->num_pivots);
 									pivot_layout->target_pivot_value.reserve(pivot_layout->num_pivots);

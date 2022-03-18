@@ -116,26 +116,26 @@ struct URI_NameValue_Pair{
 ////////////////////////////////////////////////////////////////////////////////
 // The utility function for URI
 ////////////////////////////////////////////////////////////////////////////////
-AMP_FOUNDATION_PROC int		AMURI_Split(const char* szURI, URI_Components& URI_Components);
+AMP_FOUNDATION_PROC int		AMURI_Split(_In_z_ const char* szURI, URI_Components& URI_Components);
 /*!	@brief This function is only available for RFC 3986, for RFC 2396, please don't call it. */
-AMP_FOUNDATION_PROC int		AMURI_SplitAuthority(const char* szURI, inplace_str_range authority_component_range, URI_Authority_Components& Authority_Components);
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent(const char* szURI, inplace_str_range component_range, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent(const char* pComponent, int nComponentLength, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent(const char* szComponent, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(const char* szURI, inplace_str_range component_range, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(const char* pComponent, int nComponentLength, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(const char* szComponent, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
+AMP_FOUNDATION_PROC int		AMURI_SplitAuthority(_In_z_ const char* szURI, inplace_str_range authority_component_range, URI_Authority_Components& Authority_Components);
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* szURI, inplace_str_range component_range, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* pComponent, int nComponentLength, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* szComponent, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* szURI, inplace_str_range component_range, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* pComponent, int nComponentLength, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* szComponent, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
 
-AMP_FOUNDATION_PROC int		AMURI_EncodeFilePath(const char* szFilePath, char* szURI, int cbURI);
-AMP_FOUNDATION_PROC int		AMURI_DecodeFilePath(const char* szURI, char* szFilePath, int cbFilePath);
-AMP_FOUNDATION_PROC int		AMURI_DecodeSegment(const char* szSegment, int ccSegment, std::string& strDecoded);
+AMP_FOUNDATION_PROC int		AMURI_EncodeFilePath(_In_z_ const char* szFilePath, char* szURI, int cbURI);
+AMP_FOUNDATION_PROC int		AMURI_DecodeFilePath(_In_z_ const char* szURI, char* szFilePath, int cbFilePath);
+AMP_FOUNDATION_PROC int		AMURI_DecodeSegment(_In_z_ const char* szSegment, int ccSegment, std::string& strDecoded);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Support relate-ref and absolute URI
 ////////////////////////////////////////////////////////////////////////////////
-AMP_FOUNDATION_PROC AMURI	AMURI_Open(_In_opt_z_ const char* szURI);
-AMP_FOUNDATION_PROC int		AMURI_Navigate(AMURI hURI, const char* szNewURI);
-AMP_FOUNDATION_PROC int		AMURI_GetCompositeURI(AMURI hRUI, char* szURI, int cbURL);
+AMP_FOUNDATION_PROC AMURI	AMURI_Open(_In_z_ const char* szURI);
+AMP_FOUNDATION_PROC int		AMURI_Navigate(AMURI hURI, _In_z_ const char* szNewURI);
+AMP_FOUNDATION_PROC int		AMURI_GetCompositeURI(AMURI hURI, _In_reads_z_(ccURI) char* szURI, int ccURI);
 AMP_FOUNDATION_PROC void	AMURI_Close(AMURI& hURI);
 
 #endif

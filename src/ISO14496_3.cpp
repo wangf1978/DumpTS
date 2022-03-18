@@ -124,6 +124,9 @@ namespace BST {
 			while ((id = (uint8_t)bs.GetBits(3)) != ID_END)
 			{
 				AMP_NEWT(ptr_data_element, DATA_ELEMENT, id, ctx_audio_stream);
+				if (ptr_data_element == nullptr)
+					return RET_CODE_OUTOFMEMORY;
+
 				ptr_data_element->start_bitpos = bit_pos + start_bit_offset;
 				data_elements.push_back(ptr_data_element);
 				if ((iRet = ptr_data_element->Unpack(bs)) < 0)
@@ -135,6 +138,9 @@ namespace BST {
 			if (id == ID_END)
 			{
 				AMP_NEWT(ptr_data_element, DATA_ELEMENT, id, ctx_audio_stream);
+				if (ptr_data_element == nullptr)
+					return RET_CODE_OUTOFMEMORY;
+
 				ptr_data_element->start_bitpos = bit_pos + start_bit_offset;
 				data_elements.push_back(ptr_data_element);
 			}
@@ -431,6 +437,12 @@ namespace BST {
 
 			do {
 				AMP_NEWT1(ptr_adts_frame, ADTSFrame);
+				if (ptr_adts_frame == nullptr)
+				{
+					iRet = RET_CODE_OUTOFMEMORY;
+					break;
+				}
+
 				if (AMP_FAILED(iRet = ptr_adts_frame->Map(in_bst)))
 				{
 					if (ptr_adts_frame->map_status.number_of_fields == 0)

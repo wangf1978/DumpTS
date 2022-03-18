@@ -774,7 +774,7 @@ namespace BST {
 
 			DECLARE_FIELDPROP_BEGIN()
 				NAV_FIELD_PROP_2NUMBER("transport_private_data_length", 8, transport_private_data_length, "")
-				NAV_FIELD_PROP_FIXSIZE_BINSTR("private_data_byte", (unsigned long)(transport_private_data_length*8), private_data_byte, (unsigned long)transport_private_data_length, "")
+				NAV_FIELD_PROP_FIXSIZE_BINSTR("private_data_byte", ((long long)transport_private_data_length*8), private_data_byte, (unsigned long)transport_private_data_length, "")
 			DECLARE_FIELDPROP_END()
 		}PACKED;
 
@@ -1273,7 +1273,7 @@ namespace BST {
 
 					DECLARE_FIELDPROP_BEGIN()
 					NAV_FIELD_PROP_2NUMBER("pack_field_length", 8, pack_field_length, "")
-						NAV_FIELD_PROP_FIXSIZE_BINSTR("pack_header", ((unsigned long)pack_field_length * 8), pack_header_data, (unsigned long)pack_field_length, "")
+						NAV_FIELD_PROP_FIXSIZE_BINSTR("pack_header", ((long long)pack_field_length * 8), pack_header_data, (unsigned long)pack_field_length, "")
 						DECLARE_FIELDPROP_END()
 				}PACKED;
 
@@ -1433,7 +1433,7 @@ namespace BST {
 								}
 						}
 						int cbReservedData = PES_extension_field_length + 1 - GetValidDataLength();
-						NAV_FIELD_PROP_FIXSIZE_BINSTR("reserved", ((unsigned long)cbReservedData * 8), reserved, (unsigned long)cbReservedData, "")
+						NAV_FIELD_PROP_FIXSIZE_BINSTR("reserved", ((long long)cbReservedData * 8), reserved, (unsigned long)cbReservedData, "")
 					DECLARE_FIELDPROP_END()
 				}PACKED;
 
@@ -1460,7 +1460,7 @@ namespace BST {
 				unsigned char*			PES_private_data;
 				CPackHeaderField*		pack_header_field;
 				CProgramPacketSequenceCounter*
-					program_packet_sequence_counter;
+										program_packet_sequence_counter;
 				CPSTDBuffer*			P_STD_buffer;
 				CPESextension2*			PES_extension2;
 
@@ -2027,7 +2027,7 @@ namespace BST {
 			DECLARE_FIELDPROP_BEGIN()
 				DBG_UNREFERENCED_LOCAL_VARIABLE(i);
 				NAV_FIELD_PROP_2NUMBER("PES_packet_length", 16, PES_packet_length, "")
-				NAV_FIELD_PROP_FIXSIZE_BINSTR("PES_packet_data_byte", ((unsigned long)PES_packet_length*8), PES_packet_data_byte, (unsigned long)PES_packet_length, "")
+				NAV_FIELD_PROP_FIXSIZE_BINSTR("PES_packet_data_byte", ((long long)PES_packet_length*8), PES_packet_data_byte, (unsigned long)PES_packet_length, "")
 			DECLARE_FIELDPROP_END()	
 		}PACKED;
 
@@ -3038,7 +3038,7 @@ namespace BST {
 				if (pRegistrationDesc == NULL || pRegistrationDesc1 == NULL || pRegistrationDesc->descriptor_length != pRegistrationDesc1->descriptor_length)
 					return FALSE;
 
-				if (memcmp(pRegistrationDesc, pRegistrationDesc1, pRegistrationDesc->descriptor_length + 1) != 0)
+				if (memcmp(pRegistrationDesc, pRegistrationDesc1, (size_t)pRegistrationDesc->descriptor_length + 1) != 0)
 					return FALSE;
 			}
 
@@ -3823,7 +3823,7 @@ namespace BST {
 
 			if ((pBuf[ulMappedSize+1]>>7)&0x01){
 				F_CRC_InicializaTable();
-				if (F_CRC_CalculaCheckSum(pBuf + ulMappedSize, 3 + section_length) != 0){
+				if (F_CRC_CalculaCheckSum(pBuf + ulMappedSize, (size_t)section_length + 3) != 0){
 					printf("[13818-1] current PSI section failed do check-sum.\n");
 					return RET_CODE_ERROR_CRC;
 				}
@@ -3942,7 +3942,7 @@ namespace BST {
 			DBG_UNREFERENCED_LOCAL_VARIABLE(i);
 			NAV_FIELD_PROP_2NUMBER1(pointer_field, 8, "")
 			if (bit_offset)
-				*bit_offset += pointer_field*8;
+				*bit_offset += (long long)pointer_field*8;
 			switch(table_id){
 			case TID_program_association_section: NAV_FIELD_PROP_REF1(program_association_section); break;
 			case TID_conditional_access_section: NAV_FIELD_PROP_REF1(conditional_access_section); break;
@@ -4089,7 +4089,7 @@ namespace BST {
 			NAV_FIELD_PROP_REF(adaptation_field)
 			int data_len = GetLengthOfDataBytes();
 			if (data_len > 0){
-				NAV_FIELD_PROP_FIXSIZE_BINSTR("data_byte", (unsigned long)(data_len*8), data_byte, (unsigned long)data_len, "")
+				NAV_FIELD_PROP_FIXSIZE_BINSTR("data_byte", ((long long)data_len*8), data_byte, (unsigned long)data_len, "")
 			}
 		DECLARE_FIELDPROP_END()
 

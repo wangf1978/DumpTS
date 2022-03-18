@@ -1755,28 +1755,50 @@ namespace BST {
 						MAP_BST_BEGIN(0);
 						nal_read_ue(in_bst, num_views_minus1, uint16_t);
 						AMP_NEW0(view_id, uint16_t, (size_t)num_views_minus1 + 1);
+						if (view_id == nullptr)
+							return RET_CODE_OUTOFMEMORY;
+
 						for (int i = 0; i <= num_views_minus1; i++) {
 							nal_read_ue(in_bst, view_id[i], uint16_t);
 						}
 
-						AMP_NEW0(num_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(num_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l0,		uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l0,				uint16_t*,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l1,		uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l1,				uint16_t*,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l0,	uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l0,			uint16_t*,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l1,	uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l1,			uint16_t*,	(size_t)num_views_minus1 + 1);
+
+						if (num_anchor_refs_l0 == nullptr ||
+							anchor_ref_l0 == nullptr ||
+							num_anchor_refs_l1 == nullptr ||
+							anchor_ref_l1 == nullptr ||
+							num_non_anchor_refs_l0 == nullptr ||
+							non_anchor_ref_l0 == nullptr ||
+							num_non_anchor_refs_l1 == nullptr ||
+							non_anchor_ref_l1 == nullptr)
+						{
+							return RET_CODE_OUTOFMEMORY;
+						}
+
 						for (int i = 1; i <= num_views_minus1; i++)
 						{
 							nal_read_ue(in_bst, num_anchor_refs_l0[i], uint8_t);
 							AMP_NEW0(anchor_ref_l0[i], uint16_t, num_anchor_refs_l0[i]);
+							if (anchor_ref_l0[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_anchor_refs_l0[i]; j++) {
 								nal_read_ue(in_bst, anchor_ref_l0[i][j], uint16_t);
 							}
 
 							nal_read_ue(in_bst, num_anchor_refs_l1[i], uint8_t);
 							AMP_NEW0(anchor_ref_l1[i], uint16_t, num_anchor_refs_l1[i]);
+							if (anchor_ref_l1[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_anchor_refs_l1[i]; j++) {
 								nal_read_ue(in_bst, anchor_ref_l1[i][j], uint16_t);
 							}
@@ -1786,12 +1808,18 @@ namespace BST {
 						{
 							nal_read_ue(in_bst, num_non_anchor_refs_l0[i], uint8_t);
 							AMP_NEW0(non_anchor_ref_l0[i], uint16_t, num_non_anchor_refs_l0[i]);
+							if (non_anchor_ref_l0[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_non_anchor_refs_l0[i]; j++) {
 								nal_read_ue(in_bst, non_anchor_ref_l0[i][j], uint16_t);
 							}
 
 							nal_read_ue(in_bst, num_non_anchor_refs_l1[i], uint8_t);
 							AMP_NEW0(non_anchor_ref_l1[i], uint16_t, num_non_anchor_refs_l1[i]);
+							if (non_anchor_ref_l1[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_non_anchor_refs_l1[i]; j++) {
 								nal_read_ue(in_bst, non_anchor_ref_l1[i][j], uint16_t);
 							}
@@ -1799,28 +1827,45 @@ namespace BST {
 
 						nal_read_ue(in_bst, num_level_values_signalled_minus1, uint8_t);
 
-						AMP_NEW0(level_idc, uint8_t, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(num_applicable_ops_minus1, uint16_t, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_temporal_id, uint8_t*, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_target_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_target_view_id, uint16_t**, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(level_idc,								uint8_t,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(num_applicable_ops_minus1,				uint16_t,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_temporal_id,				uint8_t*,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_target_views_minus1, uint16_t*,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_target_view_id,			uint16_t**, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_views_minus1,		uint16_t*,	((size_t)num_level_values_signalled_minus1 + 1));
+
+						if (level_idc == nullptr ||
+							num_applicable_ops_minus1 == nullptr ||
+							applicable_op_temporal_id == nullptr ||
+							applicable_op_num_target_views_minus1 == nullptr ||
+							applicable_op_target_view_id == nullptr ||
+							applicable_op_num_views_minus1 == nullptr)
+							return RET_CODE_OUTOFMEMORY;
 
 						for (int i = 0; i <= num_level_values_signalled_minus1; i++)
 						{
 							nal_read_u(in_bst, level_idc[i], 8, uint8_t);
 							nal_read_ue(in_bst, num_applicable_ops_minus1[i], uint16_t);
 
-							AMP_NEW0(applicable_op_temporal_id[i], uint8_t, ((size_t)num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_target_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_target_view_id[i], uint16_t*, ((size_t)num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_temporal_id[i],				uint8_t,	((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_target_views_minus1[i],	uint16_t,	((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_target_view_id[i],			uint16_t*,	((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_views_minus1[i],			uint16_t,	((size_t)num_applicable_ops_minus1[i] + 1));
+
+							if (applicable_op_temporal_id[i] == nullptr ||
+								applicable_op_num_target_views_minus1[i] == nullptr ||
+								applicable_op_target_view_id[i] == nullptr ||
+								applicable_op_num_views_minus1[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
 
 							for (int j = 0; j <= num_applicable_ops_minus1[i]; j++) {
 								nal_read_u(in_bst, applicable_op_temporal_id[i][j], 3, uint8_t);
 								nal_read_ue(in_bst, applicable_op_num_target_views_minus1[i][j], uint16_t);
 
 								AMP_NEW0(applicable_op_target_view_id[i][j], uint16_t, ((size_t)applicable_op_num_target_views_minus1[i][j] + 1));
+								if (applicable_op_target_view_id[i][j] == nullptr)
+									return RET_CODE_OUTOFMEMORY;
+
 								for (int k = 0; k <= applicable_op_num_target_views_minus1[i][j]; k++) {
 									nal_read_ue(in_bst, applicable_op_target_view_id[i][j][k], uint16_t);
 								}
@@ -2371,32 +2416,52 @@ namespace BST {
 						MAP_BST_BEGIN(0);
 						nal_read_ue(in_bst, num_views_minus1, uint16_t);
 						AMP_NEW0(view_id, uint16_t, (size_t)num_views_minus1 + 1);
+						if (view_id == nullptr)
+							return RET_CODE_OUTOFMEMORY;
+
 						for (int i = 0; i <= num_views_minus1; i++) {
 							nal_read_ue(in_bst, view_id[i], uint16_t);
 							nal_read_bitarray(in_bst, depth_view_present_flag, i);
 							nal_read_bitarray(in_bst, texture_view_present_flag, i);
 						}
 
-						AMP_NEW0(num_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(num_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l0, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l0, uint16_t*, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(num_non_anchor_refs_l1, uint8_t, (size_t)num_views_minus1 + 1);
-						AMP_NEW0(non_anchor_ref_l1, uint16_t*, (size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l0,	uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l0,			uint16_t*,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_anchor_refs_l1,	uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(anchor_ref_l1,			uint16_t*,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l0,uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l0,		uint16_t*,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(num_non_anchor_refs_l1,uint8_t,	(size_t)num_views_minus1 + 1);
+						AMP_NEW0(non_anchor_ref_l1,		uint16_t*,	(size_t)num_views_minus1 + 1);
+
+						if (num_anchor_refs_l0 == nullptr ||
+							anchor_ref_l0 == nullptr ||
+							num_anchor_refs_l1 == nullptr ||
+							anchor_ref_l1 == nullptr ||
+							num_non_anchor_refs_l0 == nullptr ||
+							non_anchor_ref_l0 == nullptr ||
+							num_non_anchor_refs_l1 == nullptr ||
+							non_anchor_ref_l1 == nullptr)
+							return RET_CODE_OUTOFMEMORY;
+
 						for (int i = 1; i <= num_views_minus1; i++)
 						{
 							if (!depth_view_present_flag[i])
 								continue;
 							nal_read_ue(in_bst, num_anchor_refs_l0[i], uint8_t);
 							AMP_NEW0(anchor_ref_l0[i], uint16_t, num_anchor_refs_l0[i]);
+							if (anchor_ref_l0[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_anchor_refs_l0[i]; j++) {
 								nal_read_ue(in_bst, anchor_ref_l0[i][j], uint16_t);
 							}
 
 							nal_read_ue(in_bst, num_anchor_refs_l1[i], uint8_t);
 							AMP_NEW0(anchor_ref_l1[i], uint16_t, num_anchor_refs_l1[i]);
+							if (anchor_ref_l1[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_anchor_refs_l1[i]; j++) {
 								nal_read_ue(in_bst, anchor_ref_l1[i][j], uint16_t);
 							}
@@ -2408,12 +2473,18 @@ namespace BST {
 								continue;
 							nal_read_ue(in_bst, num_non_anchor_refs_l0[i], uint8_t);
 							AMP_NEW0(non_anchor_ref_l0[i], uint16_t, num_non_anchor_refs_l0[i]);
+							if (non_anchor_ref_l0[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_non_anchor_refs_l0[i]; j++) {
 								nal_read_ue(in_bst, non_anchor_ref_l0[i][j], uint16_t);
 							}
 
 							nal_read_ue(in_bst, num_non_anchor_refs_l1[i], uint8_t);
 							AMP_NEW0(non_anchor_ref_l1[i], uint16_t, num_non_anchor_refs_l1[i]);
+							if (non_anchor_ref_l1[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
+
 							for (int j = 0; j < num_non_anchor_refs_l1[i]; j++) {
 								nal_read_ue(in_bst, non_anchor_ref_l1[i][j], uint16_t);
 							}
@@ -2421,30 +2492,50 @@ namespace BST {
 
 						nal_read_ue(in_bst, num_level_values_signalled_minus1, uint8_t);
 
-						AMP_NEW0(level_idc, uint8_t, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(num_applicable_ops_minus1, uint16_t, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_temporal_id, uint8_t*, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_target_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_target_view, APPLICABLE_OP_TARGET_VIEW**, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_texture_views_minus1, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
-						AMP_NEW0(applicable_op_num_depth_views, uint16_t*, ((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(level_idc,					uint8_t,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(num_applicable_ops_minus1, uint16_t,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_temporal_id, uint8_t*,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_target_views_minus1, 
+															uint16_t*,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_target_view, APPLICABLE_OP_TARGET_VIEW**, 
+																		((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_texture_views_minus1, 
+															uint16_t*,	((size_t)num_level_values_signalled_minus1 + 1));
+						AMP_NEW0(applicable_op_num_depth_views, 
+															uint16_t*,	((size_t)num_level_values_signalled_minus1 + 1));
+
+						if (level_idc == nullptr || num_applicable_ops_minus1 == nullptr || applicable_op_temporal_id == nullptr ||
+							applicable_op_num_target_views_minus1 == nullptr || applicable_op_target_view == nullptr ||
+							applicable_op_num_texture_views_minus1 == nullptr || applicable_op_num_depth_views == nullptr)
+							return RET_CODE_OUTOFMEMORY;
 
 						for (int i = 0; i <= num_level_values_signalled_minus1; i++)
 						{
 							nal_read_u(in_bst, level_idc[i], 8, uint8_t);
 							nal_read_ue(in_bst, num_applicable_ops_minus1[i], uint16_t);
 
-							AMP_NEW0(applicable_op_temporal_id[i], uint8_t, ((size_t)num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_target_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_target_view[i], APPLICABLE_OP_TARGET_VIEW*, ((size_t)num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_texture_views_minus1[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
-							AMP_NEW0(applicable_op_num_depth_views[i], uint16_t, ((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_temporal_id[i],				uint8_t,	((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_target_views_minus1[i],	uint16_t,	((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_target_view[i],				APPLICABLE_OP_TARGET_VIEW*, 
+																							((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_texture_views_minus1[i], uint16_t,	((size_t)num_applicable_ops_minus1[i] + 1));
+							AMP_NEW0(applicable_op_num_depth_views[i],			uint16_t,	((size_t)num_applicable_ops_minus1[i] + 1));
+
+							if (applicable_op_temporal_id[i] == nullptr ||
+								applicable_op_num_target_views_minus1[i] == nullptr ||
+								applicable_op_target_view[i] == nullptr ||
+								applicable_op_num_texture_views_minus1[i] == nullptr ||
+								applicable_op_num_depth_views[i] == nullptr)
+								return RET_CODE_OUTOFMEMORY;
 
 							for (int j = 0; j <= num_applicable_ops_minus1[i]; j++) {
 								nal_read_u(in_bst, applicable_op_temporal_id[i][j], 3, uint8_t);
 								nal_read_ue(in_bst, applicable_op_num_target_views_minus1[i][j], uint16_t);
 
 								AMP_NEW0(applicable_op_target_view[i][j], APPLICABLE_OP_TARGET_VIEW, ((size_t)applicable_op_num_target_views_minus1[i][j] + 1));
+								if (applicable_op_target_view[i][j] == nullptr)
+									return RET_CODE_OUTOFMEMORY;
+
 								for (int k = 0; k <= applicable_op_num_target_views_minus1[i][j]; k++) {
 									nal_read_ue(in_bst, applicable_op_target_view[i][j][k].applicable_op_target_view_id, uint16_t);
 									nal_read_u(in_bst, applicable_op_target_view[i][j][k].applicable_op_depth_flag, 1, uint16_t);
@@ -3620,6 +3711,8 @@ namespace BST {
 										if (memory_management_control_operation != 0)
 										{
 											AMP_NEWT1(pMarking, ADAPTIVE_REF_PIC_MARKING);
+											if (pMarking == nullptr)
+												throw AMException(RET_CODE_OUTOFMEMORY);
 
 											pMarking->memory_management_control_operation = memory_management_control_operation;
 

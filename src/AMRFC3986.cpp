@@ -504,22 +504,22 @@ int	AMURI_SplitComponent2(_In_z_ const char* szComponent, std::vector<URI_NameVa
 	return _SplitComponent2(szComponent, -1, namevalue_pairs, delims, pair_delims);
 }
 
-int AMURI_EncodeFilePath(const char* szFilePath, char* szURI, int cbURI)
+int AMURI_EncodeFilePath(_In_z_ const char* szFilePath, char* szURI, int cbURI)
 {
 	return -1;
 }
 
-int AMURI_DecodeFilePath(const char* szURI, char* szFilePath, int cbFilePath)
+int AMURI_DecodeFilePath(_In_z_ const char* szURI, char* szFilePath, int cbFilePath)
 {
 	return -1;
 }
 
-int AMURI_DecodeSegment(const char* szSegment, int ccSegment, std::string& strDecoded)
+int AMURI_DecodeSegment(_In_z_ const char* szSegment, int ccSegment, std::string& strDecoded)
 {
 	if (szSegment == nullptr || ccSegment <= 0)
 		return RET_CODE_INVALID_PARAMETER;
 
-	strDecoded.reserve(ccSegment + 1);
+	strDecoded.reserve((size_t)((uint64_t)ccSegment + 1));
 
 	const char* p = szSegment;
 	int ccLeft = ccSegment;
@@ -892,7 +892,7 @@ int AMURI_Component_Recomposition(AMURI_NAVIGATION* URINav, _In_reads_z_(ccURI) 
 	return nPos + 1 == ccRequired?nPos:ccRequired;
 }
 
-int AMURI_UpdateURIRefComponents(AMURI_NAVIGATION* URINav, URI_TYPE URIType, const char* szURI)
+int AMURI_UpdateURIRefComponents(AMURI_NAVIGATION* URINav, URI_TYPE URIType, _In_z_ const char* szURI)
 {
 	AMURI_REF& S = URIType==URI_REF?URINav->R:(URIType==URI_BASE?URINav->Base:URINav->T);
 

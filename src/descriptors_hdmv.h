@@ -544,7 +544,7 @@ done:
 			NAV_FIELD_PROP_2NUMBER1(textcode, 1, textcode?"the text is encoded as 1-byte characters using the ISO Latin-1 alphabet (ISO 8859-1)":"the text is encoded with 2-byte Unicode characters")
 			
 			if (descriptor_length < cbRequired + 1)return cbRequired;
-			NAV_FIELD_PROP_FIXSIZE_BINCHARSTR("text", (unsigned long)textlen*8, text, (unsigned long)textlen, "contain a brief textual description of the audio service");
+			NAV_FIELD_PROP_FIXSIZE_BINCHARSTR("text", (long long)textlen*8, text, (unsigned long)textlen, "contain a brief textual description of the audio service");
 
 			if (descriptor_length < cbRequired + 1)return cbRequired;
 			NAV_FIELD_PROP_2NUMBER1(language_flag, 1, "")

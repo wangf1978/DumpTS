@@ -930,8 +930,10 @@ namespace BST {
 
 				MAP_MEM_TO_HDR2(&length, 3);
 				AMP_NEW1(substructures, CSubStructure*, substructureCount);
-				for(int i=0;i<substructureCount;i++){
-					MAP_MEM_TO_STRUCT_POINTER(1, substructures[i], CSubStructure)
+				if (substructures != nullptr) {
+					for (int i = 0; i < substructureCount; i++) {
+						MAP_MEM_TO_STRUCT_POINTER(1, substructures[i], CSubStructure)
+					}
 				}
 
 				AMP_SAFEASSIGN(desired_size, ulMappedSize);
@@ -1099,7 +1101,7 @@ namespace BST {
 			DECLARE_FIELDPROP_BEGIN()
 				DBG_UNREFERENCED_LOCAL_VARIABLE(szTemp);
 				NAV_FIELD_PROP_2NUMBER1(content_reference_id_record_length, 8, "specifies the number of content_reference_id_bytes immediately following this field")
-				NAV_FIELD_PROP_FIXSIZE_BINCHARSTR1(content_reference_id_byte, (unsigned long)content_reference_id_record_length*8, "part of a string of one or more contiguous bytes that assigns one or more reference identifications (labels) to the content")
+				NAV_FIELD_PROP_FIXSIZE_BINCHARSTR1(content_reference_id_byte, (long long)content_reference_id_record_length*8, "part of a string of one or more contiguous bytes that assigns one or more reference identifications (labels) to the content")
 			DECLARE_FIELDPROP_END()
 		}PACKED;
 
@@ -1401,7 +1403,7 @@ namespace BST {
 			DECLARE_FIELDPROP_BEGIN()
 				DBG_UNREFERENCED_LOCAL_VARIABLE(szTemp);
 				NAV_FIELD_PROP_2NUMBER1(metadata_locator_record_length, 8, "specifies the number of metadata_locator_record_bytes immediately following")
-				NAV_FIELD_PROP_FIXSIZE_BINCHARSTR1(metadata_locator_record_byte, (unsigned long)metadata_locator_record_length*8, "part of a string of one or more contiguous bytes that form the metadata locator record")
+				NAV_FIELD_PROP_FIXSIZE_BINCHARSTR1(metadata_locator_record_byte, (long long)metadata_locator_record_length*8, "part of a string of one or more contiguous bytes that form the metadata locator record")
 			DECLARE_FIELDPROP_END()
 
 		}PACKED;
@@ -1627,7 +1629,7 @@ namespace BST {
 
 			DECLARE_FIELDPROP_BEGIN()
 				NAV_FIELD_PROP_2NUMBER1(service_identification_length, 8, "")
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(service_identification_record_byte, ((unsigned long)service_identification_length*8), "")
+				NAV_FIELD_PROP_FIXSIZE_BINSTR1(service_identification_record_byte, ((long long)service_identification_length*8), "")
 			DECLARE_FIELDPROP_END()
 		}PACKED;
 
@@ -1639,7 +1641,7 @@ namespace BST {
 
 			DECLARE_FIELDPROP_BEGIN()
 				NAV_FIELD_PROP_2NUMBER1(decoder_config_length, 8, "")
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(decoder_config_byte, ((unsigned long)decoder_config_length*8), "")
+				NAV_FIELD_PROP_FIXSIZE_BINSTR1(decoder_config_byte, ((long long)decoder_config_length*8), "")
 			DECLARE_FIELDPROP_END()
 		}PACKED;
 
@@ -1651,7 +1653,7 @@ namespace BST {
 
 			DECLARE_FIELDPROP_BEGIN()
 				NAV_FIELD_PROP_2NUMBER1(dec_config_identification_record_length, 8, "")
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(dec_config_identification_record_byte, ((unsigned long)dec_config_identification_record_length*8), "")
+				NAV_FIELD_PROP_FIXSIZE_BINSTR1(dec_config_identification_record_byte, ((long long)dec_config_identification_record_length*8), "")
 			DECLARE_FIELDPROP_END()
 		}PACKED;
 
@@ -1671,7 +1673,7 @@ namespace BST {
 
 			DECLARE_FIELDPROP_BEGIN()
 				NAV_FIELD_PROP_2NUMBER1(reserved_data_length, 8, "")
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(reserved, ((unsigned long)reserved_data_length*8), "")
+				NAV_FIELD_PROP_FIXSIZE_BINSTR1(reserved, ((long long)reserved_data_length*8), "")
 			DECLARE_FIELDPROP_END()
 		}PACKED;
 
@@ -2692,8 +2694,10 @@ namespace BST {
 				ulMappedSize += 2;
 
 				AMP_NEW1(operation_points, COperationPoint*, operation_points_count);
-				for(unsigned char i=0;i<operation_points_count;i++){
-					MAP_MEM_TO_STRUCT_POINTER(1, operation_points[i], COperationPoint)
+				if (operation_points != nullptr) {
+					for (unsigned char i = 0; i < operation_points_count; i++) {
+						MAP_MEM_TO_STRUCT_POINTER(1, operation_points[i], COperationPoint)
+					}
 				}
 
 				AMP_SAFEASSIGN(desired_size, ulMappedSize);
@@ -2753,8 +2757,10 @@ namespace BST {
 			MAP_MEM_TO_HDR2(&descriptor_tag, 5);
 
 			AMP_NEW1(levels, CLevel*, level_count);
-			for(unsigned char i=0;i<level_count;i++){
-				MAP_MEM_TO_STRUCT_POINTER2(1, levels[i], CLevel)
+			if (levels != nullptr) {
+				for (unsigned char i = 0; i < level_count; i++) {
+					MAP_MEM_TO_STRUCT_POINTER2(1, levels[i], CLevel)
+				}
 			}
 
 			AMP_SAFEASSIGN(desired_size, ulMappedSize);

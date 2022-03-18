@@ -1111,18 +1111,18 @@ SOFTWARE.
 	NAV_FIELD_PROP_WITH_ALIAS(Field_Name, Field_Alias, Field_Bits, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "S");\
 
 #define NAV_FIELD_PROP_FIXSIZE_BINSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
-	if (Field_Bits > 0)\
+	if (Field_Bits > 0 && Value_Size > 0)\
 	{\
-	unsigned long jjj=0;\
-	auto ptr_field_value = Field_Value;\
-	memset(szTemp2, 0, sizeof(szTemp2));\
-	for(jjj=0;jjj<((Value_Size)>255UL?255UL:(Value_Size));jjj++)\
-	{\
-		MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%02x ", ptr_field_value[jjj]);\
-		MBCSCAT(szTemp2, TEMP2_SIZE, szTemp3);\
-	}\
-	NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "B");\
-	if (bit_offset)*bit_offset += (long long)Field_Bits;\
+		unsigned long jjj=0;\
+		auto ptr_field_value = Field_Value;\
+		memset(szTemp2, 0, sizeof(szTemp2));\
+		for(jjj=0;jjj<((unsigned long long)(Value_Size)>255UL?255UL:(unsigned long long)(Value_Size));jjj++)\
+		{\
+			MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%02x ", ptr_field_value[jjj]);\
+			MBCSCAT(szTemp2, TEMP2_SIZE, szTemp3);\
+		}\
+		NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "B");\
+		if (bit_offset)*bit_offset += (long long)Field_Bits;\
 	}\
 
 #define NAV_FIELD_PROP_FIXSIZE_BINSTR1(Field_Name, Field_Bits, Field_Desc)	NAV_FIELD_PROP_FIXSIZE_BINSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), "")
@@ -1147,16 +1147,17 @@ SOFTWARE.
 #define BST_FIELD_PROP_FIXSIZE_BINSTR1(Field_Name, Field_Bits, Field_Desc)	BST_FIELD_PROP_FIXSIZE_BINSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), "")
 
 #define NAV_FIELD_PROP_FIXSIZE_BINCHARSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
+	if (Field_Bits >0 && Field_Value > 0)\
 	{\
-	unsigned long jjj=0;\
-	memset(szTemp2, 0, sizeof(szTemp2));\
-	for(jjj=0;jjj<((Value_Size)>255?255:(Value_Size));jjj++)\
-	{\
-		MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%02x(%c) ", Field_Value[jjj], isprint(Field_Value[jjj])?Field_Value[jjj]:0x20);\
-		MBCSCAT(szTemp2, TEMP2_SIZE, szTemp3);\
-	}\
-	NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "B");\
-	if (bit_offset)*bit_offset += Field_Bits;\
+		unsigned long jjj=0;\
+		memset(szTemp2, 0, sizeof(szTemp2));\
+		for(jjj=0;jjj<((unsigned long long)(Value_Size)>255?255:(unsigned long long)(Value_Size));jjj++)\
+		{\
+			MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%02x(%c) ", Field_Value[jjj], isprint(Field_Value[jjj])?Field_Value[jjj]:0x20);\
+			MBCSCAT(szTemp2, TEMP2_SIZE, szTemp3);\
+		}\
+		NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "B");\
+		if (bit_offset)*bit_offset += Field_Bits;\
 	}\
 
 #define NAV_FIELD_PROP_FIXSIZE_BINCHARSTR1(Field_Name, Field_Bits, Field_Desc)	NAV_FIELD_PROP_FIXSIZE_BINCHARSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), "")

@@ -5983,6 +5983,9 @@ namespace BST {
 				try
 				{
 					AMP_NEWT1(ptr_sync_stream_frame, CAudioSyncStreamFrame);
+					if (ptr_sync_stream_frame == nullptr)
+						throw AMException(RET_CODE_OUTOFMEMORY);
+
 					if (AMP_FAILED(iRet = ptr_sync_stream_frame->Map(in_bst)))
 					{
 						if (ptr_sync_stream_frame->map_status.number_of_fields == 0)

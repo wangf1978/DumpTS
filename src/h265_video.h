@@ -1724,6 +1724,9 @@ namespace BST {
 
 						int number_of_vps_ordering_info = vps_sub_layer_ordering_info_present_flag ? (vps_max_sub_layers_minus1 + 1) : 1;
 						AMP_NEW(vps_ordering_info, VPS_ORDERING_INFO, number_of_vps_ordering_info);
+						if (vps_ordering_info == nullptr)
+							throw AMException(RET_CODE_OUTOFMEMORY);
+
 						for (int i = 0; i < number_of_vps_ordering_info; i++) {
 							nal_read_ue(bst, vps_ordering_info[i].vps_max_dec_pic_buffering_minus1, uint16_t);
 							nal_read_ue(bst, vps_ordering_info[i].vps_max_num_reorder_pics, uint16_t);
@@ -1754,6 +1757,9 @@ namespace BST {
 
 							nal_read_ue(bst, vps_num_hrd_parameters, uint16_t);
 							AMP_NEW(vps_hrd_parameters, VPS_HRD_PARAMETER*, vps_num_hrd_parameters);
+							if (vps_hrd_parameters == nullptr)
+								throw AMException(RET_CODE_OUTOFMEMORY);
+
 							for (uint16_t i = 0; i < vps_num_hrd_parameters; i++) {
 								MAP_MEM_TO_STRUCT_POINTER5(1, vps_hrd_parameters[i], VPS_HRD_PARAMETER, this, i)
 							}
@@ -2365,6 +2371,9 @@ namespace BST {
 						nal_read_u(in_bst, sps_sub_layer_ordering_info_present_flag, 1, uint8_t);
 
 						AMP_NEW(sps_ordering_info, SPS_ORDERING_INFO, (size_t)sps_max_sub_layers_minus1 + 1);
+						if (sps_ordering_info == nullptr)
+							throw AMException(RET_CODE_OUTOFMEMORY);
+
 						for (int i = sps_sub_layer_ordering_info_present_flag ? 0 : sps_max_sub_layers_minus1; i <= sps_max_sub_layers_minus1; i++) {
 							nal_read_ue(in_bst, sps_ordering_info[i].sps_max_dec_pic_buffering_minus1, uint16_t);
 							nal_read_ue(in_bst, sps_ordering_info[i].sps_max_num_reorder_pics, uint16_t);
@@ -3286,6 +3295,9 @@ namespace BST {
 							if (num_ref_loc_offsets > 0)
 							{
 								AMP_NEW0(ref_loc_info, REF_LOC_INFO, num_ref_loc_offsets);
+								if (ref_loc_info == nullptr)
+									throw AMException(RET_CODE_OUTOFMEMORY);
+
 								for (int i = 0; i < num_ref_loc_offsets; i++)
 								{
 									nal_read_u(in_bst, ref_loc_info[i].ref_loc_offset_layer_id, 6, uint8_t);
@@ -3440,6 +3452,9 @@ namespace BST {
 									nal_read_u(in_bst, delta_dlt_val0, read_length, uint32_t);
 									if (max_diff > (min_diff_minus1 + 1)) {
 										AMP_NEW0(delta_val_diff_minus_min, uint32_t, num_val_delta_dlt);
+										if (delta_val_diff_minus_min == nullptr)
+											throw AMException(RET_CODE_OUTOFMEMORY);
+
 										for (uint32_t k = 1; k < num_val_delta_dlt; k++) {
 											uint8_t read_length_2 = (uint8_t)quick_log2(max_diff - (uint32_t)(min_diff_minus1 + 1) + 1);
 											nal_read_u(in_bst, delta_val_diff_minus_min[k], read_length_2, uint32_t);
@@ -4130,6 +4145,9 @@ namespace BST {
 								}
 
 								AMP_NEW0(weight_factors[0], WEIGHTING_FACTORS, (size_t)ptr_slice_header->num_ref_idx_l0_active_minus1 + 1);
+								if (weight_factors[0] == nullptr)
+									throw AMException(RET_CODE_OUTOFMEMORY);
+
 								for (uint16_t i = 0; i <= ptr_slice_header->num_ref_idx_l0_active_minus1; i++) {
 									nal_read_u(in_bst, weight_factors[0][i].luma_weight_flag, 1, uint8_t);
 								}
@@ -4159,6 +4177,9 @@ namespace BST {
 								if (ptr_slice_header->slice_type == 0)
 								{
 									AMP_NEW0(weight_factors[1], WEIGHTING_FACTORS, (size_t)ptr_slice_header->num_ref_idx_l1_active_minus1 + 1);
+									if (weight_factors[1] == nullptr)
+										throw AMException(RET_CODE_OUTOFMEMORY);
+
 									for (uint16_t i = 0; i <= ptr_slice_header->num_ref_idx_l1_active_minus1; i++) {
 										nal_read_u(in_bst, weight_factors[1][i].luma_weight_flag, 1, uint8_t);
 									}

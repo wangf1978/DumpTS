@@ -3601,6 +3601,12 @@ namespace BST {
 			{
 				do {
 					AMP_NEWT(ptr_video_payload, BYTE_STREAM_UNIT::CVideoPayload);
+					if (ptr_video_payload == nullptr)
+					{
+						iRet = RET_CODE_OUTOFMEMORY;
+						break;
+					}
+
 					if (AMP_FAILED(iRet = ptr_video_payload->Map(in_bst)))
 					{
 						if (iRet != RET_CODE_NO_MORE_DATA)
@@ -3695,6 +3701,9 @@ namespace BST {
 					bst = AMBst_CreateFromBuffer(pStartBuf, (int)(pNextStartCode - pStartBuf));
 
 				AMP_NEWT1(ptr_bst_unit, BYTE_STREAM_UNIT, &ctx_video_bst);
+				if (ptr_bst_unit == nullptr)
+					break;
+
 				ptr_bst_unit->prev = current_bst_unit;
 				AMBst_Seek(bst, (cbBufSize - cbSize) * 8);	// in order to keep the bit position information correctly
 				if (AMP_FAILED(iRet = ptr_bst_unit->Map(bst)))

@@ -669,10 +669,10 @@ void GenerateHuffmanBinarySearchArray(const char* szHeaderFileName, INT_VALUE_LI
 				cbWritten = sprintf_s(szRecord, _countof(szRecord), "    {%d, %d},", iFirst, iSecond);
 			}
 
-			assert(cbWritten <= 40 && cbWritten > 0);
-
-			for (int c = 0; c < 40 - cbWritten; c++)
-				szRecord[cbWritten + c] = ' ';
+			if (cbWritten <= 40 && cbWritten > 0){
+				for (int c = 0; c < 40 - cbWritten; c++)
+					szRecord[cbWritten + c] = ' ';
+			}
 			szRecord[40] = '\0';
 
 			if (nodes[i]->left == nullptr && nodes[i]->right == nullptr)
@@ -1002,10 +1002,10 @@ void GenerateSourceCode(const char* szHeaderFileName, INT_VALUE_LITERAL_FORMAT f
 				cbWritten = sprintf_s(szRecord, _countof(szRecord), "    {%d, %d},", iFirst, iSecond);
 			}
 
-			assert(cbWritten <= 40 && cbWritten > 0);
-
-			for (int c = 0; c < 40 - cbWritten; c++)
-				szRecord[cbWritten + c] = ' ';
+			if (cbWritten <= 40 && cbWritten > 0) {
+				for (int c = 0; c < 40 - cbWritten; c++)
+					szRecord[cbWritten + c] = ' ';
+			}
 			szRecord[40] = '\0';
 
 			if (nodes[i]->left == nullptr && nodes[i]->right == nullptr)
