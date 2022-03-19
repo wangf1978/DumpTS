@@ -35,8 +35,8 @@ SOFTWARE.
 #include <type_traits>
 #include <iterator>
 #include "DataUtil.h"
-#include "mpeg2videoparser.h"
-#include "mpeg2video.h"
+#include "mpeg2_video_parser.h"
+#include "mpeg2_video.h"
 #include "ISO14496_3.h"
 
 using namespace std;

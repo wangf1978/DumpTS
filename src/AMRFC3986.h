@@ -119,12 +119,12 @@ struct URI_NameValue_Pair{
 AMP_FOUNDATION_PROC int		AMURI_Split(_In_z_ const char* szURI, URI_Components& URI_Components);
 /*!	@brief This function is only available for RFC 3986, for RFC 2396, please don't call it. */
 AMP_FOUNDATION_PROC int		AMURI_SplitAuthority(_In_z_ const char* szURI, inplace_str_range authority_component_range, URI_Authority_Components& Authority_Components);
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* szURI, inplace_str_range component_range, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* pComponent, int nComponentLength, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* szComponent, std::vector<URI_Segment>& component_segments, const char* delims=_T("/"));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* szURI, inplace_str_range component_range, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* pComponent, int nComponentLength, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
-AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* szComponent, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims=_T("&"), const char* pair_delims=_T("="));
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* szURI, inplace_str_range component_range, std::vector<URI_Segment>& component_segments, const char* delims="/");
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* pComponent, int nComponentLength, std::vector<URI_Segment>& component_segments, const char* delims="/");
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent(_In_z_ const char* szComponent, std::vector<URI_Segment>& component_segments, const char* delims="/");
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* szURI, inplace_str_range component_range, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims="&", const char* pair_delims="=");
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* pComponent, int nComponentLength, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims="&", const char* pair_delims="=");
+AMP_FOUNDATION_PROC int		AMURI_SplitComponent2(_In_z_ const char* szComponent, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims="&", const char* pair_delims="=");
 
 AMP_FOUNDATION_PROC int		AMURI_EncodeFilePath(_In_z_ const char* szFilePath, char* szURI, int cbURI);
 AMP_FOUNDATION_PROC int		AMURI_DecodeFilePath(_In_z_ const char* szURI, char* szFilePath, int cbFilePath);

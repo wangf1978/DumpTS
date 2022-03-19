@@ -212,12 +212,6 @@
     <ClCompile Include="..\..\src\DumpAAC.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\mpeg2videoparser.cpp">
-      <Filter>src\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\mpeg2video.cpp">
-      <Filter>src\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\av1.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
@@ -234,6 +228,15 @@
       <Filter>src\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\AMRFC3986.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpMU.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mpeg2_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mpeg2_video_parser.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -376,12 +379,6 @@
     <ClInclude Include="..\..\src\mediaobjprint.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\mpeg2videoparser.h">
-      <Filter>src\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\mpeg2video.h">
-      <Filter>src\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\av1_def.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
@@ -404,6 +401,12 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\AMRFC3986.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mpeg2_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mpeg2_video_parser.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

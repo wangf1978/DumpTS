@@ -40,10 +40,11 @@ SOURCES := \
 	$(SOURCEDIR)/DumpNAL.cpp \
 	$(SOURCEDIR)/DumpAAC.cpp \
 	$(SOURCEDIR)/DumpAV1.cpp \
+	$(SOURCEDIR)/DumpMU.cpp \
 	$(SOURCEDIR)/nal_com.cpp \
 	$(SOURCEDIR)/nal_parser.cpp \
-	$(SOURCEDIR)/mpeg2videoparser.cpp \
-	$(SOURCEDIR)/mpeg2video.cpp \
+	$(SOURCEDIR)/mpeg2_video_parser.cpp \
+	$(SOURCEDIR)/mpeg2_video.cpp \
 	$(SOURCEDIR)/sei.cpp \
 	$(SOURCEDIR)/h264_video.cpp \
 	$(SOURCEDIR)/h265_video.cpp \

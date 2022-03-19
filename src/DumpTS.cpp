@@ -45,14 +45,18 @@ SOFTWARE.
 
 using namespace std;
 
-map<std::string, std::string, CaseInsensitiveComparator> g_params;
-
 using PID_props = unordered_map<std::string, int>;
-unordered_map<short, PID_props&> g_PIDs_props;
 
-TS_FORMAT_INFO	g_ts_fmtinfo;
-int				g_verbose_level = 0;
-DUMP_STATUS		g_dump_status;
+map<std::string, std::string, CaseInsensitiveComparator> 
+									g_params;
+unordered_map<short, PID_props&>	g_PIDs_props;
+
+TS_FORMAT_INFO						g_ts_fmtinfo;
+int									g_verbose_level = 0;
+DUMP_STATUS							g_dump_status;
+
+MEDIA_SCHEME_TYPE					g_media_scheme_type = MEDIA_SCHEME_UNKNOWN;
+
 
 const char *dump_msg[] = {
 	"Warning: wrong PES_length field value, read:location, read pos[%d], write pos:[%d].\n",
@@ -64,6 +68,8 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	ShowMU();
+extern int	ListMU();
 extern int	DumpTransportPackets();
 extern int	ShowOBUs();
 extern int	DiffATCDTS();
@@ -215,6 +221,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPPS",
 		"showHRD",
 		"showOBU",
+		"showMU",
 		"showSeqHdr",
 		"showStreamMuxConfig",
 		"runHRD",
@@ -222,6 +229,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"listMMTPpacket",
 		"listMMTPpayload",
 		"listMPUtime",
+		"listMU",
 		"stream_id",
 		"sub_stream_id",
 		"stream_id_extension", 
@@ -478,15 +486,30 @@ int PrepareParams()
 			{
 				std::string file_name_ext = file_name.substr(file_ext_start_pos);
 				if (_stricmp(file_name_ext.c_str(), ".m2ts") == 0)
+				{
 					g_params["srcfmt"] = "m2ts";
+					g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".ts") == 0)
+				{
 					g_params["srcfmt"] = "ts";
+					g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
+				{
 					g_params["srcfmt"] = "tts";
+					g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".vob") == 0)
+				{
 					g_params["srcfmt"] = "vob";
+					g_media_scheme_type = MEDIA_SCHEME_PROGRAM_STREAM;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".mpg") == 0 || _stricmp(file_name_ext.c_str(), ".mpeg") == 0)
+				{
 					g_params["srcfmt"] = "mpg";
+					g_media_scheme_type = MEDIA_SCHEME_PROGRAM_STREAM;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mov") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".m4a") == 0 ||
@@ -495,32 +518,65 @@ int PrepareParams()
 					_stricmp(file_name_ext.c_str(), ".heif") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".heic") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".avif") == 0)
+				{
 					g_params["srcfmt"] = "mp4";
+					g_media_scheme_type = MEDIA_SCHEME_ISOBMFF;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mka") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".mk3d") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".webm") == 0)
+				{
 					g_params["srcfmt"] = "mkv";
+					g_media_scheme_type = MEDIA_SCHEME_MATROSKA;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".aiff") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".aif") == 0 ||
 					_stricmp(file_name_ext.c_str(), ".aifc") == 0)
+				{
 					g_params["srcfmt"] = "aiff";
+					g_media_scheme_type = MEDIA_SCHEME_AIFF;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".mmts") == 0)
+				{
 					g_params["srcfmt"] = "mmt";
+					g_media_scheme_type = MEDIA_SCHEME_MMT;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".h264") == 0 || _stricmp(file_name_ext.c_str(), ".avc") == 0)
+				{
 					g_params["srcfmt"] = "h264";
+					g_media_scheme_type = MEDIA_SCHEME_NAL;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".h265") == 0 || _stricmp(file_name_ext.c_str(), ".hevc") == 0)
+				{
 					g_params["srcfmt"] = "h265";
+					g_media_scheme_type = MEDIA_SCHEME_NAL;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".h266") == 0 || _stricmp(file_name_ext.c_str(), ".vvc") == 0)
+				{
 					g_params["srcfmt"] = "h266";
+					g_media_scheme_type = MEDIA_SCHEME_NAL;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".m2v") == 0 || _stricmp(file_name_ext.c_str(), ".mpv") == 0 || _stricmp(file_name_ext.c_str(), ".mp2v") == 0)
+				{
 					g_params["srcfmt"] = "mpv";
+					g_media_scheme_type = MEDIA_SCHEME_MPV;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".adts") == 0)
+				{
 					g_params["srcfmt"] = "adts";
+					g_media_scheme_type = MEDIA_SCHEME_ADTS;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".loas") == 0)
+				{
 					g_params["srcfmt"] = "loas";
+					g_media_scheme_type = MEDIA_SCHEME_LOAS_LATM;
+				}
 				else if (_stricmp(file_name_ext.c_str(), ".av1") == 0 || _stricmp(file_name_ext.c_str(), ".obu") == 0)
+				{
 					g_params["srcfmt"] = "av1";
+					g_media_scheme_type = MEDIA_SCHEME_AV1;
+				}
 			}
 		}
 
@@ -1225,6 +1281,16 @@ int main(int argc, char* argv[])
 			else if (g_params.find("showOBU") != g_params.end())
 			{
 				nDumpRet = ShowOBUs();
+				goto done;
+			}
+			else if (g_params.find("showMU") != g_params.end())
+			{
+				nDumpRet = ShowMU();
+				goto done;
+			}
+			else if (g_params.find("listMU") != g_params.end())
+			{
+				nDumpRet = ListMU();
 				goto done;
 			}
 			else if (g_params.find("showStreamMuxConfig") != g_params.end())

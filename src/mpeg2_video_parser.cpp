@@ -24,8 +24,8 @@ SOFTWARE.
 
 */
 #include "platcomm.h"
-#include "mpeg2video.h"
-#include "mpeg2videoparser.h"
+#include "mpeg2_video.h"
+#include "mpeg2_video_parser.h"
 
 CMPEG2VideoParser::CMPEG2VideoParser(RET_CODE* pRetCode)
 	: m_pCtx(nullptr)

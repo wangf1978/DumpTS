@@ -520,6 +520,7 @@ int AMURI_DecodeSegment(_In_z_ const char* szSegment, int ccSegment, std::string
 		return RET_CODE_INVALID_PARAMETER;
 
 	strDecoded.reserve((size_t)((uint64_t)ccSegment + 1));
+	strDecoded.clear();
 
 	const char* p = szSegment;
 	int ccLeft = ccSegment;

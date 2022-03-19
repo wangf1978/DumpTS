@@ -28,8 +28,11 @@ SOFTWARE.
 #include "PayloadBuf.h"
 #include "AMRingBuffer.h"
 #include <algorithm>
+#include "systemdef.h"
 
-extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
+extern map<std::string, std::string, CaseInsensitiveComparator> 
+											g_params;
+extern MEDIA_SCHEME_TYPE					g_media_scheme_type;
 
 // Refactor TS, for example, change PID, PTS, or changing from ts to m2ts and so on
 int RefactorTS()
@@ -80,9 +83,15 @@ int RefactorTS()
 		_splitpath_s(g_params["input"].c_str(), NULL, 0, NULL, 0, NULL, 0, szExt, _MAX_EXT);
 
 		if (_stricmp(szExt, ".ts") == 0)
+		{
 			g_params["srcfmt"] = "ts";
+			g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
+		}
 		else if (_stricmp(szExt, ".m2ts") == 0)
+		{
 			g_params["srcfmt"] = "m2ts";
+			g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
+		}
 		else
 		{
 			// Implement it later, need scan the current TS, and decide which kind of TS stream it is.

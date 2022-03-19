@@ -34,7 +34,7 @@ SOFTWARE.
 #include "descriptors_13818_1.h"
 #include "crc.h"
 #include "systemdef.h"
-#include "mpeg2video.h"
+#include "mpeg2_video.h"
 #include "h265_video.h"
 #include "h264_video.h"
 #include "av1.h"

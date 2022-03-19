@@ -30,8 +30,8 @@ SOFTWARE.
 #include <assert.h>
 #include <functional>
 #include "DataUtil.h"
-#include "mpeg2videoparser.h"
-#include "mpeg2video.h"
+#include "mpeg2_video_parser.h"
+#include "mpeg2_video.h"
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern int g_verbose_level;

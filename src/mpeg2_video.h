@@ -33,7 +33,7 @@ SOFTWARE.
 #include "DumpUtil.h"
 #include "AMArray.h"
 #include "AMException.h"
-#include "mpeg2videoparser.h"
+#include "mpeg2_video_parser.h"
 
 //
 // Design description

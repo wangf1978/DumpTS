@@ -24,8 +24,8 @@ SOFTWARE.
 
 */
 #include "platcomm.h"
-#include "mpeg2video.h"
-#include "mpeg2videoparser.h"
+#include "mpeg2_video.h"
+#include "mpeg2_video_parser.h"
 
 const char* picture_coding_type_name[8] = {
 /* 000 */ "Forbidden",

@@ -283,6 +283,7 @@
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
     <ClCompile Include="..\..\src\DumpMMT.cpp" />
     <ClCompile Include="..\..\src\DumpMP4.cpp" />
+    <ClCompile Include="..\..\src\DumpMU.cpp" />
     <ClCompile Include="..\..\src\DumpNAL.cpp" />
     <ClCompile Include="..\..\src\DumpPS.cpp" />
     <ClCompile Include="..\..\src\DumpStream.cpp" />
@@ -299,8 +300,8 @@
     <ClCompile Include="..\..\src\ISO14496_3.cpp" />
     <ClCompile Include="..\..\src\Matroska.cpp" />
     <ClCompile Include="..\..\src\MMT.cpp" />
-    <ClCompile Include="..\..\src\mpeg2videoparser.cpp" />
-    <ClCompile Include="..\..\src\mpeg2video.cpp" />
+    <ClCompile Include="..\..\src\mpeg2_video_parser.cpp" />
+    <ClCompile Include="..\..\src\mpeg2_video.cpp" />
     <ClCompile Include="..\..\src\nal_com.cpp" />
     <ClCompile Include="..\..\src\nal_parser.cpp" />
     <ClCompile Include="..\..\src\PartitialTS.cpp" />
@@ -402,8 +403,8 @@
     <ClInclude Include="..\..\src\Matroska.h" />
     <ClInclude Include="..\..\src\mediaobjprint.h" />
     <ClInclude Include="..\..\src\MMT.h" />
-    <ClInclude Include="..\..\src\mpeg2videoparser.h" />
-    <ClInclude Include="..\..\src\mpeg2video.h" />
+    <ClInclude Include="..\..\src\mpeg2_video_parser.h" />
+    <ClInclude Include="..\..\src\mpeg2_video.h" />
     <ClInclude Include="..\..\src\NAL.h" />
     <ClInclude Include="..\..\src\nal_com.h" />
     <ClInclude Include="..\..\src\nal_parser.h" />
