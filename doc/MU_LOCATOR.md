@@ -69,6 +69,7 @@ For example, it shows,
     Normally a MPEG2 video frame, I frame may start video sequence_header + sequence_extension + extension_and_user_data(0) + group_of_pictures_header + extension_and_user_data(1) + picture_header + ...
 - SE (syntactic element)
 	The basic element start with start_code, for example, sequence_header, sequence_extension and so on 
+
 | URI | comment |
 | --- | --- |
 | VSEQ`1` | The 2nd video sequence in the MPEG video bitstream |
