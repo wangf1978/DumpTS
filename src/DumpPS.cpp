@@ -552,10 +552,10 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 							m_pMPVContext->GetSeqExt().get(),
 							m_sp_sequence_display_extension.get(), stm_info)) && memcmp(&stm_info, &m_prev_stm_info, sizeof(stm_info)) != 0)
 						{
-							if (stm_info.video_info.profile != BST::MPEG2Video::PROFILE_UNKNOWN)
+							if (stm_info.video_info.profile != BST::MPEG2Video::MPV_PROFILE_UNKNOWN)
 								printf("\tMPEG2 Video Profile: %s\n", mpeg2_profile_names[stm_info.video_info.profile]);
 
-							if (stm_info.video_info.level != BST::MPEG2Video::LEVEL_UNKNOWN)
+							if (stm_info.video_info.level != BST::MPEG2Video::MPV_LEVEL_UNKNOWN)
 								printf("\tMPEG2 Video Level: %s\n", mpeg2_level_names[stm_info.video_info.level]);
 
 							if (stm_info.video_info.video_width != 0 && stm_info.video_info.video_height != 0)

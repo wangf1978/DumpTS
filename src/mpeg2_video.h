@@ -140,26 +140,26 @@ extern RET_CODE CreateMPVContext(IMPVContext** ppMPVCtx);
 namespace BST {
 	namespace MPEG2Video {
 
-	enum PROFILE
+	enum MPV_PROFILE
 	{
-		PROFILE_UNKNOWN = 0,
-		PROFILE_HIGH,
-		PROFILE_SPATIALLY_SCALABLE,
-		PROFILE_SNR_SCALABLE,
-		PROFILE_MAIN,
-		PROFILE_SIMPLE,
-		PROFILE_422,
-		PROFILE_MULTI_VIEW,
+		MPV_PROFILE_UNKNOWN = 0,
+		MPV_PROFILE_HIGH,
+		MPV_PROFILE_SPATIALLY_SCALABLE,
+		MPV_PROFILE_SNR_SCALABLE,
+		MPV_PROFILE_MAIN,
+		MPV_PROFILE_SIMPLE,
+		MPV_PROFILE_422,
+		MPV_PROFILE_MULTI_VIEW,
 	};
 
-	enum LEVEL
+	enum MPV_LEVEL
 	{
-		LEVEL_UNKNOWN = 0,
-		LEVEL_HIGHP = 2,
-		LEVEL_HIGH = 4,
-		LEVEL_HIGH_1440 = 6,
-		LEVEL_MAIN = 8,
-		LEVEL_LOW = 10,
+		MPV_LEVEL_UNKNOWN = 0,
+		MPV_LEVEL_HIGHP = 2,
+		MPV_LEVEL_HIGH = 4,
+		MPV_LEVEL_HIGH_1440 = 6,
+		MPV_LEVEL_MAIN = 8,
+		MPV_LEVEL_LOW = 10,
 	};
 
 	typedef struct {
@@ -200,7 +200,8 @@ namespace BST {
 		CSequenceHeader()
 			: horizontal_size_value(0), vertical_size_value(0), aspect_ratio_information(0), frame_rate_code(0)
 			, bit_rate_value(0), marker_bit_0(0), vbv_buffer_size_value(0), constrained_parameters_flag(0)
-			, load_intra_quantiser_matrix(0), load_non_intra_quantiser_matrix(0){}
+			, load_intra_quantiser_matrix(0), load_non_intra_quantiser_matrix(0){
+		}
 
 		int Map(AMBst in_bst)
 		{
@@ -380,7 +381,7 @@ namespace BST {
 			return RET_CODE_SUCCESS;
 		}
 
-		PROFILE GetProfile() {
+		MPV_PROFILE GetProfile() {
 			unsigned char Escape_bit = (profile_and_level_indication >> 7) & 0X01;
 			unsigned char Profile_identification = (profile_and_level_indication >> 4) & 0x07;
 			unsigned char Level_identification = profile_and_level_indication & 0xF;
@@ -389,26 +390,26 @@ namespace BST {
 				if (Profile_identification == 0) {
 					switch (Level_identification) {
 					case 0xE:
-						return PROFILE_MULTI_VIEW;
+						return MPV_PROFILE_MULTI_VIEW;
 					case 0XB:
-						return PROFILE_MULTI_VIEW;
+						return MPV_PROFILE_MULTI_VIEW;
 					case 0xA:
-						return PROFILE_MULTI_VIEW;
+						return MPV_PROFILE_MULTI_VIEW;
 					case 0x5:
-						return PROFILE_422;
+						return MPV_PROFILE_422;
 					case 0x2:
-						return PROFILE_422;
+						return MPV_PROFILE_422;
 					default:
-						return PROFILE_UNKNOWN;
+						return MPV_PROFILE_UNKNOWN;
 					}
 				}
-				return PROFILE_UNKNOWN;
+				return MPV_PROFILE_UNKNOWN;
 			}
 
-			return (PROFILE)(Profile_identification);
+			return (MPV_PROFILE)(Profile_identification);
 		}
 
-		LEVEL GetLevel() {
+		MPV_LEVEL GetLevel() {
 			unsigned char Escape_bit = (profile_and_level_indication >> 7) & 0X01;
 			unsigned char Profile_identification = (profile_and_level_indication >> 4) & 0x07;
 			unsigned char Level_identification = profile_and_level_indication & 0xF;
@@ -417,23 +418,23 @@ namespace BST {
 				if (Profile_identification == 0) {
 					switch (Level_identification) {
 					case 0xE:
-						return LEVEL_LOW;;
+						return MPV_LEVEL_LOW;;
 					case 0XB:
-						return LEVEL_HIGH_1440;
+						return MPV_LEVEL_HIGH_1440;
 					case 0xA:
-						return LEVEL_HIGH;
+						return MPV_LEVEL_HIGH;
 					case 0x5:
-						return LEVEL_MAIN;
+						return MPV_LEVEL_MAIN;
 					case 0x2:
-						return LEVEL_HIGH;
+						return MPV_LEVEL_HIGH;
 					default:
-						return LEVEL_UNKNOWN;
+						return MPV_LEVEL_UNKNOWN;
 					}
 				}
-				return LEVEL_UNKNOWN;
+				return MPV_LEVEL_UNKNOWN;
 			}
 
-			return (LEVEL)Level_identification;
+			return (MPV_LEVEL)Level_identification;
 		}
 
 		int Unmap(AMBst out_bst)
@@ -799,7 +800,7 @@ namespace BST {
 		}PACKED;
 
 		std::vector<scatterbyte>
-								extra_information_picture;
+						extra_information_picture;
 
 		CPictureHeader(){}
 
@@ -1976,8 +1977,8 @@ namespace BST {
 
 			~CCaptureTimeCode()
 			{
-				AMP_SAFEDEL(frame_or_field_capture_timestamp1);
-				AMP_SAFEDEL(frame_or_field_capture_timestamp2);
+				AMP_SAFEDEL2(frame_or_field_capture_timestamp1);
+				AMP_SAFEDEL2(frame_or_field_capture_timestamp2);
 			}
 
 			int Map(AMBst in_bst)
@@ -2123,22 +2124,22 @@ namespace BST {
 
 			struct {
 				uint8_t				marker_bit_0 : 1;
-				uint8_t				padding_5 : 7;
+				uint8_t				padding_0 : 7;
 
 				uint8_t				frame_centre_horizontal_offset_upper;
 
 				uint8_t				marker_bit_1 : 1;
-				uint8_t				padding_6 : 7;
+				uint8_t				padding_1 : 7;
 
 				uint8_t				frame_centre_horizontal_offset_lower;
 
 				uint8_t				marker_bit_2 : 1;
-				uint8_t				padding_7 : 7;
+				uint8_t				padding_2 : 7;
 
 				uint8_t				frame_centre_vertical_offset_upper;
 
 				uint8_t				marker_bit_3 : 1;
-				uint8_t				padding_8 : 7;
+				uint8_t				padding_3 : 7;
 
 				uint8_t				frame_centre_vertical_offset_lower;
 			}PACKED frame_centre_offsets[3];
@@ -2605,17 +2606,17 @@ namespace BST {
 		{
 			switch (extension_id)
 			{
-			case SEQUENCE_EXTENSION_ID: AMP_SAFEDEL(ptr_sequence_extension); break;
-			case SEQUENCE_DISPLAY_EXTENSION_ID: AMP_SAFEDEL(ptr_sequence_display_extension); break;
-			case QUANT_MATRIX_EXTENSION_ID: AMP_SAFEDEL(ptr_quant_matrix_extension); break;
-			case COPYRIGHT_EXTENSION_ID: AMP_SAFEDEL(ptr_copyright_extension); break;
-			case SEQUENCE_SCALABLE_EXTENSION_ID: AMP_SAFEDEL(ptr_sequence_scalable_extension); break;
-			case PICTURE_DISPLAY_EXTENSION_ID: AMP_SAFEDEL(ptr_picture_display_extension); break;
-			case PICTURE_CODING_EXTENSION_ID: AMP_SAFEDEL(ptr_picture_coding_extension); break;
-			case PICTURE_SPATIAL_SCALABLE_EXTENSION_ID: AMP_SAFEDEL(ptr_picture_spatial_scalable_extension); break;
-			case PICTURE_TEMPORAL_SCALABLE_EXTENSION_ID: AMP_SAFEDEL(ptr_picture_temporal_scalable_extension); break;
-			case CAMERA_PARAMETERS_EXTENSION_ID: AMP_SAFEDEL(ptr_camera_parameter_extension); break;
-			case ITUT_EXTENSION_ID: AMP_SAFEDEL(ptr_ITU_T_extension); break;
+			case SEQUENCE_EXTENSION_ID: AMP_SAFEDEL2(ptr_sequence_extension); break;
+			case SEQUENCE_DISPLAY_EXTENSION_ID: AMP_SAFEDEL2(ptr_sequence_display_extension); break;
+			case QUANT_MATRIX_EXTENSION_ID: AMP_SAFEDEL2(ptr_quant_matrix_extension); break;
+			case COPYRIGHT_EXTENSION_ID: AMP_SAFEDEL2(ptr_copyright_extension); break;
+			case SEQUENCE_SCALABLE_EXTENSION_ID: AMP_SAFEDEL2(ptr_sequence_scalable_extension); break;
+			case PICTURE_DISPLAY_EXTENSION_ID: AMP_SAFEDEL2(ptr_picture_display_extension); break;
+			case PICTURE_CODING_EXTENSION_ID: AMP_SAFEDEL2(ptr_picture_coding_extension); break;
+			case PICTURE_SPATIAL_SCALABLE_EXTENSION_ID: AMP_SAFEDEL2(ptr_picture_spatial_scalable_extension); break;
+			case PICTURE_TEMPORAL_SCALABLE_EXTENSION_ID: AMP_SAFEDEL2(ptr_picture_temporal_scalable_extension); break;
+			case CAMERA_PARAMETERS_EXTENSION_ID: AMP_SAFEDEL2(ptr_camera_parameter_extension); break;
+			case ITUT_EXTENSION_ID: AMP_SAFEDEL2(ptr_ITU_T_extension); break;
 			}
 		}
 
@@ -2842,8 +2843,8 @@ namespace BST {
 				, ptr_user_data(NULL){}
 
 			virtual ~CExtensionAndUserData(){
-				AMP_SAFEDEL(ptr_extension_data);
-				AMP_SAFEDEL(ptr_user_data);
+				AMP_SAFEDEL2(ptr_extension_data);
+				AMP_SAFEDEL2(ptr_user_data);
 			}
 
 			int Map(AMBst in_bst)
@@ -3097,11 +3098,11 @@ namespace BST {
 				, buf_size(0){}
 
 			virtual ~CPicturePayload(){
-				AMP_SAFEDEL(ptr_group_of_pictures_header);
-				AMP_SAFEDEL(ptr_extension_and_user_data_1);
-				AMP_SAFEDEL(ptr_picture_header);
-				AMP_SAFEDEL(ptr_picture_coding_extension);
-				AMP_SAFEDEL(ptr_extension_and_user_data_2);
+				AMP_SAFEDEL2(ptr_group_of_pictures_header);
+				AMP_SAFEDEL2(ptr_extension_and_user_data_1);
+				AMP_SAFEDEL2(ptr_picture_header);
+				AMP_SAFEDEL2(ptr_picture_coding_extension);
+				AMP_SAFEDEL2(ptr_extension_and_user_data_2);
 			}
 
 			int Map(AMBst in_bst)
@@ -3180,9 +3181,9 @@ namespace BST {
 
 			virtual ~CSequencePayload()
 			{
-				AMP_SAFEDEL(ptr_sequence_header);
-				AMP_SAFEDEL(ptr_sequence_extension);
-				AMP_SAFEDEL(ptr_extension_and_user_data_0);
+				AMP_SAFEDEL2(ptr_sequence_header);
+				AMP_SAFEDEL2(ptr_sequence_extension);
+				AMP_SAFEDEL2(ptr_extension_and_user_data_0);
 			}
 
 			int Map(AMBst in_bst)
@@ -3384,16 +3385,16 @@ namespace BST {
 		{
 			switch (start_code_value)
 			{
-			case SEQUENCE_HEADER_CODE: AMP_SAFEDEL(ptr_sequence_header); break;
-			case GROUP_START_CODE: AMP_SAFEDEL(ptr_group_of_pictures_header); break;
-			case PICTURE_START_CODE: AMP_SAFEDEL(ptr_picture_header); break;
-			case SEQUENCE_END_CODE: AMP_SAFEDEL(ptr_sequence_end); break;
-			case USER_DATA_START_CODE: AMP_SAFEDEL(ptr_user_data); break;
-			case EXTENSION_START_CODE: AMP_SAFEDEL(ptr_extension_data); break;
-			default:AMP_SAFEDEL(ptr_unknown_unit); break;
+			case SEQUENCE_HEADER_CODE: AMP_SAFEDEL2(ptr_sequence_header); break;
+			case GROUP_START_CODE: AMP_SAFEDEL2(ptr_group_of_pictures_header); break;
+			case PICTURE_START_CODE: AMP_SAFEDEL2(ptr_picture_header); break;
+			case SEQUENCE_END_CODE: AMP_SAFEDEL2(ptr_sequence_end); break;
+			case USER_DATA_START_CODE: AMP_SAFEDEL2(ptr_user_data); break;
+			case EXTENSION_START_CODE: AMP_SAFEDEL2(ptr_extension_data); break;
+			default:AMP_SAFEDEL2(ptr_unknown_unit); break;
 			}
 
-			AMP_SAFEDEL(next);
+			AMP_SAFEDEL2(next);
 		}
 
 		int Map(AMBst in_bst)
@@ -3617,7 +3618,7 @@ namespace BST {
 						!!ptr_video_payload->map_status.broken && 
 						ptr_video_payload->map_status.number_of_fields <= 0)
 					{
-						AMP_SAFEDEL(ptr_video_payload);
+						AMP_SAFEDEL3(ptr_video_payload);
 					}
 					else
 					{
@@ -3636,7 +3637,7 @@ namespace BST {
 			catch(AMException e)
 			{
 				iRet = e.RetCode();
-				AMP_SAFEDEL(ptr_video_payload);
+				AMP_SAFEDEL2(ptr_video_payload);
 			}
 
 			return iRet;
