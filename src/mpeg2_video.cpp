@@ -147,7 +147,7 @@ int next_start_code(AMBst in_bst) {
 	{
 		if (AMP_FAILED(iRet = AMBst_Realign(in_bst)))
 		{
-			printf(_T("error happened or data is insufficient in bitstream {retcode: %d}.\n"), iRet);
+			printf("error happened or data is insufficient in bitstream {retcode: %d}.\n", iRet);
 			return iRet;
 		}
 
