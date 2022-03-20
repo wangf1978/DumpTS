@@ -54,28 +54,55 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 	int top = GetTopRecordCount();
 
 	BST::AACAudio::CLOASParser LOASParser;
-	if (AMP_FAILED(LOASParser.GetMP4AContext(&pCtxMP4AAC)))
+	IUnknown* pMSECtx = nullptr;
+	if (AMP_FAILED(LOASParser.GetContext(&pMSECtx)) ||
+		FAILED(pMSECtx->QueryInterface(IID_IMP4AACContext, (void**)&pCtxMP4AAC)))
 	{
+		AMP_SAFERELEASE(pMSECtx);
 		printf("Failed to get the MPEG4 AAC context.\n");
-		return RET_CODE_ERROR;
+		return RET_CODE_ERROR_NOTIMPL;
 	}
+	AMP_SAFERELEASE(pMSECtx);
 
-	class CLOASEnumerator : public BST::AACAudio::ILOASEnumerator
+	class CLOASEnumerator : public CComUnknown, public ILOASEnumerator
 	{
 	public:
 		CLOASEnumerator(BST::AACAudio::IMP4AACContext* pCtxMP4AAC, bool bOnlyShowAudioSpecificConfig) 
 			: m_pCtxMP4AAC(pCtxMP4AAC)
 			, m_bOnlyShowAudioSpecificConfig(bOnlyShowAudioSpecificConfig){
+			if (m_pCtxMP4AAC)
+				m_pCtxMP4AAC->AddRef();
 			memset(audio_specific_config_sha1, 0, sizeof(audio_specific_config_sha1));
 		}
 
-		virtual ~CLOASEnumerator() {}
+		virtual ~CLOASEnumerator() {
+			AMP_SAFERELEASE(m_pCtxMP4AAC);
+		}
 
-		RET_CODE EnumLATMAUBegin(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf)
+		DECLARE_IUNKNOWN
+		HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+		{
+			if (ppvObj == NULL)
+				return E_POINTER;
+
+			if (uuid == IID_ILOASEnumerator)
+				return GetCOMInterface((ILOASEnumerator*)this, ppvObj);
+
+			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+		}
+
+	public:
+		RET_CODE EnumLATMAUBegin(IUnknown* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf)
 		{
 			//printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
+			if (pCtx == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
 
-			auto mux_stream_config = pCtx->GetMuxStreamConfig();
+			BST::AACAudio::IMP4AACContext* pMP4ACtx = nullptr;
+			if (FAILED(pCtx->QueryInterface(IID_IMP4AACContext, (void**)&pMP4ACtx)))
+				return RET_CODE_INVALID_PARAMETER;
+
+			auto mux_stream_config = pMP4ACtx->GetMuxStreamConfig();
 
 			// check whether the SHA1, and judge whether AudioSpecificConfig is changed
 			for (int prog = 0; prog < 16; prog++)
@@ -143,26 +170,21 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 				}
 			}
 
+			AMP_SAFERELEASE(pMP4ACtx);
+
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumSubFrameBegin(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload)
-		{
-			return RET_CODE_SUCCESS;
-		}
+		RET_CODE EnumSubFrameBegin(IUnknown* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload){return RET_CODE_SUCCESS;}
+		RET_CODE EnumSubFrameEnd(IUnknown* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload){return RET_CODE_SUCCESS;}
 
-		RET_CODE EnumSubFrameEnd(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload)
-		{
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumLATMAUEnd(BST::AACAudio::IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf)
+		RET_CODE EnumLATMAUEnd(IUnknown* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf)
 		{
 			m_AUCount++;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumError(BST::AACAudio::IMP4AACContext* pCtx, RET_CODE error_code)
+		RET_CODE EnumError(IUnknown* pCtx, RET_CODE error_code)
 		{
 			printf("Hitting an error {code: %d}!\n", error_code);
 			return RET_CODE_SUCCESS;
@@ -186,7 +208,8 @@ int	ShowStreamMuxConfig(bool bOnlyShowAudioSpecificConfig)
 	file_size = _ftelli64(rfp);
 	_fseeki64(rfp, 0, SEEK_SET);
 
-	LOASParser.SetEnumerator((BST::AACAudio::ILOASEnumerator*)(&LOASEnumerator), options);
+	LOASEnumerator.AddRef();
+	LOASParser.SetEnumerator((IUnknown*)(&LOASEnumerator), options);
 
 	do
 	{

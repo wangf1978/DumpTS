@@ -38,6 +38,7 @@ SOFTWARE.
 #include "AMArray.h"
 #include "AMBitStream.h"
 #include "DumpUtil.h"
+#include "MSE.h"
 
 namespace BST {
 	namespace MPEG2Video {
@@ -84,38 +85,30 @@ public:
 	virtual ~IMPVContext() {}
 };
 
-class IMPVEnumerator
-{
-public:
-	virtual RET_CODE		EnumAUStart(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) = 0;
-	virtual RET_CODE		EnumSliceStart(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;
-	virtual RET_CODE		EnumSliceEnd(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;
-	virtual RET_CODE		EnumAUEnd(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) = 0;
-	virtual RET_CODE		EnumObject(IMPVContext* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode) = 0;
-
-	/*
-		Error Code:
-			1 Buffer is too small
-			2 forbidon_zero_bit is not 0
-			3 Incompatible slice header in a coded picture
-			4 nal_unit_header in the same picture unit is not the same
-			5 Incompatible parameter set rbsp
-	*/
-	virtual RET_CODE		EnumError(IMPVContext* pCtx, uint64_t stream_offset, int error_code) = 0;
-};
-
-class CMPEG2VideoParser
+class CMPEG2VideoParser: public CComUnknown, public IMSEParser
 {
 public:
 	CMPEG2VideoParser(RET_CODE* pRetCode=nullptr);
 	virtual ~CMPEG2VideoParser();
 
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+	{
+		if (ppvObj == NULL)
+			return E_POINTER;
+
+		if (uuid == IID_IMSEParser)
+			return GetCOMInterface((IMSEParser*)this, ppvObj);
+
+		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+	}
+
 public:
-	RET_CODE				SetEnumerator(IMPVEnumerator* pEnumerator, uint32_t options);
+	RET_CODE				SetEnumerator(IUnknown* pEnumerator, uint32_t options);
 	RET_CODE				ProcessInput(uint8_t* pBuf, size_t cbBuf);
 	RET_CODE				ProcessOutput(bool bDrain = false);
 	RET_CODE				ParseAUBuf(uint8_t* pAUBuf, size_t cbAUBuf);
-	RET_CODE				GetMPVContext(IMPVContext** ppCtx);
+	RET_CODE				GetContext(IUnknown** ppCtx);
 	RET_CODE				Reset();
 
 protected:

@@ -593,9 +593,22 @@ namespace BST {
 			AM_LRB_Destroy(m_rbRawBuf);
 		}
 
-		RET_CODE CLOASParser::SetEnumerator(ILOASEnumerator* pEnumerator, uint32_t options)
+		RET_CODE CLOASParser::SetEnumerator(IUnknown* pEnumerator, uint32_t options)
 		{
-			m_loas_enum = pEnumerator;
+			ILOASEnumerator* pLOASEumerator = nullptr;
+			if (pEnumerator != nullptr)
+			{
+				if (FAILED(pEnumerator->QueryInterface(IID_ILOASEnumerator, (void**)&pLOASEumerator)))
+				{
+					return RET_CODE_ERROR;
+				}
+			}
+
+			if (m_loas_enum)
+				m_loas_enum->Release();
+
+			m_loas_enum = pLOASEumerator;
+
 			m_loas_enum_options = options;
 			return RET_CODE_SUCCESS;
 		}
@@ -899,13 +912,13 @@ namespace BST {
 			return iRet;
 		}
 
-		RET_CODE CLOASParser::GetMP4AContext(IMP4AACContext** ppCtx)
+		RET_CODE CLOASParser::GetContext(IUnknown** ppCtx)
 		{
 			if (ppCtx == nullptr)
 				return RET_CODE_INVALID_PARAMETER;
 
 			m_pCtxMP4AAC->AddRef();
-			*ppCtx = m_pCtxMP4AAC;
+			*ppCtx = (IUnknown*)m_pCtxMP4AAC;
 			return RET_CODE_SUCCESS;
 		}
 

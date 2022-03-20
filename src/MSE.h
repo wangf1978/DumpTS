@@ -30,6 +30,7 @@ SOFTWARE.
 #include "combase.h"
 #include <cstdint>
 
+/*!	@brief Media Syntax Element Parser */
 class IMSEParser : public IUnknown
 {
 public:
@@ -44,6 +45,7 @@ public:
 	virtual ~IMSEParser() {}
 };
 
+/*!	@brief General Access-Unit enumerator */
 class IAUEnumerator : public IUnknown
 {
 public:
@@ -51,7 +53,8 @@ public:
 	virtual RET_CODE		EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) = 0;
 };
 
-class INALEnumerator: public IUnknown
+/*!	@brief NAL syntax element enumerator */
+class INALEnumerator : public IUnknown
 {
 public:
 	virtual RET_CODE		EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) = 0;
@@ -71,6 +74,57 @@ public:
 			5 Incompatible parameter set rbsp
 	*/
 	virtual RET_CODE		EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code) = 0;
+};
+
+/*! @brief AV1 syntax element enumerator */
+class IAV1Enumerator : public IUnknown
+{
+public:
+	virtual RET_CODE		EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
+	virtual RET_CODE		EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
+	virtual RET_CODE		EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) = 0;
+	virtual RET_CODE		EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
+	virtual RET_CODE		EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
+	/*
+		Error Code:
+			1 Buffer is too small
+			2 forbidon_bit is not 0
+			3 reserved bit is not 0
+			4 incompatible bit-stream
+	*/
+	virtual RET_CODE		EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) = 0;
+};
+
+/*! @brief MPEG Video syntax element enumerator */
+class IMPVEnumerator : public IUnknown
+{
+public:
+	virtual RET_CODE		EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) = 0;
+	virtual RET_CODE		EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;
+	virtual RET_CODE		EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;
+	virtual RET_CODE		EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) = 0;
+	virtual RET_CODE		EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode) = 0;
+
+	/*
+		Error Code:
+			1 Buffer is too small
+			2 forbidon_zero_bit is not 0
+			3 Incompatible slice header in a coded picture
+			4 nal_unit_header in the same picture unit is not the same
+			5 Incompatible parameter set rbsp
+	*/
+	virtual RET_CODE		EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) = 0;
+};
+
+/*! @brief MPEG-4 AAC LOAS/LATM syntax element enumerator*/
+class ILOASEnumerator : public IUnknown
+{
+public:
+	virtual RET_CODE		EnumLATMAUBegin(IUnknown* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf) = 0;
+	virtual RET_CODE		EnumSubFrameBegin(IUnknown* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload) = 0;
+	virtual RET_CODE		EnumSubFrameEnd(IUnknown* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload) = 0;
+	virtual RET_CODE		EnumLATMAUEnd(IUnknown* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf) = 0;
+	virtual RET_CODE		EnumError(IUnknown* pCtx, RET_CODE error_code) = 0;
 };
 
 #endif

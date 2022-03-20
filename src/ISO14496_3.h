@@ -42,6 +42,7 @@ SOFTWARE.
 #include "dump_data_type.h"
 #include "AMSHA1.h"
 #include "AudChMap.h"
+#include "MSE.h"
 
 #define ZERO_HCB								0
 #define FIRST_PAIR_HCB							5
@@ -6066,28 +6067,30 @@ namespace BST {
 			// TODO...
 		};
 
-		class ILOASEnumerator
-		{
-		public:
-			virtual RET_CODE		EnumLATMAUBegin(IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf) = 0;
-			virtual RET_CODE		EnumSubFrameBegin(IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload) = 0;
-			virtual RET_CODE		EnumSubFrameEnd(IMP4AACContext* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload) = 0;
-			virtual RET_CODE		EnumLATMAUEnd(IMP4AACContext* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf) = 0;
-			virtual RET_CODE		EnumError(IMP4AACContext* pCtx, RET_CODE error_code) = 0;
-		};
-
-		class CLOASParser
+		class CLOASParser : public CComUnknown, public IMSEParser
 		{
 		public:
 			CLOASParser(RET_CODE* pRetCode = nullptr);
 			virtual ~CLOASParser();
 
+			DECLARE_IUNKNOWN
+			HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+			{
+				if (ppvObj == NULL)
+					return E_POINTER;
+
+				if (uuid == IID_IMSEParser)
+					return GetCOMInterface((IMSEParser*)this, ppvObj);
+
+				return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+			}
+
 		public:
-			RET_CODE				SetEnumerator(ILOASEnumerator* pEnumerator, uint32_t options);
+			RET_CODE				SetEnumerator(IUnknown* pEnumerator, uint32_t options);
 			RET_CODE				ProcessInput(uint8_t* pBuf, size_t cbBuf);
 			RET_CODE				ProcessOutput(bool bDrain = false);
 			RET_CODE				ProcessAU(uint8_t* pBuf, size_t cbBuf);
-			RET_CODE				GetMP4AContext(IMP4AACContext** ppCtx);
+			RET_CODE				GetContext(IUnknown** ppCtx);
 			RET_CODE				Reset();
 
 		protected:

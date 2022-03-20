@@ -50,9 +50,22 @@ CMPEG2VideoParser::~CMPEG2VideoParser()
 	AM_LRB_Destroy(m_rbRawBuf);
 }
 
-RET_CODE CMPEG2VideoParser::SetEnumerator(IMPVEnumerator* pEnumerator, uint32_t options)
+RET_CODE CMPEG2VideoParser::SetEnumerator(IUnknown* pEnumerator, uint32_t options)
 {
-	m_mpv_enum = pEnumerator;
+	IMPVEnumerator* pMPVEumerator = nullptr;
+	if (pEnumerator != nullptr)
+	{
+		if (FAILED(pEnumerator->QueryInterface(IID_IMPVEnumerator, (void**)&pMPVEumerator)))
+		{
+			return RET_CODE_ERROR;
+		}
+	}
+
+	if (m_mpv_enum)
+		m_mpv_enum->Release();
+
+	m_mpv_enum = pMPVEumerator;
+
 	m_mpv_enum_options = options;
 
 	return RET_CODE_SUCCESS;
@@ -269,13 +282,13 @@ RET_CODE CMPEG2VideoParser::ParseAUBuf(uint8_t* pAUBuf, size_t cbAUBuf)
 	return iRet;
 }
 
-RET_CODE CMPEG2VideoParser::GetMPVContext(IMPVContext** ppCtx)
+RET_CODE CMPEG2VideoParser::GetContext(IUnknown** ppCtx)
 {
 	if (ppCtx == nullptr)
 		return RET_CODE_INVALID_PARAMETER;
 
 	m_pCtx->AddRef();
-	*ppCtx = m_pCtx;
+	*ppCtx = (IUnknown*)m_pCtx;
 	return RET_CODE_SUCCESS;
 }
 

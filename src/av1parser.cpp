@@ -53,9 +53,22 @@ CAV1Parser::~CAV1Parser()
 	AM_LRB_Destroy(m_rbRawBuf);
 }
 
-RET_CODE CAV1Parser::SetEnumerator(IAV1Enumerator* pEnumerator, uint32_t options)
+RET_CODE CAV1Parser::SetEnumerator(IUnknown* pEnumerator, uint32_t options)
 {
-	m_av1_enum = pEnumerator;
+	IAV1Enumerator* pAV1Eumerator = nullptr;
+	if (pEnumerator != nullptr)
+	{
+		if (FAILED(pEnumerator->QueryInterface(IID_IAV1Enumerator, (void**)&pAV1Eumerator)))
+		{
+			return RET_CODE_ERROR;
+		}
+	}
+
+	if (m_av1_enum)
+		m_av1_enum->Release();
+
+	m_av1_enum = pAV1Eumerator;
+
 	m_av1_enum_options = options;
 
 	return RET_CODE_SUCCESS;
@@ -124,13 +137,13 @@ RET_CODE CAV1Parser::ParseFrameBuf(uint8_t* pAUBuf, size_t cbAUBuf)
 	return iRet;
 }
 
-RET_CODE CAV1Parser::GetAV1Context(IAV1Context** ppCtx)
+RET_CODE CAV1Parser::GetContext(IUnknown** ppCtx)
 {
 	if (ppCtx == nullptr)
 		return RET_CODE_INVALID_PARAMETER;
 
 	m_pCtx->AddRef();
-	*ppCtx = m_pCtx;
+	*ppCtx = (IUnknown*)m_pCtx;
 	return RET_CODE_SUCCESS;
 }
 

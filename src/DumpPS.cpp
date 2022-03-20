@@ -461,29 +461,49 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 	int top = GetTopRecordCount();
 
 	CMPEG2VideoParser MPVParser;
-	if (AMP_FAILED(MPVParser.GetMPVContext(&pMPVContext)))
+	IUnknown* pMSECtx = nullptr;
+	if (AMP_FAILED(MPVParser.GetContext(&pMSECtx)) ||
+		FAILED(pMSECtx->QueryInterface(IID_IMPVContext, (void**)&pMPVContext)))
 	{
+		AMP_SAFERELEASE(pMSECtx);
 		printf("Failed to get the MPV context.\n");
 		return RET_CODE_ERROR_NOTIMPL;
 	}
+	AMP_SAFERELEASE(pMSECtx);
 
 	pMPVContext->SetStartCodeFilters(filters);
 
-	class CMPVEnumerator : public IMPVEnumerator
+	class CMPVEnumerator : public CComUnknown, public IMPVEnumerator
 	{
 	public:
 		CMPVEnumerator(IMPVContext* pCtx, int options)
 			: m_pMPVContext(pCtx), m_show_options(options) {
+			if (m_pMPVContext)
+				m_pMPVContext->AddRef();
 		}
 
 		virtual ~CMPVEnumerator() {
+			AMP_SAFERELEASE(m_pMPVContext);
 		}
 
-		RET_CODE EnumAUStart(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumSliceStart(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumSliceEnd(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumAUEnd(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumObject(IMPVContext* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+		DECLARE_IUNKNOWN
+		HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+		{
+			if (ppvObj == NULL)
+				return E_POINTER;
+
+			if (uuid == IID_IMPVEnumerator)
+				return GetCOMInterface((IMPVEnumerator*)this, ppvObj);
+
+			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+		}
+
+	public:
+		RET_CODE EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
 		{
 			if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
 				return RET_CODE_NOTHING_TODO;
@@ -601,7 +621,7 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 				AMBst_Destroy(bst);
 			return ret_code;
 		}
-		RET_CODE EnumError(IMPVContext* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
 
 		IMPVContext*			m_pMPVContext;
 		int						m_show_options;
@@ -612,6 +632,7 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 
 	} MPVEnumerator(pMPVContext, show_options);
 
+	MPVEnumerator.AddRef();
 	MPVParser.SetEnumerator(&MPVEnumerator, MPV_ENUM_OPTION_OBJ | ((show_options&0x01)?MPV_ENUM_OPTION_AU:0));
 
 	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");

@@ -38,6 +38,7 @@ SOFTWARE.
 #include "AMArray.h"
 #include "AMBitStream.h"
 #include "DumpUtil.h"
+#include "MSE.h"
 
 enum AV1_ENUM_OPTION
 {
@@ -95,36 +96,30 @@ public:
 	virtual ~IAV1Context() {}
 };
 
-class IAV1Enumerator
-{
-public:
-	virtual RET_CODE		EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
-	virtual RET_CODE		EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
-	virtual RET_CODE		EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) = 0;
-	virtual RET_CODE		EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
-	virtual RET_CODE		EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
-	/*
-		Error Code:
-			1 Buffer is too small
-			2 forbidon_bit is not 0
-			3 reserved bit is not 0
-			4 incompatible bit-stream
-	*/
-	virtual RET_CODE		EnumError(IAV1Context* pCtx, uint64_t stream_offset, int error_code) = 0;
-};
-
-class CAV1Parser
+class CAV1Parser : public CComUnknown, public IMSEParser
 {
 public:
 	CAV1Parser(bool bAnnexB, bool bSingleOBUParse, RET_CODE* pRetCode);
 	virtual ~CAV1Parser();
 
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+	{
+		if (ppvObj == NULL)
+			return E_POINTER;
+
+		if (uuid == IID_IMSEParser)
+			return GetCOMInterface((IMSEParser*)this, ppvObj);
+
+		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+	}
+
 public:
-	RET_CODE				SetEnumerator(IAV1Enumerator* pEnumerator, uint32_t options);
+	RET_CODE				SetEnumerator(IUnknown* pEnumerator, uint32_t options);
 	RET_CODE				ProcessInput(uint8_t* pInput, size_t cbInput);
 	RET_CODE				ProcessOutput(bool bDrain = false);
 	RET_CODE				ParseFrameBuf(uint8_t* pAUBuf, size_t cbAUBuf);
-	RET_CODE				GetAV1Context(IAV1Context** ppCtx);
+	RET_CODE				GetContext(IUnknown** ppCtx);
 	RET_CODE				Reset();
 
 protected:

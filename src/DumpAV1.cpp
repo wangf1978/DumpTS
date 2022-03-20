@@ -789,7 +789,7 @@ int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB)
 	return RET_CODE_SUCCESS;
 }
 
-class CAV1BaseEnumerator : public IAV1Enumerator
+class CAV1BaseEnumerator : public CComUnknown, public IAV1Enumerator
 {
 public:
 	CAV1BaseEnumerator(IAV1Context* pAV1Context)
@@ -801,23 +801,35 @@ public:
 		AMP_SAFERELEASE(m_pAV1Context);
 	}
 
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+	{
+		if (ppvObj == NULL)
+			return E_POINTER;
+
+		if (uuid == IID_IAV1Enumerator)
+			return GetCOMInterface((IAV1Enumerator*)this, ppvObj);
+
+		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+	}
+
 public:
-	RET_CODE EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
+	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+	RET_CODE EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+	RET_CODE EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumError(IAV1Context* pCtx, uint64_t stream_offset, int error_code) {
+	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) {
 		return RET_CODE_SUCCESS;
 	}
 
@@ -830,29 +842,29 @@ class CAV1ShowOBUEnumerator : public CAV1BaseEnumerator
 public:
 	CAV1ShowOBUEnumerator(IAV1Context* pCtx) : CAV1BaseEnumerator(pCtx) {}
 
-	RET_CODE EnumTemporalUnitStart(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
 		m_FU_count_in_TU = 0;
 		printf("Temporal Unit#[%" PRId64 "]:\n", m_TU_count);
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumFrameUnitStart(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
 		m_OBU_count_in_FU = 0;
 		printf("%*.sFrame Unit#%" PRId64 "/global#%" PRId64 "\n", m_indent[1], m_szIndent, m_FU_count_in_TU, m_FU_count);
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
+	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
 		printf("%*.sOBU#%" PRId64 ": %-32s (len/size--%5zu/%-5" PRIu32 ")/global#%" PRId64 "\n",
 			m_indent[2], m_szIndent, m_OBU_count_in_FU, obu_type < 0xF ? obu_type_names[obu_type] : "", cbOBUBuf, obu_size, m_OBU_count);
 		m_OBU_count_in_FU++;
 		m_OBU_count++;
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumFrameUnitEnd(IAV1Context* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+	RET_CODE EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
 		m_FU_count_in_TU++;
 		m_FU_count++;
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumTemporalUnitEnd(IAV1Context* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+	RET_CODE EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
 		m_TU_count++;
 		return RET_CODE_SUCCESS;
 	}
@@ -973,11 +985,15 @@ int	ShowAV1Info(AV1_INFO_CMD cmd)
 	printf("%s AV1 bitstream...\n", bAnnexBStream ? "Length-Delimited" : "Low-Overhead");
 
 	CAV1Parser AV1Parser(bAnnexBStream, false, nullptr);
-	if (AMP_FAILED(AV1Parser.GetAV1Context(&pAV1Context)))
+	IUnknown* pMSECtx = nullptr;
+	if (AMP_FAILED(AV1Parser.GetContext(&pMSECtx)) ||
+		FAILED(pMSECtx->QueryInterface(IID_IAV1Context, (void**)&pAV1Context)))
 	{
+		AMP_SAFERELEASE(pMSECtx);
 		printf("Failed to get the AV1 context.\n");
 		return RET_CODE_ERROR_NOTIMPL;
 	}
+	AMP_SAFERELEASE(pMSECtx);
 
 	CAV1BaseEnumerator* pAV1Enumerator = nullptr;
 
