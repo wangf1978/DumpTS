@@ -28,15 +28,16 @@ SOFTWARE.
 #include "AMRFC3986.h"
 #include "DataUtil.h"
 #include "systemdef.h"
+#include "mpeg2_video_parser.h"
 
-#define MU_UNSPECIFIED				INT64_MAX
-#define MU_UNSELECTED				-1
+#define MSE_UNSPECIFIED				INT64_MAX
+#define MSE_UNSELECTED				-1
 
-using MUID = int64_t;
+using MSEID = int64_t;
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
-struct MediaUnitNav
+struct MSENav
 {
 	MEDIA_SCHEME_TYPE
 					scheme_type;
@@ -44,41 +45,41 @@ struct MediaUnitNav
 	{
 		struct
 		{
-			MUID		sei_pl;						// SEI payload index
-			MUID		sei_msg;					// SEI message index
-			MUID		nu;							// NAL unit index
-			MUID		au;							// Access unit index
-			MUID		cvs;						// Codec video sequence index
+			MSEID		sei_pl;						// SEI payload index
+			MSEID		sei_msg;					// SEI message index
+			MSEID		nu;							// NAL unit index
+			MSEID		au;							// Access unit index
+			MSEID		cvs;						// Codec video sequence index
 		}NAL;
 		struct
 		{
-			MUID		au;
+			MSEID		au;
 		}AUDIO;
 		struct
 		{
-			MUID		obu;
-			MUID		fu;
-			MUID		tu;
+			MSEID		obu;
+			MSEID		fu;
+			MSEID		tu;
 		}AV1;
 		struct
 		{
-			MUID		se;
-			MUID		mb;
-			MUID		slice;
-			MUID		au;
-			MUID		gop;
-			MUID		vseq;
+			MSEID		se;
+			MSEID		mb;
+			MSEID		slice;
+			MSEID		au;
+			MSEID		gop;
+			MSEID		vseq;
 		}MPV;
 		uint8_t		bytes[128];
 	};
 
-	std::vector<std::tuple<uint32_t/*box type*/, MUID/*the box index with the specified box-type of same parent box*/>>
+	std::vector<std::tuple<uint32_t/*box type*/, MSEID/*the box index with the specified box-type of same parent box*/>>
 					isobmff_boxes;
 
 	std::vector<std::string>
 					insidepath;
 
-	MediaUnitNav(MEDIA_SCHEME_TYPE schemeType)
+	MSENav(MEDIA_SCHEME_TYPE schemeType)
 		: scheme_type(schemeType) {
 		memset(bytes, 0xFF, sizeof(bytes));
 	}
@@ -87,7 +88,7 @@ struct MediaUnitNav
 
 protected:
 	int	LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments, 
-		std::vector<std::string>& supported_authority_components, MUID** muids);
+		std::vector<std::string>& supported_authority_components, MSEID** muids);
 
 	int	LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
 	int	LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
@@ -103,39 +104,39 @@ protected:
 	static std::vector<std::string>		mpv_supported_authority_components;
 };
 
-std::vector<std::string> MediaUnitNav::nal_supported_authority_components = { "cvs", "au", "nu", "seimsg", "seipl" };
-std::vector<std::string> MediaUnitNav::audio_supported_authority_components = { "au" };
-std::vector<std::string> MediaUnitNav::av1_supported_authority_components = { "tu", "fu", "obu" };
-std::vector<std::string> MediaUnitNav::mpv_supported_authority_components = { "vseq", "gop", "au", "slice", "mb", "se" };
+std::vector<std::string> MSENav::nal_supported_authority_components = { "cvs", "au", "nu", "seimsg", "seipl" };
+std::vector<std::string> MSENav::audio_supported_authority_components = { "au" };
+std::vector<std::string> MSENav::av1_supported_authority_components = { "tu", "fu", "obu" };
+std::vector<std::string> MSENav::mpv_supported_authority_components = { "vseq", "gop", "au", "slice", "mb", "se" };
 
-int MediaUnitNav::Load()
+int MSENav::Load()
 {
 	int iRet = RET_CODE_SUCCESS;
 
-	auto iterShowMU = g_params.find("showMU");
-	if (iterShowMU == g_params.end())
+	auto iterShowMSE = g_params.find("showMSE");
+	if (iterShowMSE == g_params.end())
 		return RET_CODE_ERROR;
 
-	const char* szMUURI = iterShowMU->second.c_str();
-	if (szMUURI == nullptr)
+	const char* szMSEURI = iterShowMSE->second.c_str();
+	if (szMSEURI == nullptr)
 		return RET_CODE_SUCCESS;
 
-	URI_Components MU_uri_components;
-	if (AMP_FAILED(AMURI_Split(szMUURI, MU_uri_components)))
+	URI_Components MSE_uri_components;
+	if (AMP_FAILED(AMURI_Split(szMSEURI, MSE_uri_components)))
 	{
-		printf("Please specify a valid URI for the option 'showMU'\n");
+		printf("Please specify a valid URI for the option 'showMSE'\n");
 		return RET_CODE_ERROR;
 	}
 
-	// Check the schema part, it should be 'syntax' or 'MU'
-	std::string support_schemas[] = { "syntax", "MU" };
-	if (MU_uri_components.Ranges[URI_COMPONENT_SCHEME].length > 0)
+	// Check the schema part, it should be 'MSE'
+	std::string support_schemas[] = { "MSE"};
+	if (MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].length > 0)
 	{
 		size_t i = 0;
 		for (; i < _countof(support_schemas); i++)
 		{
-			if (support_schemas[i].length() == (size_t)MU_uri_components.Ranges[URI_COMPONENT_SCHEME].length &&
-				MBCSNICMP(szMUURI + MU_uri_components.Ranges[URI_COMPONENT_SCHEME].start, support_schemas[i].c_str(), MU_uri_components.Ranges[URI_COMPONENT_SCHEME].length) == 0)
+			if (support_schemas[i].length() == (size_t)MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].length &&
+				MBCSNICMP(szMSEURI + MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].start, support_schemas[i].c_str(), MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].length) == 0)
 				break;
 		}
 		if (i >= _countof(support_schemas))
@@ -145,49 +146,49 @@ int MediaUnitNav::Load()
 		}
 	}
 
-	// Authority part is normally used to locate the minimum general media unit
-	if (MU_uri_components.Ranges[URI_COMPONENT_AUTHORITY].length > 0)
+	// Authority part is normally used to locate the minimum general media syntax element
+	if (MSE_uri_components.Ranges[URI_COMPONENT_AUTHORITY].length > 0)
 	{
-		URI_Authority_Components MU_uri_authority_components;
-		if (AMP_FAILED(AMURI_SplitAuthority(szMUURI, MU_uri_components.Ranges[URI_COMPONENT_AUTHORITY], MU_uri_authority_components)))
+		URI_Authority_Components MSE_uri_authority_components;
+		if (AMP_FAILED(AMURI_SplitAuthority(szMSEURI, MSE_uri_components.Ranges[URI_COMPONENT_AUTHORITY], MSE_uri_authority_components)))
 		{
 			printf("The URI seems to contain invalid authority part, please confirm it!\n");
 			return RET_CODE_ERROR;
 		}
 
 		// Only check host part, and ignore other part
-		if (MU_uri_authority_components.Ranges[URI_AUTHORITY_HOST].length > 0)
+		if (MSE_uri_authority_components.Ranges[URI_AUTHORITY_HOST].length > 0)
 		{
 			std::vector<URI_Segment> uri_segments;
-			if (AMP_FAILED(AMURI_SplitComponent(szMUURI + MU_uri_authority_components.Ranges[URI_AUTHORITY_HOST].start, 
-				MU_uri_authority_components.Ranges[URI_AUTHORITY_HOST].length, uri_segments, ".")))
+			if (AMP_FAILED(AMURI_SplitComponent(szMSEURI + MSE_uri_authority_components.Ranges[URI_AUTHORITY_HOST].start, 
+				MSE_uri_authority_components.Ranges[URI_AUTHORITY_HOST].length, uri_segments, ".")))
 			{
 				printf("The URI authority part seems to be invalid, please confirm it!\n");
 				return RET_CODE_ERROR;
 			}
 
-			if (AMP_FAILED(LoadAuthorityPart(szMUURI, uri_segments)))
+			if (AMP_FAILED(LoadAuthorityPart(szMSEURI, uri_segments)))
 			{
-				printf("Sorry, unable to locate the media unit!\n");
+				printf("Sorry, unable to locate the MSE!\n");
 				return RET_CODE_ERROR;
 			}
 		}
 	}
 
 	// Parse the path part
-	if (MU_uri_components.Ranges[URI_COMPONENT_PATH].length > 0)
+	if (MSE_uri_components.Ranges[URI_COMPONENT_PATH].length > 0)
 	{
 		std::vector<URI_Segment> uri_segments;
-		if (AMP_FAILED(AMURI_SplitComponent(szMUURI, MU_uri_components.Ranges[URI_COMPONENT_PATH], uri_segments)))
+		if (AMP_FAILED(AMURI_SplitComponent(szMSEURI, MSE_uri_components.Ranges[URI_COMPONENT_PATH], uri_segments)))
 		{
-			printf("Seems to hit the invalid path part in MU URI.\n");
+			printf("Seems to hit the invalid path part in MSE URI.\n");
 			return RET_CODE_ERROR;
 		}
 
 		std::string seg_path;
 		for (auto& seg : uri_segments)
 		{
-			if (AMP_FAILED(AMURI_DecodeSegment(szMUURI + seg.start, seg.length, seg_path)))
+			if (AMP_FAILED(AMURI_DecodeSegment(szMSEURI + seg.start, seg.length, seg_path)))
 			{
 				printf("Failed to decode one segment in the path part of URI.\n");
 				return RET_CODE_ERROR;
@@ -204,9 +205,9 @@ int MediaUnitNav::Load()
 	return iRet;
 }
 
-int	MediaUnitNav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments,
+int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments,
 	std::vector<std::string>& supported_authority_components,
-	MUID** muids)
+	MSEID** muids)
 {
 	std::string strSeg;
 	int64_t i64Val = -1LL;
@@ -226,12 +227,12 @@ int	MediaUnitNav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>&
 			if (MBCSNICMP(strSeg.c_str(), supported_authority_components[idx].c_str(), supported_authority_components[idx].length()) == 0)
 			{
 				if (strSeg.length() == supported_authority_components[idx].length())
-					*muids[idx] = MU_UNSPECIFIED;
+					*muids[idx] = MSE_UNSPECIFIED;
 				else if (ConvertToInt((char*)strSeg.c_str() + 3, (char*)strSeg.c_str() + strSeg.length(), i64Val) && i64Val >= 0)
 					*muids[idx] = i64Val;
 				else
 				{
-					printf("Invalid %s in Media Unit URI.\n", supported_authority_components[idx].c_str());
+					printf("Invalid %s in MSE URI.\n", supported_authority_components[idx].c_str());
 					return RET_CODE_ERROR;
 				}
 
@@ -269,56 +270,56 @@ int	MediaUnitNav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>&
 	return iRet;
 }
 
-int MediaUnitNav::CheckNALAuthorityComponent(size_t idxComponent)
+int MSENav::CheckNALAuthorityComponent(size_t idxComponent)
 {
 	// Check the occur sequence
-	if ((idxComponent == 1 && (NAL.cvs != MU_UNSELECTED)) ||
-		(idxComponent == 2 && (NAL.cvs != MU_UNSELECTED || NAL.au != MU_UNSELECTED)) ||
-		(idxComponent == 3 && (NAL.cvs != MU_UNSELECTED || NAL.au != MU_UNSELECTED || NAL.nu != MU_UNSELECTED)) ||
-		(idxComponent == 4 && (NAL.cvs != MU_UNSELECTED || NAL.au != MU_UNSELECTED || NAL.nu != MU_UNSELECTED || NAL.sei_msg != MU_UNSELECTED)))
+	if ((idxComponent == 1 && (NAL.cvs != MSE_UNSELECTED)) ||
+		(idxComponent == 2 && (NAL.cvs != MSE_UNSELECTED || NAL.au != MSE_UNSELECTED)) ||
+		(idxComponent == 3 && (NAL.cvs != MSE_UNSELECTED || NAL.au != MSE_UNSELECTED || NAL.nu != MSE_UNSELECTED)) ||
+		(idxComponent == 4 && (NAL.cvs != MSE_UNSELECTED || NAL.au != MSE_UNSELECTED || NAL.nu != MSE_UNSELECTED || NAL.sei_msg != MSE_UNSELECTED)))
 	{
-		printf("Please specify the Media Unit URI from small media unit to bigger media unit.\n");
+		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
 	}
 
 	return RET_CODE_SUCCESS;
 }
 
-int MediaUnitNav::CheckAudioLAuthorityComponent(size_t idxComponent)
+int MSENav::CheckAudioLAuthorityComponent(size_t idxComponent)
 {
 	return RET_CODE_SUCCESS;
 }
 
-int MediaUnitNav::CheckAV1AuthorityComponent(size_t idxComponent)
+int MSENav::CheckAV1AuthorityComponent(size_t idxComponent)
 {
 	// Check the occur sequence
-	if ((idxComponent == 1 && (AV1.tu != MU_UNSELECTED)) ||
-		(idxComponent == 2 && (AV1.tu != MU_UNSELECTED || AV1.fu != MU_UNSELECTED)))
+	if ((idxComponent == 1 && (AV1.tu != MSE_UNSELECTED)) ||
+		(idxComponent == 2 && (AV1.tu != MSE_UNSELECTED || AV1.fu != MSE_UNSELECTED)))
 	{
-		printf("Please specify the Media Unit URI from small media unit to bigger media unit.\n");
+		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
 	}
 
 	return RET_CODE_SUCCESS;
 }
 
-int MediaUnitNav::CheckMPVAuthorityComponent(size_t idxComponent)
+int MSENav::CheckMPVAuthorityComponent(size_t idxComponent)
 {
 	// Check the occur sequence
-	if ((idxComponent == 1 && (MPV.vseq != MU_UNSELECTED)) ||
-		(idxComponent == 2 && (MPV.vseq != MU_UNSELECTED || MPV.gop != MU_UNSELECTED)) ||
-		(idxComponent == 3 && (MPV.vseq != MU_UNSELECTED || MPV.gop != MU_UNSELECTED || MPV.au != MU_UNSELECTED)) ||
-		(idxComponent == 4 && (MPV.vseq != MU_UNSELECTED || MPV.gop != MU_UNSELECTED || MPV.au != MU_UNSELECTED || MPV.slice != MU_UNSELECTED)) ||
-		(idxComponent == 5 && (MPV.vseq != MU_UNSELECTED || MPV.gop != MU_UNSELECTED || MPV.au != MU_UNSELECTED || MPV.slice != MU_UNSELECTED || MPV.mb != MU_UNSELECTED)))
+	if ((idxComponent == 1 && (MPV.vseq != MSE_UNSELECTED)) ||
+		(idxComponent == 2 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED)) ||
+		(idxComponent == 3 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED)) ||
+		(idxComponent == 4 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || MPV.slice != MSE_UNSELECTED)) ||
+		(idxComponent == 5 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || MPV.slice != MSE_UNSELECTED || MPV.mb != MSE_UNSELECTED)))
 	{
-		printf("Please specify the Media Unit URI from small media unit to bigger media unit.\n");
+		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
 	}
 
 	return RET_CODE_SUCCESS;
 }
 
-int	MediaUnitNav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments)
+int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments)
 {
 	int iRet = RET_CODE_ERROR;
 	switch (scheme_type)
@@ -343,26 +344,26 @@ int	MediaUnitNav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>&
 		break;
 	case MEDIA_SCHEME_NAL:
 	{
-		MUID* muids[] = { &NAL.cvs, &NAL.au, &NAL.nu, &NAL.sei_msg, &NAL.sei_pl };
+		MSEID* muids[] = { &NAL.cvs, &NAL.au, &NAL.nu, &NAL.sei_msg, &NAL.sei_pl };
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, nal_supported_authority_components, muids);
 		break;
 	}
 	case MEDIA_SCHEME_ADTS:
 	case MEDIA_SCHEME_LOAS_LATM:
 	{
-		MUID* muids[] = { &AUDIO.au };
+		MSEID* muids[] = { &AUDIO.au };
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, audio_supported_authority_components, muids);
 		break;
 	}
 	case MEDIA_SCHEME_AV1:
 	{
-		MUID* muids[] = { &AV1.tu, &AV1.fu, &AV1.obu };
+		MSEID* muids[] = { &AV1.tu, &AV1.fu, &AV1.obu };
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, av1_supported_authority_components, muids);
 		break;
 	}
 	case MEDIA_SCHEME_MPV:
 	{
-		MUID* muids[] = { &MPV.vseq, &MPV.gop, &MPV.au, &MPV.slice, &MPV.mb, &MPV.se };
+		MSEID* muids[] = { &MPV.vseq, &MPV.gop, &MPV.au, &MPV.slice, &MPV.mb, &MPV.se };
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, mpv_supported_authority_components, muids);
 		break;
 	}
@@ -376,7 +377,7 @@ int	MediaUnitNav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>&
 	return iRet;
 }
 
-int	MediaUnitNav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments)
+int	MSENav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments)
 {
 	std::string strSeg;
 	int64_t i64Val = -1LL;
@@ -410,7 +411,7 @@ int	MediaUnitNav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segmen
 			}
 		}
 		else
-			i64Val = MU_UNSPECIFIED;
+			i64Val = MSE_UNSPECIFIED;
 
 		isobmff_boxes.push_back({ box_type, i64Val });
 	}
@@ -418,12 +419,12 @@ int	MediaUnitNav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segmen
 	return RET_CODE_SUCCESS;
 }
 
-int	ShowMU()
+int	ShowMSE()
 {
 	return -1;
 }
 
-int	ListMU()
+int	ListMSE()
 {
 	return -1;
 }

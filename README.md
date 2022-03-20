@@ -200,7 +200,7 @@ Here are some examples of command lines:
 - For ISOBMFF, please see [ISOBMF media operation guideline](doc/ISOBMFF_README.md)
 - For Matroska, please see [Matroska media operation guideline](doc/MKV_README.md)
 - Some utility features are also provided, please see [Utility operation guideline](doc/UTILITY_README.md)
-- Media Unit Locator protocol, please see [Media Unit Locator protocol](doc/MU_LOCATOR.md)
+- Media Syntax Element Locator protocol, please see [Syntax Element Locator protocol](doc/MSE_LOCATOR.md)
 
 [top](#contents)
 

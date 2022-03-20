@@ -238,7 +238,7 @@
     <None Include="..\..\doc\ISOBMFF_README.md" />
     <None Include="..\..\doc\MKV_README.md" />
     <None Include="..\..\doc\MMT_README.md" />
-    <None Include="..\..\doc\MU_LOCATOR.md" />
+    <None Include="..\..\doc\MSE_LOCATOR.md" />
     <None Include="..\..\doc\NAL_README.md" />
     <None Include="..\..\doc\OPT_SYNTAX.md" />
     <None Include="..\..\doc\REFERENCES.md" />
@@ -284,7 +284,7 @@
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
     <ClCompile Include="..\..\src\DumpMMT.cpp" />
     <ClCompile Include="..\..\src\DumpMP4.cpp" />
-    <ClCompile Include="..\..\src\DumpMU.cpp" />
+    <ClCompile Include="..\..\src\DumpMSE.cpp" />
     <ClCompile Include="..\..\src\DumpNAL.cpp" />
     <ClCompile Include="..\..\src\DumpPS.cpp" />
     <ClCompile Include="..\..\src\DumpStream.cpp" />

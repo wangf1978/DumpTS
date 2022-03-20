@@ -87,7 +87,7 @@
     <None Include="..\..\doc\OPT_SYNTAX.md">
       <Filter>doc</Filter>
     </None>
-    <None Include="..\..\doc\MU_LOCATOR.md">
+    <None Include="..\..\doc\MSE_LOCATOR.md">
       <Filter>doc</Filter>
     </None>
   </ItemGroup>
@@ -233,13 +233,13 @@
     <ClCompile Include="..\..\src\AMRFC3986.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\DumpMU.cpp">
-      <Filter>src\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\mpeg2_video.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\mpeg2_video_parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpMSE.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

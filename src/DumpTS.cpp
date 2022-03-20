@@ -68,8 +68,8 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
-extern int	ShowMU();
-extern int	ListMU();
+extern int	ShowMSE();
+extern int	ListMSE();
 extern int	DumpTransportPackets();
 extern int	ShowOBUs();
 extern int	DiffATCDTS();
@@ -221,7 +221,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showPPS",
 		"showHRD",
 		"showOBU",
-		"showMU",
+		"showMSE",
 		"showSeqHdr",
 		"showStreamMuxConfig",
 		"runHRD",
@@ -229,7 +229,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"listMMTPpacket",
 		"listMMTPpayload",
 		"listMPUtime",
-		"listMU",
+		"listMSE",
 		"stream_id",
 		"sub_stream_id",
 		"stream_id_extension", 
@@ -1283,14 +1283,14 @@ int main(int argc, char* argv[])
 				nDumpRet = ShowOBUs();
 				goto done;
 			}
-			else if (g_params.find("showMU") != g_params.end())
+			else if (g_params.find("showMSE") != g_params.end())
 			{
-				nDumpRet = ShowMU();
+				nDumpRet = ShowMSE();
 				goto done;
 			}
-			else if (g_params.find("listMU") != g_params.end())
+			else if (g_params.find("listMSE") != g_params.end())
 			{
-				nDumpRet = ListMU();
+				nDumpRet = ListMSE();
 				goto done;
 			}
 			else if (g_params.find("showStreamMuxConfig") != g_params.end())
