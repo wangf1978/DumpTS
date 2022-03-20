@@ -406,6 +406,7 @@
     <ClInclude Include="..\..\src\MMT.h" />
     <ClInclude Include="..\..\src\mpeg2_video_parser.h" />
     <ClInclude Include="..\..\src\mpeg2_video.h" />
+    <ClInclude Include="..\..\src\MSE.h" />
     <ClInclude Include="..\..\src\NAL.h" />
     <ClInclude Include="..\..\src\nal_com.h" />
     <ClInclude Include="..\..\src\nal_parser.h" />

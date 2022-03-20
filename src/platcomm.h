@@ -411,6 +411,7 @@ enum FLAG_VALUE
 };
 
 void print_mem(uint8_t* pBuf, int cbSize, int indent);
+long long GetFileSizeByFP(FILE* rfp);
 
 // Get how many records to be displayed
 int GetTopRecordCount();

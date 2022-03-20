@@ -28,7 +28,8 @@ SOFTWARE.
 #include "AMRFC3986.h"
 #include "DataUtil.h"
 #include "systemdef.h"
-#include "mpeg2_video_parser.h"
+#include "mpeg2_video.h"
+#include "MSE.h"
 
 #define MSE_UNSPECIFIED				INT64_MAX
 #define MSE_UNSELECTED				-1
@@ -419,9 +420,177 @@ int	MSENav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& ur
 	return RET_CODE_SUCCESS;
 }
 
+class CMPVSEEnumerator : public IMPVEnumerator
+{
+public:
+	CMPVSEEnumerator(IMPVContext* pCtx)
+		: m_pMPVContext(pCtx) {
+	}
+
+	virtual ~CMPVSEEnumerator() {
+	}
+
+	RET_CODE EnumAUStart(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumSliceStart(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumSliceEnd(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumAUEnd(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumObject(IMPVContext* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+	{
+		if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
+			return RET_CODE_NOTHING_TODO;
+
+		AMBst bst = nullptr;
+		RET_CODE ret_code = RET_CODE_SUCCESS;
+		uint8_t mpv_start_code = pBufWithStartCode[3];
+		if (mpv_start_code == EXTENSION_START_CODE &&
+			m_pMPVContext->GetCurrentLevel() == 0 &&
+			((pBufWithStartCode[4] >> 4) & 0xFF) == SEQUENCE_DISPLAY_EXTENSION_ID)
+		{
+			// Try to find sequence_display_extension()
+			if ((bst = AMBst_CreateFromBuffer(pBufWithStartCode, (int)cbBufWithStartCode)) == nullptr)
+			{
+				printf("Failed to create a bitstream object.\n");
+				return RET_CODE_ABORT;
+			}
+
+			try
+			{
+				AMBst_SkipBits(bst, 32);
+				int left_bits = 0;
+
+				BST::MPEG2Video::CSequenceDisplayExtension* pSeqDispExt =
+					new (std::nothrow) BST::MPEG2Video::CSequenceDisplayExtension;
+				if (pSeqDispExt == nullptr)
+				{
+					printf("Failed to create Sequence_Display_Extension.\n");
+					ret_code = RET_CODE_ABORT;
+					goto done;
+				}
+				if (AMP_FAILED(ret_code = pSeqDispExt->Map(bst)))
+				{
+					delete pSeqDispExt;
+					printf("Failed to parse the sequence_display_extension() {error code: %d}.\n", ret_code);
+					goto done;
+				}
+				m_sp_sequence_display_extension = std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>(pSeqDispExt);
+			}
+			catch (AMException& e)
+			{
+				ret_code = e.RetCode();
+			}
+		}
+
+	done:
+		if (bst != nullptr)
+			AMBst_Destroy(bst);
+		return ret_code;
+	}
+	RET_CODE EnumError(IMPVContext* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
+
+	IMPVContext*			m_pMPVContext;
+	std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>
+							m_sp_sequence_display_extension;
+};
+
+int CreateMSEParser(IMSEParser** ppMSEParser)
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
+int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, FILE* fp)
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
+int	MSEParse()
+{
+	FILE* rfp = NULL;
+	int iRet = RET_CODE_SUCCESS;
+	int64_t file_size = 0;
+	uint8_t pBuf[2048] = { 0 };
+	IMSEParser* pMediaParser = nullptr;
+	IUnknown* pCtx = nullptr;
+
+	const int read_unit_size = 2048;
+
+	auto iter_srcInput = g_params.find("input");
+	if (iter_srcInput == g_params.end())
+	{
+		printf("Please specify an input file to show its syntax element.\n");
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (AMP_FAILED(iRet = CreateMSEParser(&pMediaParser)))
+	{
+		printf("Failed to create the media syntax element parser {error: %d}\n", iRet);
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	errno_t errn = fopen_s(&rfp, iter_srcInput->second.c_str(), "rb");
+	if (errn != 0 || rfp == NULL)
+	{
+		printf("Failed to open the file: %s {errno: %d}.\n", iter_srcInput->second.c_str(), errn);
+		goto done;
+	}
+
+	if (AMP_FAILED(iRet = pMediaParser->GetContext(&pCtx)))
+	{
+		printf("Failed to get the media element syntax element context {error: %d}\n", iRet);
+		goto done;
+	}
+
+	if (AMP_FAILED(iRet = BindMSEEnumerator(pMediaParser, pCtx, rfp)))
+	{
+		printf("Failed to bind the media syntax element enumerator {error: %d}\n", iRet);
+		goto done;
+	}
+
+	file_size = GetFileSizeByFP(rfp);
+
+	do
+	{
+		int read_size = read_unit_size;
+		if ((read_size = (int)fread(pBuf, 1, read_unit_size, rfp)) <= 0)
+		{
+			iRet = RET_CODE_IO_READ_ERROR;
+			break;
+		}
+
+		iRet = pMediaParser->ProcessInput(pBuf, read_size);
+		if (AMP_FAILED(iRet))
+			break;
+
+		iRet = pMediaParser->ProcessOutput();
+		if (iRet == RET_CODE_ABORT)
+			break;
+
+	} while (!feof(rfp));
+
+	if (feof(rfp))
+		iRet = pMediaParser->ProcessOutput(true);
+
+done:
+	if (rfp != nullptr)
+		fclose(rfp);
+
+	if (pMediaParser)
+	{
+		pMediaParser->Release();
+		pMediaParser = nullptr;
+	}
+
+	if (pCtx)
+	{
+		pCtx->Release();
+		pCtx = nullptr;
+	}
+
+	return iRet;
+}
+
 int	ShowMSE()
 {
-	return -1;
+	return MSEParse();
 }
 
 int	ListMSE()

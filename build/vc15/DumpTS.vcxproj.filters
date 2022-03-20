@@ -412,6 +412,9 @@
     <ClInclude Include="..\..\src\mpeg2_video_parser.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\MSE.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt">

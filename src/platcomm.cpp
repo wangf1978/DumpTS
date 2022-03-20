@@ -104,3 +104,37 @@ void print_mem(uint8_t* pBuf, int cbSize, int indent)
 
 	delete[] szBuffer;
 }
+
+long long GetFileSizeByFP(FILE* rfp)
+{
+	long long file_size = -1LL;
+	long long curr_file_pos = -1LL;
+	// Get the current file position
+	if ((curr_file_pos = _ftelli64(rfp)) < 0)
+	{
+		printf("Failed to get the file position {errno: %d}!\n", errno);
+		goto done;
+	}
+
+	// Get file size
+	if (_fseeki64(rfp, 0, SEEK_END) != 0)
+	{
+		printf("Failed to seek the specified position in the current file {errno: %d}!\n", errno);
+		goto done;
+	}
+
+	if ((file_size = _ftelli64(rfp)) < 0)
+	{
+		printf("Failed to get the file position {errno: %d}!\n", errno);
+		goto done;
+	}
+
+	if (_fseeki64(rfp, curr_file_pos, SEEK_SET) != 0)
+	{
+		printf("Failed to seek the specified position in the current file {errno: %d}!\n", errno);
+		goto done;
+	}
+
+done:
+	return file_size;
+}

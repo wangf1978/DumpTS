@@ -167,4 +167,88 @@ Temporal Unit#41           |  xxx B |          TU41 |        |         |
 ```
 List VideoSequence/GOP/AU/SE tree
 
+List ISOBMFF boxes
+```
+DumpTS xxxxx.mp4 --listMSE
+```
+And then
+```
+  --------------Box name-----------------------------|---len----|-----Description-----------------
+  .
+  |--ftyp                                            |          | File Type Box
+  |--free                                            |          | Free Space Box
+  |--mdat                                            |          | Media Data Box
+  |--moov                                            |          | Movie Box
+       |--mvhd                                       |          | Movie Header Box
+       |--trak -- track_ID: 1, duration: 8.008s      |          | Track Box
+       |    |--tkhd                                  |          | 
+       |    |--edts                                  |          | 
+       |    |    |--elst                             |          | 
+       |    |--mdia                                  |          | 
+       |         |--mdhd                             |          | 
+       |         |--hdlr -- Video track              |          | 
+       |         |--minf                             |          | 
+       |              |--vmhd                        |          | 
+       |              |--dinf                        |          | 
+       |              |    |--dref                   |          | 
+       |              |--stbl                        |          | 
+       |                   |--stsd -- avc1@1920x1080 |          | 
+       |                   |    |--avc1              |          | 
+       |                   |         |--avcC         |          | 
+       |                   |         |--pasp         |          | 
+       |                   |--stts                   |          | 
+       |                   |--stss                   |          | 
+       |                   |--ctts                   |          | 
+       |                   |--stsc                   |          | 
+       |                   |--stsz                   |          | 
+       |                   |--stco                   |          | 
+       |--trak -- track_ID: 2, duration: 8.054s      |          | 
+       |    |--tkhd                                  |          | 
+       |    |--edts                                  |          | 
+       |    |    |--elst                             |          | 
+       |    |--mdia                                  |          | 
+       |         |--mdhd                             |          | 
+       |         |--hdlr -- Audio track              |          | 
+       |         |--minf                             |          | 
+       |              |--smhd                        |          | 
+       |              |--dinf                        |          | 
+       |              |    |--dref                   |          | 
+       |              |--stbl                        |          | 
+       |                   |--stsd -- mp4a@48000HZ   |          | 
+       |                   |    |--mp4a              |          | 
+       |                   |         |--esds         |          | 
+       |                   |--stts                   |          | 
+       |                   |--stsc                   |          | 
+       |                   |--stsz                   |          | 
+       |                   |--stco                   |          | 
+       |--udta                                       |          | 
+            |--meta                                  |          | 
+                 |--hdlr                             |          | 
+                 |--ilst                             |          |
+```
+Show a part of ISOBMFF tree
+```
+DumpTS xxxxx.mp4 --listMSE=minf.mdia.trak0.moov
+```
+And then,
+```
+moov.trak[0].mdia.minf 
+  ------- Box Name --------------|---len----|-----Description-----------------
+  |--vmhd                        |          | 
+  |--dinf                        |          | 
+  |    |--dref                   |          | 
+  |--stbl                        |          | 
+  	   |--stsd -- avc1@1920x1080 |          | 
+  	   |    |--avc1              |          | 
+  	   |         |--avcC         |          | 
+  	   |         |--pasp         |          | 
+  	   |--stts                   |          | 
+  	   |--stss                   |          | 
+  	   |--ctts                   |          | 
+  	   |--stsc                   |          | 
+  	   |--stsz                   |          | 
+  	   |--stco                   |          | 
+  
+```
+
 ### `showMSE` command
