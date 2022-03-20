@@ -1,7 +1,7 @@
 # Media Syntax Element Locator
 ## Contents
 * [Abbreviation](#abbreviation)
-* [What's media syntax element?](#what-s-media-syntax-element)
+* [What's media syntax element?](#whats-media-syntax-element)
 * [How to locate the media syntax element?](#how-to-locate-the-media-syntax-element)
 * [Commands](#commands)
 	* [`listMSE` command](#listmse-command)
@@ -252,3 +252,5 @@ moov.trak[0].mdia.minf
 ```
 
 ### `showMSE` command
+
+[Top](#contents)

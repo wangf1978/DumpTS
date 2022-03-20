@@ -13,15 +13,15 @@
 #define AMP_NOVTABLE
 #endif
 
-#define DECLARE_IUNKNOWN													\
-	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObj){				\
-        return GetCOMOwner()->QueryInterface(riid, ppvObj);					\
-    }																		\
-    virtual ULONG STDMETHODCALLTYPE AddRef() {												\
-        return GetCOMOwner()->AddRef();										\
-    }																		\
-    virtual ULONG STDMETHODCALLTYPE Release() {												\
-        return GetCOMOwner()->Release();									\
+#define DECLARE_IUNKNOWN															\
+	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObj){	\
+        return GetCOMOwner()->QueryInterface(riid, ppvObj);							\
+    }																				\
+    virtual ULONG STDMETHODCALLTYPE AddRef() {										\
+        return GetCOMOwner()->AddRef();												\
+    }																				\
+    virtual ULONG STDMETHODCALLTYPE Release() {										\
+        return GetCOMOwner()->Release();											\
     }
 
 #if !defined(_WIN32)
@@ -76,6 +76,22 @@ AMP_DEFINE_GUID(IID_IMPVContext,
 // {92DA4999-CF6F-4E76-B556-B5A8BFDD3EBF}
 AMP_DEFINE_GUID(IID_IAV1Context,
 	0x92da4999, 0xcf6f, 0x4e76, 0xb5, 0x56, 0xb5, 0xa8, 0xbf, 0xdd, 0x3e, 0xbf);
+// {40C079B5-49C7-40D2-A767-D4AD878835EA}
+AMP_DEFINE_GUID(IID_INALEnumerator,
+	0x40c079b5, 0x49c7, 0x40d2, 0xa7, 0x67, 0xd4, 0xad, 0x87, 0x88, 0x35, 0xea);
+// {F129FDBB-1B71-4D3B-B679-A71AE6233F77}
+AMP_DEFINE_GUID(IID_IAV1Enumerator,
+	0xf129fdbb, 0x1b71, 0x4d3b, 0xb6, 0x79, 0xa7, 0x1a, 0xe6, 0x23, 0x3f, 0x77);
+// {2E228374-69E0-4F99-99E7-CFD3C0E7D621}
+AMP_DEFINE_GUID(IID_IMPVEnumerator,
+	0x2e228374, 0x69e0, 0x4f99, 0x99, 0xe7, 0xcf, 0xd3, 0xc0, 0xe7, 0xd6, 0x21);
+// {3826630E-0B23-4D22-8112-00FE222CF7F3}
+AMP_DEFINE_GUID(IID_IAUEnumerator,
+	0x3826630e, 0x0b23, 0x4d22, 0x81, 0x12, 0x00, 0xfe, 0x22, 0x2c, 0xf7, 0xf3);
+// {3BE0E7A2-1AC6-4F8E-A106-FB70A135C3FD}
+AMP_DEFINE_GUID(IID_IMSEParser,
+	0x3be0e7a2, 0x1ac6, 0x4f8e, 0xa1, 0x06, 0xfb, 0x70, 0xa1, 0x35, 0xc3, 0xfd);
+
 
 
 #ifndef INONDELEGATINGUNKNOWN_DEFINED

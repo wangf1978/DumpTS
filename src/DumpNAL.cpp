@@ -91,13 +91,17 @@ int	ShowNUs()
 	int top = GetTopRecordCount();
 
 	CNALParser NALParser(coding);
-	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
+	IUnknown* pMSECtx = nullptr;
+	if (AMP_FAILED(NALParser.GetContext(&pMSECtx)) || 
+		FAILED(pMSECtx->QueryInterface(IID_INALContext, (void**)&pNALContext)))
 	{
+		AMP_SAFERELEASE(pMSECtx);
 		printf("Failed to get the %s NAL context.\n", NAL_CODING_NAME(coding));
 		return RET_CODE_ERROR_NOTIMPL;
 	}
+	AMP_SAFERELEASE(pMSECtx);
 
-	class CNALEnumerator : public INALEnumerator
+	class CNALEnumerator : public CComUnknown, public INALEnumerator
 	{
 	public:
 		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
@@ -106,17 +110,30 @@ int	ShowNUs()
 			m_coding = m_pNALContext->GetNALCoding();
 		}
 
-		~CNALEnumerator() {
+		virtual ~CNALEnumerator() {
 			AMP_SAFERELEASE(m_pNALContext);
 		}
 
-		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		DECLARE_IUNKNOWN
+		HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+		{
+			if (ppvObj == NULL)
+				return E_POINTER;
+
+			if (uuid == IID_INALEnumerator)
+				return GetCOMInterface((INALEnumerator*)this, ppvObj);
+
+			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+		}
+
+	public:
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
 		{
 			printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			uint8_t nal_unit_type = m_coding == NAL_CODING_AVC ? (pEBSPNUBuf[0] & 0x1F):(m_coding == NAL_CODING_HEVC? ((pEBSPNUBuf[0] >> 1) & 0x3F):0);
 			printf("\tNAL Unit %s -- %s, len: %zu\n", 
@@ -125,41 +142,34 @@ int	ShowNUs()
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
+		RET_CODE EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
 		{
 			printf("\t\tSEI message\n");
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		RET_CODE EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
 		{
 			printf("\t\t\tSEI payload %s, length: %zu\n", sei_payload_type_names[payload_type], cbRBSPPayloadBuf);
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
-		{
-			return RET_CODE_SUCCESS;
-		}
+		RET_CODE EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIMessageEnd(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
 
-		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
-		{
-			return RET_CODE_SUCCESS;
-		}
-
-		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		RET_CODE EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			m_NUCount++;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		RET_CODE EnumNALAUEnd(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
 		{
 			m_AUCount++;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		RET_CODE EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code)
 		{
 			printf("Hitting error {error_code: %d}.\n", error_code);
 			return RET_CODE_SUCCESS;
@@ -183,7 +193,8 @@ int	ShowNUs()
 	file_size = _ftelli64(rfp);
 	_fseeki64(rfp, 0, SEEK_SET);
 
-	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), options);
+	NALEnumerator.AddRef();
+	NALParser.SetEnumerator((IUnknown*)(&NALEnumerator), options);
 
 	do
 	{
@@ -332,16 +343,20 @@ int PrintHRDFromHEVCSPS(H265_NU sps_nu)
 	return RET_CODE_SUCCESS;
 }
 
-int PrintHRDFromSEIPayloadBufferingPeriod(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+int PrintHRDFromSEIPayloadBufferingPeriod(IUnknown* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
 {
 	int iRet = RET_CODE_SUCCESS;
-	if (pSEIPayload == nullptr || cbSEIPayload == 0)
+	if (pSEIPayload == nullptr || cbSEIPayload == 0 || pCtx == nullptr)
+		return RET_CODE_INVALID_PARAMETER;
+
+	INALContext* pNALCtx = nullptr;
+	if (FAILED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
 		return RET_CODE_INVALID_PARAMETER;
 
 	AMBst bst = nullptr;
 	BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD* pBufPeriod = new
-		BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD((int)cbSEIPayload, pCtx);
-	NAL_CODING coding = pCtx->GetNALCoding();
+		BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD((int)cbSEIPayload, pNALCtx);
+	NAL_CODING coding = pNALCtx->GetNALCoding();
 	
 	if (pBufPeriod != nullptr)
 		bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
@@ -479,24 +494,28 @@ int PrintHRDFromSEIPayloadBufferingPeriod(INALContext* pCtx, uint8_t* pSEIPayloa
 
 	}
 
-
 done:
 	if (bst)
 		AMBst_Destroy(bst);
 
 	AMP_SAFEDEL(pBufPeriod);
+	AMP_SAFERELEASE(pNALCtx);
 
 	return iRet;
 }
 
-int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+int PrintHRDFromSEIPayloadPicTiming(IUnknown* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
 {
 	int iRet = RET_CODE_SUCCESS;
 
-	if (pSEIPayload == nullptr || cbSEIPayload == 0)
+	if (pSEIPayload == nullptr || cbSEIPayload == 0 || pCtx == nullptr)
 		return RET_CODE_INVALID_PARAMETER;
 
-	NAL_CODING coding = pCtx->GetNALCoding();
+	INALContext* pNALCtx = nullptr;
+	if (FAILED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
+		return RET_CODE_INVALID_PARAMETER;
+
+	NAL_CODING coding = pNALCtx->GetNALCoding();
 
 	AMBst bst = nullptr;
 	bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
@@ -515,7 +534,7 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 
 	if (coding == NAL_CODING_AVC)
 	{
-		pPicTiming = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pCtx);
+		pPicTiming = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pNALCtx);
 
 		if (AMP_FAILED(iRet = pPicTiming->Map(bst)))
 		{
@@ -560,7 +579,7 @@ int PrintHRDFromSEIPayloadPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, siz
 	}
 	else if (coding == NAL_CODING_HEVC)
 	{
-		pPicTimingH265 = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265((int)cbSEIPayload, pCtx);
+		pPicTimingH265 = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265((int)cbSEIPayload, pNALCtx);
 
 		if (AMP_FAILED(iRet = pPicTimingH265->Map(bst)))
 		{
@@ -619,6 +638,7 @@ done:
 
 	AMP_SAFEDEL(pPicTiming);
 	AMP_SAFEDEL(pPicTimingH265);
+	AMP_SAFERELEASE(pNALCtx);
 
 	return iRet;
 }
@@ -797,11 +817,15 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 		return RET_CODE_BUFFER_OVERFLOW;
 
 	CNALParser NALParser(coding);
-	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
+	IUnknown* pMSECtx = nullptr;
+	if (AMP_FAILED(NALParser.GetContext(&pMSECtx)) || 
+		FAILED(pMSECtx->QueryInterface(IID_INALContext, (void**)&pNALContext)))
 	{
+		AMP_SAFERELEASE(pMSECtx);
 		printf("Failed to get the %s NAL context.\n", NAL_CODING_NAME(coding));
 		return RET_CODE_ERROR_NOTIMPL;
 	}
+	AMP_SAFERELEASE(pMSECtx);
 
 	if (coding == NAL_CODING_AVC)
 		pNALContext->SetNUFilters({ BST::H264Video::SPS_NUT });
@@ -810,7 +834,7 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 	else if (coding == NAL_CODING_VVC)
 		pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT });
 
-	class CNALEnumerator : public INALEnumerator
+	class CNALEnumerator : public CComUnknown, public INALEnumerator
 	{
 	public:
 		CNALEnumerator(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
@@ -823,15 +847,28 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
 		}
 
-		~CNALEnumerator() {
+		virtual ~CNALEnumerator() {
 			AMP_SAFERELEASE(m_pNALAVCContext);
 			AMP_SAFERELEASE(m_pNALHEVCContext);
 			AMP_SAFERELEASE(m_pNALContext);
 		}
 
-		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
+		DECLARE_IUNKNOWN
+		HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+		{
+			if (ppvObj == NULL)
+				return E_POINTER;
 
-		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+			if (uuid == IID_INALEnumerator)
+				return GetCOMInterface((INALEnumerator*)this, ppvObj);
+
+			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+		}
+
+	public:
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
+
+		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			int iRet = RET_CODE_SUCCESS;
 			uint8_t nal_unit_type = 0xFF;
@@ -936,21 +973,18 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
-		{
-			return RET_CODE_SUCCESS;
-		}
-		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		RET_CODE EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIMessageEnd(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			m_NUCount++;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		RET_CODE EnumNALAUEnd(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code)
 		{
 			printf("Hitting error {error_code: %d}.\n", error_code);
 			return RET_CODE_SUCCESS;
@@ -970,7 +1004,8 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 		int16_t m_spsid = -1;
 	}NALEnumerator(pNALContext);
 
-	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), NAL_ENUM_OPTION_NU);
+	NALEnumerator.AddRef();
+	NALParser.SetEnumerator((IUnknown*)(&NALEnumerator), NAL_ENUM_OPTION_NU);
 
 	uint8_t* p = pAnnexBBuf;
 	int64_t cbLeft = (int64_t)cbAnnexBBuf;
@@ -1295,11 +1330,15 @@ int ShowNALObj(int object_type)
 	int top = GetTopRecordCount();
 
 	CNALParser NALParser(coding);
-	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
+	IUnknown* pMSECtx = nullptr;
+	if (AMP_FAILED(NALParser.GetContext(&pMSECtx)) ||
+		FAILED(pMSECtx->QueryInterface(IID_INALContext, (void**)&pNALContext)))
 	{
+		AMP_SAFERELEASE(pMSECtx);
 		printf("Failed to get the %s NAL context.\n", NAL_CODING_NAME(coding));
 		return RET_CODE_ERROR_NOTIMPL;
 	}
+	AMP_SAFERELEASE(pMSECtx);
 
 	if (coding == NAL_CODING_AVC)
 	{
@@ -1332,7 +1371,7 @@ int ShowNALObj(int object_type)
 			pNALContext->SetNUFilters({ BST::H266Video::VPS_NUT, BST::H266Video::SPS_NUT, BST::H266Video::PPS_NUT });
 	}
 
-	class CNALEnumerator : public INALEnumerator
+	class CNALEnumerator : public CComUnknown, public INALEnumerator
 	{
 	public:
 		CNALEnumerator(INALContext* pNALCtx, int objType) : m_pNALContext(pNALCtx), object_type(objType) {
@@ -1345,15 +1384,27 @@ int ShowNALObj(int object_type)
 				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
 		}
 
-		~CNALEnumerator() {
+		virtual ~CNALEnumerator() {
 			AMP_SAFERELEASE(m_pNALAVCContext);
 			AMP_SAFERELEASE(m_pNALHEVCContext);
 			AMP_SAFERELEASE(m_pNALContext);
 		}
 
-		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
+		DECLARE_IUNKNOWN
+		HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+		{
+			if (ppvObj == NULL)
+				return E_POINTER;
 
-		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+			if (uuid == IID_INALEnumerator)
+				return GetCOMInterface((INALEnumerator*)this, ppvObj);
+
+			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+		}
+
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
+
+		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			int iRet = RET_CODE_SUCCESS;
 			uint8_t nal_unit_type = 0xFF;
@@ -1477,8 +1528,8 @@ int ShowNALObj(int object_type)
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
-		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		RET_CODE EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
 		{
 			if (payload_type == SEI_PAYLOAD_BUFFERING_PERIOD)
 			{
@@ -1539,16 +1590,16 @@ int ShowNALObj(int object_type)
 			}
 			return RET_CODE_SUCCESS;
 		}
-		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
-		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
-		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		RET_CODE EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALSEIMessageEnd(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			m_NUCount++;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
-		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		RET_CODE EnumNALAUEnd(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code)
 		{
 			printf("Hitting error {error_code: %d}.\n", error_code);
 			return RET_CODE_SUCCESS;
@@ -1578,7 +1629,8 @@ int ShowNALObj(int object_type)
 	file_size = _ftelli64(rfp);
 	_fseeki64(rfp, 0, SEEK_SET);
 
-	NALParser.SetEnumerator((INALEnumerator*)(&NALEnumerator), object_type == 12?NAL_ENUM_OPTION_ALL:NAL_ENUM_OPTION_NU);
+	NALEnumerator.AddRef();
+	NALParser.SetEnumerator((IUnknown*)(&NALEnumerator), object_type == 12?NAL_ENUM_OPTION_ALL:NAL_ENUM_OPTION_NU);
 
 	do
 	{
@@ -1672,16 +1724,22 @@ int RunH264HRD()
 	int top = GetTopRecordCount();
 
 	CNALParser NALParser(coding);
-	if (AMP_FAILED(NALParser.GetNALContext(&pNALContext)))
+	IUnknown* pMSECtx = nullptr;
+	if (AMP_FAILED(NALParser.GetContext(&pMSECtx)) ||
+		FAILED(pMSECtx->QueryInterface(IID_INALContext, (void**)&pNALContext)))
 	{
+		AMP_SAFERELEASE(pMSECtx);
 		printf("Failed to get the %s NAL context.\n", NAL_CODING_NAME(coding));
 		return RET_CODE_ERROR_NOTIMPL;
 	}
+	AMP_SAFERELEASE(pMSECtx);
 
-	class CHRDRunner : public INALEnumerator
+	class CHRDRunner : public CComUnknown, public INALEnumerator
 	{
 	public:
 		CHRDRunner(INALContext* pNALCtx) : m_pNALContext(pNALCtx) {
+			if (m_pNALContext)
+				m_pNALContext->AddRef();
 			m_coding = m_pNALContext->GetNALCoding();
 			if (m_coding == NAL_CODING_AVC)
 				m_pNALContext->QueryInterface(IID_INALAVCContext, (void**)&m_pNALAVCContext);
@@ -1689,15 +1747,32 @@ int RunH264HRD()
 				m_pNALContext->QueryInterface(IID_INALHEVCContext, (void**)&m_pNALHEVCContext);
 		}
 
-		~CHRDRunner() {}
+		virtual ~CHRDRunner() {
+			AMP_SAFERELEASE(m_pNALAVCContext);
+			AMP_SAFERELEASE(m_pNALHEVCContext);
+			AMP_SAFERELEASE(m_pNALContext);
+		}
 
-		RET_CODE EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) 
+		DECLARE_IUNKNOWN
+		HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+		{
+			if (ppvObj == NULL)
+				return E_POINTER;
+
+			if (uuid == IID_INALEnumerator)
+				return GetCOMInterface((INALEnumerator*)this, ppvObj);
+
+			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+		}
+
+	public:
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
 		{ 
 			bHaveSEIBufferingPeriod = false;
 			return RET_CODE_SUCCESS; 
 		}
 
-		RET_CODE EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			int iRet = RET_CODE_SUCCESS;
 			uint8_t nal_unit_type = 0xFF;
@@ -1798,8 +1873,8 @@ int RunH264HRD()
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+		RET_CODE EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
 		{
 			if (payload_type == SEI_PAYLOAD_BUFFERING_PERIOD)
 			{
@@ -1811,15 +1886,15 @@ int RunH264HRD()
 			}
 			return RET_CODE_SUCCESS;
 		}
-		RET_CODE EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+		RET_CODE EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALSEIMessageEnd(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
 			m_NUCount++;
 			return RET_CODE_SUCCESS;
 		}
 
-		RET_CODE EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		RET_CODE EnumNALAUEnd(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
 		{
 			uint64_t t_ai_earliest = UINT64_MAX;
 
@@ -1907,25 +1982,29 @@ int RunH264HRD()
 
 			return RET_CODE_SUCCESS; 
 		}
-		RET_CODE EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code)
+		RET_CODE EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code)
 		{
 			printf("Hitting error {error_code: %d}.\n", error_code);
 			return RET_CODE_SUCCESS;
 		}
 
-		int BeginBufferPeriod(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+		int BeginBufferPeriod(IUnknown* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
 		{
 			int iRet = RET_CODE_SUCCESS;
 			uint32_t sel_initial_cpb_removal_delay = UINT32_MAX;
 			uint32_t sel_initial_cpb_removal_delay_offset = UINT32_MAX;
 
-			if (pSEIPayload == nullptr || cbSEIPayload == 0)
+			if (pSEIPayload == nullptr || cbSEIPayload == 0 || pCtx == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
+
+			INALContext* pNALCtx = nullptr;
+			if (FAILED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
 				return RET_CODE_INVALID_PARAMETER;
 
 			AMBst bst = nullptr;
 			BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD* pBufPeriod = new
-				BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD((int)cbSEIPayload, pCtx);
-			NAL_CODING coding = pCtx->GetNALCoding();
+				BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD((int)cbSEIPayload, pNALCtx);
+			NAL_CODING coding = pNALCtx->GetNALCoding();
 
 			if (pBufPeriod != nullptr)
 				bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
@@ -1946,7 +2025,7 @@ int RunH264HRD()
 			{
 				H264_NU sps_nu;
 				INALAVCContext* pNALAVCCtx = nullptr;
-				if (SUCCEEDED(pCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
+				if (SUCCEEDED(pNALCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
 				{
 					sps_nu = pNALAVCCtx->GetAVCSPS(pBufPeriod->bp_seq_parameter_set_id);
 
@@ -2034,18 +2113,23 @@ int RunH264HRD()
 				AMBst_Destroy(bst);
 
 			AMP_SAFEDEL(pBufPeriod);
+			AMP_SAFERELEASE(pNALCtx);
 
 			return iRet;
 		}
 
-		int BeginPicTiming(INALContext* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
+		int BeginPicTiming(IUnknown* pCtx, uint8_t* pSEIPayload, size_t cbSEIPayload)
 		{
 			int iRet = RET_CODE_SUCCESS;
 
-			if (pSEIPayload == nullptr || cbSEIPayload == 0)
+			if (pSEIPayload == nullptr || cbSEIPayload == 0 || pCtx == nullptr)
 				return RET_CODE_INVALID_PARAMETER;
 
-			NAL_CODING coding = pCtx->GetNALCoding();
+			INALContext* pNALCtx = nullptr;
+			if (FAILED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
+				return RET_CODE_INVALID_PARAMETER;
+
+			NAL_CODING coding = pNALCtx->GetNALCoding();
 
 			AMBst bst = nullptr;
 			bst = AMBst_CreateFromBuffer(pSEIPayload, (int)cbSEIPayload);
@@ -2060,7 +2144,7 @@ int RunH264HRD()
 
 			if (coding == NAL_CODING_AVC)
 			{
-				pPicTiming = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pCtx);
+				pPicTiming = new BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264((int)cbSEIPayload, pNALCtx);
 				if (AMP_FAILED(iRet = pPicTiming->Map(bst)))
 				{
 					printf("Failed to unpack the SEI payload: buffering period.\n");
@@ -2118,6 +2202,7 @@ int RunH264HRD()
 				AMBst_Destroy(bst);
 
 			AMP_SAFEDEL(pPicTiming);
+			AMP_SAFERELEASE(pNALCtx);
 
 			return iRet;
 		}
@@ -2168,7 +2253,8 @@ int RunH264HRD()
 	file_size = _ftelli64(rfp);
 	_fseeki64(rfp, 0, SEEK_SET);
 
-	NALParser.SetEnumerator((INALEnumerator*)(&HRDRunner), NAL_ENUM_OPTION_ALL);
+	HRDRunner.AddRef();
+	NALParser.SetEnumerator((IUnknown*)(&HRDRunner), NAL_ENUM_OPTION_ALL);
 
 	do
 	{

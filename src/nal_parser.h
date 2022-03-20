@@ -31,6 +31,7 @@ SOFTWARE.
 #include "nal_com.h"
 #include "AMRingBuffer.h"
 #include "AMSHA1.h"
+#include "MSE.h"
 
 enum NAL_ENUM_OPTION
 {
@@ -110,39 +111,29 @@ struct NAL_SEQUENCE
 	}
 };
 
-class INALEnumerator
-{
-public:
-	virtual RET_CODE		EnumNALAUBegin(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) = 0;
-	virtual RET_CODE		EnumNALUnitBegin(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf) = 0;
-	virtual RET_CODE		EnumNALSEIMessageBegin(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) = 0;
-	virtual RET_CODE		EnumNALSEIPayloadBegin(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) = 0;
-	virtual RET_CODE		EnumNALSEIPayloadEnd(INALContext* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) = 0;
-	virtual RET_CODE		EnumNALSEIMessageEnd(INALContext* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) = 0;
-	virtual RET_CODE		EnumNALUnitEnd(INALContext* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf) = 0;
-	virtual RET_CODE		EnumNALAUEnd(INALContext* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) = 0;
-	/*
-		Error Code:
-			1 Buffer is too small
-			2 forbidon_zero_bit is not 0
-			3 Incompatible slice header in a coded picture
-			4 nal_unit_header in the same picture unit is not the same
-			5 Incompatible parameter set rbsp
-	*/
-	virtual RET_CODE		EnumNALError(INALContext* pCtx, uint64_t stream_offset, int error_code) = 0;
-};
-
-class CNALParser
+class CNALParser : public CComUnknown, public IMSEParser
 {
 public:
 	CNALParser(NAL_CODING coding, NAL_BYTESTREAM_FORMAT fmt = NAL_BYTESTREAM_ANNEX_B, uint8_t NULenDelimiterSize = 4 , RET_CODE* pRetCode=nullptr);
 	virtual ~CNALParser();
 
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+	{
+		if (ppvObj == NULL)
+			return E_POINTER;
+
+		if (uuid == IID_IMSEParser)
+			return GetCOMInterface((IMSEParser*)this, ppvObj);
+
+		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+	}
+
 public:
-	RET_CODE				SetEnumerator(INALEnumerator* pEnumerator, uint32_t options);
+	RET_CODE				SetEnumerator(IUnknown* pEnumerator, uint32_t options);
 	RET_CODE				ProcessInput(uint8_t* pBuf, size_t cbBuf);
 	RET_CODE				ProcessOutput(bool bDrain = false);
-	RET_CODE				GetNALContext(INALContext** ppCtx);
+	RET_CODE				GetContext(IUnknown** ppCtx);
 	RET_CODE				Reset();
 
 protected:

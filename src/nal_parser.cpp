@@ -85,6 +85,8 @@ CNALParser::CNALParser(NAL_CODING coding, NAL_BYTESTREAM_FORMAT fmt, uint8_t NUL
 
 CNALParser::~CNALParser()
 {
+	AMP_SAFERELEASE(m_nal_enum);
+
 	if (m_nal_coding == NAL_CODING_AVC)
 	{
 		AMP_SAFERELEASE(m_pNALAVCCtx);
@@ -100,21 +102,34 @@ CNALParser::~CNALParser()
 	AM_LRB_Destroy(m_rbRawBuf);
 }
 
-RET_CODE CNALParser::SetEnumerator(INALEnumerator* pEnumerator, uint32_t options)
+RET_CODE CNALParser::SetEnumerator(IUnknown* pEnumerator, uint32_t options)
 {
-	m_nal_enum = pEnumerator;
+	INALEnumerator* pNALEumerator = nullptr;
+	if (pEnumerator != nullptr)
+	{
+		if (FAILED(pEnumerator->QueryInterface(IID_INALEnumerator, (void**)&pNALEumerator)))
+		{
+			return RET_CODE_ERROR;
+		}
+	}
+
+	if (m_nal_enum)
+		m_nal_enum->Release();
+
+	m_nal_enum = pNALEumerator;
+	
 	m_nal_enum_options = options;
 
 	return RET_CODE_SUCCESS;
 }
 
-RET_CODE CNALParser::GetNALContext(INALContext** ppCtx)
+RET_CODE CNALParser::GetContext(IUnknown** ppCtx)
 {
 	if (ppCtx == nullptr)
 		return RET_CODE_INVALID_PARAMETER;
 
 	m_pCtx->AddRef();
-	*ppCtx = m_pCtx;
+	*ppCtx = (IUnknown*)m_pCtx;
 	return RET_CODE_SUCCESS;
 }
 
@@ -474,8 +489,6 @@ int CNALParser::LoadAVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_s
 
 	int8_t nal_unit_type = *pStart & 0x1F;
 	AMP_Assert(IS_AVC_PARAMETERSET_NAL(nal_unit_type));
-
-	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
 
 	auto nal_unit = m_pNALAVCCtx->CreateAVCNU();
 
