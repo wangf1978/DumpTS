@@ -25,7 +25,7 @@ SOFTWARE.
 */
 #include "platcomm.h"
 #include "av1.h"
-#include "av1parser.h"
+#include "av1_parser.h"
 
 CAV1Parser::CAV1Parser(bool bAnnexB, bool bSingleOBUParse, RET_CODE* pRetCode)
 	: m_av1_bytestream_format(bAnnexB?AV1_BYTESTREAM_LENGTH_DELIMITED: AV1_BYTESTREAM_RAW)

@@ -1292,7 +1292,7 @@ int GetStreamInfoFromMPEG2AU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_i
 	} MPVEnumerator(pMPVContext);
 
 	MPVEnumerator.AddRef();
-	MPVParser.SetEnumerator(&MPVEnumerator, MPV_ENUM_OPTION_OBJ);
+	MPVParser.SetEnumerator(&MPVEnumerator, MPV_ENUM_OPTION_SE);
 
 	if (AMP_SUCCEEDED(iRet = MPVParser.ParseAUBuf(pAUBuf, cbAUBuf)))
 	{

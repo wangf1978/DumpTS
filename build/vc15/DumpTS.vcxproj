@@ -273,7 +273,7 @@
     <ClCompile Include="..\..\src\AMSHA1.cpp" />
     <ClCompile Include="..\..\src\AudChMap.cpp" />
     <ClCompile Include="..\..\src\av1.cpp" />
-    <ClCompile Include="..\..\src\av1parser.cpp" />
+    <ClCompile Include="..\..\src\av1_parser.cpp" />
     <ClCompile Include="..\..\src\Bitstream.cpp" />
     <ClCompile Include="..\..\src\combase.cpp" />
     <ClCompile Include="..\..\src\crc.cpp" />
@@ -325,7 +325,7 @@
     <ClInclude Include="..\..\src\AMSHA1.h" />
     <ClInclude Include="..\..\src\AudChMap.h" />
     <ClInclude Include="..\..\src\av1.h" />
-    <ClInclude Include="..\..\src\av1parser.h" />
+    <ClInclude Include="..\..\src\av1_parser.h" />
     <ClInclude Include="..\..\src\av1_def.h" />
     <ClInclude Include="..\..\src\Bitstream.h" />
     <ClInclude Include="..\..\src\CodecID.h" />

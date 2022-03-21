@@ -28,7 +28,6 @@ SOFTWARE.
 #include "DataUtil.h"
 #include "mediaobjprint.h"
 #include <unordered_map>
-#include "av1parser.h"
 #include "av1.h"
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;

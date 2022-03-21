@@ -30,6 +30,13 @@ SOFTWARE.
 #include "systemdef.h"
 #include "mpeg2_video.h"
 #include "MSE.h"
+#include "h264_video.h"
+#include "h265_video.h"
+#include "h266_video.h"
+#include "nal_parser.h"
+#include "av1.h"
+#include "mpeg2_video.h"
+#include "ISO14496_3.h"
 
 #define MSE_UNSPECIFIED				INT64_MAX
 #define MSE_UNSELECTED				-1
@@ -37,6 +44,8 @@ SOFTWARE.
 using MSEID = int64_t;
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
+extern MEDIA_SCHEME_TYPE g_media_scheme_type;
+extern int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB);
 
 struct MSENav
 {
@@ -85,30 +94,97 @@ struct MSENav
 		memset(bytes, 0xFF, sizeof(bytes));
 	}
 
-	int Load();
+	int				Load();
+	uint32_t		GetEnumOptions();
 
 protected:
-	int	LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments, 
-		std::vector<std::string>& supported_authority_components, MSEID** muids);
+	int				LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments, 
+										std::vector<std::string>& supported_authority_components, MSEID** muids);
 
-	int	LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
-	int	LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
+	int				LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
+	int				LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
 
-	int CheckNALAuthorityComponent(size_t idxComponent);
-	int CheckAudioLAuthorityComponent(size_t idxComponent);
-	int CheckAV1AuthorityComponent(size_t idxComponent);
-	int CheckMPVAuthorityComponent(size_t idxComponent);
+	int				CheckNALAuthorityComponent(size_t idxComponent);
+	int				CheckAudioLAuthorityComponent(size_t idxComponent);
+	int				CheckAV1AuthorityComponent(size_t idxComponent);
+	int				CheckMPVAuthorityComponent(size_t idxComponent);
 
-	static std::vector<std::string>		nal_supported_authority_components;
-	static std::vector<std::string>		audio_supported_authority_components;
-	static std::vector<std::string>		av1_supported_authority_components;
-	static std::vector<std::string>		mpv_supported_authority_components;
+	static std::vector<std::string>
+					nal_supported_authority_components;
+	static std::vector<std::string>
+					audio_supported_authority_components;
+	static std::vector<std::string>
+					av1_supported_authority_components;
+	static std::vector<std::string>
+					mpv_supported_authority_components;
 };
 
-std::vector<std::string> MSENav::nal_supported_authority_components = { "cvs", "au", "nu", "seimsg", "seipl" };
-std::vector<std::string> MSENav::audio_supported_authority_components = { "au" };
-std::vector<std::string> MSENav::av1_supported_authority_components = { "tu", "fu", "obu" };
-std::vector<std::string> MSENav::mpv_supported_authority_components = { "vseq", "gop", "au", "slice", "mb", "se" };
+std::vector<std::string> MSENav::nal_supported_authority_components 
+					= { "cvs", "au", "nu", "seimsg", "seipl" };
+std::vector<std::string> MSENav::audio_supported_authority_components 
+					= { "au" };
+std::vector<std::string> MSENav::av1_supported_authority_components 
+					= { "tu", "fu", "obu" };
+std::vector<std::string> MSENav::mpv_supported_authority_components 
+					= { "vseq", "gop", "au", "slice", "mb", "se" };
+
+uint32_t MSENav::GetEnumOptions()
+{
+	uint32_t enum_options = 0;
+	if (scheme_type == MEDIA_SCHEME_NAL)
+	{
+		if (NAL.sei_pl != MSE_UNSELECTED)
+			enum_options |= NAL_ENUM_OPTION_SEI_PAYLOAD;
+
+		if (NAL.sei_msg != MSE_UNSELECTED)
+			enum_options |= NAL_ENUM_OPTION_SEI_MSG;
+
+		if (NAL.nu != MSE_UNSELECTED)
+			enum_options |= NAL_ENUM_OPTION_NU;
+
+		if (NAL.au != MSE_UNSELECTED)
+			enum_options |= NAL_ENUM_OPTION_AU;
+	}
+	else if (scheme_type == MEDIA_SCHEME_AV1)
+	{
+		if (AV1.obu != MSE_UNSELECTED)
+			enum_options |= AV1_ENUM_OPTION_OBU;
+
+		if (AV1.fu != MSE_UNSELECTED)
+			enum_options |= AV1_ENUM_OPTION_FU;
+
+		if (AV1.tu != MSE_UNSELECTED)
+			enum_options |= AV1_ENUM_OPTION_TU;
+	}
+	else if (scheme_type == MEDIA_SCHEME_MPV)
+	{
+		if (MPV.gop != MSE_UNSELECTED)
+			enum_options |= MPV_ENUM_OPTION_GOP;
+
+		if (MPV.au != MSE_UNSELECTED)
+			enum_options |= MPV_ENUM_OPTION_AU;
+
+		if (MPV.slice != MSE_UNSELECTED)
+			enum_options |= MPV_ENUM_OPTION_SLICE;
+
+		if (MPV.mb != MSE_UNSELECTED)
+			enum_options |= MPV_ENUM_OPTION_MB;
+
+		if (MPV.se != MSE_UNSELECTED)
+			enum_options |= MPV_ENUM_OPTION_SE;
+	}
+	else if (scheme_type == MEDIA_SCHEME_LOAS_LATM)
+	{
+		if (AUDIO.au != MSE_UNSELECTED)
+			enum_options |= GENERAL_ENUM_AU;
+	}
+	else if (scheme_type == MEDIA_SCHEME_ISOBMFF)
+	{
+
+	}
+
+	return enum_options;
+}
 
 int MSENav::Load()
 {
@@ -420,21 +496,37 @@ int	MSENav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& ur
 	return RET_CODE_SUCCESS;
 }
 
-class CMPVSEEnumerator : public IMPVEnumerator
+class CMPVSEEnumerator : public CComUnknown, public IMPVEnumerator
 {
 public:
 	CMPVSEEnumerator(IMPVContext* pCtx)
 		: m_pMPVContext(pCtx) {
+		if (m_pMPVContext != nullptr)
+			m_pMPVContext->AddRef();
 	}
 
 	virtual ~CMPVSEEnumerator() {
+		AMP_SAFERELEASE(m_pMPVContext);
 	}
 
-	RET_CODE EnumAUStart(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
-	RET_CODE EnumSliceStart(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
-	RET_CODE EnumSliceEnd(IMPVContext* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
-	RET_CODE EnumAUEnd(IMPVContext* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
-	RET_CODE EnumObject(IMPVContext* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+	{
+		if (ppvObj == NULL)
+			return E_POINTER;
+
+		if (uuid == IID_IMPVEnumerator)
+			return GetCOMInterface((IMPVEnumerator*)this, ppvObj);
+
+		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+	}
+
+public:
+	RET_CODE EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
 	{
 		if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
 			return RET_CODE_NOTHING_TODO;
@@ -485,7 +577,7 @@ public:
 			AMBst_Destroy(bst);
 		return ret_code;
 	}
-	RET_CODE EnumError(IMPVContext* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
 
 	IMPVContext*			m_pMPVContext;
 	std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>
@@ -494,15 +586,134 @@ public:
 
 int CreateMSEParser(IMSEParser** ppMSEParser)
 {
-	return RET_CODE_ERROR_NOTIMPL;
+	int iRet = RET_CODE_SUCCESS;
+
+	if (ppMSEParser == nullptr)
+		return RET_CODE_INVALID_PARAMETER;
+
+	auto iterSrcFmt = g_params.find("srcfmt");
+	if (iterSrcFmt == g_params.end())
+	{
+		printf("Unknown source format, can't create the parser for source file.\n");
+		return RET_CODE_ERROR;
+	}
+
+	if (g_media_scheme_type == MEDIA_SCHEME_UNKNOWN)
+	{
+		printf("Unsupported media scheme!\n");
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (g_media_scheme_type == MEDIA_SCHEME_NAL)
+	{
+		NAL_CODING nal_coding = NAL_CODING_UNKNOWN;
+		if (_stricmp(iterSrcFmt->second.c_str(), "h264") == 0)
+			nal_coding = NAL_CODING_AVC;
+		else if (_stricmp(iterSrcFmt->second.c_str(), "h265") == 0)
+			nal_coding = NAL_CODING_HEVC;
+		else
+			printf("Oops! Don't support this kind of NAL bitstream at present!\n");
+
+		if (nal_coding != NAL_CODING_UNKNOWN)
+		{
+			CNALParser* pNALParser = new CNALParser(nal_coding);
+			if (pNALParser != nullptr)
+				iRet = pNALParser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+			else
+				iRet = RET_CODE_OUTOFMEMORY;
+		}
+	}
+	else if (g_media_scheme_type == MEDIA_SCHEME_AV1)
+	{
+		bool bAnnexBStream = false;
+		if (AMP_FAILED(AV1_PreparseStream(g_params["input"].c_str(), bAnnexBStream)))
+		{
+			printf("Failed to detect it is a low-overhead bit-stream or length-delimited AV1 bit-stream.\n");
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		printf("%s AV1 bitstream...\n", bAnnexBStream ? "Length-Delimited" : "Low-Overhead");
+
+		CAV1Parser* pAV1Parser = new CAV1Parser(bAnnexBStream, false, nullptr);
+		if (pAV1Parser != nullptr)
+			iRet = pAV1Parser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+		else
+			iRet = RET_CODE_OUTOFMEMORY;
+	}
+	else if (g_media_scheme_type == MEDIA_SCHEME_MPV)
+	{
+		CMPEG2VideoParser* pMPVParser = new CMPEG2VideoParser();
+		if (pMPVParser != nullptr)
+			iRet = pMPVParser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+		else
+			iRet = RET_CODE_OUTOFMEMORY;
+	}
+	else if (g_media_scheme_type == MEDIA_SCHEME_LOAS_LATM)
+	{
+		BST::AACAudio::CLOASParser* pLOASParser = new BST::AACAudio::CLOASParser();
+		if (pLOASParser != nullptr)
+			iRet = pLOASParser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+		else
+			iRet = RET_CODE_OUTOFMEMORY;
+	}
+	else if (g_media_scheme_type == MEDIA_SCHEME_ISOBMFF)
+	{
+		printf("Oops! Not implement yet.\n");
+		iRet = RET_CODE_ERROR_NOTIMPL;
+	}
+	else
+	{
+		printf("Oops! Don't support this kind of media at present!\n");
+		iRet = RET_CODE_ERROR_NOTIMPL;
+	}
+
+	return iRet;
 }
 
-int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, FILE* fp)
+int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* fp)
 {
+	if (pMSEParser == nullptr || pCtx == nullptr)
+		return RET_CODE_ERROR_NOTIMPL;
+
+	int iRet = RET_CODE_ERROR_NOTIMPL;
+	MEDIA_SCHEME_TYPE scheme_type = pMSEParser->GetSchemeType();
+
+	if (scheme_type == MEDIA_SCHEME_NAL)
+	{
+
+	}
+	else if (scheme_type == MEDIA_SCHEME_AV1)
+	{
+
+	}
+	else if (scheme_type == MEDIA_SCHEME_MPV)
+	{
+		IMPVContext* pMPVCtx = nullptr;
+		if (SUCCEEDED(pCtx->QueryInterface(IID_IMPVContext, (void**)&pMPVCtx)))
+		{
+			IUnknown* pMSEEnumerator = nullptr;
+			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx);
+			if (SUCCEEDED(pMPVSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
+			{
+				iRet = pMSEParser->SetEnumerator(pMPVSEEnumerator, enum_options | mse_nav.GetEnumOptions());
+			}
+
+			AMP_SAFERELEASE(pMPVCtx);
+		}
+	}
+	else if (scheme_type == MEDIA_SCHEME_LOAS_LATM)
+	{
+
+	}
+	else if (scheme_type == MEDIA_SCHEME_ISOBMFF)
+	{
+
+	}
+
 	return RET_CODE_ERROR_NOTIMPL;
 }
 
-int	MSEParse()
+int	MSEParse(uint32_t enum_options)
 {
 	FILE* rfp = NULL;
 	int iRet = RET_CODE_SUCCESS;
@@ -526,6 +737,13 @@ int	MSEParse()
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
+	MSENav mse_nav(pMediaParser->GetSchemeType());
+	if (AMP_FAILED(iRet = mse_nav.Load()))
+	{
+		printf("Failed to load the Media Syntax Element URI.\n");
+		return iRet;
+	}
+
 	errno_t errn = fopen_s(&rfp, iter_srcInput->second.c_str(), "rb");
 	if (errn != 0 || rfp == NULL)
 	{
@@ -539,7 +757,7 @@ int	MSEParse()
 		goto done;
 	}
 
-	if (AMP_FAILED(iRet = BindMSEEnumerator(pMediaParser, pCtx, rfp)))
+	if (AMP_FAILED(iRet = BindMSEEnumerator(pMediaParser, pCtx, enum_options, mse_nav, rfp)))
 	{
 		printf("Failed to bind the media syntax element enumerator {error: %d}\n", iRet);
 		goto done;
@@ -590,10 +808,14 @@ done:
 
 int	ShowMSE()
 {
-	return MSEParse();
+	uint32_t enum_options = MSE_ENUM_SYNTAX_VIEW;
+	if (g_params.find("hexview") != g_params.end())
+		enum_options = MSE_ENUM_HEX_VIEW;
+
+	return MSEParse(enum_options);
 }
 
 int	ListMSE()
 {
-	return -1;
+	return MSEParse(MSE_ENUM_LIST_VIEW);
 }

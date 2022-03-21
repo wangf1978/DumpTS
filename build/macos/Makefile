@@ -49,7 +49,7 @@ SOURCES := \
 	$(SOURCEDIR)/h264_video.cpp \
 	$(SOURCEDIR)/h265_video.cpp \
 	$(SOURCEDIR)/h266_video.cpp \
-	$(SOURCEDIR)/av1parser.cpp \
+	$(SOURCEDIR)/av1_parser.cpp \
 	$(SOURCEDIR)/av1.cpp \
 	$(SOURCEDIR)/ESRepacker.cpp \
 	$(SOURCEDIR)/HuffmanTree.cpp \

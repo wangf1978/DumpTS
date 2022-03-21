@@ -633,7 +633,7 @@ int ShowMPVUnit(std::initializer_list<uint16_t> filters, int show_options)
 	} MPVEnumerator(pMPVContext, show_options);
 
 	MPVEnumerator.AddRef();
-	MPVParser.SetEnumerator(&MPVEnumerator, MPV_ENUM_OPTION_OBJ | ((show_options&0x01)?MPV_ENUM_OPTION_AU:0));
+	MPVParser.SetEnumerator(&MPVEnumerator, MPV_ENUM_OPTION_SE | ((show_options&0x01)?MPV_ENUM_OPTION_AU:0));
 
 	errno_t errn = fopen_s(&rfp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || rfp == NULL)

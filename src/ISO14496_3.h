@@ -6030,8 +6030,6 @@ namespace BST {
 
 		}PACKED;
 
-
-
 		//
 		// For ADTS or LOAS enumerator
 		//
@@ -6061,12 +6059,6 @@ namespace BST {
 			virtual ~IMP2AACContext() {}
 		};
 
-		class IADTSEnumerator
-		{
-		public:
-			// TODO...
-		};
-
 		class CLOASParser : public CComUnknown, public IMSEParser
 		{
 		public:
@@ -6086,6 +6078,7 @@ namespace BST {
 			}
 
 		public:
+			MEDIA_SCHEME_TYPE		GetSchemeType() { return MEDIA_SCHEME_LOAS_LATM; }
 			RET_CODE				SetEnumerator(IUnknown* pEnumerator, uint32_t options);
 			RET_CODE				ProcessInput(uint8_t* pBuf, size_t cbBuf);
 			RET_CODE				ProcessOutput(bool bDrain = false);

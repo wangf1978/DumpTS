@@ -248,6 +248,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"top",			// Show the n top records
 		"payload_first_last",
 		"layoutpacket",
+		"hexview",
 		"cost",
 	};
 

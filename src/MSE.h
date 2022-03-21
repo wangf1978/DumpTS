@@ -29,11 +29,55 @@ SOFTWARE.
 #include "dump_data_type.h"
 #include "combase.h"
 #include <cstdint>
+#include "systemdef.h"
+
+enum MSE_ENUM_OPTION
+{
+	//
+	// For NAL media scheme
+	//
+	NAL_ENUM_OPTION_AU		= (1 << 4),
+	NAL_ENUM_OPTION_NU		= (1 << 5),
+	NAL_ENUM_OPTION_SEI_MSG	= (1 << 6),
+	NAL_ENUM_OPTION_SEI_PAYLOAD
+							= (1 << 7),
+	NAL_ENUM_OPTION_ALL		= (NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_NU | NAL_ENUM_OPTION_SEI_MSG | NAL_ENUM_OPTION_SEI_PAYLOAD),
+
+	//
+	// For MPV media scheme
+	//
+	MPV_ENUM_OPTION_GOP		= (1 << 3),
+	MPV_ENUM_OPTION_AU		= (1 << 4),
+	MPV_ENUM_OPTION_SLICE	= (1 << 5),
+	MPV_ENUM_OPTION_MB		= (1 << 6),
+	MPV_ENUM_OPTION_SE		= (1 << 7),
+	MPV_ENUM_OPTION_ALL		= (MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_SLICE | MPV_ENUM_OPTION_MB | MPV_ENUM_OPTION_SE),
+
+	//
+	// For AV1 media scheme
+	//
+	AV1_ENUM_OPTION_TU		= (1 << 4),	// Temporal Unit
+	AV1_ENUM_OPTION_FU		= (1 << 5),	// Frame Unit
+	AV1_ENUM_OPTION_OBU		= (1 << 6),	// Open Bitstream Unit
+	AV1_ENUM_OPTION_ALL		= (AV1_ENUM_OPTION_TU | AV1_ENUM_OPTION_FU | AV1_ENUM_OPTION_OBU),
+
+	//
+	// For general audio scheme
+	//
+	GENERAL_ENUM_AU			= (1 << 4),
+
+	// reserve for output style
+	MSE_ENUM_LIST_VIEW		= 0x10000000,
+	MSE_ENUM_SYNTAX_VIEW	= 0x20000000,
+	MSE_ENUM_HEX_VIEW		= 0x40000000,
+};
 
 /*!	@brief Media Syntax Element Parser */
 class IMSEParser : public IUnknown
 {
 public:
+	virtual MEDIA_SCHEME_TYPE
+							GetSchemeType() = 0;
 	virtual RET_CODE		SetEnumerator(IUnknown* pEnumerator, uint32_t options) = 0;
 	virtual RET_CODE		ProcessInput(uint8_t* pBuf, size_t cbBuf) = 0;
 	virtual RET_CODE		ProcessOutput(bool bDrain = false) = 0;
@@ -125,6 +169,13 @@ public:
 	virtual RET_CODE		EnumSubFrameEnd(IUnknown* pCtx, uint8_t* pSubFramePayload, size_t cbSubFramePayload) = 0;
 	virtual RET_CODE		EnumLATMAUEnd(IUnknown* pCtx, uint8_t* pLATMAUBuf, size_t cbLATMAUBuf) = 0;
 	virtual RET_CODE		EnumError(IUnknown* pCtx, RET_CODE error_code) = 0;
+};
+
+/*!	@brief AAC ADTS payload syntax element enumerator */
+class IADTSEnumerator : public IUnknown
+{
+public:
+	// TODO...
 };
 
 #endif

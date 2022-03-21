@@ -422,7 +422,7 @@ int CMPEG2VideoParser::CommitMPVUnit(bool bDrain)
 		if (mpv_start_code >= 0 && mpv_start_code <= 0xB8)
 			m_pCtx->UpdateStartCode((uint8_t)mpv_start_code);
 
-		if(m_mpv_enum_options&MPV_ENUM_OPTION_OBJ)
+		if(m_mpv_enum_options&MPV_ENUM_OPTION_SE)
 		{
 			if (m_pCtx->IsStartCodeFiltered((uint8_t)mpv_start_code))
 			{

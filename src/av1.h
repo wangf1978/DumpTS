@@ -36,7 +36,7 @@ SOFTWARE.
 #include <unordered_map>
 #include "av1_def.h"
 #include "ISO14496_12.h"
-#include "av1parser.h"
+#include "av1_parser.h"
 
 #ifdef _WIN32
 #pragma warning(push)

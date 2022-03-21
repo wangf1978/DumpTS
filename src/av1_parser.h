@@ -40,14 +40,6 @@ SOFTWARE.
 #include "DumpUtil.h"
 #include "MSE.h"
 
-enum AV1_ENUM_OPTION
-{
-	AV1_ENUM_OPTION_TU		= (1<<4),	// Temporal Unit
-	AV1_ENUM_OPTION_FU		= (1<<5),	// Frame Unit
-	AV1_ENUM_OPTION_OBU		= (1<<6),	// Open Bitstream Unit
-	AV1_ENUM_OPTION_ALL		= (AV1_ENUM_OPTION_TU | AV1_ENUM_OPTION_FU | AV1_ENUM_OPTION_OBU),
-};
-
 enum AV1_BYTESTREAM_FORMAT
 {
 	AV1_BYTESTREAM_RAW = 0,				// (OBU)+, low-overhead bit-stream
@@ -115,6 +107,7 @@ public:
 	}
 
 public:
+	MEDIA_SCHEME_TYPE		GetSchemeType() { return MEDIA_SCHEME_AV1; }
 	RET_CODE				SetEnumerator(IUnknown* pEnumerator, uint32_t options);
 	RET_CODE				ProcessInput(uint8_t* pInput, size_t cbInput);
 	RET_CODE				ProcessOutput(bool bDrain = false);
