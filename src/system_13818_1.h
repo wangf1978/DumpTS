@@ -185,6 +185,7 @@ SOFTWARE.
 	((coding_type) == MPEG1_AUDIO_STREAM ||				\
 	 (coding_type) == MPEG2_AUDIO_STREAM ||				\
 	 (coding_type) == AAC_AUDIO_STREAM ||				\
+	 (coding_type) == MPEG4_AAC_AUDIO_STREAM ||			\
 	 (coding_type) == HDMV_LPCM_AUDIO_STREAM ||			\
 	 (coding_type) == DOLBY_AC3_AUDIO_STREAM ||			\
 	 (coding_type) == DTS_AUDIO_STREAM ||				\
