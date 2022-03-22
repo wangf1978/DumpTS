@@ -552,10 +552,24 @@ int	MSENav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& ur
 class CMPVSEEnumerator : public CComUnknown, public IMPVEnumerator
 {
 public:
-	CMPVSEEnumerator(IMPVContext* pCtx)
-		: m_pMPVContext(pCtx) {
+	CMPVSEEnumerator(IMPVContext* pCtx, uint32_t options) : m_pMPVContext(pCtx) {
 		if (m_pMPVContext != nullptr)
 			m_pMPVContext->AddRef();
+
+		int next_level = 0;
+		for (size_t i = 0; i < _countof(m_level); i++){
+			if (options&(1ULL << i)){
+				m_level[i] = next_level;
+
+				// GOP and VSEQ are the point, not a range
+				if (i == MPV_LEVEL_GOP || i == MPV_LEVEL_VSEQ)
+					m_unit_count[next_level] = -1;
+				else
+					m_unit_count[next_level] = 0;
+
+				next_level++;
+			}
+		}
 	}
 
 	virtual ~CMPVSEEnumerator() {
@@ -580,7 +594,7 @@ public:
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sAU#%" PRId64 " (%s)", 
-			(m_level[MPV_LEVEL_AU] - 1) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_AU] - 1],
+			(m_level[MPV_LEVEL_AU]) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_AU]],
 			PICTURE_CODING_TYPE_SHORTNAME(picCodingType));
 
 		if (ccWrittenOnce <= 0)
@@ -597,15 +611,8 @@ public:
 
 		ccWritten += ccWrittenOnce;
 
-		std::string strFormattedURI = GetURI(MPV_LEVEL_AU);
-		if (strFormattedURI.length() < column_width_URI)
-		{
-			memset(szItem + ccWritten, ' ', column_width_URI - strFormattedURI.length());
-			ccWritten += column_width_URI - strFormattedURI.length();
-		}
+		AppendURI(szItem, ccWritten, MPV_LEVEL_AU);
 
-		memcpy(szItem + ccWritten, strFormattedURI.c_str(), strFormattedURI.length());
-		ccWritten += strFormattedURI.length();
 		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
 		printf("%s\n", szItem);
@@ -613,13 +620,54 @@ public:
 		return RET_CODE_SUCCESS; 
 	}
 
+	virtual RET_CODE EnumNewGOP(IUnknown* pCtx, bool closed_gop, bool broken_link)
+	{
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+
+		m_unit_count[m_level[MPV_LEVEL_GOP]]++;
+		if (m_level[MPV_LEVEL_AU] > 0)
+			m_unit_count[m_level[MPV_LEVEL_AU]] = 0;
+		if (m_level[MPV_LEVEL_SE] > 0)
+			m_unit_count[m_level[MPV_LEVEL_SE]] = 0;
+		if (m_level[MPV_LEVEL_MB] > 0)
+			m_unit_count[m_level[MPV_LEVEL_MB]] = 0;
+
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sGOP#%" PRId64 " (%s%s)",
+			(m_level[MPV_LEVEL_GOP]) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_GOP]], closed_gop?"closed":"open", broken_link?",broken-link":"");
+
+		if (ccWrittenOnce <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		if ((size_t)ccWrittenOnce < column_width_name)
+			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+		szItem[column_width_name] = '|';
+		ccWritten = column_width_name + 1;
+
+		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%12s |","N/A")) <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		ccWritten += ccWrittenOnce;
+
+		AppendURI(szItem, ccWritten, MPV_LEVEL_GOP);
+
+		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+		printf("%s\n", szItem);
+
+		return RET_CODE_SUCCESS;
+	}
+
 	RET_CODE EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
 	RET_CODE EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
 	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
 	{
-		m_unit_count[m_level[MPV_LEVEL_AU] - 1]++;
+		m_unit_count[m_level[MPV_LEVEL_AU]]++;
 		if (m_level[MPV_LEVEL_SE] > 0)
-			m_unit_count[m_level[MPV_LEVEL_SE] > 0] = 0;
+			m_unit_count[m_level[MPV_LEVEL_SE]] = 0;
+		if (m_level[MPV_LEVEL_MB] > 0)
+			m_unit_count[m_level[MPV_LEVEL_MB]] = 0;
 		return RET_CODE_SUCCESS; 
 	}
 
@@ -631,7 +679,7 @@ public:
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sSE#%" PRId64 " %s",
-			(m_level[MPV_LEVEL_SE] - 1) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_SE] - 1],
+			(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_SE]],
 			GetSEName(pBufWithStartCode, cbBufWithStartCode));
 
 		if (ccWrittenOnce <= 0)
@@ -648,29 +696,22 @@ public:
 
 		ccWritten += ccWrittenOnce;
 
-		std::string szFormattedURI = GetURI(MPV_LEVEL_SE);
-		if (szFormattedURI.length() < column_width_URI)
-		{
-			memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
-			ccWritten += column_width_URI - szFormattedURI.length();
-		}
+		AppendURI(szItem, ccWritten, MPV_LEVEL_SE);
 
-		memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
-		ccWritten += szFormattedURI.length();
 		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
 		printf("%s\n", szItem);
 
-		m_unit_count[m_level[MPV_LEVEL_SE] - 1]++;
+		m_unit_count[m_level[MPV_LEVEL_SE]]++;
 		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_count[m_level[MPV_LEVEL_SE] > 0] = 0;
+			m_unit_count[m_level[MPV_LEVEL_MB]] = 0;
 
 		return RET_CODE_SUCCESS;
 	}
 	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
 
 public:
-	int						m_level[16] = { 0 };	// 0 is an invalid level
+	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 	int64_t					m_unit_count[16] = { 0 };
 
 	std::string	GetURI(int level_id)
@@ -679,12 +720,12 @@ public:
 		strURI.reserve(128);
 		for (int i = level_id; i >= 0; i--)
 		{
-			if (m_level[i] > 0)
+			if (m_level[i] >= 0)
 			{
 				if (strURI.length() > 0)
 					strURI += ".";
 				strURI += MPV_LEVEL_NAME(i);
-				strURI += std::to_string(m_unit_count[m_level[i] - 1]);
+				strURI += std::to_string(m_unit_count[m_level[i]]);
 			}
 		}
 
@@ -704,6 +745,21 @@ public:
 		}
 
 		return mpv_syntax_element_names[start_code];
+	}
+
+	inline int AppendURI(char* szItem, size_t& ccWritten, int level_id)
+	{
+		std::string szFormattedURI = GetURI(level_id);
+		if (szFormattedURI.length() < column_width_URI)
+		{
+			memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
+			ccWritten += column_width_URI - szFormattedURI.length();
+		}
+
+		memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
+		ccWritten += szFormattedURI.length();
+
+		return RET_CODE_SUCCESS;
 	}
 
 protected:
@@ -822,22 +878,11 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 		if (SUCCEEDED(pCtx->QueryInterface(IID_IMPVContext, (void**)&pMPVCtx)))
 		{
 			IUnknown* pMSEEnumerator = nullptr;
-			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx);
+			uint32_t options = mse_nav.GetEnumOptions();
+			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx, options);
 			if (SUCCEEDED(pMPVSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
 			{
-				uint32_t options = mse_nav.GetEnumOptions();
 				iRet = pMSEParser->SetEnumerator(pMPVSEEnumerator, enum_options | options);
-
-				int next_level = 1;
-				for (size_t i = 0; i < _countof(pMPVSEEnumerator->m_level); i++)
-				{
-					if (options&(1ULL << i))
-					{
-						pMPVSEEnumerator->m_level[i] = next_level;
-						next_level++;
-					}
-				}
-
 				AMP_SAFERELEASE(pMSEEnumerator);
 			}
 

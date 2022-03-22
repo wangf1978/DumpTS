@@ -1228,6 +1228,7 @@ int GetStreamInfoFromMPEG2AU(uint8_t* pAUBuf, size_t cbAUBuf, STREAM_INFO& stm_i
 		}
 
 	public:
+		RET_CODE EnumNewGOP(IUnknown* pCtx, bool closed_gop, bool broken_link) { return RET_CODE_SUCCESS; }
 		RET_CODE EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType){return RET_CODE_SUCCESS;}
 		RET_CODE EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf){return RET_CODE_SUCCESS;}
 		RET_CODE EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf){return RET_CODE_SUCCESS;}

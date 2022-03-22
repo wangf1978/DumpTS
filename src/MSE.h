@@ -169,6 +169,9 @@ public:
 class IMPVEnumerator : public IUnknown
 {
 public:
+	/*! @brief Notify a new GOP came
+		@remarks Can't allocate GOP buffer, and no GOP end function correspondingly. */
+	virtual RET_CODE		EnumNewGOP(IUnknown* pCtx, bool closed_gop, bool broken_link) = 0;
 	virtual RET_CODE		EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType) = 0;
 	virtual RET_CODE		EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;
 	virtual RET_CODE		EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;

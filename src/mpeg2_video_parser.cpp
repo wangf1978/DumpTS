@@ -45,6 +45,7 @@ CMPEG2VideoParser::CMPEG2VideoParser(RET_CODE* pRetCode)
 
 CMPEG2VideoParser::~CMPEG2VideoParser()
 {
+	AMP_SAFERELEASE(m_mpv_enum);
 	AMP_SAFERELEASE(m_pCtx);
 	AM_LRB_Destroy(m_rbMPVUnit);
 	AM_LRB_Destroy(m_rbRawBuf);
@@ -159,7 +160,7 @@ RET_CODE CMPEG2VideoParser::ProcessOutput(bool bDrain)
 
 		mpv_start_code = pBuf[3];
 
-		if (m_cur_mpv_start_code != -1 && (m_mpv_enum_options&MPV_ENUM_OPTION_AU))
+		if (m_cur_mpv_start_code != -1 && (m_mpv_enum_options&(MPV_ENUM_OPTION_AU|MPV_ENUM_OPTION_GOP|MPV_ENUM_OPTION_VSEQ)))
 		{
 			if (mpv_start_code == SEQUENCE_HEADER_CODE || mpv_start_code == GROUP_START_CODE || mpv_start_code == PICTURE_START_CODE)
 			{
@@ -233,7 +234,7 @@ RET_CODE CMPEG2VideoParser::ProcessOutput(bool bDrain)
 
 			m_cur_scan_pos += pEndBuf - pStartBuf;
 
-			if (m_mpv_enum_options&MPV_ENUM_OPTION_AU)
+			if (m_mpv_enum_options&(MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_GOP | MPV_ENUM_OPTION_VSEQ))
 			{
 				if (m_pCtx->GetCurrentLevel() == 2)
 				{
@@ -434,9 +435,15 @@ int CMPEG2VideoParser::CommitMPVUnit(bool bDrain)
 		else if (mpv_start_code == PICTURE_START_CODE)
 		{
 			if (last_mpv_unit_len >= 6)
-			{
-				int temporal_reference = (pBuf[4] << 2) | ((pBuf[5] >> 6) & 0x3);
 				m_picture_coding_type = (pBuf[5] >> 3) & 0x7;
+		}
+		else if (mpv_start_code == GROUP_START_CODE)
+		{
+			if (last_mpv_unit_len >= 8)
+			{
+				m_gop_start = 1;
+				m_closed_gop  = (pBuf[7] >> 6) & 0x1;
+				m_broken_link = (pBuf[7] >> 5) & 0x1;
 			}
 		}
 
@@ -492,28 +499,38 @@ RET_CODE CMPEG2VideoParser::CommitAU()
 	if (pBuf == nullptr || read_buf_len <= 0)
 		return RET_CODE_NOTHING_TODO;
 
-	if (m_mpv_enum && m_mpv_enum->EnumAUStart(m_pCtx, pBuf, (size_t)read_buf_len, m_picture_coding_type) == RET_CODE_ABORT)
+	if (m_mpv_enum != nullptr)
 	{
-		iRet = RET_CODE_ABORT;
-		goto done;
-	}
-
-	if (m_mpv_enum)
-	{
-		for (auto& range : m_se_ranges_in_au)
+		if (m_gop_start && (m_mpv_enum_options&MPV_ENUM_OPTION_GOP) &&
+			AMP_FAILED(iRet = m_mpv_enum->EnumNewGOP(m_pCtx, m_closed_gop, m_broken_link)))
 		{
-			if (m_mpv_enum->EnumObject(m_pCtx, pBuf + std::get<0>(range), (size_t)std::get<1>(range)) == RET_CODE_ABORT)
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		if((m_mpv_enum_options&MPV_ENUM_OPTION_AU) && AMP_FAILED(iRet = m_mpv_enum->EnumAUStart(m_pCtx, pBuf, (size_t)read_buf_len, m_picture_coding_type)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		if (m_mpv_enum_options&MPV_ENUM_OPTION_SE)
+		{
+			for (auto& range : m_se_ranges_in_au)
 			{
-				iRet = RET_CODE_ABORT;
-				goto done;
+				if (AMP_FAILED(m_mpv_enum->EnumObject(m_pCtx, pBuf + std::get<0>(range), (size_t)std::get<1>(range))))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
 			}
 		}
-	}
 
-	if (m_mpv_enum && m_mpv_enum->EnumAUEnd(m_pCtx, pBuf, (size_t)read_buf_len, m_picture_coding_type) == RET_CODE_ABORT)
-	{
-		iRet = RET_CODE_ABORT;
-		goto done;
+		if((m_mpv_enum_options&MPV_ENUM_OPTION_AU) && AMP_FAILED(m_mpv_enum->EnumAUEnd(m_pCtx, pBuf, (size_t)read_buf_len, m_picture_coding_type)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
 	}
 
 done:
@@ -521,6 +538,7 @@ done:
 	m_last_commit_buf_len = 0;
 	m_picture_coding_type = -1;
 	m_se_ranges_in_au.clear();
+	m_gop_start = 0;
 
 	return RET_CODE_SUCCESS;
 }
