@@ -124,7 +124,7 @@ And it may show the below output
 ```
 ...
 ---------Name---------------|--URI---|
-Access-Unit#123	            |--AU123-|
+Access-Unit#123	            |  AU123 |
 ...
 ```
 List AU/NU tree
@@ -135,7 +135,7 @@ And then
 ```
 ----------Name--------------|----len----|----URI-----|------------Description-------------------
 ...
-Access-Unit#84                            | AU84     | Access unit delimiter
+Access-Unit#84              |           | AU84     | Access unit delimiter
     NAL Unit#0 non-VCL::AUD |       2 B | NU0.AU84   | Sequence parameter set
     NAL Unit#1 non-VCL::SPS |      51 B | NU1.AU84   | Picture parameter set
     NAL Unit#2 non-VCL::PPS |       6 B | NU2.AU84   | Supplemental enhancement information(SEI)
@@ -166,6 +166,27 @@ Temporal Unit#41           |  xxx B |          TU41 |        |         |
 ...
 ```
 List VideoSequence/GOP/AU/SE tree
+```
+------------Name-------------------------------|-----len-----|------------URI-------------
+GOP#0                                          |             |                      GOP0
+    AU#0(I)                                    |     xxxxx B |                  AU0.GOP0
+        SE#0 sequence_header                   |        xx B |             SE#0.AU0.GOP0
+        SE#1 sequence_extension                |        xx B |             SE#1.AU0.GOP0
+        SE#2 sequence_display_extension        |        xx B |             SE#2.AU0.GOP0
+        SE#3 group_of_picture_header           |        xx B |             SE#3.AU0.GOP0
+        SE#4 picture_header                    |        xx B |             SE#4.AU0.GOP0
+        SE#5 picture_coding_extension          |        xx B |             SE#5.AU0.GOP0
+        SE#6 picture_data                      |     xxxxx B |             SE#6.AU0.GOP0
+    AU#1(B)                                    |     xxxxx B |                  AU1.GOP0
+        SE#0 picture_header                    |        xx B |             SE#0.AU1.GOP0
+        SE#1 picture_coding_extension          |        xx B |             SE#1.AU1.GOP0
+        SE#2 picture_data                      |        xx B |             SE#2.AU1.GOP0
+    AU#2(B)                                    |     xxxxx B |                  AU2.GOP0
+        SE#0 picture_header                    |        xx B |             SE#0.AU2.GOP0
+        SE#1 picture_coding_extension          |        xx B |             SE#1.AU2.GOP0
+        SE#2 picture_data                      |        xx B |             SE#2.AU2.GOP0
+......
+```
 
 List ISOBMFF boxes
 ```
@@ -238,16 +259,16 @@ moov.trak[0].mdia.minf
   |--dinf                        |          | 
   |    |--dref                   |          | 
   |--stbl                        |          | 
-  	   |--stsd -- avc1@1920x1080 |          | 
-  	   |    |--avc1              |          | 
-  	   |         |--avcC         |          | 
-  	   |         |--pasp         |          | 
-  	   |--stts                   |          | 
-  	   |--stss                   |          | 
-  	   |--ctts                   |          | 
-  	   |--stsc                   |          | 
-  	   |--stsz                   |          | 
-  	   |--stco                   |          | 
+       |--stsd -- avc1@1920x1080 |          | 
+       |    |--avc1              |          | 
+       |         |--avcC         |          | 
+       |         |--pasp         |          | 
+       |--stts                   |          | 
+       |--stss                   |          | 
+       |--ctts                   |          | 
+       |--stsc                   |          | 
+       |--stsz                   |          | 
+       |--stco                   |          | 
   
 ```
 
