@@ -48,6 +48,7 @@ CAV1Parser::CAV1Parser(bool bAnnexB, bool bSingleOBUParse, RET_CODE* pRetCode)
 
 CAV1Parser::~CAV1Parser()
 {
+	AMP_SAFERELEASE(m_av1_enum);
 	AMP_SAFERELEASE(m_pCtx);
 	AM_LRB_Destroy(m_rbTemporalUnit);
 	AM_LRB_Destroy(m_rbRawBuf);

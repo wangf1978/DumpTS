@@ -68,6 +68,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	ShowAV1Info();
 extern int	ShowMSE();
 extern int	ListMSE();
 extern int	DumpTransportPackets();
@@ -1164,6 +1165,11 @@ int main(int argc, char* argv[])
 				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mpv") == 0)
 				{
 					nDumpRet = ShowMPVInfo();
+					goto done;
+				}
+				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("av1") == 0)
+				{
+					nDumpRet = ShowAV1Info();
 					goto done;
 				}
 				else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("h266") == 0)

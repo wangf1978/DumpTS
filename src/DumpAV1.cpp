@@ -934,7 +934,7 @@ enum AV1_INFO_CMD
 	AV1_INFO_CMD_SHOW_OBUSEQHDR = 1,
 };
 
-int	ShowAV1Info(AV1_INFO_CMD cmd)
+int	AV1InfoCmd(AV1_INFO_CMD cmd)
 {
 	IAV1Context* pAV1Context = nullptr;
 	uint8_t pBuf[2048] = { 0 };
@@ -1057,12 +1057,6 @@ done:
 	if (rfp != nullptr)
 		fclose(rfp);
 
-	if (pAV1Enumerator)
-	{
-		delete pAV1Enumerator;
-		pAV1Enumerator = nullptr;
-	}
-
 	if (pAV1Context)
 	{
 		pAV1Context->Release();
@@ -1074,11 +1068,16 @@ done:
 
 int	ShowOBUs()
 {
-	return ShowAV1Info(AV1_INFO_CMD_LIST_OBU);
+	return AV1InfoCmd(AV1_INFO_CMD_LIST_OBU);
 }
 
 int	ShowOBUSeqHdr()
 {
-	return ShowAV1Info(AV1_INFO_CMD_SHOW_OBUSEQHDR);
+	return AV1InfoCmd(AV1_INFO_CMD_SHOW_OBUSEQHDR);
+}
+
+int ShowAV1Info()
+{
+	return -1;
 }
 

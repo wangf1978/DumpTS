@@ -589,6 +589,7 @@ namespace BST {
 
 		CLOASParser::~CLOASParser()
 		{
+			AMP_SAFERELEASE(m_loas_enum);
 			AMP_SAFERELEASE(m_pCtxMP4AAC);
 			AM_LRB_Destroy(m_rbRawBuf);
 		}
