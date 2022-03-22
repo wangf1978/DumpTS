@@ -86,6 +86,12 @@ SOFTWARE.
 	(start_code) == GROUP_START_CODE?"GOP Header":(\
 	(start_code) >= SYSTEM_START_CODE_FIRST && (start_code) <= SYSTEM_START_CODE_LAST?"System Layer":"Unknown")))))))))
 
+#define PICTURE_CODING_TYPE_SHORTNAME(pct)	(\
+	(pct) == 1?"I":(\
+	(pct) == 2?"P":(\
+	(pct) == 3?"B":(\
+	(pct) == 4?"D":""))))
+
 #define MAKE_START_CODE(start_code_byte)		((0x01<<8) | start_code_byte)
 
 #define TOP_FIELD								1
@@ -130,6 +136,8 @@ extern const char* mpeg2_video_counting_type_names[8];
 extern const char* profile_and_level_identification_names[8][16];
 extern const char* mpeg2_profile_names[8];
 extern const char* mpeg2_level_names[16];
+extern const char* mpv_syntax_element_names[256];
+extern const char* mpv_extension_syntax_element_names[16];
 
 extern int next_start_code(AMBst in_bst);
 extern uint8_t* FindNextStartCode(uint8_t* pBuf, unsigned long cbSize);

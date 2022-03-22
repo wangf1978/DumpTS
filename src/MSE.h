@@ -31,40 +31,66 @@ SOFTWARE.
 #include <cstdint>
 #include "systemdef.h"
 
+#define NAL_LEVEL_CVS				3
+#define NAL_LEVEL_AU				4
+#define NAL_LEVEL_NU				5
+#define NAL_LEVEL_SEI_MSG			6
+#define NAL_LEVEL_SEI_PAYLOAD		7
+
+#define MPV_LEVEL_VSEQ				2
+#define MPV_LEVEL_GOP				3
+#define MPV_LEVEL_AU				4
+#define MPV_LEVEL_SE				5
+#define MPV_LEVEL_MB				6
+
+#define MPV_LEVEL_NAME(lvl_id)	(\
+	(lvl_id) == MPV_LEVEL_VSEQ?"VSEQ":(\
+	(lvl_id) == MPV_LEVEL_GOP?"GOP":(\
+	(lvl_id) == MPV_LEVEL_AU?"AU":(\
+	(lvl_id) == MPV_LEVEL_SE?"SE":(\
+	(lvl_id) == MPV_LEVEL_MB?"MB":"")))))
+
+#define AV1_LEVEL_TU				4
+#define AV1_LEVEL_FU				5
+#define AV1_LEVEL_OBU				6
+
+#define GENERAL_LEVEL_AU			4
+
 enum MSE_ENUM_OPTION
 {
 	//
 	// For NAL media scheme
 	//
-	NAL_ENUM_OPTION_AU		= (1 << 4),
-	NAL_ENUM_OPTION_NU		= (1 << 5),
-	NAL_ENUM_OPTION_SEI_MSG	= (1 << 6),
+	NAL_ENUM_OPTION_CVS		= (1 << NAL_LEVEL_CVS),
+	NAL_ENUM_OPTION_AU		= (1 << NAL_LEVEL_AU),
+	NAL_ENUM_OPTION_NU		= (1 << NAL_LEVEL_NU),
+	NAL_ENUM_OPTION_SEI_MSG	= (1 << NAL_LEVEL_SEI_MSG),
 	NAL_ENUM_OPTION_SEI_PAYLOAD
-							= (1 << 7),
+							= (1 << NAL_LEVEL_SEI_PAYLOAD),
 	NAL_ENUM_OPTION_ALL		= (NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_NU | NAL_ENUM_OPTION_SEI_MSG | NAL_ENUM_OPTION_SEI_PAYLOAD),
 
 	//
 	// For MPV media scheme
 	//
-	MPV_ENUM_OPTION_GOP		= (1 << 3),
-	MPV_ENUM_OPTION_AU		= (1 << 4),
-	MPV_ENUM_OPTION_SLICE	= (1 << 5),
-	MPV_ENUM_OPTION_MB		= (1 << 6),
-	MPV_ENUM_OPTION_SE		= (1 << 7),
-	MPV_ENUM_OPTION_ALL		= (MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_SLICE | MPV_ENUM_OPTION_MB | MPV_ENUM_OPTION_SE),
+	MPV_ENUM_OPTION_VSEQ	= (1 << MPV_LEVEL_VSEQ),
+	MPV_ENUM_OPTION_GOP		= (1 << MPV_LEVEL_GOP),
+	MPV_ENUM_OPTION_AU		= (1 << MPV_LEVEL_AU),
+	MPV_ENUM_OPTION_SE		= (1 << MPV_LEVEL_SE),
+	MPV_ENUM_OPTION_MB		= (1 << MPV_LEVEL_MB),
+	MPV_ENUM_OPTION_ALL		= (MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_SE | MPV_ENUM_OPTION_MB),
 
 	//
 	// For AV1 media scheme
 	//
-	AV1_ENUM_OPTION_TU		= (1 << 4),	// Temporal Unit
-	AV1_ENUM_OPTION_FU		= (1 << 5),	// Frame Unit
-	AV1_ENUM_OPTION_OBU		= (1 << 6),	// Open Bitstream Unit
+	AV1_ENUM_OPTION_TU		= (1 << AV1_LEVEL_TU),	// Temporal Unit
+	AV1_ENUM_OPTION_FU		= (1 << AV1_LEVEL_FU),	// Frame Unit
+	AV1_ENUM_OPTION_OBU		= (1 << AV1_LEVEL_OBU),	// Open Bitstream Unit
 	AV1_ENUM_OPTION_ALL		= (AV1_ENUM_OPTION_TU | AV1_ENUM_OPTION_FU | AV1_ENUM_OPTION_OBU),
 
 	//
 	// For general audio scheme
 	//
-	GENERAL_ENUM_AU			= (1 << 4),
+	GENERAL_ENUM_AU			= (1 << GENERAL_LEVEL_AU),
 
 	// reserve for output style
 	MSE_ENUM_LIST_VIEW		= 0x10000000,
@@ -143,10 +169,10 @@ public:
 class IMPVEnumerator : public IUnknown
 {
 public:
-	virtual RET_CODE		EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) = 0;
+	virtual RET_CODE		EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType) = 0;
 	virtual RET_CODE		EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;
 	virtual RET_CODE		EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) = 0;
-	virtual RET_CODE		EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) = 0;
+	virtual RET_CODE		EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType) = 0;
 	virtual RET_CODE		EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode) = 0;
 
 	/*

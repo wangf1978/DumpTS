@@ -47,6 +47,8 @@ extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern MEDIA_SCHEME_TYPE g_media_scheme_type;
 extern int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB);
 
+const char* g_szRule = "                                                                                                                        ";
+
 struct MSENav
 {
 	MEDIA_SCHEME_TYPE
@@ -73,9 +75,9 @@ struct MSENav
 		}AV1;
 		struct
 		{
-			MSEID		se;
 			MSEID		mb;
 			MSEID		slice;
+			MSEID		se;
 			MSEID		au;
 			MSEID		gop;
 			MSEID		vseq;
@@ -94,10 +96,11 @@ struct MSENav
 		memset(bytes, 0xFF, sizeof(bytes));
 	}
 
-	int				Load();
+	int				Load(uint32_t enum_options);
 	uint32_t		GetEnumOptions();
 
 protected:
+	void			InitAsUnspecified();
 	int				LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments, 
 										std::vector<std::string>& supported_authority_components, MSEID** muids);
 
@@ -127,6 +130,26 @@ std::vector<std::string> MSENav::av1_supported_authority_components
 					= { "tu", "fu", "obu" };
 std::vector<std::string> MSENav::mpv_supported_authority_components 
 					= { "vseq", "gop", "au", "slice", "mb", "se" };
+
+void MSENav::InitAsUnspecified()
+{
+	if (scheme_type == MEDIA_SCHEME_NAL)
+	{
+		NAL.sei_pl = NAL.sei_msg = NAL.nu = NAL.au = NAL.cvs = MSE_UNSPECIFIED;
+	}
+	else if (scheme_type == MEDIA_SCHEME_AV1)
+	{
+		AV1.obu = AV1.fu = AV1.tu = MSE_UNSPECIFIED;
+	}
+	else if (scheme_type == MEDIA_SCHEME_MPV)
+	{
+		MPV.mb = MPV.slice = MPV.se = MPV.au = MPV.gop = MPV.vseq = MSE_UNSPECIFIED;
+	}
+	else if (scheme_type == MEDIA_SCHEME_LOAS_LATM)
+	{
+		AUDIO.au = MSE_UNSPECIFIED;
+	}
+}
 
 uint32_t MSENav::GetEnumOptions()
 {
@@ -165,7 +188,7 @@ uint32_t MSENav::GetEnumOptions()
 			enum_options |= MPV_ENUM_OPTION_AU;
 
 		if (MPV.slice != MSE_UNSELECTED)
-			enum_options |= MPV_ENUM_OPTION_SLICE;
+			enum_options |= MPV_ENUM_OPTION_SE;
 
 		if (MPV.mb != MSE_UNSELECTED)
 			enum_options |= MPV_ENUM_OPTION_MB;
@@ -186,15 +209,28 @@ uint32_t MSENav::GetEnumOptions()
 	return enum_options;
 }
 
-int MSENav::Load()
+int MSENav::Load(uint32_t enum_options)
 {
 	int iRet = RET_CODE_SUCCESS;
 
-	auto iterShowMSE = g_params.find("showMSE");
-	if (iterShowMSE == g_params.end())
-		return RET_CODE_ERROR;
+	if (!(enum_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW)))
+		return RET_CODE_INVALID_PARAMETER;
 
-	const char* szMSEURI = iterShowMSE->second.c_str();
+	auto iterShowMSE = g_params.find((enum_options&MSE_ENUM_LIST_VIEW)?"listMSE":"showMSE");
+	if (iterShowMSE == g_params.end())
+	{
+		if (enum_options&MSE_ENUM_LIST_VIEW)
+		{
+			InitAsUnspecified();
+			return RET_CODE_SUCCESS;
+		}
+
+		return RET_CODE_ERROR;
+	}
+
+	std::string strMSEURI = iterShowMSE->second;
+
+	const char* szMSEURI = strMSEURI.c_str();
 	if (szMSEURI == nullptr)
 		return RET_CODE_SUCCESS;
 
@@ -203,6 +239,23 @@ int MSENav::Load()
 	{
 		printf("Please specify a valid URI for the option 'showMSE'\n");
 		return RET_CODE_ERROR;
+	}
+
+	if (MSE_uri_components.Ranges[URI_PART_SCHEME].length <= 0 && MSE_uri_components.Ranges[URI_PART_AUTHORITY].length <= 0)
+	{
+		// Try to put MSE::// at the beginning of URI, otherwise
+		// --listMSE=AU
+		// 'AU' will be deemed as a relative path, but we want it as MSE://AU
+		strMSEURI = "MSE://" + strMSEURI;
+		szMSEURI = strMSEURI.c_str();
+
+		MSE_uri_components.reset();
+
+		if (AMP_FAILED(AMURI_Split(szMSEURI, MSE_uri_components)))
+		{
+			printf("Please specify a valid URI for the option 'showMSE'\n");
+			return RET_CODE_ERROR;
+		}
 	}
 
 	// Check the schema part, it should be 'MSE'
@@ -244,7 +297,7 @@ int MSENav::Load()
 				return RET_CODE_ERROR;
 			}
 
-			if (AMP_FAILED(LoadAuthorityPart(szMSEURI, uri_segments)))
+			if (AMP_FAILED(LoadAuthorityPart(szMSEURI + MSE_uri_authority_components.Ranges[URI_AUTHORITY_HOST].start, uri_segments)))
 			{
 				printf("Sorry, unable to locate the MSE!\n");
 				return RET_CODE_ERROR;
@@ -383,11 +436,11 @@ int MSENav::CheckAV1AuthorityComponent(size_t idxComponent)
 int MSENav::CheckMPVAuthorityComponent(size_t idxComponent)
 {
 	// Check the occur sequence
-	if ((idxComponent == 1 && (MPV.vseq != MSE_UNSELECTED)) ||
-		(idxComponent == 2 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED)) ||
+	if ((idxComponent == 1 && (MPV.vseq != MSE_UNSELECTED)) ||	// gop
+		(idxComponent == 2 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED)) || // au happen, vseq and gop should NOT happen
 		(idxComponent == 3 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED)) ||
-		(idxComponent == 4 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || MPV.slice != MSE_UNSELECTED)) ||
-		(idxComponent == 5 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || MPV.slice != MSE_UNSELECTED || MPV.mb != MSE_UNSELECTED)))
+		(idxComponent == 4 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || (MPV.se != MSE_UNSELECTED && MPV.slice != MSE_UNSELECTED))) ||
+		(idxComponent == 5 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || (MPV.se != MSE_UNSELECTED && MPV.slice != MSE_UNSELECTED) || MPV.mb != MSE_UNSELECTED)))
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
@@ -522,66 +575,143 @@ public:
 	}
 
 public:
-	RET_CODE EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
+	{
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sAU#%" PRId64 " (%s)", 
+			(m_level[MPV_LEVEL_AU] - 1) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_AU] - 1],
+			PICTURE_CODING_TYPE_SHORTNAME(picCodingType));
+
+		if (ccWrittenOnce <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		if ((size_t)ccWrittenOnce < column_width_name)
+			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+		szItem[column_width_name] = '|';
+		ccWritten = column_width_name + 1;
+
+		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbAUBuf).c_str())) <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		ccWritten += ccWrittenOnce;
+
+		std::string strFormattedURI = GetURI(MPV_LEVEL_AU);
+		if (strFormattedURI.length() < column_width_URI)
+		{
+			memset(szItem + ccWritten, ' ', column_width_URI - strFormattedURI.length());
+			ccWritten += column_width_URI - strFormattedURI.length();
+		}
+
+		memcpy(szItem + ccWritten, strFormattedURI.c_str(), strFormattedURI.length());
+		ccWritten += strFormattedURI.length();
+		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+		printf("%s\n", szItem);
+
+		return RET_CODE_SUCCESS; 
+	}
+
 	RET_CODE EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
 	RET_CODE EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
-	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
+	{
+		m_unit_count[m_level[MPV_LEVEL_AU] - 1]++;
+		if (m_level[MPV_LEVEL_SE] > 0)
+			m_unit_count[m_level[MPV_LEVEL_SE] > 0] = 0;
+		return RET_CODE_SUCCESS; 
+	}
+
 	RET_CODE EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
 	{
 		if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
 			return RET_CODE_NOTHING_TODO;
 
-		AMBst bst = nullptr;
-		RET_CODE ret_code = RET_CODE_SUCCESS;
-		uint8_t mpv_start_code = pBufWithStartCode[3];
-		if (mpv_start_code == EXTENSION_START_CODE &&
-			m_pMPVContext->GetCurrentLevel() == 0 &&
-			((pBufWithStartCode[4] >> 4) & 0xFF) == SEQUENCE_DISPLAY_EXTENSION_ID)
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sSE#%" PRId64 " %s",
+			(m_level[MPV_LEVEL_SE] - 1) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_SE] - 1],
+			GetSEName(pBufWithStartCode, cbBufWithStartCode));
+
+		if (ccWrittenOnce <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		if ((size_t)ccWrittenOnce < column_width_name)
+			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+		szItem[column_width_name] = '|';
+		ccWritten = column_width_name + 1;
+
+		if((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbBufWithStartCode).c_str())) <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		ccWritten += ccWrittenOnce;
+
+		std::string szFormattedURI = GetURI(MPV_LEVEL_SE);
+		if (szFormattedURI.length() < column_width_URI)
 		{
-			// Try to find sequence_display_extension()
-			if ((bst = AMBst_CreateFromBuffer(pBufWithStartCode, (int)cbBufWithStartCode)) == nullptr)
-			{
-				printf("Failed to create a bitstream object.\n");
-				return RET_CODE_ABORT;
-			}
-
-			try
-			{
-				AMBst_SkipBits(bst, 32);
-				int left_bits = 0;
-
-				BST::MPEG2Video::CSequenceDisplayExtension* pSeqDispExt =
-					new (std::nothrow) BST::MPEG2Video::CSequenceDisplayExtension;
-				if (pSeqDispExt == nullptr)
-				{
-					printf("Failed to create Sequence_Display_Extension.\n");
-					ret_code = RET_CODE_ABORT;
-					goto done;
-				}
-				if (AMP_FAILED(ret_code = pSeqDispExt->Map(bst)))
-				{
-					delete pSeqDispExt;
-					printf("Failed to parse the sequence_display_extension() {error code: %d}.\n", ret_code);
-					goto done;
-				}
-				m_sp_sequence_display_extension = std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>(pSeqDispExt);
-			}
-			catch (AMException& e)
-			{
-				ret_code = e.RetCode();
-			}
+			memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
+			ccWritten += column_width_URI - szFormattedURI.length();
 		}
 
-	done:
-		if (bst != nullptr)
-			AMBst_Destroy(bst);
-		return ret_code;
+		memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
+		ccWritten += szFormattedURI.length();
+		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+		printf("%s\n", szItem);
+
+		m_unit_count[m_level[MPV_LEVEL_SE] - 1]++;
+		if (m_level[MPV_LEVEL_MB] > 0)
+			m_unit_count[m_level[MPV_LEVEL_SE] > 0] = 0;
+
+		return RET_CODE_SUCCESS;
 	}
 	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
 
+public:
+	int						m_level[16] = { 0 };	// 0 is an invalid level
+	int64_t					m_unit_count[16] = { 0 };
+
+	std::string	GetURI(int level_id)
+	{
+		std::string strURI;
+		strURI.reserve(128);
+		for (int i = level_id; i >= 0; i--)
+		{
+			if (m_level[i] > 0)
+			{
+				if (strURI.length() > 0)
+					strURI += ".";
+				strURI += MPV_LEVEL_NAME(i);
+				strURI += std::to_string(m_unit_count[m_level[i] - 1]);
+			}
+		}
+
+		return strURI;
+	}
+
+	const char* GetSEName(uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+	{
+		uint8_t* p = pBufWithStartCode;
+		size_t cbLeft = cbBufWithStartCode;
+
+		uint8_t start_code = p[3];
+		if (start_code == EXTENSION_START_CODE || start_code == USER_DATA_START_CODE)
+		{
+			uint8_t extension_start_code_identifier = (p[4] >> 4) & 0xF;
+			return mpv_extension_syntax_element_names[extension_start_code_identifier];
+		}
+
+		return mpv_syntax_element_names[start_code];
+	}
+
+protected:
 	IMPVContext*			m_pMPVContext;
-	std::shared_ptr<BST::MPEG2Video::CSequenceDisplayExtension>
-							m_sp_sequence_display_extension;
+	const size_t			column_width_name = 47;
+	const size_t			column_width_len  = 13;
+	const size_t			column_width_URI  = 27;
+
 };
 
 int CreateMSEParser(IMSEParser** ppMSEParser)
@@ -618,7 +748,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 		{
 			CNALParser* pNALParser = new CNALParser(nal_coding);
 			if (pNALParser != nullptr)
-				iRet = pNALParser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+				iRet = pNALParser->QueryInterface(IID_IMSEParser, (void**)ppMSEParser);
 			else
 				iRet = RET_CODE_OUTOFMEMORY;
 		}
@@ -636,7 +766,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 
 		CAV1Parser* pAV1Parser = new CAV1Parser(bAnnexBStream, false, nullptr);
 		if (pAV1Parser != nullptr)
-			iRet = pAV1Parser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+			iRet = pAV1Parser->QueryInterface(IID_IMSEParser, (void**)ppMSEParser);
 		else
 			iRet = RET_CODE_OUTOFMEMORY;
 	}
@@ -644,7 +774,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 	{
 		CMPEG2VideoParser* pMPVParser = new CMPEG2VideoParser();
 		if (pMPVParser != nullptr)
-			iRet = pMPVParser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+			iRet = pMPVParser->QueryInterface(IID_IMSEParser, (void**)ppMSEParser);
 		else
 			iRet = RET_CODE_OUTOFMEMORY;
 	}
@@ -652,7 +782,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 	{
 		BST::AACAudio::CLOASParser* pLOASParser = new BST::AACAudio::CLOASParser();
 		if (pLOASParser != nullptr)
-			iRet = pLOASParser->QueryInterface(IID_IMSEParser, (void**)&ppMSEParser);
+			iRet = pLOASParser->QueryInterface(IID_IMSEParser, (void**)ppMSEParser);
 		else
 			iRet = RET_CODE_OUTOFMEMORY;
 	}
@@ -695,7 +825,20 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx);
 			if (SUCCEEDED(pMPVSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
 			{
-				iRet = pMSEParser->SetEnumerator(pMPVSEEnumerator, enum_options | mse_nav.GetEnumOptions());
+				uint32_t options = mse_nav.GetEnumOptions();
+				iRet = pMSEParser->SetEnumerator(pMPVSEEnumerator, enum_options | options);
+
+				int next_level = 1;
+				for (size_t i = 0; i < _countof(pMPVSEEnumerator->m_level); i++)
+				{
+					if (options&(1ULL << i))
+					{
+						pMPVSEEnumerator->m_level[i] = next_level;
+						next_level++;
+					}
+				}
+
+				AMP_SAFERELEASE(pMSEEnumerator);
 			}
 
 			AMP_SAFERELEASE(pMPVCtx);
@@ -710,7 +853,23 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 
 	}
 
-	return RET_CODE_ERROR_NOTIMPL;
+	return iRet;
+}
+
+#define MAX_MSE_LIST_VIEW_HEADER_WIDTH		100
+#define MAX_MSE_SYNTAX_VIEW_HEADER_WIDTH	100
+void PrintMSEHeader(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* fp)
+{
+	if (enum_options&MSE_ENUM_LIST_VIEW)
+	{
+		MEDIA_SCHEME_TYPE scheme_type = pMSEParser->GetSchemeType();
+		if (scheme_type == MEDIA_SCHEME_MPV)
+			printf("------------Name-------------------------------|-----len-----|------------URI-------------\n");
+	}
+	else if (enum_options&MSE_ENUM_SYNTAX_VIEW)
+	{
+
+	}
 }
 
 int	MSEParse(uint32_t enum_options)
@@ -738,7 +897,7 @@ int	MSEParse(uint32_t enum_options)
 	}
 
 	MSENav mse_nav(pMediaParser->GetSchemeType());
-	if (AMP_FAILED(iRet = mse_nav.Load()))
+	if (AMP_FAILED(iRet = mse_nav.Load(enum_options)))
 	{
 		printf("Failed to load the Media Syntax Element URI.\n");
 		return iRet;
@@ -764,6 +923,8 @@ int	MSEParse(uint32_t enum_options)
 	}
 
 	file_size = GetFileSizeByFP(rfp);
+
+	PrintMSEHeader(pMediaParser, pCtx, enum_options, mse_nav, rfp);
 
 	do
 	{

@@ -140,6 +140,60 @@ const char* mpeg2_level_names[16] = {
 	"", "", "HighP", "", "High", "", "High 1440", "", "Main", "Low", "", "", "", "", "", ""
 };
 
+const char* mpv_syntax_element_names[256] =
+{
+	"picture_header",
+	"slice1",   "slice2", "slice3", "slice4", "slice5", "slice6", "slice7", "slice8", "slice9", "slice10",
+	"slice11",  "slice12", "slice13", "slice14", "slice15", "slice16", "slice17", "slice18", "slice19", "slice20",
+	"slice21",  "slice22", "slice23", "slice24", "slice25", "slice26", "slice27", "slice28", "slice29", "slice30",
+	"slice31",  "slice32", "slice33", "slice34", "slice35", "slice36", "slice37", "slice38", "slice39", "slice40",
+	"slice41",  "slice42", "slice43", "slice44", "slice45", "slice46", "slice47", "slice48", "slice49", "slice50",
+	"slice51",  "slice52", "slice53", "slice54", "slice55", "slice56", "slice57", "slice58", "slice59", "slice60",
+	"slice61",  "slice62", "slice63", "slice64", "slice65", "slice66", "slice67", "slice68", "slice69", "slice70",
+	"slice71",  "slice72", "slice73", "slice74", "slice75", "slice76", "slice77", "slice78", "slice79", "slice80",
+	"slice81",  "slice82", "slice83", "slice84", "slice85", "slice86", "slice87", "slice88", "slice89", "slice90",
+	"slice91",  "slice92", "slice93", "slice94", "slice95", "slice96", "slice97", "slice98", "slice99", "slice100",
+	"slice101", "slice102", "slice103", "slice104", "slice105", "slice106", "slice107", "slice108", "slice109", "slice110",
+	"slice111", "slice112", "slice113", "slice114", "slice115", "slice116", "slice117", "slice118", "slice119", "slice120",
+	"slice121", "slice122", "slice123", "slice124", "slice125", "slice126", "slice127", "slice128", "slice129", "slice130",
+	"slice131", "slice132", "slice133", "slice134", "slice135", "slice136", "slice137", "slice138", "slice139", "slice140",
+	"slice141", "slice142", "slice143", "slice144", "slice145", "slice146", "slice147", "slice148", "slice149", "slice150",
+	"slice151", "slice152", "slice153", "slice154", "slice155", "slice156", "slice157", "slice158", "slice159", "slice160",
+	"slice161", "slice162", "slice163", "slice164", "slice165", "slice166", "slice167", "slice168", "slice169", "slice170",
+	"slice171", "slice172", "slice173", "slice174", "slice175", "", "", "user_data", "sequence_header", "sequence_error",
+	"extension_data", "", "sequence_end", "group_of_pictures_header", "MPEG_program_end", "pack_header", "system_header", 
+	"program_stream_map", "private_stream_1", "padding_stream", "private_stream_2", 
+	"MPEG_audio_stream_0", "MPEG_audio_stream_1","MPEG_audio_stream_2","MPEG_audio_stream_3","MPEG_audio_stream_4","MPEG_audio_stream_5","MPEG_audio_stream_6","MPEG_audio_stream_7",
+	"MPEG_audio_stream_8", "MPEG_audio_stream_9","MPEG_audio_stream_10","MPEG_audio_stream_11","MPEG_audio_stream_12","MPEG_audio_stream_13","MPEG_audio_stream_14","MPEG_audio_stream_15",
+	"MPEG_audio_stream_16", "MPEG_audio_stream_17","MPEG_audio_stream_18","MPEG_audio_stream_19","MPEG_audio_stream_20","MPEG_audio_stream_21","MPEG_audio_stream_22","MPEG_audio_stream_23",
+	"MPEG_audio_stream_24", "MPEG_audio_stream_25","MPEG_audio_stream_26","MPEG_audio_stream_27","MPEG_audio_stream_28","MPEG_audio_stream_29","MPEG_audio_stream_30","MPEG_audio_stream_31",
+	"video_stream_0","video_stream_1","video_stream_2","video_stream_3","video_stream_4","video_stream_5","video_stream_6","video_stream_7",
+	"video_stream_8","video_stream_9","video_stream_10","video_stream_11","video_stream_12","video_stream_13","video_stream_14","video_stream_15",
+	"ECM_stream", "EMM_stream", "DSMCC_stream", "ISO_13522_stream", 
+	"H.222.1 type A", "H.222.1 type B", "H.222.1 type C", "H.222.1 type D", "H.222.1 type E",
+	"ancillary_stream", "ISO-14496-1_SL-packetized_stream", "ISO-14496-1_FlexMux_stream", "metadata stream", "extended_stream", "reserved data stream", "program_stream_directory"
+};
+
+const char* mpv_extension_syntax_element_names[16] = 
+{
+	"reserved",
+	"sequence_extension",
+	"sequence_display_extension",
+	"quant_matrix_extension",
+	"copyright_extension",
+	"sequence_scalable_extension",
+	"reserved",
+	"picture_display_extension",
+	"picture_coding_extension",
+	"picture_spatial_scalable_extension",
+	"picture_temporal_scalable_extension",
+	"camera_parameters_extension",
+	"ITU-T_extension",
+	"reserved",
+	"reserved",
+	"reserved"
+};
+
 int next_start_code(AMBst in_bst) {
 
 	int iRet = RET_CODE_SUCCESS;
@@ -323,3 +377,4 @@ namespace BST
 		}
 	}
 }
+

@@ -130,6 +130,10 @@ protected:
 	uint64_t				m_cur_submit_pos = 0;
 	int16_t					m_cur_mpv_start_code = -1;
 	int32_t					m_last_commit_buf_len = 0;
+	int32_t					m_picture_coding_type = -1;
+
+	std::vector<std::tuple<int32_t, uint32_t>>	
+							m_se_ranges_in_au;
 };
 
 #endif
