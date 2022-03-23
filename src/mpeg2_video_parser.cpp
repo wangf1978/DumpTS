@@ -565,6 +565,6 @@ done:
 	m_se_ranges_in_au.clear();
 	m_gop_start = 0;
 
-	return RET_CODE_SUCCESS;
+	return iRet;
 }
 

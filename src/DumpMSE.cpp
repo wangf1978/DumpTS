@@ -40,6 +40,7 @@ SOFTWARE.
 
 #define MSE_UNSPECIFIED				INT64_MAX
 #define MSE_UNSELECTED				-1
+#define IS_USABLE_MSEID(mseid)		(mseid != INT64_MAX && mseid >= 0)
 
 using MSEID = int64_t;
 
@@ -361,7 +362,7 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 			{
 				if (strSeg.length() == supported_authority_components[idx].length())
 					*muids[idx] = MSE_UNSPECIFIED;
-				else if (ConvertToInt((char*)strSeg.c_str() + 3, (char*)strSeg.c_str() + strSeg.length(), i64Val) && i64Val >= 0)
+				else if (strSeg.length() > supported_authority_components[idx].length() && ConvertToInt((char*)strSeg.c_str() + supported_authority_components[idx].length(), (char*)strSeg.c_str() + strSeg.length(), i64Val) && i64Val >= 0)
 					*muids[idx] = i64Val;
 				else
 				{
@@ -555,7 +556,8 @@ int	MSENav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& ur
 class CMPVSEEnumerator : public CComUnknown, public IMPVEnumerator
 {
 public:
-	CMPVSEEnumerator(IMPVContext* pCtx, uint32_t options) : m_pMPVContext(pCtx) {
+	CMPVSEEnumerator(IMPVContext* pCtx, uint32_t options, MSENav* pMSENav) 
+		: m_pMPVContext(pCtx), m_pMSENav(pMSENav) {
 		if (m_pMPVContext != nullptr)
 			m_pMPVContext->AddRef();
 
@@ -596,6 +598,10 @@ public:
 	{ 
 		m_unit_index[m_level[MPV_LEVEL_VSEQ]]++;
 
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(MPV_LEVEL_VSEQ)) != RET_CODE_SUCCESS)
+			return iRet;
+
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 
@@ -629,6 +635,11 @@ public:
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
+
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(MPV_LEVEL_AU)) != RET_CODE_SUCCESS)
+			return iRet;
+
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sAU#%" PRId64 " (%s)", 
 			(m_level[MPV_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_AU]],
 			PICTURE_CODING_TYPE_SHORTNAME(picCodingType));
@@ -669,6 +680,10 @@ public:
 		if (m_level[MPV_LEVEL_MB] > 0)
 			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(MPV_LEVEL_GOP)) != RET_CODE_SUCCESS)
+			return iRet;
+
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sGOP#%" PRId64 " (%s%s)",
 			(m_level[MPV_LEVEL_GOP]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_GOP]], closed_gop?"closed":"open", broken_link?",broken-link":"");
 
@@ -695,16 +710,6 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
-	{
-		m_unit_index[m_level[MPV_LEVEL_AU]]++;
-		if (m_level[MPV_LEVEL_SE] > 0)
-			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
-		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
-		return RET_CODE_SUCCESS; 
-	}
-
 	RET_CODE EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
 	{
 		if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
@@ -712,34 +717,49 @@ public:
 
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sSE#%" PRId64 " %s",
-			(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_SE]],
-			GetSEName(pBufWithStartCode, cbBufWithStartCode));
 
-		if (ccWrittenOnce <= 0)
-			return RET_CODE_NOTHING_TODO;
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(MPV_LEVEL_SE)) == RET_CODE_SUCCESS)
+		{
+			int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sSE#%" PRId64 " %s",
+				(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_SE]],
+				GetSEName(pBufWithStartCode, cbBufWithStartCode));
 
-		if ((size_t)ccWrittenOnce < column_width_name)
-			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+			if (ccWrittenOnce <= 0)
+				return RET_CODE_NOTHING_TODO;
 
-		szItem[column_width_name] = '|';
-		ccWritten = column_width_name + 1;
+			if ((size_t)ccWrittenOnce < column_width_name)
+				memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
 
-		if((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbBufWithStartCode).c_str())) <= 0)
-			return RET_CODE_NOTHING_TODO;
+			szItem[column_width_name] = '|';
+			ccWritten = column_width_name + 1;
 
-		ccWritten += ccWrittenOnce;
+			if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbBufWithStartCode).c_str())) <= 0)
+				return RET_CODE_NOTHING_TODO;
 
-		AppendURI(szItem, ccWritten, MPV_LEVEL_SE);
+			ccWritten += ccWrittenOnce;
 
-		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+			AppendURI(szItem, ccWritten, MPV_LEVEL_SE);
 
-		printf("%s\n", szItem);
+			szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+			printf("%s\n", szItem);
+		}
 
 		m_unit_index[m_level[MPV_LEVEL_SE]]++;
 		if (m_level[MPV_LEVEL_MB] > 0)
 			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
+	{
+		m_unit_index[m_level[MPV_LEVEL_AU]]++;
+		if (m_level[MPV_LEVEL_SE] > 0)
+			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+		if (m_level[MPV_LEVEL_MB] > 0)
+			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 		return RET_CODE_SUCCESS;
 	}
 
@@ -781,6 +801,33 @@ protected:
 		return strURI;
 	}
 
+	RET_CODE CheckFilter(int level_id)
+	{
+		if (m_pMSENav == nullptr)
+			return RET_CODE_SUCCESS;
+
+		MSEID filter[] = { MSE_UNSELECTED, MSE_UNSELECTED, m_pMSENav->MPV.vseq, m_pMSENav->MPV.gop, m_pMSENav->MPV.au, m_pMSENav->MPV.se, m_pMSENav->MPV.mb,
+			MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED };
+
+		for (int i = 0; i <= level_id; i++)
+		{
+			if (m_level[i] < 0 || !IS_USABLE_MSEID(filter[i]))
+				continue;
+			if (i > 0 && !IS_USABLE_MSEID(filter[i - 1]) && i < level_id)
+			{
+				// only compare it is identified or not
+				if (m_unit_index[m_level[i]] != filter[i])
+					return RET_CODE_NOTHING_TODO;
+			}
+			else if (m_unit_index[m_level[i]] < filter[i])
+				return RET_CODE_NOTHING_TODO;
+			else if (m_unit_index[m_level[i]] > filter[i])
+				return RET_CODE_ABORT;
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
 	const char* GetSEName(uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
 	{
 		uint8_t* p = pBufWithStartCode;
@@ -813,10 +860,10 @@ protected:
 
 protected:
 	IMPVContext*			m_pMPVContext;
+	MSENav*					m_pMSENav;
 	const size_t			column_width_name = 47;
 	const size_t			column_width_len  = 13;
 	const size_t			column_width_URI  = 27;
-
 };
 
 int CreateMSEParser(IMSEParser** ppMSEParser)
@@ -928,7 +975,7 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 		{
 			IUnknown* pMSEEnumerator = nullptr;
 			uint32_t options = mse_nav.GetEnumOptions();
-			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx, options);
+			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx, options, &mse_nav);
 			if (SUCCEEDED(pMPVSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
 			{
 				iRet = pMSEParser->SetEnumerator(pMPVSEEnumerator, enum_options | options);
