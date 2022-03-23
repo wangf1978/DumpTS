@@ -134,6 +134,7 @@ protected:
 	int32_t					m_gop_start = 0;
 	bool					m_closed_gop = false;
 	bool					m_broken_link = false;
+	bool					m_wait_for_new_vseq = true;
 
 	std::vector<std::tuple<int32_t, uint32_t>>	
 							m_se_ranges_in_au;

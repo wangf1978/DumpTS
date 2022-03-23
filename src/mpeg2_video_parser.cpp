@@ -160,7 +160,7 @@ RET_CODE CMPEG2VideoParser::ProcessOutput(bool bDrain)
 
 		mpv_start_code = pBuf[3];
 
-		if (m_cur_mpv_start_code != -1 && (m_mpv_enum_options&(MPV_ENUM_OPTION_AU|MPV_ENUM_OPTION_GOP|MPV_ENUM_OPTION_VSEQ)))
+		if (m_cur_mpv_start_code != -1 && (m_mpv_enum_options&(MPV_ENUM_OPTION_AU|MPV_ENUM_OPTION_GOP)))
 		{
 			if (mpv_start_code == SEQUENCE_HEADER_CODE || mpv_start_code == GROUP_START_CODE || mpv_start_code == PICTURE_START_CODE)
 			{
@@ -234,7 +234,7 @@ RET_CODE CMPEG2VideoParser::ProcessOutput(bool bDrain)
 
 			m_cur_scan_pos += pEndBuf - pStartBuf;
 
-			if (m_mpv_enum_options&(MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_GOP | MPV_ENUM_OPTION_VSEQ))
+			if (m_mpv_enum_options&(MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_GOP))
 			{
 				if (m_pCtx->GetCurrentLevel() == 2)
 				{
@@ -305,6 +305,8 @@ RET_CODE CMPEG2VideoParser::Reset()
 	m_cur_mpv_start_code = -1;
 	m_last_commit_buf_len = 0;
 	m_picture_coding_type = -1;
+	m_gop_start = 0;
+	m_wait_for_new_vseq = true;
 
 	m_pCtx->Reset();
 
@@ -402,6 +404,16 @@ int CMPEG2VideoParser::CommitMPVUnit(bool bDrain)
 
 			std::shared_ptr<BST::MPEG2Video::CSequenceHeader> spSeqHdr(pSeqHdr);
 			m_pCtx->UpdateSeqHdr(spSeqHdr);
+
+			if (m_wait_for_new_vseq && (m_mpv_enum_options&MPV_ENUM_OPTION_VSEQ))
+			{
+				m_wait_for_new_vseq = false;
+				if (m_mpv_enum != nullptr && AMP_FAILED(iRet = m_mpv_enum->EnumVSEQStart(m_pCtx)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+			}
 		}
 		else if (mpv_start_code == EXTENSION_START_CODE)
 		{
@@ -454,7 +466,7 @@ int CMPEG2VideoParser::CommitMPVUnit(bool bDrain)
 		{
 			if (m_pCtx->IsStartCodeFiltered((uint8_t)mpv_start_code))
 			{
-				if (!(m_mpv_enum_options&(MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_GOP | MPV_ENUM_OPTION_VSEQ)))
+				if (!(m_mpv_enum_options&(MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_GOP)))
 				{
 					if (m_mpv_enum && m_mpv_enum->EnumObject(m_pCtx, pBuf, (size_t)read_buf_len) == RET_CODE_ABORT)
 					{
@@ -469,11 +481,24 @@ int CMPEG2VideoParser::CommitMPVUnit(bool bDrain)
 			}
 		}
 
-		if (!(m_mpv_enum_options&(MPV_ENUM_OPTION_AU|MPV_ENUM_OPTION_GOP|MPV_ENUM_OPTION_VSEQ)))
+		if (!(m_mpv_enum_options&(MPV_ENUM_OPTION_AU|MPV_ENUM_OPTION_GOP)))
 		{
 			AM_LRB_Reset(m_rbMPVUnit);
 			m_last_commit_buf_len = 0;
 			m_se_ranges_in_au.clear();
+		}
+
+		if (mpv_start_code == SEQUENCE_END_CODE)
+		{
+			if (m_wait_for_new_vseq == false && (m_mpv_enum_options&MPV_ENUM_OPTION_VSEQ))
+			{
+				if (m_mpv_enum != nullptr && AMP_FAILED(iRet = m_mpv_enum->EnumVSEQEnd(m_pCtx)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+				m_wait_for_new_vseq = true;
+			}
 		}
 	}
 	catch (AMException e)

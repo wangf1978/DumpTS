@@ -181,6 +181,9 @@ uint32_t MSENav::GetEnumOptions()
 	}
 	else if (scheme_type == MEDIA_SCHEME_MPV)
 	{
+		if (MPV.vseq != MSE_UNSELECTED)
+			enum_options |= MPV_ENUM_OPTION_VSEQ;
+
 		if (MPV.gop != MSE_UNSELECTED)
 			enum_options |= MPV_ENUM_OPTION_GOP;
 
@@ -563,9 +566,9 @@ public:
 
 				// GOP and VSEQ are the point, not a range
 				if (i == MPV_LEVEL_GOP || i == MPV_LEVEL_VSEQ)
-					m_unit_count[next_level] = -1;
+					m_unit_index[next_level] = -1;
 				else
-					m_unit_count[next_level] = 0;
+					m_unit_index[next_level] = 0;
 
 				next_level++;
 			}
@@ -589,12 +592,45 @@ public:
 	}
 
 public:
+	RET_CODE EnumVSEQStart(IUnknown* pCtx) 
+	{ 
+		m_unit_index[m_level[MPV_LEVEL_VSEQ]]++;
+
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sVideo Sequence#%" PRId64 "",
+			(m_level[MPV_LEVEL_VSEQ]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_VSEQ]]);
+
+		if (ccWrittenOnce <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		if ((size_t)ccWrittenOnce < column_width_name)
+			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+		szItem[column_width_name] = '|';
+		ccWritten = column_width_name + 1;
+
+		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%12s |", " ")) <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		ccWritten += ccWrittenOnce;
+
+		AppendURI(szItem, ccWritten, MPV_LEVEL_VSEQ);
+
+		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+		printf("%s\n", szItem);
+
+		return RET_CODE_SUCCESS; 
+	}
+
 	RET_CODE EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sAU#%" PRId64 " (%s)", 
-			(m_level[MPV_LEVEL_AU]) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_AU]],
+			(m_level[MPV_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_AU]],
 			PICTURE_CODING_TYPE_SHORTNAME(picCodingType));
 
 		if (ccWrittenOnce <= 0)
@@ -625,16 +661,16 @@ public:
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 
-		m_unit_count[m_level[MPV_LEVEL_GOP]]++;
+		m_unit_index[m_level[MPV_LEVEL_GOP]]++;
 		if (m_level[MPV_LEVEL_AU] > 0)
-			m_unit_count[m_level[MPV_LEVEL_AU]] = 0;
+			m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
 		if (m_level[MPV_LEVEL_SE] > 0)
-			m_unit_count[m_level[MPV_LEVEL_SE]] = 0;
+			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
 		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_count[m_level[MPV_LEVEL_MB]] = 0;
+			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sGOP#%" PRId64 " (%s%s)",
-			(m_level[MPV_LEVEL_GOP]) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_GOP]], closed_gop?"closed":"open", broken_link?",broken-link":"");
+			(m_level[MPV_LEVEL_GOP]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_GOP]], closed_gop?"closed":"open", broken_link?",broken-link":"");
 
 		if (ccWrittenOnce <= 0)
 			return RET_CODE_NOTHING_TODO;
@@ -645,7 +681,7 @@ public:
 		szItem[column_width_name] = '|';
 		ccWritten = column_width_name + 1;
 
-		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%12s |","N/A")) <= 0)
+		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%12s |"," ")) <= 0)
 			return RET_CODE_NOTHING_TODO;
 
 		ccWritten += ccWrittenOnce;
@@ -659,15 +695,13 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumSliceStart(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
-	RET_CODE EnumSliceEnd(IUnknown* pCtx, uint8_t* pSliceBuf, size_t cbSliceBuf) { return RET_CODE_SUCCESS; }
 	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
 	{
-		m_unit_count[m_level[MPV_LEVEL_AU]]++;
+		m_unit_index[m_level[MPV_LEVEL_AU]]++;
 		if (m_level[MPV_LEVEL_SE] > 0)
-			m_unit_count[m_level[MPV_LEVEL_SE]] = 0;
+			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
 		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_count[m_level[MPV_LEVEL_MB]] = 0;
+			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 		return RET_CODE_SUCCESS; 
 	}
 
@@ -679,7 +713,7 @@ public:
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sSE#%" PRId64 " %s",
-			(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_count[m_level[MPV_LEVEL_SE]],
+			(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_SE]],
 			GetSEName(pBufWithStartCode, cbBufWithStartCode));
 
 		if (ccWrittenOnce <= 0)
@@ -702,17 +736,32 @@ public:
 
 		printf("%s\n", szItem);
 
-		m_unit_count[m_level[MPV_LEVEL_SE]]++;
+		m_unit_index[m_level[MPV_LEVEL_SE]]++;
 		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_count[m_level[MPV_LEVEL_MB]] = 0;
+			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 
 		return RET_CODE_SUCCESS;
 	}
+
+	RET_CODE EnumVSEQEnd(IUnknown* pCtx)
+	{
+		if (m_level[MPV_LEVEL_GOP] > 0)
+			m_unit_index[m_level[MPV_LEVEL_GOP]] = 0;
+		if (m_level[MPV_LEVEL_AU] > 0)
+			m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
+		if (m_level[MPV_LEVEL_SE] > 0)
+			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+		if (m_level[MPV_LEVEL_MB] > 0)
+			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
+
+		return RET_CODE_SUCCESS;
+	}
+
 	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
 
-public:
+protected:
 	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-	int64_t					m_unit_count[16] = { 0 };
+	int64_t					m_unit_index[16] = { 0 };
 
 	std::string	GetURI(int level_id)
 	{
@@ -725,7 +774,7 @@ public:
 				if (strURI.length() > 0)
 					strURI += ".";
 				strURI += MPV_LEVEL_NAME(i);
-				strURI += std::to_string(m_unit_count[m_level[i]]);
+				strURI += std::to_string(m_unit_index[m_level[i]]);
 			}
 		}
 
