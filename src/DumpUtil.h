@@ -1125,11 +1125,32 @@ SOFTWARE.
 		if (bit_offset)*bit_offset += (long long)Field_Bits;\
 	}\
 
-#define NAV_FIELD_PROP_FIXSIZE_BINSTR1(Field_Name, Field_Bits, Field_Desc)	NAV_FIELD_PROP_FIXSIZE_BINSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), "")
+#define NAV_FIELD_PROP_FIXSIZE_BINSTR1(Field_Name, Field_Bits, Field_Desc)	NAV_FIELD_PROP_FIXSIZE_BINSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), Field_Desc)
+
+#define NAV_FIELD_PROP_1D_ARRAY_MATRIX(Field_Name, Field_Value, M, N, Field_Desc)\
+	if (M > 0 && N > 0){\
+		unsigned long iii=0, jjj=0;\
+		auto ptr_field_value = Field_Value;\
+		memset(szTemp2, 0, sizeof(szTemp2));\
+		for(iii=0;iii<M;iii++){\
+			for(jjj=0;jjj<N;jjj++){\
+				MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%3d ", ptr_field_value[iii*N + jjj]);\
+				MBCSCAT(szTemp2, TEMP2_SIZE, szTemp3);}\
+			MBCSCAT(szTemp2, TEMP2_SIZE, "\n");}\
+		NAV_FIELD_PROP(Field_Name, ((long long)M*N*8), szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "M");\
+		if (bit_offset)*bit_offset += (long long)M*N*8;\
+	}\
+
+#define NAV_FIELD_PROP_1D_ARRAY_MATRIX1(Field_Name, M, N, Field_Desc)	NAV_FIELD_PROP_1D_ARRAY_MATRIX(#Field_Name, Field_Name, M, N, Field_Desc)
 
 #define BST_FIELD_PROP_FIXSIZE_BINSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
 		NAV_FIELD_PROP_FIXSIZE_BINSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
+		field_prop_idx++;}\
+
+#define BST_FIELD_PROP_1D_ARRAY_MATRIX(Field_Name, Field_Value, M, N, Field_Desc)	\
+	if (map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		NAV_FIELD_PROP_1D_ARRAY_MATRIX(Field_Name, Field_Value, M, N, Field_Desc)\
 		field_prop_idx++;}\
 
 #define BST_FIELD_PROP_UUID(Field_Name, Field_Value, Field_Desc) \
@@ -1144,7 +1165,9 @@ SOFTWARE.
 
 #define BST_FIELD_PROP_UUID1(Field_Name, Field_Desc)	BST_FIELD_PROP_UUID(#Field_Name, Field_Name, Field_Desc)
 
-#define BST_FIELD_PROP_FIXSIZE_BINSTR1(Field_Name, Field_Bits, Field_Desc)	BST_FIELD_PROP_FIXSIZE_BINSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), "")
+#define BST_FIELD_PROP_FIXSIZE_BINSTR1(Field_Name, Field_Bits, Field_Desc)	BST_FIELD_PROP_FIXSIZE_BINSTR(#Field_Name, Field_Bits, Field_Name, (Field_Bits>>3), Field_Desc)
+
+#define BST_FIELD_PROP_1D_ARRAY_MATROX1(Field_Name, M, N, Field_Desc) BST_FIELD_PROP_1D_ARRAY_MATRIX(#Field_Name, Field_Name, M, N, Field_Desc)
 
 #define NAV_FIELD_PROP_FIXSIZE_BINCHARSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
 	if (Field_Bits >0 && Field_Value > 0)\

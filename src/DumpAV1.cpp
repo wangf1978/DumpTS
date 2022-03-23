@@ -848,11 +848,11 @@ public:
 	}
 	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
 		m_OBU_count_in_FU = 0;
-		printf("%*.sFrame Unit#%" PRId64 "/global#%" PRId64 "\n", m_indent[1], m_szIndent, m_FU_count_in_TU, m_FU_count);
+		printf("%.*sFrame Unit#%" PRId64 "/global#%" PRId64 "\n", m_indent[1], m_szIndent, m_FU_count_in_TU, m_FU_count);
 		return RET_CODE_SUCCESS;
 	}
 	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
-		printf("%*.sOBU#%" PRId64 ": %-32s (len/size--%5zu/%-5" PRIu32 ")/global#%" PRId64 "\n",
+		printf("%.*sOBU#%" PRId64 ": %-32s (len/size--%5zu/%-5" PRIu32 ")/global#%" PRId64 "\n",
 			m_indent[2], m_szIndent, m_OBU_count_in_FU, obu_type < 0xF ? obu_type_names[obu_type] : "", cbOBUBuf, obu_size, m_OBU_count);
 		m_OBU_count_in_FU++;
 		m_OBU_count++;

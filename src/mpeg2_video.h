@@ -276,11 +276,11 @@ namespace BST {
 
 			BST_FIELD_PROP_NUMBER1 (load_intra_quantiser_matrix, 1, "See 6.3.11 &quot;Quant matrix extension&quot;.")
 			if (load_intra_quantiser_matrix){
-				BST_FIELD_PROP_FIXSIZE_BINSTR1(intra_quantiser_matrix, 8*64, "See 6.3.11 &quot;Quant matrix extension&quot;.")
+				BST_FIELD_PROP_1D_ARRAY_MATROX1(intra_quantiser_matrix, 8, 8, "See 6.3.11 &quot;Quant matrix extension&quot;.")
 			}
 			NAV_FIELD_PROP_NUMBER1 (load_non_intra_quantiser_matrix, 1, "See 6.3.11 &quot;Quant matrix extension&quot;.")
 			if (load_non_intra_quantiser_matrix){
-				BST_FIELD_PROP_FIXSIZE_BINSTR1(non_intra_quantiser_matrix, 8*64, "See 6.3.11 &quot;Quant matrix extension&quot;.")
+				BST_FIELD_PROP_1D_ARRAY_MATROX1(non_intra_quantiser_matrix, 8, 8, "See 6.3.11 &quot;Quant matrix extension&quot;.")
 			}
 		DECLARE_FIELDPROP_END()	
 	}PACKED;
@@ -1091,22 +1091,22 @@ namespace BST {
 			NAV_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			NAV_FIELD_PROP_NUMBER("load_intra_quantiser_matrix", 1, load_intra_quantiser_matrix, load_intra_quantiser_matrix?"intra_quantiser_matrix follows":"there is no change in the values that shall be used")
 			if (load_intra_quantiser_matrix){
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(intra_quantiser_matrix, 512, "")
+				NAV_FIELD_PROP_1D_ARRAY_MATRIX1(intra_quantiser_matrix, 8, 8, "")
 			}
 
 			NAV_FIELD_PROP_NUMBER("load_non_intra_quantiser_matrix", 1, load_non_intra_quantiser_matrix, load_non_intra_quantiser_matrix?"non_intra_quantiser_matrix follows":"there is no change in the values that shall be used")
 			if (load_non_intra_quantiser_matrix){
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(non_intra_quantiser_matrix, 512, "")
+				NAV_FIELD_PROP_1D_ARRAY_MATRIX1(non_intra_quantiser_matrix, 8, 8, "")
 			}
 
 			NAV_FIELD_PROP_2NUMBER("load_chroma_intra_quantiser_matrix", 1, load_chroma_intra_quantiser_matrix, load_chroma_intra_quantiser_matrix?"chroma_intra_quantiser_matrix follows":"there is no change in the values that shall be used")
 			if (load_chroma_intra_quantiser_matrix){
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(chroma_intra_quantiser_matrix, 512, "")
+				NAV_FIELD_PROP_1D_ARRAY_MATRIX1(chroma_intra_quantiser_matrix, 8, 8, "")
 			}
 
 			NAV_FIELD_PROP_2NUMBER("load_chroma_non_intra_quantiser_matrix", 1, load_chroma_non_intra_quantiser_matrix, load_chroma_non_intra_quantiser_matrix?"chroma_intra_non_quantiser_matrix follows":"there is no change in the values that shall be used")
 			if (load_chroma_non_intra_quantiser_matrix){
-				NAV_FIELD_PROP_FIXSIZE_BINSTR1(chroma_non_intra_quantiser_matrix, 512, "")
+				NAV_FIELD_PROP_1D_ARRAY_MATRIX1(chroma_non_intra_quantiser_matrix, 8, 8, "")
 			}
 		DECLARE_FIELDPROP_END()	
 	}PACKED;

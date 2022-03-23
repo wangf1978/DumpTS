@@ -300,6 +300,7 @@
     <ClCompile Include="..\..\src\ISO14496_15.cpp" />
     <ClCompile Include="..\..\src\ISO14496_3.cpp" />
     <ClCompile Include="..\..\src\Matroska.cpp" />
+    <ClCompile Include="..\..\src\mediaobjprint.cpp" />
     <ClCompile Include="..\..\src\MMT.cpp" />
     <ClCompile Include="..\..\src\mpeg2_video_parser.cpp" />
     <ClCompile Include="..\..\src\mpeg2_video.cpp" />

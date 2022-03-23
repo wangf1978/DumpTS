@@ -72,6 +72,7 @@ SOURCES := \
 	$(SOURCEDIR)/Syncer.cpp \
 	$(SOURCEDIR)/TSTD.cpp \
 	$(SOURCEDIR)/crc.cpp \
+	$(SOURCEDIR)/mediaobjprint.cpp \
 	$(SOURCEDIR)/tinyxml2.cpp
 	
 OBJECTS = $(patsubst $(SOURCEDIR)/%.c, $(OBJECTDIR)/%.o, $(patsubst $(SOURCEDIR)/%.cpp, $(OBJECTDIR)/%.o, $(SOURCES)))

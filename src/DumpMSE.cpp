@@ -37,6 +37,7 @@ SOFTWARE.
 #include "av1.h"
 #include "mpeg2_video.h"
 #include "ISO14496_3.h"
+#include "mediaobjprint.h"
 
 #define MSE_UNSPECIFIED				INT64_MAX
 #define MSE_UNSELECTED				-1
@@ -48,7 +49,8 @@ extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern MEDIA_SCHEME_TYPE g_media_scheme_type;
 extern int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB);
 
-const char* g_szRule = "                                                                                                                        ";
+const char* g_szRule    = "                                                                                                                        ";
+const char* g_szHorizon = "------------------------------------------------------------------------------------------------------------------------";
 
 struct MSENav
 {
@@ -572,9 +574,12 @@ public:
 				else
 					m_unit_index[next_level] = 0;
 
+				m_nLastLevel = (int)i;
 				next_level++;
 			}
 		}
+
+		m_options = options;
 	}
 
 	virtual ~CMPVSEEnumerator() {
@@ -605,7 +610,7 @@ public:
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 
-		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sVideo Sequence#%" PRId64 "",
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sVideo Sequence#%" PRId64 "",
 			(m_level[MPV_LEVEL_VSEQ]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_VSEQ]]);
 
 		if (ccWrittenOnce <= 0)
@@ -640,7 +645,7 @@ public:
 		if ((iRet = CheckFilter(MPV_LEVEL_AU)) != RET_CODE_SUCCESS)
 			return iRet;
 
-		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sAU#%" PRId64 " (%s)", 
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sAU#%" PRId64 " (%s)", 
 			(m_level[MPV_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_AU]],
 			PICTURE_CODING_TYPE_SHORTNAME(picCodingType));
 
@@ -684,7 +689,7 @@ public:
 		if ((iRet = CheckFilter(MPV_LEVEL_GOP)) != RET_CODE_SUCCESS)
 			return iRet;
 
-		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sGOP#%" PRId64 " (%s%s)",
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sGOP#%" PRId64 " (%s%s)",
 			(m_level[MPV_LEVEL_GOP]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_GOP]], closed_gop?"closed":"open", broken_link?",broken-link":"");
 
 		if (ccWrittenOnce <= 0)
@@ -721,29 +726,45 @@ public:
 		int iRet = RET_CODE_SUCCESS;
 		if ((iRet = CheckFilter(MPV_LEVEL_SE)) == RET_CODE_SUCCESS)
 		{
-			int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%*.sSE#%" PRId64 " %s",
-				(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_SE]],
-				GetSEName(pBufWithStartCode, cbBufWithStartCode));
+			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW))
+			{
+				int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sSE#%" PRId64 " %s",
+					(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_SE]],
+					GetSEName(pBufWithStartCode, cbBufWithStartCode));
 
-			if (ccWrittenOnce <= 0)
-				return RET_CODE_NOTHING_TODO;
+				if (ccWrittenOnce <= 0)
+					return RET_CODE_NOTHING_TODO;
 
-			if ((size_t)ccWrittenOnce < column_width_name)
-				memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+				if ((size_t)ccWrittenOnce < column_width_name)
+					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
 
-			szItem[column_width_name] = '|';
-			ccWritten = column_width_name + 1;
+				szItem[column_width_name] = '|';
+				ccWritten = column_width_name + 1;
 
-			if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbBufWithStartCode).c_str())) <= 0)
-				return RET_CODE_NOTHING_TODO;
+				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbBufWithStartCode).c_str())) <= 0)
+					return RET_CODE_NOTHING_TODO;
 
-			ccWritten += ccWrittenOnce;
+				ccWritten += ccWrittenOnce;
 
-			AppendURI(szItem, ccWritten, MPV_LEVEL_SE);
+				AppendURI(szItem, ccWritten, MPV_LEVEL_SE);
 
-			szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-			printf("%s\n", szItem);
+				printf("%s\n", szItem);
+			}
+			
+			if (m_options&MSE_ENUM_SYNTAX_VIEW)
+			{
+				if (m_nLastLevel == MPV_LEVEL_SE)
+				{
+					int indent = 4 * m_level[MPV_LEVEL_SE];
+					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+
+					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+					PrintMPVSyntaxElement(pCtx, pBufWithStartCode, cbBufWithStartCode, 4* m_level[MPV_LEVEL_SE]);
+					printf("\n");
+				}
+			}
 		}
 
 		m_unit_index[m_level[MPV_LEVEL_SE]]++;
@@ -861,9 +882,12 @@ protected:
 protected:
 	IMPVContext*			m_pMPVContext;
 	MSENav*					m_pMSENav;
+	int						m_nLastLevel = -1;
+	uint32_t				m_options = 0;
 	const size_t			column_width_name = 47;
 	const size_t			column_width_len  = 13;
 	const size_t			column_width_URI  = 27;
+	const size_t			right_padding = 1;
 };
 
 int CreateMSEParser(IMSEParser** ppMSEParser)
@@ -975,7 +999,7 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 		{
 			IUnknown* pMSEEnumerator = nullptr;
 			uint32_t options = mse_nav.GetEnumOptions();
-			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx, options, &mse_nav);
+			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx, enum_options | options, &mse_nav);
 			if (SUCCEEDED(pMPVSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
 			{
 				iRet = pMSEParser->SetEnumerator(pMPVSEEnumerator, enum_options | options);
