@@ -3004,15 +3004,80 @@ namespace BST {
 	{
 		uint8_t			slice_start_code[4];
 
+		uint16_t		slice_vertical_position_extension : 3;
+		uint16_t		priority_breakpoint:7;
+		uint16_t		quantiser_scale_code : 5;
+		uint16_t		slice_extension_flag : 1;
+
+		uint8_t			intra_slice : 1;
+		uint8_t			slice_picture_id_enable : 1;
+		uint8_t			slice_picture_id : 6;
+
+		CAMBitArray		extra_bits_slice;
 		std::vector<uint8_t>
-						unparsed_bytes;
+						extra_information_slice;
+
+		IMPVContext*	m_pMPVCtx;
+		uint16_t		vertical_size = 0;
+		bool			sequence_scalable_extension_exit = false;
+
+		CSlice(IMPVContext* pCtx) 
+			: slice_vertical_position_extension(0), priority_breakpoint(0), quantiser_scale_code(0), slice_extension_flag(0)
+			, intra_slice(0), slice_picture_id_enable(0), slice_picture_id(0)
+			, m_pMPVCtx(pCtx){
+			if (m_pMPVCtx != nullptr)
+				m_pMPVCtx->AddRef();
+		}
+
+		~CSlice() {
+			AMP_SAFERELEASE(m_pMPVCtx);
+		}
 
 		int Map(AMBst in_bst)
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			AMBst_GetBytes(in_bst, slice_start_code, 4);
+
 			try
 			{
-				MAP_BST_BEGIN(0);
+				MAP_BST_BEGIN(1);
+				auto seq_hdr = m_pMPVCtx->GetSeqHdr();
+				auto seq_ext = m_pMPVCtx->GetSeqExt();
+
+				if (seq_hdr == nullptr || seq_ext == nullptr)
+					throw AMException(RET_CODE_NEEDMOREINPUT);
+
+				vertical_size = (uint16_t)(seq_hdr->vertical_size_value | (seq_ext->vertical_size_extension << 12));
+				if (vertical_size > 2800) {
+					bsrb1(in_bst, slice_vertical_position_extension, 3);
+				}
+
+				if (m_pMPVCtx && m_pMPVCtx->GetSeqScalableExt() != nullptr && m_pMPVCtx->GetSeqScalableExt()->scalable_mode == 0){
+					sequence_scalable_extension_exit = true;
+					bsrb1(in_bst, priority_breakpoint, 7);
+				}
+
+				bsrb1(in_bst, quantiser_scale_code, 5);
+
+				int idx_extra_bit = 0;
+				if (AMBst_PeekBits(in_bst, 1))
+				{
+					bsrb1(in_bst, slice_extension_flag, 1);
+					bsrb1(in_bst, intra_slice, 1);
+					bsrb1(in_bst, slice_picture_id_enable, 1);
+					bsrb1(in_bst, slice_picture_id, 6);
+
+					while (AMBst_PeekBits(in_bst, 1)) {
+						bsrbarray(in_bst, extra_bits_slice, idx_extra_bit);
+						uint8_t uByte;
+						bsrb1(in_bst, uByte, 8);
+						extra_information_slice.push_back(uByte);
+						idx_extra_bit++;
+					}
+				}
+				
+				bsrbarray(in_bst, extra_bits_slice, idx_extra_bit);
+
 				MAP_BST_END();
 			}
 			catch (AMException e)
@@ -3030,6 +3095,45 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+		uint32_t slice_vertical_position = slice_start_code[3];
+		BST_FIELD_PROP_FIXSIZE_BINSTR("slice_start_code", 32, slice_start_code, 4, "should be 00 00 01 01~AF");
+		int mb_row = slice_vertical_position - 1;
+		if (vertical_size > 2800) {
+			mb_row += ((int)slice_vertical_position_extension << 7);
+			BST_FIELD_PROP_2NUMBER1(slice_vertical_position_extension, 3, "extend the vertical position");
+		}
+		
+		NAV_WRITE_TAG_WITH_NUMBER_VALUE1(mb_row, "macroblock row");
+
+		if (sequence_scalable_extension_exit) {
+			BST_FIELD_PROP_2NUMBER1(priority_breakpoint, 3, "the point in the syntax where the bitstream shall be partitioned");
+		}
+
+		BST_FIELD_PROP_2NUMBER1(quantiser_scale_code, 5, "");
+
+		if (slice_extension_flag)
+		{
+			BST_FIELD_PROP_BOOL(slice_extension_flag, "", "");
+			BST_FIELD_PROP_BOOL(intra_slice, "Some macroblocks may be intra macroblocks", "any of the macroblocks in the slice are non-intra macroblocks");
+			BST_FIELD_PROP_BOOL(slice_picture_id_enable, "slice_picture_id may have a value different from zero", "slice_picture_id is not used");
+			BST_FIELD_PROP_2NUMBER1(slice_picture_id, 6, slice_picture_id_enable == 0?"N/A":"application defined");
+		}
+
+		if (extra_information_slice.size() > 0)
+		{
+			NAV_WRITE_TAG_BEGIN2("extra_information_slice");
+			for (size_t sid = 0; sid < extra_information_slice.size(); sid++) {
+				BST_ARRAY_FIELD_PROP_NUMBER1(extra_bits_slice, (int)sid, 1, "Should be 1");
+				BST_ARRAY_FIELD_PROP_NUMBER1(extra_information_slice, (int)sid, 8, "Reserved");
+			}
+			NAV_WRITE_TAG_END2("extra_information_slice");
+		}
+
+		if (extra_bits_slice.Size() > 0 && (size_t)extra_bits_slice.Size() > extra_information_slice.size())
+		{
+			BST_FIELD_PROP_NUMBER("extra_bit_slice", 1, extra_bits_slice[extra_bits_slice.Size() - 1], "Should be 0");
+		}
+
 		DECLARE_FIELDPROP_END()
 	};
 
@@ -3064,6 +3168,8 @@ namespace BST {
 		RET_CODE				UpdateSeqHdr(SEQHDR seqHdr);
 		SEQEXT					GetSeqExt();
 		RET_CODE				UpdateSeqExt(SEQEXT seqExt);
+		SEQSCAEXT				GetSeqScalableExt();
+		RET_CODE				UpdateSeqScalableExt(SEQSCAEXT seqScaExt);
 		void					Reset();
 
 	public:
@@ -3082,6 +3188,7 @@ namespace BST {
 
 		SEQHDR					m_seq_hdr;
 		SEQEXT					m_seq_ext;
+		SEQSCAEXT				m_seq_scalable_ext;
 	};
 
 	struct BYTE_STREAM_UNIT: public SYNTAX_BITSTREAM_MAP

@@ -75,7 +75,7 @@ int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)
 						return true;
 
 					const char* szType = element.Attribute("Type");
-					if (szType[0] == 'M' && szType[1] == '\0')
+					if (szType != nullptr && szType[0] == 'M' && szType[1] == '\0')
 					{
 						// Skip it, the matrix is always print in a new line w/o any description
 						return true;
@@ -131,14 +131,14 @@ int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)
 				{
 					int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4 + m_indent, szLongSpace,
 							szAlias ? szAlias : element.Name(),
-							szType[0] == 'M' && szType[1] == '\0'? "":(szValue ? szValue : ""));
+							szType != nullptr && szType[0] == 'M' && szType[1] == '\0'? "":(szValue ? szValue : ""));
 					
 					printf("%s%.*s%s%s\n", szTmp,
 						max_fixed_part_length > ccWritten ? (max_fixed_part_length - ccWritten) : 0, szLongSpace,
 						szDesc && strcmp(szDesc, "") != 0 ? "// " : "",
 						szDesc ? GetFixedWidthStrWithEllipsis(szDesc, 70).c_str() : "");
 
-					if (szType[0] == 'M' && szType[1] == '\0')
+					if (szType != nullptr && szType[0] == 'M' && szType[1] == '\0')
 					{
 						int value_line_width = 0;
 						const char* szLineStart = szValue;

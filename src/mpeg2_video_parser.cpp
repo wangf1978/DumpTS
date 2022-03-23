@@ -443,6 +443,31 @@ int CMPEG2VideoParser::CommitMPVUnit(bool bDrain)
 				std::shared_ptr<BST::MPEG2Video::CSequenceExtension> spSeqExt(pSeqExt);
 				m_pCtx->UpdateSeqExt(spSeqExt);
 			}
+			else if (m_pCtx->GetCurrentLevel() == 0 && read_buf_len > 4 && ((pBuf[4] >> 4) & 0xF) == SEQUENCE_SCALABLE_EXTENSION_ID)
+			{
+				if ((bst = AMBst_CreateFromBuffer(pBuf, read_buf_len)) == nullptr)
+				{
+					iRet = RET_CODE_OUTOFMEMORY;
+					goto done;
+				}
+
+				BST::MPEG2Video::CSequenceScalableExtension* pSeqScalableExt =
+					new (std::nothrow) BST::MPEG2Video::CSequenceScalableExtension();
+				if (pSeqScalableExt == nullptr)
+				{
+					iRet = RET_CODE_OUTOFMEMORY;
+					goto done;
+				}
+				if (AMP_FAILED(iRet = pSeqScalableExt->Map(bst)))
+				{
+					delete pSeqScalableExt;
+					printf("[MPVParser] Failed to load the sequence scalable extension {error code: %d}\n", iRet);
+					goto done;
+				}
+
+				std::shared_ptr<BST::MPEG2Video::CSequenceScalableExtension> spSeqScalableExt(pSeqScalableExt);
+				m_pCtx->UpdateSeqScalableExt(spSeqScalableExt);
+			}
 		}
 		else if (mpv_start_code == PICTURE_START_CODE)
 		{

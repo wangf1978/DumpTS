@@ -368,6 +368,20 @@ namespace BST
 			return RET_CODE_SUCCESS;
 		}
 
+		SEQSCAEXT VideoBitstreamCtx::GetSeqScalableExt()
+		{
+			return m_seq_scalable_ext;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateSeqScalableExt(SEQSCAEXT seqScaExt)
+		{
+			if (!seqScaExt)
+				return RET_CODE_INVALID_PARAMETER;
+
+			m_seq_scalable_ext = seqScaExt;
+			return RET_CODE_SUCCESS;
+		}
+
 		void VideoBitstreamCtx::Reset()
 		{
 			m_curr_level = -1;

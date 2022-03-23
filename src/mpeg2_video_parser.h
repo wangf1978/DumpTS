@@ -47,6 +47,7 @@ namespace BST {
 		struct CGroupPicturesHeader;
 		struct CPictureHeader;
 		struct CPictureCodingExtension;
+		struct CSequenceScalableExtension;
 	}
 }
 
@@ -55,6 +56,7 @@ using SEQEXT = std::shared_ptr<BST::MPEG2Video::CSequenceExtension>;
 using GOPHDR = std::shared_ptr<BST::MPEG2Video::CGroupPicturesHeader>;
 using PICHDR = std::shared_ptr<BST::MPEG2Video::CPictureHeader>;
 using PICEXT = std::shared_ptr<BST::MPEG2Video::CPictureCodingExtension>;
+using SEQSCAEXT = std::shared_ptr<BST::MPEG2Video::CSequenceScalableExtension>;
 
 class IMPVContext : public IUnknown
 {
@@ -71,6 +73,8 @@ public:
 	virtual RET_CODE		UpdateSeqHdr(SEQHDR seqHdr) = 0;
 	virtual SEQEXT			GetSeqExt() = 0;
 	virtual RET_CODE		UpdateSeqExt(SEQEXT seqHdr) = 0;
+	virtual SEQSCAEXT		GetSeqScalableExt() = 0;
+	virtual RET_CODE		UpdateSeqScalableExt(SEQSCAEXT seqScaExt) = 0;
 	virtual void			Reset() = 0;
 
 public:

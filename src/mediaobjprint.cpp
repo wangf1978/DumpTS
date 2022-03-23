@@ -225,6 +225,23 @@ void PrintMPVSyntaxElement(IUnknown* pCtx, uint8_t* pMPVSE, size_t cbMPVSE, int 
 
 			PrintMediaObject(&GOPHdr, false, indent);
 		}
+		else if (start_code >= 1 && start_code <= 0xAF)
+		{
+			IMPVContext* pMPVCtx = nullptr;
+			if (SUCCEEDED(pCtx->QueryInterface(IID_IMPVContext, (void**)&pMPVCtx)))
+			{
+				BST::MPEG2Video::CSlice PicSlice(pMPVCtx);
+				if (AMP_FAILED(PicSlice.Map(bst)))
+				{
+					AMP_SAFERELEASE(pMPVCtx);
+					printf("Can't parse the slice.\n");
+					goto done;
+				}
+
+				PrintMediaObject(&PicSlice, false, indent);
+				AMP_SAFERELEASE(pMPVCtx);
+			}
+		}
 		else if (start_code == SEQUENCE_ERROR_CODE)
 		{
 			
