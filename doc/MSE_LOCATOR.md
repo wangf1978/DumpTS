@@ -54,9 +54,33 @@ scheme: only support `MSE`, it can be also ignored
 hier-part: the media syntax element locate part, it is the media object, or syntactic elements defined in each multimedia specification scheme
 query and framgment: it is the syntax structure in the media object or syntactic element.
 
-*hier-part: [SE`i`].[SE`j`].[MediaUnit`k`]..../syntax/element/inside/...#leaf-field*
+**hier-part** *: `[syntax-element-filter[.syntax-element-filter[....]]][/syntax/element/inside/...][#leaf-field]`*
 
-For example, it shows,
+**syntax_element-fitler** *: `[`~`]syntax_element[s][-][e]]`*
+
+**~** *:exclude the followed syntax element(s), or range*
+
+**s** *:the start index(0-based) of syntax element in its parents*
+
+**e** *:the end index(0-based) of syntax element in its parents*
+
+### MPEG video bitstream media syntax locator
+*[MSE://][[`~`]**MB**[`m₀`][`-`][`mₙ`]][.]\([[`~`]**SE**[`s₀`][`-`][`sₙ`]] | [[`~`]**SLICE**[`s₀`][`-`][`sₙ`]])[.][[`~`]**AU**[`a₀`][`-`][`aₙ`]][.][[`~`]**GOP**[`g₀`][`-`][`gₙ`]][.][[`~`]**VSEQ**[`v₀`][`-`][`vₙ`]][/part/part/...][#field]*
+
+- AU
+    Normally a MPEG2 video frame, I frame may start video sequence_header + sequence_extension + extension_and_user_data(0) + group_of_pictures_header + extension_and_user_data(1) + picture_header + ...
+- SE (syntactic element)
+	The basic element start with start_code, for example, sequence_header, sequence_extension and so on 
+
+| URI | comment |
+| --- | --- |
+| VSEQ`1` | The 2nd video sequence in the MPEG video bitstream |
+| GOP`50` | The GOP#50(0-based) in the whole MPEG video bitstream instead of a specified video sequence |
+| AU`50` | The access-unit#50(0-based) in the whole MPEG video bitstream instead of a specified video sequence or/and a specified GOP |
+| AU`50`.VSEQ`1` |The access-unit#50(0-based) in the second video sequence|
+| AU`1`.GOP`0`.VSEQ`1` |The 2nd access-unit of the first GOP in the 2nd video sequence|
+| SE`0`.GOP`0`.VSEQ`1`/#aspect_ratio_information |aspect_ratio_information of sequence header if SE#0 is a sequence header|
+
 ### NAL bitstream media syntax locator
 *[MSE://][SEIPL`i`].[SEIMSG`j`].[NU`k`].[AU`l`].[CVS`m`]/part/part/...#field*
 
@@ -75,6 +99,7 @@ For example, it shows,
 
 ### AV1 bitstream media syntax locator
 *[MSE://][OBU`i`].[FU`j`].[TU`k`]/part/part/...#field*
+
 | URI | comment |
 | --- | --- |
 | TU`50` | The temporal-unit#50(0-based) |
@@ -85,23 +110,6 @@ For example, it shows,
 | OBU`0`.FU`100`|The 1st OBU of frame-unit#100 in the whole AV1 stream|
 | OBU`0`/sequence_header_obu/color_config|color_config in sequence header OBU|
 | OBU`0`/sequence_header_obu/color_config#BitDepth|The `BitDepth` field in sequence_header_obu's color config|
-
-### MPEG video bitstream media syntax locator
-*[MSE://][SE`n`].[SLICE`l`].[AU`k`].[GOP`j`].[VSEQ`i`]/part/part/...#field*
-
-- AU
-    Normally a MPEG2 video frame, I frame may start video sequence_header + sequence_extension + extension_and_user_data(0) + group_of_pictures_header + extension_and_user_data(1) + picture_header + ...
-- SE (syntactic element)
-	The basic element start with start_code, for example, sequence_header, sequence_extension and so on 
-
-| URI | comment |
-| --- | --- |
-| VSEQ`1` | The 2nd video sequence in the MPEG video bitstream |
-| GOP`50` | The GOP#50(0-based) in the whole MPEG video bitstream instead of a specified video sequence |
-| AU`50` | The access-unit#50(0-based) in the whole MPEG video bitstream instead of a specified video sequence or/and a specified GOP |
-| AU`50`.VSEQ`1` |The access-unit#50(0-based) in the second video sequence|
-| AU`1`.GOP`0`.VSEQ`1` |The 2nd access-unit of the first GOP in the 2nd video sequence|
-| SE`0`.GOP`0`.VSEQ`1`/#aspect_ratio_information |aspect_ratio_information of sequence header if SE#0 is a sequence header|
 
 ### ISOBMFF box media syntax unit locator
 *[MSE://]box`i`].[box`j`]........[box`n`]/sub/object/#field*

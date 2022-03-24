@@ -41,7 +41,11 @@ SOFTWARE.
 
 #define MSE_UNSPECIFIED				INT64_MAX
 #define MSE_UNSELECTED				-1
+#define MSE_EXCLUDED_ALL			0xFFFFFFFFFFFFFFFELL
+#define MSE_EXCLUDE(mseid)			(0xFFFFFFFF00000000LL | (mseid&0xFFFFFFFFLL))
 #define IS_USABLE_MSEID(mseid)		(mseid != INT64_MAX && mseid >= 0)
+#define IS_EXCLUDED_MSEID(mseid)	(((mseid>>32)&0xFFFFFFFFLL) == 0xFFFFFFFFLL && (mseid&0xFFFFFFFFLL) < 0xFFFFFFFELL)
+#define EXCLUDED_MSEID(mseid)		(mseid&0xFFFFFFFFLL)
 
 using MSEID = int64_t;
 
@@ -79,6 +83,9 @@ struct MSENav
 		struct
 		{
 			MSEID		mb;
+			// Slice is a syntax element
+			// if se is specified, slice should not occur in URI
+			// if se is unselected or unspecified, but there is slice in URI, use slice se filter
 			MSEID		slice;
 			MSEID		se;
 			MSEID		au;
@@ -114,6 +121,7 @@ protected:
 	int				CheckAudioLAuthorityComponent(size_t idxComponent);
 	int				CheckAV1AuthorityComponent(size_t idxComponent);
 	int				CheckMPVAuthorityComponent(size_t idxComponent);
+	int				NormalizeAuthorityPart();
 
 	static std::vector<std::string>
 					nal_supported_authority_components;
@@ -132,7 +140,7 @@ std::vector<std::string> MSENav::audio_supported_authority_components
 std::vector<std::string> MSENav::av1_supported_authority_components 
 					= { "tu", "fu", "obu" };
 std::vector<std::string> MSENav::mpv_supported_authority_components 
-					= { "vseq", "gop", "au", "slice", "mb", "se" };
+					= { "vseq", "gop", "au", "se", "slice", "mb"};
 
 void MSENav::InitAsUnspecified()
 {
@@ -360,15 +368,40 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 		size_t idx = 0;
 		for (; idx < supported_authority_components.size(); idx++)
 		{
-			if (MBCSNICMP(strSeg.c_str(), supported_authority_components[idx].c_str(), supported_authority_components[idx].length()) == 0)
+			bool bExclude = false;
+			const char* szSeg = strSeg.c_str();
+			size_t ccSeg = strSeg.length();
+			while (ccSeg > 0 && *szSeg == '~')
 			{
-				if (strSeg.length() == supported_authority_components[idx].length())
-					*muids[idx] = MSE_UNSPECIFIED;
-				else if (strSeg.length() > supported_authority_components[idx].length() && ConvertToInt((char*)strSeg.c_str() + supported_authority_components[idx].length(), (char*)strSeg.c_str() + strSeg.length(), i64Val) && i64Val >= 0)
-					*muids[idx] = i64Val;
+				bExclude = !bExclude;
+				ccSeg--;
+				szSeg++;
+			}
+
+			const char* sz_authority_comp = supported_authority_components[idx].c_str();
+			size_t authority_comp_len = supported_authority_components[idx].length();
+			if (ccSeg > 0 && MBCSNICMP(szSeg, sz_authority_comp, authority_comp_len) == 0)
+			{
+				if (ccSeg == authority_comp_len)
+					*muids[idx] = bExclude ? MSE_EXCLUDED_ALL : MSE_UNSPECIFIED;
+				else if (ccSeg > authority_comp_len && ConvertToInt((char*)szSeg + authority_comp_len, (char*)szSeg + ccSeg, i64Val) && i64Val >= 0)
+				{
+					if (bExclude)
+					{
+						if (i64Val > UINT32_MAX)
+						{
+							printf("Under exclude mode, the MSE idx should not exceed the maximum 32-bit unsigned integer.\n");
+							return RET_CODE_ERROR;
+						}
+						else
+							*muids[idx] = MSE_EXCLUDE(i64Val);
+					}
+					else
+						*muids[idx] = i64Val;
+				}
 				else
 				{
-					printf("Invalid %s in MSE URI.\n", supported_authority_components[idx].c_str());
+					printf("Invalid %s in MSE URI.\n", sz_authority_comp);
 					return RET_CODE_ERROR;
 				}
 
@@ -403,7 +436,24 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 		}
 	}
 
+	// Adjust some values
+	iRet = NormalizeAuthorityPart();
+
 	return iRet;
+}
+
+int MSENav::NormalizeAuthorityPart()
+{
+	if (scheme_type == MEDIA_SCHEME_MPV)
+	{
+		if (MPV.se == MSE_UNSELECTED)
+		{
+			if (MPV.slice != MSE_UNSELECTED)
+				MPV.se = MSE_UNSPECIFIED;
+		}
+	}
+
+	return RET_CODE_SUCCESS;
 }
 
 int MSENav::CheckNALAuthorityComponent(size_t idxComponent)
@@ -441,15 +491,26 @@ int MSENav::CheckAV1AuthorityComponent(size_t idxComponent)
 
 int MSENav::CheckMPVAuthorityComponent(size_t idxComponent)
 {
-	// Check the occur sequence
+	// Check the occur sequence according to "vseq", "gop", "au", "se", "slice", "mb"
 	if ((idxComponent == 1 && (MPV.vseq != MSE_UNSELECTED)) ||	// gop
 		(idxComponent == 2 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED)) || // au happen, vseq and gop should NOT happen
-		(idxComponent == 3 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED)) ||
-		(idxComponent == 4 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || (MPV.se != MSE_UNSELECTED && MPV.slice != MSE_UNSELECTED))) ||
-		(idxComponent == 5 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || (MPV.se != MSE_UNSELECTED && MPV.slice != MSE_UNSELECTED) || MPV.mb != MSE_UNSELECTED)))
+		(idxComponent == 5 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || MPV.se != MSE_UNSELECTED || MPV.slice != MSE_UNSELECTED)))
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
+	}
+	else if (idxComponent == 3 || idxComponent == 4)
+	{
+		if (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED)
+		{
+			printf("Please specify the MSE URI from lower to higher.\n");
+			return RET_CODE_ERROR;
+		}
+		else if ((idxComponent == 3 && MPV.slice != MSE_UNSELECTED) || (idxComponent == 4 && MPV.se != MSE_UNSELECTED))
+		{
+			printf("'se' should NOT occur at the same time with 'slice'.\n");
+			return RET_CODE_ERROR;
+		}
 	}
 
 	return RET_CODE_SUCCESS;
@@ -499,7 +560,7 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 	}
 	case MEDIA_SCHEME_MPV:
 	{
-		MSEID* muids[] = { &MPV.vseq, &MPV.gop, &MPV.au, &MPV.slice, &MPV.mb, &MPV.se };
+		MSEID* muids[] = { &MPV.vseq, &MPV.gop, &MPV.au, &MPV.se, &MPV.slice, &MPV.mb };
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, mpv_supported_authority_components, muids);
 		break;
 	}
@@ -555,6 +616,9 @@ int	MSENav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& ur
 	return RET_CODE_SUCCESS;
 }
 
+//
+// MPEG2 video enumerator for MSE operation
+//
 class CMPVSEEnumerator : public CComUnknown, public IMPVEnumerator
 {
 public:
@@ -682,6 +746,7 @@ public:
 			m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
 		if (m_level[MPV_LEVEL_SE] > 0)
 			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+		m_curr_slice_count = 0;
 		if (m_level[MPV_LEVEL_MB] > 0)
 			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 
@@ -722,14 +787,17 @@ public:
 
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
+		int ccWrittenOnce = 0;
 
 		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(MPV_LEVEL_SE)) == RET_CODE_SUCCESS)
+		if ((iRet = CheckFilter(MPV_LEVEL_SE, pBufWithStartCode[3])) == RET_CODE_SUCCESS)
 		{
 			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW))
 			{
-				int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sSE#%" PRId64 " %s",
-					(m_level[MPV_LEVEL_SE]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_SE]],
+				bool onlyShowSlice = OnlySliceSE();
+				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
+					(m_level[MPV_LEVEL_SE]) * 4, g_szRule, onlyShowSlice?"Slice": "SE",
+					onlyShowSlice?m_curr_slice_count:m_unit_index[m_level[MPV_LEVEL_SE]],
 					GetSEName(pBufWithStartCode, cbBufWithStartCode));
 
 				if (ccWrittenOnce <= 0)
@@ -771,6 +839,10 @@ public:
 		if (m_level[MPV_LEVEL_MB] > 0)
 			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 
+		// This syntax element is a slice
+		if (pBufWithStartCode[3] >= 0x01 && pBufWithStartCode[3] <= 0xAF)
+			m_curr_slice_count++;
+
 		return RET_CODE_SUCCESS;
 	}
 
@@ -779,6 +851,7 @@ public:
 		m_unit_index[m_level[MPV_LEVEL_AU]]++;
 		if (m_level[MPV_LEVEL_SE] > 0)
 			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+		m_curr_slice_count = 0;
 		if (m_level[MPV_LEVEL_MB] > 0)
 			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 		return RET_CODE_SUCCESS;
@@ -792,6 +865,7 @@ public:
 			m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
 		if (m_level[MPV_LEVEL_SE] > 0)
 			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+		m_curr_slice_count = 0;
 		if (m_level[MPV_LEVEL_MB] > 0)
 			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
 
@@ -803,6 +877,16 @@ public:
 protected:
 	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 	int64_t					m_unit_index[16] = { 0 };
+	int64_t					m_curr_slice_count = 0;
+
+	inline bool OnlySliceSE()
+	{
+		if (m_pMSENav == nullptr)
+			return false;
+
+		return m_pMSENav->MPV.se == MSE_UNSPECIFIED && (m_pMSENav->MPV.slice == MSE_UNSPECIFIED ||
+														IS_USABLE_MSEID(m_pMSENav->MPV.slice));
+	}
 
 	std::string	GetURI(int level_id)
 	{
@@ -814,15 +898,22 @@ protected:
 			{
 				if (strURI.length() > 0)
 					strURI += ".";
-				strURI += MPV_LEVEL_NAME(i);
-				strURI += std::to_string(m_unit_index[m_level[i]]);
+				if (i == MPV_LEVEL_SE && OnlySliceSE())
+				{
+					strURI += "SLICE" + std::to_string(m_curr_slice_count);
+				}
+				else
+				{
+					strURI += MPV_LEVEL_NAME(i);
+					strURI += std::to_string(m_unit_index[m_level[i]]);
+				}
 			}
 		}
 
 		return strURI;
 	}
 
-	RET_CODE CheckFilter(int level_id)
+	RET_CODE CheckFilter(int level_id, uint8_t start_code=0)
 	{
 		if (m_pMSENav == nullptr)
 			return RET_CODE_SUCCESS;
@@ -832,10 +923,19 @@ protected:
 
 		for (int i = 0; i <= level_id; i++)
 		{
+			if (m_level[i] >= 0 && IS_EXCLUDED_MSEID(filter[i]))
+			{
+				MSEID excluded_mseid = EXCLUDED_MSEID(filter[i]);
+				if (m_unit_index[m_level[i]] == excluded_mseid)
+					return RET_CODE_NOTHING_TODO;
+			}
+			
 			if (m_level[i] < 0 || !IS_USABLE_MSEID(filter[i]))
 				continue;
-			if (i > 0 && !IS_USABLE_MSEID(filter[i - 1]) && i < level_id)
+
+			if (i > 0 && i < level_id && !IS_USABLE_MSEID(filter[i - 1]))
 			{
+				// If its parent level is not specified, don't cease the enumeration
 				// only compare it is identified or not
 				if (m_unit_index[m_level[i]] != filter[i])
 					return RET_CODE_NOTHING_TODO;
@@ -844,6 +944,29 @@ protected:
 				return RET_CODE_NOTHING_TODO;
 			else if (m_unit_index[m_level[i]] > filter[i])
 				return RET_CODE_ABORT;
+		}
+
+		// Do some special processing since SLICE is a subset of SE
+		if (level_id == MPV_LEVEL_SE && m_pMSENav->MPV.se == MSE_UNSPECIFIED)
+		{
+			if (start_code >= 0x1 && start_code <= 0xAF)
+			{
+				if (IS_USABLE_MSEID(m_pMSENav->MPV.slice))
+				{
+					if (m_pMSENav->MPV.slice != m_curr_slice_count)
+						return RET_CODE_NOTHING_TODO;
+				}
+				// If the ~slice is specified in URI authority part, ignore slice displaying
+				else if (m_pMSENav->MPV.slice == MSE_EXCLUDED_ALL)
+					return RET_CODE_NOTHING_TODO;
+				else if (IS_EXCLUDED_MSEID(m_pMSENav->MPV.slice) && EXCLUDED_MSEID(m_pMSENav->MPV.slice) == m_curr_slice_count)
+					return RET_CODE_NOTHING_TODO;
+			}
+			else
+			{
+				if (IS_USABLE_MSEID(m_pMSENav->MPV.slice) || m_pMSENav->MPV.slice == MSE_UNSPECIFIED)
+					return RET_CODE_NOTHING_TODO;
+			}
 		}
 
 		return RET_CODE_SUCCESS;
