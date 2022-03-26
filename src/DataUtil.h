@@ -39,10 +39,14 @@ enum INT_VALUE_LITERAL_FORMAT
 	FMT_BIN
 };
 
-inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL_FORMAT literal_fmt = FMT_AUTO)
+inline bool ConvertToInt(const char* ps, const char* pe, int64_t& ret_val, INT_VALUE_LITERAL_FORMAT literal_fmt = FMT_AUTO)
 {
 	ret_val = 0;
 	bool bNegative = false;
+
+	// trim the space at the beginning and ending
+	while (ps < pe && (*ps == ' ' || *ps == '\t'))ps++;
+	while (pe - 1 > ps && (*(pe - 1) == ' ' || *(pe - 1) == '\t'))pe--;
 
 	if (pe <= ps)
 		return false;
@@ -191,6 +195,11 @@ inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL
 		ret_val = -1LL * ret_val;
 
 	return true;
+}
+
+inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL_FORMAT literal_fmt = FMT_AUTO)
+{
+	return ConvertToInt((const char*)ps, (const char*)pe, ret_val, literal_fmt);
 }
 
 inline bool ConvertToInt(const std::string& str, int64_t& ret_val, INT_VALUE_LITERAL_FORMAT literal_fmt = FMT_AUTO)
@@ -505,3 +514,56 @@ inline size_t StrEndWith(const char* str1, const char* str2, bool bIgnoreCase)
 	return i == szLen ? end_pos : std::string::npos;
 }
 
+inline bool ConvertToInclusiveNNRange(const char* ps, const char* pe, int64_t& ret_val_start, int64_t& ret_val_end, int64_t max_unspecified = INT64_MAX, INT_VALUE_LITERAL_FORMAT literal_fmt = FMT_AUTO)
+{
+	// trim the space at the beginning and ending
+	while (ps < pe && (*ps == ' ' || *ps == '\t'))ps++;
+	while (pe - 1 > ps && (*(pe - 1) == ' ' || *(pe - 1) == '\t'))pe--;
+
+	if (ps >= pe)
+	{
+		ret_val_start = 0;
+		ret_val_end = max_unspecified;
+		return true;
+	}
+
+	const char* p = ps;
+	while (p < pe)
+	{
+		if (*p == '-')
+			break;
+
+		p++;
+	}
+
+	if (p >= pe)
+	{
+		if (ConvertToInt(ps, pe, ret_val_start, literal_fmt) == false)
+			return false;
+
+		ret_val_end = ret_val_start;
+		return true;
+	}
+
+	if (p == ps)
+		ret_val_start = 0;
+	else if (p > ps)
+	{
+		if (ConvertToInt(ps, p, ret_val_start, literal_fmt) == false)
+			return false;
+	}
+	else
+		return false;
+
+	if (p + 1 == pe)
+		ret_val_end = max_unspecified;
+	else if (p + 1 < pe)
+	{
+		if (ConvertToInt(p + 1, pe, ret_val_end, literal_fmt) == false)
+			return false;
+	}
+	else
+		return false;
+
+	return true;
+}

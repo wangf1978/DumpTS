@@ -40,12 +40,16 @@ SOFTWARE.
 #include "mediaobjprint.h"
 
 #define MSE_UNSPECIFIED				INT64_MAX
-#define MSE_UNSELECTED				-1
-#define MSE_EXCLUDED_ALL			0xFFFFFFFFFFFFFFFELL
-#define MSE_EXCLUDE(mseid)			(0xFFFFFFFF00000000LL | (mseid&0xFFFFFFFFLL))
-#define IS_USABLE_MSEID(mseid)		(mseid != INT64_MAX && mseid >= 0)
-#define IS_EXCLUDED_MSEID(mseid)	(((mseid>>32)&0xFFFFFFFFLL) == 0xFFFFFFFFLL && (mseid&0xFFFFFFFFLL) < 0xFFFFFFFELL)
-#define EXCLUDED_MSEID(mseid)		(mseid&0xFFFFFFFFLL)
+#define MSE_UNSELECTED				INT64_MIN
+#define MSE_MIN_MSEID				(0)
+#define MSE_MAX_MSEID				(INT64_MAX - 1)
+#define MSE_EXCLUDE(mseid)			(((mseid) >=0 && (mseid) <=  MSE_MAX_MSEID)?~(mseid):(mseid))
+#define IS_INCLUSIVE_MSEID(mseid)	(((mseid) >=0 && (mseid) <=  MSE_MAX_MSEID))
+#define IS_EXCLUSIVE_MSEID(mseid)	(((mseid) < 0 && (mseid) >= -MSE_MAX_MSEID - 1))
+#define MSEID_EXCLUDED(mseid)		(((mseid) < 0 && (mseid) >= -MSE_MAX_MSEID - 1)?(~(mseid)):(mseid))
+
+#define NAV_START					0
+#define NAV_END						1
 
 using MSEID = int64_t;
 
@@ -56,43 +60,87 @@ extern int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB);
 const char* g_szRule    = "                                                                                                                        ";
 const char* g_szHorizon = "------------------------------------------------------------------------------------------------------------------------";
 
+struct MSEID_RANGE
+{
+	MSEID		id[2];
+
+	MSEID_RANGE() :MSEID_RANGE(MSE_UNSELECTED, MSE_UNSELECTED) {}
+	MSEID_RANGE(MSEID start, MSEID end) :id{ start, end } {}
+
+	bool IsNull() const { return id[0] == MSE_UNSELECTED && id[1] == MSE_UNSELECTED; }
+	bool IsAllExcluded() const { return id[0] == MSE_EXCLUDE(0) && id[1] == MSE_EXCLUDE(MSE_MAX_MSEID); }
+	bool IsAllUnspecfied() const { return id[0] == MSE_UNSPECIFIED && id[1] == MSE_UNSPECIFIED; }
+	bool IsNaR() const { return (id[0] == MSE_UNSELECTED && id[1] != MSE_UNSELECTED) || (id[1] == MSE_UNSELECTED && id[0] != MSE_UNSELECTED); }
+	void Reset(int64_t mseid = MSE_UNSELECTED) { id[0] = id[1] = mseid; }
+	bool Contain(MSEID it) {
+		if ((IS_INCLUSIVE_MSEID(id[0]) && it >= id[0]) || id[0] == MSE_UNSPECIFIED || (IS_EXCLUSIVE_MSEID(id[0]) && it < MSEID_EXCLUDED(id[0])))
+		{
+			if ((IS_INCLUSIVE_MSEID(id[1]) && it <= id[1]) || id[1] == MSE_UNSPECIFIED)
+				return true;
+			else if (IS_EXCLUSIVE_MSEID(id[1]) && it > MSEID_EXCLUDED(id[1]))
+				return true;
+		}
+		return false;
+	}
+	/*
+	            ____ahead                        ____behind
+	           /    _________________           /
+	          /    /                 \         /
+	    |----it----a0-----------------a1------it---------|
+	*/
+	bool Ahead(MSEID it)	// the current range is ahead the specified point or not
+	{
+		if ((IS_INCLUSIVE_MSEID(id[0]) && it < id[0]))
+			return true;
+		if ((id[0] == MSE_UNSPECIFIED || id[0] == 0) && IS_EXCLUSIVE_MSEID(id[1]) && it <= id[1])
+			return true;
+		return false;
+	}
+
+	bool Behind(MSEID it)
+	{
+		if (IS_INCLUSIVE_MSEID(id[1]) && it > id[1])
+			return true;
+		return false;
+	}
+};
+
 struct MSENav
 {
-	MEDIA_SCHEME_TYPE
-					scheme_type;
+	MEDIA_SCHEME_TYPE	scheme_type;
 	union
 	{
+		MSEID_RANGE			mse_id_ranges[16];
 		struct
 		{
-			MSEID		sei_pl;						// SEI payload index
-			MSEID		sei_msg;					// SEI message index
-			MSEID		nu;							// NAL unit index
-			MSEID		au;							// Access unit index
-			MSEID		cvs;						// Codec video sequence index
+			MSEID_RANGE		sei_pl;						// SEI payload index
+			MSEID_RANGE		sei_msg;					// SEI message index
+			MSEID_RANGE		nu;							// NAL unit index
+			MSEID_RANGE		au;							// Access unit index
+			MSEID_RANGE		cvs;						// Codec video sequence index
 		}NAL;
 		struct
 		{
-			MSEID		au;
+			MSEID_RANGE		au;
 		}AUDIO;
 		struct
 		{
-			MSEID		obu;
-			MSEID		fu;
-			MSEID		tu;
+			MSEID_RANGE		obu;
+			MSEID_RANGE		fu;
+			MSEID_RANGE		tu;
 		}AV1;
 		struct
 		{
-			MSEID		mb;
-			// Slice is a syntax element
+			MSEID_RANGE		mb;
+			// slice is a subset of mpeg2 video syntax element
 			// if se is specified, slice should not occur in URI
 			// if se is unselected or unspecified, but there is slice in URI, use slice se filter
-			MSEID		slice;
-			MSEID		se;
-			MSEID		au;
-			MSEID		gop;
-			MSEID		vseq;
+			MSEID_RANGE		slice;
+			MSEID_RANGE		se;
+			MSEID_RANGE		au;
+			MSEID_RANGE		gop;
+			MSEID_RANGE		vseq;
 		}MPV;
-		uint8_t		bytes[128];
 	};
 
 	std::vector<std::tuple<uint32_t/*box type*/, MSEID/*the box index with the specified box-type of same parent box*/>>
@@ -103,16 +151,16 @@ struct MSENav
 
 	MSENav(MEDIA_SCHEME_TYPE schemeType)
 		: scheme_type(schemeType) {
-		memset(bytes, 0xFF, sizeof(bytes));
+		InitAs(MSE_UNSELECTED);
 	}
 
 	int				Load(uint32_t enum_options);
 	uint32_t		GetEnumOptions();
 
 protected:
-	void			InitAsUnspecified();
+	void			InitAs(MSEID mseid);
 	int				LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments, 
-										std::vector<std::string>& supported_authority_components, MSEID** muids);
+									  std::vector<std::string>& supported_authority_components, MSEID_RANGE* ranges[]);
 
 	int				LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
 	int				LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments);
@@ -142,23 +190,34 @@ std::vector<std::string> MSENav::av1_supported_authority_components
 std::vector<std::string> MSENav::mpv_supported_authority_components 
 					= { "vseq", "gop", "au", "se", "slice", "mb"};
 
-void MSENav::InitAsUnspecified()
+void MSENav::InitAs(MSEID mseid)
 {
 	if (scheme_type == MEDIA_SCHEME_NAL)
 	{
-		NAL.sei_pl = NAL.sei_msg = NAL.nu = NAL.au = NAL.cvs = MSE_UNSPECIFIED;
+		NAL.sei_pl.Reset(mseid);
+		NAL.sei_msg.Reset(mseid);
+		NAL.nu.Reset(mseid);
+		NAL.au.Reset(mseid);
+		NAL.cvs.Reset(mseid);
 	}
 	else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
-		AV1.obu = AV1.fu = AV1.tu = MSE_UNSPECIFIED;
+		AV1.obu.Reset(mseid);
+		AV1.fu.Reset(mseid);
+		AV1.tu.Reset(mseid);
 	}
 	else if (scheme_type == MEDIA_SCHEME_MPV)
 	{
-		MPV.mb = MPV.slice = MPV.se = MPV.au = MPV.gop = MPV.vseq = MSE_UNSPECIFIED;
+		MPV.mb.Reset(mseid);
+		MPV.slice.Reset(mseid);
+		MPV.se.Reset(mseid);
+		MPV.au.Reset(mseid);
+		MPV.gop.Reset(mseid);
+		MPV.vseq.Reset(mseid);
 	}
 	else if (scheme_type == MEDIA_SCHEME_LOAS_LATM)
 	{
-		AUDIO.au = MSE_UNSPECIFIED;
+		AUDIO.au.Reset(mseid);
 	}
 }
 
@@ -167,52 +226,55 @@ uint32_t MSENav::GetEnumOptions()
 	uint32_t enum_options = 0;
 	if (scheme_type == MEDIA_SCHEME_NAL)
 	{
-		if (NAL.sei_pl != MSE_UNSELECTED)
+		if (!NAL.sei_pl.IsNull() && !NAL.sei_pl.IsNaR())
 			enum_options |= NAL_ENUM_OPTION_SEI_PAYLOAD;
 
-		if (NAL.sei_msg != MSE_UNSELECTED)
+		if (!NAL.sei_msg.IsNull() && !NAL.sei_msg.IsNaR())
 			enum_options |= NAL_ENUM_OPTION_SEI_MSG;
 
-		if (NAL.nu != MSE_UNSELECTED)
+		if (!NAL.nu.IsNull() && !NAL.nu.IsNaR())
 			enum_options |= NAL_ENUM_OPTION_NU;
 
-		if (NAL.au != MSE_UNSELECTED)
+		if (!NAL.au.IsNull() && !NAL.au.IsNaR())
+			enum_options |= NAL_ENUM_OPTION_AU;
+
+		if (!NAL.cvs.IsNull() && !NAL.cvs.IsNaR())
 			enum_options |= NAL_ENUM_OPTION_AU;
 	}
 	else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
-		if (AV1.obu != MSE_UNSELECTED)
+		if (!AV1.obu.IsNull() && !AV1.obu.IsNaR())
 			enum_options |= AV1_ENUM_OPTION_OBU;
 
-		if (AV1.fu != MSE_UNSELECTED)
+		if (!AV1.fu.IsNull() && !AV1.fu.IsNaR())
 			enum_options |= AV1_ENUM_OPTION_FU;
 
-		if (AV1.tu != MSE_UNSELECTED)
+		if (!AV1.tu.IsNull() && !AV1.tu.IsNaR())
 			enum_options |= AV1_ENUM_OPTION_TU;
 	}
 	else if (scheme_type == MEDIA_SCHEME_MPV)
 	{
-		if (MPV.vseq != MSE_UNSELECTED)
+		if (!MPV.vseq.IsNull() && !MPV.vseq.IsNaR())
 			enum_options |= MPV_ENUM_OPTION_VSEQ;
 
-		if (MPV.gop != MSE_UNSELECTED)
+		if (!MPV.gop.IsNull() && !MPV.gop.IsNaR())
 			enum_options |= MPV_ENUM_OPTION_GOP;
 
-		if (MPV.au != MSE_UNSELECTED)
+		if (!MPV.au.IsNull() && !MPV.au.IsNaR())
 			enum_options |= MPV_ENUM_OPTION_AU;
 
-		if (MPV.slice != MSE_UNSELECTED)
+		if (!MPV.se.IsNull() && !MPV.se.IsNaR())
 			enum_options |= MPV_ENUM_OPTION_SE;
 
-		if (MPV.mb != MSE_UNSELECTED)
+		if (!MPV.slice.IsNull() && !MPV.slice.IsNaR())
+			enum_options |= MPV_ENUM_OPTION_SE;
+
+		if (!MPV.mb.IsNull() && !MPV.mb.IsNaR())
 			enum_options |= MPV_ENUM_OPTION_MB;
-
-		if (MPV.se != MSE_UNSELECTED)
-			enum_options |= MPV_ENUM_OPTION_SE;
 	}
 	else if (scheme_type == MEDIA_SCHEME_LOAS_LATM)
 	{
-		if (AUDIO.au != MSE_UNSELECTED)
+		if (!AUDIO.au.IsNull() && !AUDIO.au.IsNaR())
 			enum_options |= GENERAL_ENUM_AU;
 	}
 	else if (scheme_type == MEDIA_SCHEME_ISOBMFF)
@@ -235,7 +297,7 @@ int MSENav::Load(uint32_t enum_options)
 	{
 		if (enum_options&MSE_ENUM_LIST_VIEW)
 		{
-			InitAsUnspecified();
+			InitAs(MSE_UNSPECIFIED);
 			return RET_CODE_SUCCESS;
 		}
 
@@ -350,8 +412,7 @@ int MSENav::Load(uint32_t enum_options)
 }
 
 int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_authority_segments,
-	std::vector<std::string>& supported_authority_components,
-	MSEID** muids)
+	std::vector<std::string>& supported_authority_components, MSEID_RANGE* ranges[])
 {
 	std::string strSeg;
 	int64_t i64Val = -1LL;
@@ -368,6 +429,7 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 		size_t idx = 0;
 		for (; idx < supported_authority_components.size(); idx++)
 		{
+			// Parse the '~'exclusion prefix part of syntax-element filter
 			bool bExclude = false;
 			const char* szSeg = strSeg.c_str();
 			size_t ccSeg = strSeg.length();
@@ -383,21 +445,31 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 			if (ccSeg > 0 && MBCSNICMP(szSeg, sz_authority_comp, authority_comp_len) == 0)
 			{
 				if (ccSeg == authority_comp_len)
-					*muids[idx] = bExclude ? MSE_EXCLUDED_ALL : MSE_UNSPECIFIED;
-				else if (ccSeg > authority_comp_len && ConvertToInt((char*)szSeg + authority_comp_len, (char*)szSeg + ccSeg, i64Val) && i64Val >= 0)
 				{
-					if (bExclude)
+					ranges[idx]->id[0] = bExclude ? MSE_EXCLUDE(0) : 0;
+					ranges[idx]->id[1] = bExclude ? MSE_EXCLUDE(MSE_MAX_MSEID) : MSE_MAX_MSEID;
+				}
+				else if (ccSeg > authority_comp_len)
+				{
+					int64_t i64StartVal, i64EndVal;
+					if (ConvertToInclusiveNNRange(szSeg + authority_comp_len, szSeg + ccSeg, i64StartVal, i64EndVal, MSE_MAX_MSEID))
 					{
-						if (i64Val > UINT32_MAX)
+						if (IS_INCLUSIVE_MSEID(i64StartVal) && IS_INCLUSIVE_MSEID(i64EndVal))
 						{
-							printf("Under exclude mode, the MSE idx should not exceed the maximum 32-bit unsigned integer.\n");
-							return RET_CODE_ERROR;
+							ranges[idx]->id[0] = bExclude ? MSE_EXCLUDE(i64StartVal) : i64StartVal;
+							ranges[idx]->id[1] = bExclude ? MSE_EXCLUDE(i64EndVal) : i64EndVal;
 						}
 						else
-							*muids[idx] = MSE_EXCLUDE(i64Val);
+						{
+							printf("The MSE index should be between %" PRId64 " to %" PRId64 " inclusively.\n", (int64_t)MSE_MIN_MSEID, MSE_MAX_MSEID);
+							return RET_CODE_ERROR;
+						}
 					}
 					else
-						*muids[idx] = i64Val;
+					{
+						printf("Invalid %s in MSE URI.\n", sz_authority_comp);
+						return RET_CODE_ERROR;
+					}
 				}
 				else
 				{
@@ -444,12 +516,14 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 
 int MSENav::NormalizeAuthorityPart()
 {
+	// Process some subset scenarios
+	// If a syntax element or its subset exist, should mark its superset syntax element as "unspecified"
 	if (scheme_type == MEDIA_SCHEME_MPV)
 	{
-		if (MPV.se == MSE_UNSELECTED)
+		if (MPV.se.IsNull())
 		{
-			if (MPV.slice != MSE_UNSELECTED)
-				MPV.se = MSE_UNSPECIFIED;
+			if(!MPV.slice.IsNull())
+				MPV.se.Reset(MSE_UNSPECIFIED);
 		}
 	}
 
@@ -459,10 +533,10 @@ int MSENav::NormalizeAuthorityPart()
 int MSENav::CheckNALAuthorityComponent(size_t idxComponent)
 {
 	// Check the occur sequence
-	if ((idxComponent == 1 && (NAL.cvs != MSE_UNSELECTED)) ||
-		(idxComponent == 2 && (NAL.cvs != MSE_UNSELECTED || NAL.au != MSE_UNSELECTED)) ||
-		(idxComponent == 3 && (NAL.cvs != MSE_UNSELECTED || NAL.au != MSE_UNSELECTED || NAL.nu != MSE_UNSELECTED)) ||
-		(idxComponent == 4 && (NAL.cvs != MSE_UNSELECTED || NAL.au != MSE_UNSELECTED || NAL.nu != MSE_UNSELECTED || NAL.sei_msg != MSE_UNSELECTED)))
+	if ((idxComponent > 0 && !NAL.cvs.IsNull()		&& !NAL.cvs.IsNaR()) ||
+		(idxComponent > 1 && !NAL.au.IsNull()		&& !NAL.au.IsNaR()) ||
+		(idxComponent > 2 && !NAL.nu.IsNull()		&& !NAL.nu.IsNaR()) ||
+		(idxComponent > 3 && !NAL.sei_msg.IsNull()	&& !NAL.sei_msg.IsNaR()))
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
@@ -479,8 +553,8 @@ int MSENav::CheckAudioLAuthorityComponent(size_t idxComponent)
 int MSENav::CheckAV1AuthorityComponent(size_t idxComponent)
 {
 	// Check the occur sequence
-	if ((idxComponent == 1 && (AV1.tu != MSE_UNSELECTED)) ||
-		(idxComponent == 2 && (AV1.tu != MSE_UNSELECTED || AV1.fu != MSE_UNSELECTED)))
+	if ((idxComponent > 0 && !AV1.tu.IsNull() && !AV1.tu.IsNaR()) ||
+		(idxComponent > 1 && !AV1.fu.IsNull() && !AV1.fu.IsNaR()))
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
@@ -492,21 +566,18 @@ int MSENav::CheckAV1AuthorityComponent(size_t idxComponent)
 int MSENav::CheckMPVAuthorityComponent(size_t idxComponent)
 {
 	// Check the occur sequence according to "vseq", "gop", "au", "se", "slice", "mb"
-	if ((idxComponent == 1 && (MPV.vseq != MSE_UNSELECTED)) ||	// gop
-		(idxComponent == 2 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED)) || // au happen, vseq and gop should NOT happen
-		(idxComponent == 5 && (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED || MPV.se != MSE_UNSELECTED || MPV.slice != MSE_UNSELECTED)))
+	if ((idxComponent > 0 && !MPV.vseq.IsNull() && !MPV.vseq.IsNaR()) || // gop or deeper
+		(idxComponent > 1 && !MPV.gop.IsNull()  && !MPV.gop.IsNaR()) || // au or deeper happen, vseq and gop should NOT happen
+		(idxComponent > 2 && !MPV.au.IsNull()   && !MPV.au.IsNaR()) || // se or deeper happen
+		(idxComponent > 4 && !MPV.se.IsNull()   && !MPV.se.IsNaR() && !MPV.slice.IsNull() && !MPV.slice.IsNaR()))
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
 	}
 	else if (idxComponent == 3 || idxComponent == 4)
 	{
-		if (MPV.vseq != MSE_UNSELECTED || MPV.gop != MSE_UNSELECTED || MPV.au != MSE_UNSELECTED)
-		{
-			printf("Please specify the MSE URI from lower to higher.\n");
-			return RET_CODE_ERROR;
-		}
-		else if ((idxComponent == 3 && MPV.slice != MSE_UNSELECTED) || (idxComponent == 4 && MPV.se != MSE_UNSELECTED))
+		if ((idxComponent == 3 && !MPV.slice.IsNull() && !MPV.slice.IsNaR()) ||
+			(idxComponent == 4 && !MPV.se.IsNull() && !MPV.se.IsNaR()))
 		{
 			printf("'se' should NOT occur at the same time with 'slice'.\n");
 			return RET_CODE_ERROR;
@@ -541,27 +612,27 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 		break;
 	case MEDIA_SCHEME_NAL:
 	{
-		MSEID* muids[] = { &NAL.cvs, &NAL.au, &NAL.nu, &NAL.sei_msg, &NAL.sei_pl };
-		iRet = LoadAuthorityPart(szURI, uri_authority_segments, nal_supported_authority_components, muids);
+		MSEID_RANGE* ranges[] = {&NAL.cvs, &NAL.au, &NAL.nu, &NAL.sei_msg, &NAL.sei_pl};
+		iRet = LoadAuthorityPart(szURI, uri_authority_segments, nal_supported_authority_components, ranges);
 		break;
 	}
 	case MEDIA_SCHEME_ADTS:
 	case MEDIA_SCHEME_LOAS_LATM:
 	{
-		MSEID* muids[] = { &AUDIO.au };
-		iRet = LoadAuthorityPart(szURI, uri_authority_segments, audio_supported_authority_components, muids);
+		MSEID_RANGE* ranges[] = {&AUDIO.au};
+		iRet = LoadAuthorityPart(szURI, uri_authority_segments, audio_supported_authority_components, ranges);
 		break;
 	}
 	case MEDIA_SCHEME_AV1:
 	{
-		MSEID* muids[] = { &AV1.tu, &AV1.fu, &AV1.obu };
-		iRet = LoadAuthorityPart(szURI, uri_authority_segments, av1_supported_authority_components, muids);
+		MSEID_RANGE* ranges[] = { &AV1.tu, &AV1.fu, &AV1.obu };
+		iRet = LoadAuthorityPart(szURI, uri_authority_segments, av1_supported_authority_components, ranges);
 		break;
 	}
 	case MEDIA_SCHEME_MPV:
 	{
-		MSEID* muids[] = { &MPV.vseq, &MPV.gop, &MPV.au, &MPV.se, &MPV.slice, &MPV.mb };
-		iRet = LoadAuthorityPart(szURI, uri_authority_segments, mpv_supported_authority_components, muids);
+		MSEID_RANGE* ranges[] = {&MPV.vseq, &MPV.gop, &MPV.au, &MPV.se, &MPV.slice, &MPV.mb};
+		iRet = LoadAuthorityPart(szURI, uri_authority_segments, mpv_supported_authority_components, ranges);
 		break;
 	}
 	default:
@@ -884,8 +955,7 @@ protected:
 		if (m_pMSENav == nullptr)
 			return false;
 
-		return m_pMSENav->MPV.se == MSE_UNSPECIFIED && (m_pMSENav->MPV.slice == MSE_UNSPECIFIED ||
-														IS_USABLE_MSEID(m_pMSENav->MPV.slice));
+		return m_pMSENav->MPV.se.IsAllUnspecfied() && (m_pMSENav->MPV.slice.IsAllUnspecfied() || (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR()));
 	}
 
 	std::string	GetURI(int level_id)
@@ -918,53 +988,40 @@ protected:
 		if (m_pMSENav == nullptr)
 			return RET_CODE_SUCCESS;
 
-		MSEID filter[] = { MSE_UNSELECTED, MSE_UNSELECTED, m_pMSENav->MPV.vseq, m_pMSENav->MPV.gop, m_pMSENav->MPV.au, m_pMSENav->MPV.se, m_pMSENav->MPV.mb,
-			MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED, MSE_UNSELECTED };
+		MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->MPV.vseq, m_pMSENav->MPV.gop, m_pMSENav->MPV.au, m_pMSENav->MPV.se, m_pMSENav->MPV.mb,
+			MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() };
 
 		for (int i = 0; i <= level_id; i++)
 		{
-			if (m_level[i] >= 0 && IS_EXCLUDED_MSEID(filter[i]))
-			{
-				MSEID excluded_mseid = EXCLUDED_MSEID(filter[i]);
-				if (m_unit_index[m_level[i]] == excluded_mseid)
-					return RET_CODE_NOTHING_TODO;
-			}
-			
-			if (m_level[i] < 0 || !IS_USABLE_MSEID(filter[i]))
+			if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
 				continue;
 
-			if (i > 0 && i < level_id && !IS_USABLE_MSEID(filter[i - 1]))
+			if (i > 0 && i < level_id && filter[i-1].IsAllUnspecfied())
 			{
 				// If its parent level is not specified, don't cease the enumeration
 				// only compare it is identified or not
-				if (m_unit_index[m_level[i]] != filter[i])
+				if (!filter[i].Contain(m_unit_index[m_level[i]]))
 					return RET_CODE_NOTHING_TODO;
 			}
-			else if (m_unit_index[m_level[i]] < filter[i])
+			else if (filter[i].Ahead(m_unit_index[m_level[i]]))
 				return RET_CODE_NOTHING_TODO;
-			else if (m_unit_index[m_level[i]] > filter[i])
+			else if (filter[i].Behind(m_unit_index[m_level[i]]))
 				return RET_CODE_ABORT;
 		}
 
 		// Do some special processing since SLICE is a subset of SE
-		if (level_id == MPV_LEVEL_SE && m_pMSENav->MPV.se == MSE_UNSPECIFIED)
+		if (level_id == MPV_LEVEL_SE && m_pMSENav->MPV.se.IsAllUnspecfied())
 		{
 			if (start_code >= 0x1 && start_code <= 0xAF)
 			{
-				if (IS_USABLE_MSEID(m_pMSENav->MPV.slice))
+				if (!m_pMSENav->MPV.slice.Contain(m_curr_slice_count))
 				{
-					if (m_pMSENav->MPV.slice != m_curr_slice_count)
-						return RET_CODE_NOTHING_TODO;
+					return RET_CODE_NOTHING_TODO;
 				}
-				// If the ~slice is specified in URI authority part, ignore slice displaying
-				else if (m_pMSENav->MPV.slice == MSE_EXCLUDED_ALL)
-					return RET_CODE_NOTHING_TODO;
-				else if (IS_EXCLUDED_MSEID(m_pMSENav->MPV.slice) && EXCLUDED_MSEID(m_pMSENav->MPV.slice) == m_curr_slice_count)
-					return RET_CODE_NOTHING_TODO;
 			}
 			else
 			{
-				if (IS_USABLE_MSEID(m_pMSENav->MPV.slice) || m_pMSENav->MPV.slice == MSE_UNSPECIFIED)
+				if (!m_pMSENav->MPV.slice.IsAllExcluded() && !m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR())
 					return RET_CODE_NOTHING_TODO;
 			}
 		}

@@ -309,6 +309,7 @@
     <ClCompile Include="..\..\src\PartitialTS.cpp" />
     <ClCompile Include="..\..\src\PayloadBuf.cpp" />
     <ClCompile Include="..\..\src\QTFF.cpp" />
+    <ClCompile Include="..\..\src\range_lex.cpp" />
     <ClCompile Include="..\..\src\RefactorTS.cpp" />
     <ClCompile Include="..\..\src\sei.cpp" />
     <ClCompile Include="..\..\src\platcomm.cpp" />
@@ -413,6 +414,7 @@
     <ClInclude Include="..\..\src\nal_parser.h" />
     <ClInclude Include="..\..\src\PayloadBuf.h" />
     <ClInclude Include="..\..\src\QTFF.h" />
+    <ClInclude Include="..\..\src\range_lex.h" />
     <ClInclude Include="..\..\src\sei.h" />
     <ClInclude Include="..\..\src\platcomm.h" />
     <ClInclude Include="..\..\src\Syncer.h" />

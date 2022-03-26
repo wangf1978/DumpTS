@@ -245,6 +245,9 @@
     <ClCompile Include="..\..\src\mediaobjprint.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\range_lex.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h">
@@ -416,6 +419,9 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\av1_parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\range_lex.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
