@@ -24,11 +24,11 @@
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
 
 - Extract and repack the elementary stream data or PSI sections data from *TS, ISOBMFF, Matroska and MMT/TLV* file
+- List and show any primitive meta data with syntax or hex view in any codec stream, and help to look inside the layout and details of any given media file
 - Show media information of elementary streams(AC3/DD+/MLP/DTS/DTS-HD/MPEG2-AAC/MPEG-4 AAC/MPEG2 Video/H.264/H.265/AV1...), *ISOBMFF* box, *Matroska EBML* element and *MMT/TLV* and *TS* packet/message/table/descriptors, container layout, ...
 - Re-factor a *TS* stream file in place
 - Extract some elementary streams, and reconstruct a partial *TS* file
-- Show decoder HRD model information, ATC/PCR/pts/dts and so on, and do the simple verification
-- Show the primitive syntax and structure of media file of ISOBMFF/Matroska/TS/PS/TLV-MMT/NAL/AV1.... 
+- Show decoder HRD model information for any codec stream, ATC/PCR/pts/dts and so on, and do the related verification
 - Provide some utility features for *ISOBMFF* file reconstruction
 - Provide some utility functions for codec and container technology, for example, Huffman Codebook, CRC, container layout...
 
