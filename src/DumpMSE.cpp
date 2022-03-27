@@ -291,10 +291,17 @@ int MSENav::Load(uint32_t enum_options)
 {
 	int iRet = RET_CODE_SUCCESS;
 
-	if (!(enum_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW)))
+	if (!(enum_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW)))
 		return RET_CODE_INVALID_PARAMETER;
 
-	auto iterShowMSE = g_params.find((enum_options&MSE_ENUM_LIST_VIEW)?"listMSE":"showMSE");
+	const char* szCmdOption = (enum_options&MSE_ENUM_LIST_VIEW) ? "listMSE" : (
+							  (enum_options&MSE_ENUM_SYNTAX_VIEW) ? "showMSE":(
+							  (enum_options&MSE_ENUM_HEX_VIEW) ? "showMSEHex" : nullptr));
+
+	if (szCmdOption == nullptr)
+		return RET_CODE_ERROR_NOTIMPL;
+
+	auto iterShowMSE = g_params.find(szCmdOption);
 	if (iterShowMSE == g_params.end() || iterShowMSE->second.length() == 0)
 	{
 		if (enum_options&MSE_ENUM_LIST_VIEW)
@@ -317,7 +324,7 @@ int MSENav::Load(uint32_t enum_options)
 	URI_Components MSE_uri_components;
 	if (AMP_FAILED(AMURI_Split(szMSEURI, MSE_uri_components)))
 	{
-		printf("Please specify a valid URI for the option 'showMSE'\n");
+		printf("Please specify a valid URI for the option '%s'\n", szCmdOption);
 		return RET_CODE_ERROR;
 	}
 
@@ -333,7 +340,7 @@ int MSENav::Load(uint32_t enum_options)
 
 		if (AMP_FAILED(AMURI_Split(szMSEURI, MSE_uri_components)))
 		{
-			printf("Please specify a valid URI for the option 'showMSE'\n");
+			printf("Please specify a valid URI for the option '%s'\n", szCmdOption);
 			return RET_CODE_ERROR;
 		}
 	}
@@ -867,7 +874,7 @@ public:
 		int iRet = RET_CODE_SUCCESS;
 		if ((iRet = CheckFilter(MPV_LEVEL_SE, pBufWithStartCode[3])) == RET_CODE_SUCCESS)
 		{
-			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW))
+			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 			{
 				bool onlyShowSlice = OnlySliceSE();
 				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
@@ -896,7 +903,7 @@ public:
 				printf("%s\n", szItem);
 			}
 			
-			if (m_options&MSE_ENUM_SYNTAX_VIEW)
+			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 			{
 				if (m_nLastLevel == MPV_LEVEL_SE)
 				{
@@ -904,7 +911,10 @@ public:
 					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
 					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					PrintMPVSyntaxElement(pCtx, pBufWithStartCode, cbBufWithStartCode, 4* m_level[MPV_LEVEL_SE]);
+					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+						PrintMPVSyntaxElement(pCtx, pBufWithStartCode, cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
+					else if (m_options&MSE_ENUM_HEX_VIEW)
+						print_mem(pBufWithStartCode, (int)cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
 					printf("\n");
 				}
 			}
@@ -918,7 +928,7 @@ public:
 		if (pBufWithStartCode[3] >= 0x01 && pBufWithStartCode[3] <= 0xAF)
 			m_curr_slice_count++;
 
-		return RET_CODE_SUCCESS;
+		return iRet;
 	}
 
 	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
@@ -995,22 +1005,21 @@ protected:
 		MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->MPV.vseq, m_pMSENav->MPV.gop, m_pMSENav->MPV.au, m_pMSENav->MPV.se, m_pMSENav->MPV.mb,
 			MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() };
 
+		bool bNullParent = true;
 		for (int i = 0; i <= level_id; i++)
 		{
 			if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
 				continue;
 
-			if (i > 0 && i < level_id && filter[i - 1].IsAllUnspecfied())
-			{
-				// If its parent level is not specified, don't cease the enumeration
-				// only compare it is identified or not
-				if (!filter[i].Contain(m_unit_index[m_level[i]]))
-					return RET_CODE_NOTHING_TODO;
-			}
-			else if (filter[i].Ahead(m_unit_index[m_level[i]]))
+			if (filter[i].Ahead(m_unit_index[m_level[i]]))
 				return RET_CODE_NOTHING_TODO;
 			else if (filter[i].Behind(m_unit_index[m_level[i]]))
-				return RET_CODE_ABORT;
+			{
+				if (bNullParent)
+					return RET_CODE_ABORT;
+				else
+					return RET_CODE_NOTHING_TODO;
+			}
 			/*
 				In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
 				____________                      ______________________________
@@ -1019,6 +1028,9 @@ protected:
 			*/
 			else if (!filter[i].Contain(m_unit_index[m_level[i]]))
 				return RET_CODE_NOTHING_TODO;
+
+			if (!filter[i].IsNull() && !filter[i].IsNaR())
+				bNullParent = false;
 		}
 
 		// Do some special processing since SLICE is a subset of SE
@@ -1028,6 +1040,8 @@ protected:
 			{
 				if (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.Contain(m_curr_slice_count))
 				{
+					if (m_pMSENav->MPV.slice.Behind(m_curr_slice_count))
+						return RET_CODE_ABORT;
 					return RET_CODE_NOTHING_TODO;
 				}
 			}
@@ -1217,15 +1231,11 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 #define MAX_MSE_SYNTAX_VIEW_HEADER_WIDTH	100
 void PrintMSEHeader(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* fp)
 {
-	if (enum_options&MSE_ENUM_LIST_VIEW)
+	if (enum_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 	{
 		MEDIA_SCHEME_TYPE scheme_type = pMSEParser->GetSchemeType();
 		if (scheme_type == MEDIA_SCHEME_MPV)
 			printf("------------Name-------------------------------|-----len-----|------------URI-------------\n");
-	}
-	else if (enum_options&MSE_ENUM_SYNTAX_VIEW)
-	{
-
 	}
 }
 
@@ -1324,13 +1334,14 @@ done:
 	return iRet;
 }
 
+int ShowMSEHex()
+{
+	return MSEParse(MSE_ENUM_HEX_VIEW);
+}
+
 int	ShowMSE()
 {
-	uint32_t enum_options = MSE_ENUM_SYNTAX_VIEW;
-	if (g_params.find("hexview") != g_params.end())
-		enum_options = MSE_ENUM_HEX_VIEW;
-
-	return MSEParse(enum_options);
+	return MSEParse(MSE_ENUM_SYNTAX_VIEW);
 }
 
 int	ListMSE()

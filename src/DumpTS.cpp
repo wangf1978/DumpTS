@@ -69,6 +69,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
 extern int	ShowAV1Info();
+extern int	ShowMSEHex();
 extern int	ShowMSE();
 extern int	ListMSE();
 extern int	DumpTransportPackets();
@@ -223,6 +224,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"showHRD",
 		"showOBU",
 		"showMSE",
+		"showMSEHex",
 		"showSeqHdr",
 		"showStreamMuxConfig",
 		"runHRD",
@@ -249,7 +251,6 @@ void ParseCommandLine(int argc, char* argv[])
 		"top",			// Show the n top records
 		"payload_first_last",
 		"layoutpacket",
-		"hexview",
 		"cost",
 	};
 
@@ -1293,6 +1294,11 @@ int main(int argc, char* argv[])
 			else if (g_params.find("showMSE") != g_params.end())
 			{
 				nDumpRet = ShowMSE();
+				goto done;
+			}
+			else if (g_params.find("showMSEHex") != g_params.end())
+			{
+				nDumpRet = ShowMSEHex();
 				goto done;
 			}
 			else if (g_params.find("listMSE") != g_params.end())

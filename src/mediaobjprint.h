@@ -72,11 +72,15 @@ int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)
 
 					const char* szDesc = element.Attribute("Desc");
 					if (szDesc == nullptr || strcmp(szDesc, "") == 0)
+					{
+						level++;
 						return true;
+					}
 
 					const char* szType = element.Attribute("Type");
 					if (szType != nullptr && szType[0] == 'M' && szType[1] == '\0')
 					{
+						level++;
 						// Skip it, the matrix is always print in a new line w/o any description
 						return true;
 					}
@@ -85,7 +89,7 @@ int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)
 					const char* szAlias = element.Attribute("Alias");
 					if (!ignore_bin || (ignore_bin && (szType == nullptr || !(szType[0] == 'B' && szType[1]== '\0'))))
 					{
-						int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s", level * 4 + m_indent, szLongSpace,
+						int ccWritten = (int)MBCSPRINTF_S(szTmp, sizeof(szTmp) / sizeof(szTmp[0]), "%.*s%s: %s  ", level * 4 + m_indent, szLongSpace,
 														  szAlias ? szAlias : element.Name(), szValue ? szValue : "");
 						
 						if (ccWritten > max_length)
