@@ -118,6 +118,7 @@ struct MSENav
 			MSEID_RANGE		sei_pl;						// SEI payload index
 			MSEID_RANGE		sei_msg;					// SEI message index
 			MSEID_RANGE		nu;							// NAL unit index
+			MSEID_RANGE		vcl_nu;						// VCL NAL unit index
 			MSEID_RANGE		au;							// Access unit index
 			MSEID_RANGE		cvs;						// Codec video sequence index
 		}NAL;
@@ -309,6 +310,8 @@ int MSENav::Load(uint32_t enum_options)
 			InitAs(MSE_UNSPECIFIED);
 			if (scheme_type == MEDIA_SCHEME_MPV)
 				MPV.slice.Reset(MSE_UNSELECTED);
+			else if (scheme_type == MEDIA_SCHEME_NAL)
+				NAL.vcl_nu.Reset(MSE_UNSELECTED);
 			return RET_CODE_SUCCESS;
 		}
 
@@ -1093,6 +1096,562 @@ protected:
 	const size_t			column_width_name = 47;
 	const size_t			column_width_len  = 13;
 	const size_t			column_width_URI  = 27;
+	const size_t			right_padding = 1;
+};
+
+//
+// NAL video enumerator for MSE operation
+//
+class CNALSEEnumerator : public CComUnknown, public INALEnumerator
+{
+public:
+	CNALSEEnumerator(INALContext* pCtx, uint32_t options, MSENav* pMSENav)
+		: m_pNALContext(pCtx), m_pMSENav(pMSENav) {
+		if (m_pNALContext != nullptr) {
+			m_pNALContext->AddRef();
+			m_curr_nal_coding = m_pNALContext->GetNALCoding();
+		}
+
+		int next_level = 0;
+		for (size_t i = 0; i < _countof(m_level); i++) {
+			if (options&(1ULL << i)) {
+				m_level[i] = next_level;
+
+				// CVS is the point, not a range
+				if (i == NAL_LEVEL_CVS)
+					m_unit_index[next_level] = -1;
+				else
+					m_unit_index[next_level] = 0;
+
+				m_nLastLevel = (int)i;
+				next_level++;
+			}
+		}
+
+		m_options = options;
+	}
+
+	virtual ~CNALSEEnumerator() {
+		AMP_SAFERELEASE(m_pNALContext);
+	}
+
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+	{
+		if (ppvObj == NULL)
+			return E_POINTER;
+
+		if (uuid == IID_INALEnumerator)
+			return GetCOMInterface((INALEnumerator*)this, ppvObj);
+
+		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+	}
+
+public:
+	RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type)
+	{
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+
+		m_unit_index[m_level[NAL_LEVEL_CVS]]++;
+		if (m_level[NAL_LEVEL_AU] > 0)
+			m_unit_index[m_level[NAL_LEVEL_AU]] = 0;
+		if (m_level[NAL_LEVEL_NU] > 0)
+			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
+		m_curr_vcl_count = 0;
+		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
+		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
+
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(NAL_LEVEL_CVS)) != RET_CODE_SUCCESS)
+			return iRet;
+
+		const char* szCVSType = "";
+		if (m_curr_nal_coding == NAL_CODING_HEVC)
+			szCVSType = IS_BLA(represent_nal_unit_type) ? "(BLA)" : (IS_IDR(represent_nal_unit_type) ? "(IDR)" : "");
+		else if (m_curr_nal_coding == NAL_CODING_AVC)
+			szCVSType = represent_nal_unit_type == AVC_CS_IDR_PIC ? "(IDR)" : "";
+
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sCVS#%" PRId64 " %s",
+			(m_level[NAL_LEVEL_CVS]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_CVS]], szCVSType);
+
+		if (ccWrittenOnce <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		if ((size_t)ccWrittenOnce < column_width_name)
+			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+		szItem[column_width_name] = '|';
+		ccWritten = column_width_name + 1;
+
+		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%12s |", " ")) <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		ccWritten += ccWrittenOnce;
+
+		AppendURI(szItem, ccWritten, NAL_LEVEL_CVS);
+
+		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+		printf("%s\n", szItem);
+
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType)
+	{
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(NAL_LEVEL_AU)) != RET_CODE_SUCCESS)
+			return iRet;
+
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sAU#%" PRId64 " (%s)",
+			(m_level[NAL_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_AU]],
+			PICTURE_CODING_TYPE_SHORTNAME(picCodingType));
+
+		if (ccWrittenOnce <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		if ((size_t)ccWrittenOnce < column_width_name)
+			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+		szItem[column_width_name] = '|';
+		ccWritten = column_width_name + 1;
+
+		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbEBSPAUBuf).c_str())) <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		ccWritten += ccWrittenOnce;
+
+		AppendURI(szItem, ccWritten, NAL_LEVEL_AU);
+
+		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+		printf("%s\n", szItem);
+
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+	{
+		uint8_t cbNALUnitHdr = 0, nal_unit_type = 0;
+		int iRet = CheckNALUnitEBSP(pEBSPNUBuf, cbEBSPNUBuf, cbNALUnitHdr, nal_unit_type);
+		if (AMP_FAILED(iRet))
+			return iRet;
+
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+		int ccWrittenOnce = 0;
+
+		if ((iRet = CheckFilter(NAL_LEVEL_NU, nal_unit_type)) == RET_CODE_SUCCESS)
+		{
+			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			{
+				bool onlyShowVCLNU = OnlyVCLNU();
+				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
+					(m_level[NAL_LEVEL_NU]) * 4, g_szRule,
+					m_curr_nal_coding == NAL_CODING_AVC?(IS_AVC_VCL_NAL(nal_unit_type)?"VCL NU":"non-VCL NU"):(
+					m_curr_nal_coding == NAL_CODING_HEVC?(IS_HEVC_VCL_NAL(nal_unit_type)?"VCL NU":"non-VCL NU"):""),
+					onlyShowVCLNU ? m_curr_vcl_count : m_unit_index[m_level[NAL_LEVEL_NU]],
+					GetNUName(nal_unit_type));
+
+				if (ccWrittenOnce <= 0)
+					return RET_CODE_NOTHING_TODO;
+
+				if ((size_t)ccWrittenOnce < column_width_name)
+					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+				szItem[column_width_name] = '|';
+				ccWritten = column_width_name + 1;
+
+				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbEBSPNUBuf).c_str())) <= 0)
+					return RET_CODE_NOTHING_TODO;
+
+				ccWritten += ccWrittenOnce;
+
+				AppendURI(szItem, ccWritten, NAL_LEVEL_NU);
+
+				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+				printf("%s\n", szItem);
+			}
+
+			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			{
+				if (m_nLastLevel == NAL_LEVEL_NU)
+				{
+					int indent = 4 * m_level[NAL_LEVEL_NU];
+					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+
+					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+						PrintNALUnitSyntaxElement(pCtx, pEBSPNUBuf, cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
+					else if (m_options&MSE_ENUM_HEX_VIEW)
+						print_mem(pEBSPNUBuf, (int)cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
+					printf("\n");
+				}
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
+	{
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+		int ccWrittenOnce = 0;
+
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(NAL_LEVEL_SEI_MSG)) == RET_CODE_SUCCESS)
+		{
+			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " ",
+					(m_level[NAL_LEVEL_SEI_MSG]) * 4, g_szRule, "SEI message",
+					m_unit_index[m_level[NAL_LEVEL_SEI_MSG]]);
+
+				if (ccWrittenOnce <= 0)
+					return RET_CODE_NOTHING_TODO;
+
+				if ((size_t)ccWrittenOnce < column_width_name)
+					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+				szItem[column_width_name] = '|';
+				ccWritten = column_width_name + 1;
+
+				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbRBSPSEIMsgBuf).c_str())) <= 0)
+					return RET_CODE_NOTHING_TODO;
+
+				ccWritten += ccWrittenOnce;
+
+				AppendURI(szItem, ccWritten, NAL_LEVEL_SEI_MSG);
+
+				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+				printf("%s\n", szItem);
+			}
+
+			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			{
+				if (m_nLastLevel == NAL_LEVEL_SEI_MSG)
+				{
+					int indent = 4 * m_level[NAL_LEVEL_SEI_MSG];
+					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+
+					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+						PrintSEIMsgSyntaxElement(pCtx, pRBSPSEIMsgRBSPBuf, cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
+					else if (m_options&MSE_ENUM_HEX_VIEW)
+						print_mem(pRBSPSEIMsgRBSPBuf, (int)cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
+					printf("\n");
+				}
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+	{
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+		int ccWrittenOnce = 0;
+
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(NAL_LEVEL_SEI_PAYLOAD)) == RET_CODE_SUCCESS)
+		{
+			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			{
+				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " ",
+					(m_level[NAL_LEVEL_SEI_PAYLOAD]) * 4, g_szRule, GetSEIPayoadTypeName(payload_type),
+					m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]]);
+
+				if (ccWrittenOnce <= 0)
+					return RET_CODE_NOTHING_TODO;
+
+				if ((size_t)ccWrittenOnce < column_width_name)
+					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+				szItem[column_width_name] = '|';
+				ccWritten = column_width_name + 1;
+
+				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbRBSPPayloadBuf).c_str())) <= 0)
+					return RET_CODE_NOTHING_TODO;
+
+				ccWritten += ccWrittenOnce;
+
+				AppendURI(szItem, ccWritten, NAL_LEVEL_SEI_PAYLOAD);
+
+				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+				printf("%s\n", szItem);
+			}
+
+			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			{
+				if (m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD)
+				{
+					int indent = 4 * m_level[NAL_LEVEL_SEI_PAYLOAD];
+					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+
+					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+						PrintSEIPayloadSyntaxElement(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
+					else if (m_options&MSE_ENUM_HEX_VIEW)
+						print_mem(pRBSPSEIPayloadBuf, (int)cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
+					printf("\n");
+				}
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+	{
+		m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]]++;
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALSEIMessageEnd(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
+	{
+		m_unit_index[m_level[NAL_LEVEL_SEI_MSG]]++;
+		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
+	{
+		if ((m_curr_nal_coding == NAL_CODING_AVC  && IS_AVC_VCL_NAL(m_curr_nu_type)) ||
+			(m_curr_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(m_curr_nu_type)))
+				m_curr_vcl_count++;
+
+		m_unit_index[m_level[NAL_LEVEL_NU]]++;
+		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
+		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
+
+		m_curr_nu_type = -1;
+
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALAUEnd(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+	{
+		m_unit_index[m_level[NAL_LEVEL_AU]]++;
+		if (m_level[NAL_LEVEL_NU] > 0)
+			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
+		m_curr_vcl_count = 0;
+		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
+		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
+
+		return RET_CODE_SUCCESS;
+	}
+
+	RET_CODE EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
+
+protected:
+	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+	int64_t					m_unit_index[16] = { 0 };
+	int64_t					m_curr_vcl_count = 0;
+	int8_t					m_curr_nu_type = -1;
+	NAL_CODING				m_curr_nal_coding = NAL_CODING_UNKNOWN;
+
+	inline bool OnlyVCLNU()
+	{
+		if (m_pMSENav == nullptr)
+			return false;
+
+		return m_pMSENav->NAL.nu.IsAllUnspecfied() && (m_pMSENav->NAL.vcl_nu.IsAllUnspecfied() || (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.IsNaR()));
+	}
+
+	std::string	GetURI(int level_id)
+	{
+		std::string strURI;
+		strURI.reserve(128);
+		for (int i = level_id; i >= 0; i--)
+		{
+			if (m_level[i] >= 0)
+			{
+				if (strURI.length() > 0)
+					strURI += ".";
+				if (i == NAL_LEVEL_NU && OnlyVCLNU())
+				{
+					strURI += "VCL NAL Unit" + std::to_string(m_curr_vcl_count);
+				}
+				else
+				{
+					strURI += NAL_LEVEL_NAME(i);
+					strURI += std::to_string(m_unit_index[m_level[i]]);
+				}
+			}
+		}
+
+		return strURI;
+	}
+
+	RET_CODE CheckFilter(int level_id, uint8_t nal_unit_type=0xFF)
+	{
+		if (m_pMSENav == nullptr)
+			return RET_CODE_SUCCESS;
+
+		MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->NAL.cvs, m_pMSENav->NAL.au, m_pMSENav->NAL.nu, m_pMSENav->NAL.sei_msg,
+			m_pMSENav->NAL.sei_pl, MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() };
+
+		bool bNullParent = true;
+		for (int i = 0; i <= level_id; i++)
+		{
+			if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
+				continue;
+
+			if (filter[i].Ahead(m_unit_index[m_level[i]]))
+				return RET_CODE_NOTHING_TODO;
+			else if (filter[i].Behind(m_unit_index[m_level[i]]))
+			{
+				if (bNullParent)
+					return RET_CODE_ABORT;
+				else
+					return RET_CODE_NOTHING_TODO;
+			}
+			/*
+				In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
+				____________                      ______________________________
+							\                    /
+				|///////////f0xxxxxxxxxidxxxxxxxxxf1\\\\\\\\\\\\\\\\\\\\\\\\....
+			*/
+			else if (!filter[i].Contain(m_unit_index[m_level[i]]))
+				return RET_CODE_NOTHING_TODO;
+
+			if (!filter[i].IsNull() && !filter[i].IsNaR())
+				bNullParent = false;
+		}
+
+		// Do some special processing since SLICE is a subset of SE
+		if (level_id == NAL_LEVEL_NU && m_pMSENav->NAL.nu.IsAllUnspecfied())
+		{
+			if ((m_curr_nal_coding == NAL_CODING_AVC && IS_AVC_VCL_NAL(nal_unit_type)) ||
+				(m_curr_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(nal_unit_type)))
+			{
+				if (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.Contain(m_curr_vcl_count))
+				{
+					if (m_pMSENav->NAL.vcl_nu.Behind(m_curr_vcl_count))
+						return RET_CODE_ABORT;
+					return RET_CODE_NOTHING_TODO;
+				}
+			}
+			else
+			{
+				if (!m_pMSENav->NAL.vcl_nu.IsAllExcluded() && !m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.IsNaR())
+					return RET_CODE_NOTHING_TODO;
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
+
+	const char* GetNUName(uint8_t nal_unit_type)
+	{
+		if (m_curr_nal_coding == NAL_CODING_AVC)
+			return nal_unit_type >= 0 && nal_unit_type < _countof(avc_nal_unit_type_short_names) ? avc_nal_unit_type_short_names[nal_unit_type] : "";
+		else if (m_curr_nal_coding == NAL_CODING_HEVC)
+			return nal_unit_type >= 0 && nal_unit_type < _countof(hevc_nal_unit_type_short_names) ? hevc_nal_unit_type_short_names[nal_unit_type] : "";
+		return "";
+	}
+
+	const char* GetSEIPayoadTypeName(uint32_t payload_type)
+	{
+		return payload_type < _countof(sei_payload_type_names) ? sei_payload_type_names[payload_type] : "";
+	}
+
+	inline int AppendURI(char* szItem, size_t& ccWritten, int level_id)
+	{
+		std::string szFormattedURI = GetURI(level_id);
+		if (szFormattedURI.length() < column_width_URI)
+		{
+			memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
+			ccWritten += column_width_URI - szFormattedURI.length();
+		}
+
+		memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
+		ccWritten += szFormattedURI.length();
+
+		return RET_CODE_SUCCESS;
+	}
+
+	inline int CheckNALUnitEBSP(uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf, uint8_t& nalUnitHeaderBytes, uint8_t& nal_unit_type)
+	{
+		if (pEBSPNUBuf == nullptr || cbEBSPNUBuf < 1)
+			return RET_CODE_INVALID_PARAMETER;
+
+		if (m_curr_nal_coding == NAL_CODING_AVC)
+		{
+			nalUnitHeaderBytes = 1;
+
+			int8_t forbidden_zero_bit = (pEBSPNUBuf[0] >> 7) & 0x01;
+			int8_t nal_ref_idc = (pEBSPNUBuf[0] >> 5) & 0x3;
+			nal_unit_type = pEBSPNUBuf[0] & 0x1F;
+
+			int8_t svc_extension_flag = 0;
+			int8_t avc_3d_extension_flag = 0;
+
+			if (nal_unit_type == 14 || nal_unit_type == 20 || nal_unit_type == 21)
+			{
+				if (nal_unit_type != 21)
+					svc_extension_flag = (pEBSPNUBuf[1] >> 7) & 0x01;
+				else
+					avc_3d_extension_flag = (pEBSPNUBuf[1] >> 7) & 0x01;
+
+				if (svc_extension_flag)
+				{
+					nalUnitHeaderBytes += 3;
+					if (cbEBSPNUBuf < 5)
+						return RET_CODE_NEEDMOREINPUT;
+				}
+				else if (avc_3d_extension_flag)
+				{
+					nalUnitHeaderBytes += 2;
+					if (cbEBSPNUBuf < 4)
+						return RET_CODE_NEEDMOREINPUT;
+				}
+				else
+				{
+					nalUnitHeaderBytes += 3;
+					if (cbEBSPNUBuf < 5)
+						return RET_CODE_NEEDMOREINPUT;
+				}
+			}
+		}
+		else if (m_curr_nal_coding == NAL_CODING_HEVC)
+		{
+			nalUnitHeaderBytes = 2;
+			if (cbEBSPNUBuf < 2)
+				return RET_CODE_NEEDMOREINPUT;
+
+			nal_unit_type = (pEBSPNUBuf[0] >> 1) & 0x3F;;
+		}
+		else
+			return RET_CODE_ERROR_NOTIMPL;
+		
+		return RET_CODE_SUCCESS;
+	}
+
+protected:
+	INALContext*			m_pNALContext;
+	MSENav*					m_pMSENav;
+	int						m_nLastLevel = -1;
+	uint32_t				m_options = 0;
+	const size_t			column_width_name = 47;
+	const size_t			column_width_len = 13;
+	const size_t			column_width_URI = 27;
 	const size_t			right_padding = 1;
 };
 

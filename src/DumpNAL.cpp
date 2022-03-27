@@ -127,7 +127,9 @@ int	ShowNUs()
 		}
 
 	public:
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type){return RET_CODE_SUCCESS;}
+
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType)
 		{
 			printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
 			return RET_CODE_SUCCESS;
@@ -866,7 +868,8 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 		}
 
 	public:
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType) { return RET_CODE_SUCCESS; }
 
 		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
@@ -1402,7 +1405,9 @@ int ShowNALObj(int object_type)
 			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
 		}
 
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) { return RET_CODE_SUCCESS; }
+
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType){return RET_CODE_SUCCESS;}
 
 		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
@@ -1766,7 +1771,9 @@ int RunH264HRD()
 		}
 
 	public:
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
+		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) { return RET_CODE_SUCCESS; }
+
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType)
 		{ 
 			bHaveSEIBufferingPeriod = false;
 			return RET_CODE_SUCCESS; 

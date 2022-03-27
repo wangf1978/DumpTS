@@ -1243,7 +1243,7 @@ int CNALParser::CommitHEVCPicture(
 		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
 		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
 
-		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf)))
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, 0)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -1543,7 +1543,7 @@ int CNALParser::CommitAVCPicture(
 		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
 		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
 
-		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf)))
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, 0)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;

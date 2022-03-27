@@ -67,6 +67,41 @@ const char* avc_nal_unit_type_names[32] = {
 	"non-VCL::Unspecified"
 };
 
+const char* avc_nal_unit_type_short_names[32] = {
+	"Unspecified",
+	"non-IDR",
+	"A",
+	"B",
+	"C",
+	"IDR",
+	"SEI",
+	"SPS",
+	"PPS",
+	"AUD",
+	"EOS",
+	"EOB",
+	"FD",
+	"SPS_EXT",
+	"PREFIX_NU",
+	"SUBSET_SPS",
+	"DPS",
+	"reserved",
+	"reserved",
+	"SL_AUX",
+	"SL_EXT",
+	"SL_EXT_DVC",
+	"reserved",
+	"reserved",
+	"Unspecified",
+	"Unspecified",
+	"Unspecified",
+	"Unspecified",
+	"Unspecified",
+	"Unspecified",
+	"Unspecified",
+	"Unspecified"
+};
+
 const char* avc_nal_unit_type_descs[32] = {
 	"Unspecified",
 	"Coded slice of a non-IDR picture",

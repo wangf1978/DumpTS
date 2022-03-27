@@ -43,6 +43,7 @@ SOFTWARE.
 #endif
 
 extern const char* hevc_nal_unit_type_names[64];
+extern const char* hevc_nal_unit_type_short_names[64];
 extern const char* hevc_nal_unit_type_descs[64];
 extern const char* sample_aspect_ratio_descs[256];
 extern const char* vui_video_format_names[7];

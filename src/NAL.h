@@ -213,6 +213,8 @@ enum AVC_PICTURE_SLICE_TYPE
 
 #define IS_IRAP(nal_unit_type)			(nal_unit_type >= HEVC_BLA_W_LP && nal_unit_type <= HEVC_RSV_IRAP_VCL23)
 
+#define IS_BLA(nal_unit_type)			(nal_unit_type >= HEVC_BLA_W_LP && nal_unit_type <= HEVC_BLA_N_LP)
+
 #define IS_IDR(nal_unit_type)			(nal_unit_type >= HEVC_IDR_W_RADL && nal_unit_type <= HEVC_IDR_N_LP)
 
 #define IS_CRA(nal_unit_type)			(nal_unit_type == HEVC_CRA_NUT)

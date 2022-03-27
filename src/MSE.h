@@ -37,6 +37,13 @@ SOFTWARE.
 #define NAL_LEVEL_SEI_MSG			6
 #define NAL_LEVEL_SEI_PAYLOAD		7
 
+#define NAL_LEVEL_NAME(lvl_id)	(\
+	(lvl_id) == NAL_LEVEL_CVS?"CVS":(\
+	(lvl_id) == NAL_LEVEL_AU?"AU":(\
+	(lvl_id) == NAL_LEVEL_NU?"NAL Unit":(\
+	(lvl_id) == NAL_LEVEL_SEI_MSG?"SEI message":(\
+	(lvl_id) == NAL_LEVEL_SEI_PAYLOAD?"SEI payload":"")))))
+
 #define MPV_LEVEL_VSEQ				2
 #define MPV_LEVEL_GOP				3
 #define MPV_LEVEL_AU				4
@@ -127,7 +134,8 @@ public:
 class INALEnumerator : public IUnknown
 {
 public:
-	virtual RET_CODE		EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf) = 0;
+	virtual RET_CODE		EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) = 0;
+	virtual RET_CODE		EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType) = 0;
 	virtual RET_CODE		EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf) = 0;
 	virtual RET_CODE		EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) = 0;
 	virtual RET_CODE		EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) = 0;

@@ -258,3 +258,17 @@ done:
 	return;
 }
 
+void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALNUBuf, int indent)
+{
+	return;
+}
+
+void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIMsgBuf, int indent)
+{
+	return;
+}
+
+void PrintSEIPayloadSyntaxElement(IUnknown* pCtx, uint8_t* pSEIPayloadBuf, size_t cbSEIPayloadBuf, int indent)
+{
+	return;
+}

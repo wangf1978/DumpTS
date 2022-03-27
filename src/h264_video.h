@@ -45,6 +45,7 @@ SOFTWARE.
 #endif
 
 extern const char* avc_nal_unit_type_names[32];
+extern const char* avc_nal_unit_type_short_names[32];
 extern const char* avc_nal_unit_type_descs[32];
 extern const std::tuple<int16_t, int16_t> sample_aspect_ratios[18];
 extern const char* sample_aspect_ratio_descs[256];
