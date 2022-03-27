@@ -73,13 +73,15 @@ struct MSEID_RANGE
 	bool IsNaR() const { return (id[0] == MSE_UNSELECTED && id[1] != MSE_UNSELECTED) || (id[1] == MSE_UNSELECTED && id[0] != MSE_UNSELECTED); }
 	void Reset(int64_t mseid = MSE_UNSELECTED) { id[0] = id[1] = mseid; }
 	bool Contain(MSEID it) {
-		if ((IS_INCLUSIVE_MSEID(id[0]) && it >= id[0]) || id[0] == MSE_UNSPECIFIED || (IS_EXCLUSIVE_MSEID(id[0]) && it < MSEID_EXCLUDED(id[0])))
+		if ((IS_INCLUSIVE_MSEID(id[0]) && it >= id[0]) || id[0] == MSE_UNSPECIFIED)
 		{
 			if ((IS_INCLUSIVE_MSEID(id[1]) && it <= id[1]) || id[1] == MSE_UNSPECIFIED)
 				return true;
 			else if (IS_EXCLUSIVE_MSEID(id[1]) && it > MSEID_EXCLUDED(id[1]))
 				return true;
 		}
+		else if ((IS_EXCLUSIVE_MSEID(id[0]) && it < MSEID_EXCLUDED(id[0])) || (IS_EXCLUSIVE_MSEID(id[1]) && it > MSEID_EXCLUDED(id[1])))
+			return true;
 		return false;
 	}
 	/*
@@ -92,7 +94,7 @@ struct MSEID_RANGE
 	{
 		if ((IS_INCLUSIVE_MSEID(id[0]) && it < id[0]))
 			return true;
-		if ((id[0] == MSE_UNSPECIFIED || id[0] == 0) && IS_EXCLUSIVE_MSEID(id[1]) && it <= id[1])
+		if ((id[0] == MSE_UNSPECIFIED || (IS_EXCLUSIVE_MSEID(id[0]) && MSEID_EXCLUDED(id[0])) == 0) && IS_EXCLUSIVE_MSEID(id[1]) && it <= MSEID_EXCLUDED(id[1]))
 			return true;
 		return false;
 	}
@@ -293,11 +295,13 @@ int MSENav::Load(uint32_t enum_options)
 		return RET_CODE_INVALID_PARAMETER;
 
 	auto iterShowMSE = g_params.find((enum_options&MSE_ENUM_LIST_VIEW)?"listMSE":"showMSE");
-	if (iterShowMSE == g_params.end())
+	if (iterShowMSE == g_params.end() || iterShowMSE->second.length() == 0)
 	{
 		if (enum_options&MSE_ENUM_LIST_VIEW)
 		{
 			InitAs(MSE_UNSPECIFIED);
+			if (scheme_type == MEDIA_SCHEME_MPV)
+				MPV.slice.Reset(MSE_UNSELECTED);
 			return RET_CODE_SUCCESS;
 		}
 
@@ -996,7 +1000,7 @@ protected:
 			if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
 				continue;
 
-			if (i > 0 && i < level_id && filter[i-1].IsAllUnspecfied())
+			if (i > 0 && i < level_id && filter[i - 1].IsAllUnspecfied())
 			{
 				// If its parent level is not specified, don't cease the enumeration
 				// only compare it is identified or not
@@ -1007,6 +1011,14 @@ protected:
 				return RET_CODE_NOTHING_TODO;
 			else if (filter[i].Behind(m_unit_index[m_level[i]]))
 				return RET_CODE_ABORT;
+			/*
+				In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
+				____________                      ______________________________
+				            \                    /
+			    |///////////f0xxxxxxxxxidxxxxxxxxxf1\\\\\\\\\\\\\\\\\\\\\\\\....
+			*/
+			else if (!filter[i].Contain(m_unit_index[m_level[i]]))
+				return RET_CODE_NOTHING_TODO;
 		}
 
 		// Do some special processing since SLICE is a subset of SE
@@ -1014,7 +1026,7 @@ protected:
 		{
 			if (start_code >= 0x1 && start_code <= 0xAF)
 			{
-				if (!m_pMSENav->MPV.slice.Contain(m_curr_slice_count))
+				if (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.Contain(m_curr_slice_count))
 				{
 					return RET_CODE_NOTHING_TODO;
 				}
