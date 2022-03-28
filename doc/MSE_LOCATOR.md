@@ -9,23 +9,37 @@
 	* [ISOBMFF media syntax element locator](#isobmff-media-syntax-element-locator)
 * [Commands](#commands)
 	* [`listMSE` command](#listmse-command)
+		* [MPEG2 Video](#mpeg2-video)
+			* [1. List all video sequences](#list-all-video-sequences)
+			* [2. List all GOPs](#list-all-gops)
+			* [3. List all access units](#list-all-access-units)
+			* [4. List all MPEG2 syntactic elements](#list-all-mpeg2-syntactic-elements)
+            * [5. List all slices](#list-all-slices)
+            * [6. List all non-slices syntactic elements](#list-all-non-slices-syntactic-elements)
+            * [7. List all macro-blocks](#list-all-macro-blocks)
+            * [8. List all GOPs in a specified video sequence](#list-all-gops-in-a-specified-video-sequence)
+            * [9. List all access-units in a specified GOP](#list-all-access-units-in-a-specified-gop)
+            * [10. List some syntax elements in a or some specified GOP(s) or/and Access Unit(s)](#list-some-syntax-elements-in-a-or-some-specified-gop-s-or-and-access-unit-s)
 	* [`showMSE` command](#showmse-command)
 	* [`showMSEHex` command](#showmse-command)
 
+[Return to Main](../README.md)
 ## Abbreviation
 * **URI**: Uniform Resource Identifier
 * **MSE**: Media Syntax Element
+* **VSEQ**: Video Sequence, one VSEQ should have the same profile, level, tier(if have), resolution, fps, aspect-ratio, colour primaries, transfer characteristics and so on
 * **AU**: Access Unit
-* **CVS**: Codec Video Sequence
+* **CVS**: Codec Video Sequence, like as GOP
 * **TU**: Temporal Unit
 * **FU**: Frame Unit
 * **OBU**: Open Bitstream Unit
-* **GOP**: Group of Picture
-* **NU**: NAL Unit
+* **GOP**: Group of Picture, included open GOP, closed GOP
+* **NU**: NAL Unit, including VCL/none-VCL NAL Unit
 * **PL**: Payload
 * **MSG**: Message
 * **SEIPL**: SEI payload
 * **SEIMSG**: SEI Message
+* **SE**: Syntax Element, normally the minimum organization unit
 
 [Top](#contents)
 
@@ -278,6 +292,58 @@ GOP#120 (closed)                               |             |                  
 |~vcl.au`1`|all VCL NAL units of the 2nd access-unit|
 |vcl.au`1-2`|all VCL NAL units of access-unit 1 and 2|
 
+for example,
+```
+DumpTS 00005.h264 --listmse
+```
+And all syntax elements with the hierarchical layout will be shown as,
+```
+------------Name-------------------------------|-----len-----|------------URI----------------------
+Video Sequence#0                               |             |                               VSEQ0
+    CVS#1 (IDR, closed GOP)                    |             |                          CVS1.VSEQ0
+        AU#0 (I)                               |   288,631 B |                      AU0.CVS1.VSEQ0
+            NU#0 non-VCL::AUD                  |         2 B |                  NU0.AU0.CVS1.VSEQ0
+            NU#1 non-VCL::SPS                  |        51 B |                  NU1.AU0.CVS1.VSEQ0
+            NU#2 non-VCL::PPS                  |         5 B |                  NU2.AU0.CVS1.VSEQ0
+            NU#3 non-VCL::SEI                  |        15 B |                  NU3.AU0.CVS1.VSEQ0
+                SEI message#0                  |        12 B |          SEIMSG0.NU3.AU0.CVS1.VSEQ0
+                    #0 buffering_period        |        10 B |   SEIPL0.SEIMSG0.NU3.AU0.CVS1.VSEQ0
+            NU#4 non-VCL::SEI                  |        14 B |                  NU4.AU0.CVS1.VSEQ0
+                SEI message#0                  |        11 B |          SEIMSG0.NU4.AU0.CVS1.VSEQ0
+                    #0 pic_timing              |         9 B |   SEIPL0.SEIMSG0.NU4.AU0.CVS1.VSEQ0
+            NU#5 non-VCL::SEI                  |         5 B |                  NU5.AU0.CVS1.VSEQ0
+                SEI message#0                  |         3 B |          SEIMSG0.NU5.AU0.CVS1.VSEQ0
+                    #0 recovery_point          |         1 B |   SEIPL0.SEIMSG0.NU5.AU0.CVS1.VSEQ0
+            NU#6 VCL::IDR                      |    81,092 B |                  NU6.AU0.CVS1.VSEQ0
+            NU#7 VCL::IDR                      |    71,634 B |                  NU7.AU0.CVS1.VSEQ0
+            NU#8 VCL::IDR                      |    74,525 B |                  NU8.AU0.CVS1.VSEQ0
+            NU#9 VCL::IDR                      |    61,255 B |                  NU9.AU0.CVS1.VSEQ0
+        AU#1 (P)                               |    81,464 B |                      AU1.CVS1.VSEQ0
+            NU#0 non-VCL::AUD                  |         2 B |                  NU0.AU1.CVS1.VSEQ0
+            NU#1 non-VCL::SEI                  |        14 B |                  NU1.AU1.CVS1.VSEQ0
+                SEI message#0                  |        11 B |          SEIMSG0.NU1.AU1.CVS1.VSEQ0
+                    #0 pic_timing              |         9 B |   SEIPL0.SEIMSG0.NU1.AU1.CVS1.VSEQ0
+            NU#2 VCL::non-IDR                  |    29,112 B |                  NU2.AU1.CVS1.VSEQ0
+            NU#3 VCL::non-IDR                  |    16,360 B |                  NU3.AU1.CVS1.VSEQ0
+            NU#4 VCL::non-IDR                  |    19,939 B |                  NU4.AU1.CVS1.VSEQ0
+            NU#5 VCL::non-IDR                  |    16,018 B |                  NU5.AU1.CVS1.VSEQ0
+        AU#2 (B)                               |    31,964 B |                      AU2.CVS1.VSEQ0
+            NU#0 non-VCL::AUD                  |         2 B |                  NU0.AU2.CVS1.VSEQ0
+            NU#1 non-VCL::SEI                  |        14 B |                  NU1.AU2.CVS1.VSEQ0
+                SEI message#0                  |        11 B |          SEIMSG0.NU1.AU2.CVS1.VSEQ0
+                    #0 pic_timing              |         9 B |   SEIPL0.SEIMSG0.NU1.AU2.CVS1.VSEQ0
+            NU#2 VCL::non-IDR                  |    11,297 B |                  NU2.AU2.CVS1.VSEQ0
+            NU#3 VCL::non-IDR                  |     6,227 B |                  NU3.AU2.CVS1.VSEQ0
+            NU#4 VCL::non-IDR                  |     7,861 B |                  NU4.AU2.CVS1.VSEQ0
+            NU#5 VCL::non-IDR                  |     6,544 B |                  NU5.AU2.CVS1.VSEQ0
+        AU#3 (B)                               |    32,751 B |                      AU3.CVS1.VSEQ0
+            NU#0 non-VCL::AUD                  |         2 B |                  NU0.AU3.CVS1.VSEQ0
+            NU#1 non-VCL::SEI                  |        14 B |                  NU1.AU3.CVS1.VSEQ0
+                SEI message#0                  |        11 B |          SEIMSG0.NU1.AU3.CVS1.VSEQ0
+                    #0 pic_timing              |         9 B |   SEIPL0.SEIMSG0.NU1.AU3.CVS1.VSEQ0
+            NU#2 VCL::non-IDR                  |    11,903 B |                  NU2.AU3.CVS1.VSEQ0
+```
+
 ### AV1 bitstream media syntax element locator
 *[MSE://][OBU`i`].[FU`j`].[TU`k`]/part/part/...#field*
 
@@ -304,7 +370,235 @@ stsd.stbl.minf.mdia.track0.moov/AVCSampleEntry#width
 At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `showMSEHex`,
 
 ### `listMSE` command
-`listMSE` is used to list the media syntax element:
+`listMSE` is used to list the media syntax element， if there is no option value for it, all elements with hierarchical layout will be listed, please see the examples in the each byte stream scheme in the previous part, here are more examples:
+#### MPEG2 Video
+
+1. ##### List all video sequences
+	```
+	DumpTS 00023.m2v --listmse=vseq
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	Video Sequence#0                               |             |                      VSEQ0
+	```
+2. #### List all GOPs
+	```
+	DumpTS 00023.m2v --listmse=gop
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	GOP#0 (closed)                                 |             |                       GOP0
+	GOP#1 (open)                                   |             |                       GOP1
+	GOP#2 (open)                                   |             |                       GOP2
+	GOP#3 (open)                                   |             |                       GOP3
+	GOP#4 (open)                                   |             |                       GOP4
+	GOP#5 (open)                                   |             |                       GOP5
+	GOP#6 (open)                                   |             |                       GOP6
+	GOP#7 (open)                                   |             |                       GOP7
+	GOP#8 (open)                                   |             |                       GOP8
+	GOP#9 (open)                                   |             |                       GOP9
+	GOP#10 (open)                                  |             |                      GOP10
+	GOP#11 (open)                                  |             |                      GOP11
+	GOP#12 (open)                                  |             |                      GOP12
+	GOP#13 (open)                                  |             |                      GOP13
+	GOP#14 (open)                                  |             |                      GOP14
+	GOP#15 (open)                                  |             |                      GOP15
+	GOP#16 (open)                                  |             |                      GOP16
+	...
+	```
+3. ### List all access units
+	```
+	DumpTS 00023.m2v --listmse=au
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	AU#0 (I)                                       |    91,997 B |                        AU0
+	AU#1 (P)                                       |    83,847 B |                        AU1
+	AU#2 (B)                                       |    22,773 B |                        AU2
+	AU#3 (B)                                       |    53,424 B |                        AU3
+	AU#4 (P)                                       |   111,616 B |                        AU4
+	AU#5 (B)                                       |    63,292 B |                        AU5
+	AU#6 (B)                                       |    64,618 B |                        AU6
+	AU#7 (P)                                       |   131,912 B |                        AU7
+	AU#8 (B)                                       |    67,947 B |                        AU8
+	AU#9 (B)                                       |    70,578 B |                        AU9
+	AU#10 (P)                                      |   140,350 B |                       AU10
+	AU#11 (B)                                      |    79,321 B |                       AU11
+	AU#12 (B)                                      |    68,619 B |                       AU12
+	AU#13 (I)                                      |   282,790 B |                       AU13
+	AU#14 (B)                                      |    53,920 B |                       AU14
+	AU#15 (B)                                      |    52,587 B |                       AU15
+	AU#16 (P)                                      |   107,529 B |                       AU16
+	AU#17 (B)                                      |    48,750 B |                       AU17
+	...
+	```
+4. ### List all MPEG2 syntactic elements
+	```
+	DumpTS 00023.m2v --listmse=se
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	SE#0 sequence_header                           |       140 B |                        SE0
+	SE#1 sequence_extension                        |        10 B |                        SE1
+	SE#2 group_of_pictures_header                  |         8 B |                        SE2
+	SE#3 picture_header                            |         8 B |                        SE3
+	SE#4 picture_coding_extension                  |         9 B |                        SE4
+	SE#5 slice1                                    |       688 B |                        SE5
+	SE#6 slice2                                    |       692 B |                        SE6
+	SE#7 slice3                                    |       698 B |                        SE7
+	SE#8 slice4                                    |       714 B |                        SE8
+	SE#9 slice5                                    |       831 B |                        SE9
+	SE#10 slice6                                   |     1,691 B |                       SE10
+	SE#11 slice7                                   |     1,798 B |                       SE11
+	SE#12 slice8                                   |     1,730 B |                       SE12
+	SE#13 slice9                                   |     1,747 B |                       SE13
+	SE#14 slice10                                  |     1,746 B |                       SE14
+	SE#15 slice11                                  |     1,714 B |                       SE15
+	SE#16 slice12                                  |     1,723 B |                       SE16
+	SE#17 slice13                                  |     1,762 B |                       SE17
+	...
+	```
+5. #### List all slices
+	```
+	DumpTS 00023.m2v --listmse=slice
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	Slice#0 slice1                                 |       688 B |                     SLICE0
+	Slice#1 slice2                                 |       692 B |                     SLICE1
+	Slice#2 slice3                                 |       698 B |                     SLICE2
+	Slice#3 slice4                                 |       714 B |                     SLICE3
+	Slice#4 slice5                                 |       831 B |                     SLICE4
+	Slice#5 slice6                                 |     1,691 B |                     SLICE5
+	Slice#6 slice7                                 |     1,798 B |                     SLICE6
+	Slice#7 slice8                                 |     1,730 B |                     SLICE7
+	Slice#8 slice9                                 |     1,747 B |                     SLICE8
+	Slice#9 slice10                                |     1,746 B |                     SLICE9
+	Slice#10 slice11                               |     1,714 B |                    SLICE10
+	Slice#11 slice12                               |     1,723 B |                    SLICE11
+	Slice#12 slice13                               |     1,762 B |                    SLICE12
+	Slice#13 slice14                               |     1,846 B |                    SLICE13
+	Slice#14 slice15                               |     1,824 B |                    SLICE14
+	Slice#15 slice16                               |     1,842 B |                    SLICE15
+	Slice#16 slice17                               |     1,792 B |                    SLICE16
+	Slice#17 slice18                               |     1,779 B |                    SLICE17
+	Slice#18 slice19                               |     1,769 B |                    SLICE18
+	Slice#19 slice20                               |     1,791 B |                    SLICE19
+	...
+	```
+6. #### List all non-slices syntactic elements
+	```
+	DumpTS 00023.m2v --listmse=~slice
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	SE#0 sequence_header                           |       140 B |                        SE0
+	SE#1 sequence_extension                        |        10 B |                        SE1
+	SE#2 group_of_pictures_header                  |         8 B |                        SE2
+	SE#3 picture_header                            |         8 B |                        SE3
+	SE#4 picture_coding_extension                  |         9 B |                        SE4
+	SE#73 picture_header                           |         9 B |                       SE73
+	SE#74 picture_coding_extension                 |         9 B |                       SE74
+	SE#143 picture_header                          |         9 B |                      SE143
+	SE#144 picture_coding_extension                |         9 B |                      SE144
+	SE#213 picture_header                          |         9 B |                      SE213
+	SE#214 picture_coding_extension                |         9 B |                      SE214
+	SE#283 picture_header                          |         9 B |                      SE283
+	SE#284 picture_coding_extension                |         9 B |                      SE284
+	SE#353 picture_header                          |         9 B |                      SE353
+	SE#354 picture_coding_extension                |         9 B |                      SE354
+	SE#423 picture_header                          |         9 B |                      SE423
+	SE#424 picture_coding_extension                |         9 B |                      SE424
+	SE#493 picture_header                          |         9 B |                      SE493
+	SE#494 picture_coding_extension                |         9 B |                      SE494
+	...
+	```
+7. #### List all macro-blocks
+	Not supported at present
+8. #### List all GOPs in a specified video sequence
+	```
+	DumpTS 00023.m2v --listmse=gop.vseq0
+	```
+	And then
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	Video Sequence#0                               |             |                      VSEQ0
+	    GOP#0 (closed)                             |             |                 GOP0.VSEQ0
+	    GOP#1 (open)                               |             |                 GOP1.VSEQ0
+	    GOP#2 (open)                               |             |                 GOP2.VSEQ0
+	    GOP#3 (open)                               |             |                 GOP3.VSEQ0
+	    GOP#4 (open)                               |             |                 GOP4.VSEQ0
+	    GOP#5 (open)                               |             |                 GOP5.VSEQ0
+	    GOP#6 (open)                               |             |                 GOP6.VSEQ0
+	    GOP#7 (open)                               |             |                 GOP7.VSEQ0
+	    GOP#8 (open)                               |             |                 GOP8.VSEQ0
+	    GOP#9 (open)                               |             |                 GOP9.VSEQ0
+	    GOP#10 (open)                              |             |                GOP10.VSEQ0
+	    GOP#11 (open)                              |             |                GOP11.VSEQ0
+	    GOP#12 (open)                              |             |                GOP12.VSEQ0
+	    GOP#13 (open)                              |             |                GOP13.VSEQ0
+	...
+	```
+9. #### List all access-units in a specified GOP
+	```
+	DumpTS 00023.m2v --listmse=au.gop2
+	```
+	And then, all access-units of the 3rd GOP will be listed
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	GOP#2 (open)                                   |             |                       GOP2
+	    AU#0 (I)                                   |   361,074 B |                   AU0.GOP2
+	    AU#1 (B)                                   |    53,397 B |                   AU1.GOP2
+	    AU#2 (B)                                   |    50,591 B |                   AU2.GOP2
+	    AU#3 (P)                                   |   117,745 B |                   AU3.GOP2
+	    AU#4 (B)                                   |    50,194 B |                   AU4.GOP2
+	    AU#5 (B)                                   |    48,185 B |                   AU5.GOP2
+	    AU#6 (P)                                   |   132,027 B |                   AU6.GOP2
+	    AU#7 (B)                                   |    57,506 B |                   AU7.GOP2
+	    AU#8 (B)                                   |    61,382 B |                   AU8.GOP2
+	    AU#9 (P)                                   |   140,204 B |                   AU9.GOP2
+	    AU#10 (B)                                  |    61,736 B |                  AU10.GOP2
+	    AU#11 (B)                                  |    63,833 B |                  AU11.GOP2
+	    AU#12 (P)                                  |   147,079 B |                  AU12.GOP2
+	    AU#13 (B)                                  |    65,729 B |                  AU13.GOP2
+	    AU#14 (B)                                  |    67,136 B |                  AU14.GOP2
+	...
+	```
+10. #### List some syntax elements in a or some specified GOP(s) or/and Access Unit(s)
+	```
+	DumpTS 00023.m2v --listmse=se1-4.au1-2.gop2-3
+	```
+	And then, the #1,#2,#3 and #4(0-based)syntax elements of the #2 and #3(0-based) access-units of GOP#2 and #3(0-based) will be listed,
+	```
+	GOP#2 (open)                                   |             |                       GOP2
+	    AU#1 (B)                                   |    53,397 B |                   AU1.GOP2
+	        SE#1 picture_coding_extension          |         9 B |               SE1.AU1.GOP2
+	        SE#2 slice1                            |       515 B |               SE2.AU1.GOP2
+	        SE#3 slice2                            |       405 B |               SE3.AU1.GOP2
+	        SE#4 slice3                            |       382 B |               SE4.AU1.GOP2
+	    AU#2 (B)                                   |    50,591 B |                   AU2.GOP2
+	        SE#1 picture_coding_extension          |         9 B |               SE1.AU2.GOP2
+	        SE#2 slice1                            |       235 B |               SE2.AU2.GOP2
+	        SE#3 slice2                            |       225 B |               SE3.AU2.GOP2
+	        SE#4 slice3                            |       246 B |               SE4.AU2.GOP2
+	GOP#3 (open)                                   |             |                       GOP3
+	    AU#1 (B)                                   |    56,516 B |                   AU1.GOP3
+	        SE#1 picture_coding_extension          |         9 B |               SE1.AU1.GOP3
+	        SE#2 slice1                            |       298 B |               SE2.AU1.GOP3
+	        SE#3 slice2                            |       273 B |               SE3.AU1.GOP3
+	        SE#4 slice3                            |       300 B |               SE4.AU1.GOP3
+	    AU#2 (B)                                   |    54,804 B |                   AU2.GOP3
+	        SE#1 picture_coding_extension          |         9 B |               SE1.AU2.GOP3
+	        SE#2 slice1                            |       126 B |               SE2.AU2.GOP3
+	        SE#3 slice2                            |       105 B |               SE3.AU2.GOP3
+	        SE#4 slice3                            |       145 B |               SE4.AU2.GOP3
+	```
 ```
 DumpTS xxxx.h264 --listMSE=MSE://AU
 ```

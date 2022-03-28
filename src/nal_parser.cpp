@@ -365,7 +365,7 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 
 	if (bDrain)
 	{
-		if (m_nal_enum_options&NAL_ENUM_OPTION_AU)
+		if (m_nal_enum_options&(NAL_ENUM_OPTION_AU|NAL_ENUM_OPTION_CVS|NAL_ENUM_OPTION_VSEQ))
 			CommitSliceInfo(true);
 
 		AM_LRB_Reset(m_rbRawBuf);
@@ -766,7 +766,7 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 		return RET_CODE_NEEDMOREINPUT;
 
 	// Don't need analyze the Access-Unit
-	if (!(m_nal_enum_options&NAL_ENUM_OPTION_AU))
+	if (!(m_nal_enum_options&(NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_CVS | NAL_ENUM_OPTION_VSEQ)))
 	{
 		uint8_t* pNUBuf = pEBSPBuf;
 		size_t cbNUBuf = (size_t)read_buf_len;
@@ -1010,11 +1010,20 @@ int CNALParser::CommitHEVCPicture(
 	int16_t slice_pic_parameter_set_id = -1;
 	uint8_t nal_unit_type = 0XFF, picture_slice_type = 3;
 	auto firstBlPicNalUnit = pic_end;
+	bool bCVSChange = false;
+	int8_t represent_nal_unit_type = -1;
+
 	for (auto iter = pic_start; iter != pic_end; iter++)
 	{
 		// At present, only parsing base-layer NAL unit in advance
 		if (!IS_HEVC_VCL_NAL(iter->nal_unit_type) || iter->nuh_layer_id != 0)
 			continue;
+
+		if (represent_nal_unit_type == -1 && (IS_BLA(iter->nal_unit_type) || IS_IDR(iter->nal_unit_type) || IS_CRA(iter->nal_unit_type)))
+		{
+			represent_nal_unit_type = (int8_t)iter->nal_unit_type;
+			bCVSChange = true;
+		}
 
 		if (slice_pic_parameter_set_id == -1)
 		{
@@ -1245,6 +1254,18 @@ int CNALParser::CommitHEVCPicture(
 		uint8_t* pAUBuf = pAUBufStart;
 		size_t cbAUBuf = (size_t)(pAUBufEnd - pAUBufStart);
 
+		if (bSequenceChange && (m_nal_enum_options&NAL_ENUM_OPTION_VSEQ) && AMP_FAILED(m_nal_enum->EnumNewVSEQ(m_pCtx)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		if (bCVSChange && (m_nal_enum_options&NAL_ENUM_OPTION_CVS) && AMP_FAILED(m_nal_enum->EnumNewCVS(m_pCtx, represent_nal_unit_type)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
 		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
 		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
 		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, picture_slice_type)))
@@ -1272,7 +1293,6 @@ int CNALParser::CommitHEVCPicture(
 		}
 	}
 
-
 done:
 	return iRet;
 }
@@ -1295,11 +1315,19 @@ int CNALParser::CommitAVCPicture(
 	int16_t slice_pic_parameter_set_id = -1;
 	uint8_t nal_unit_type = 0XFF, picture_slice_type = 0xFF;
 	auto firstBlPicNalUnit = pic_end;
+	bool bCVSChange = false;
+	int8_t represent_nal_unit_type = -1, first_I_nal_unit_type = -1;
 	for (auto iter = pic_start; iter != pic_end; iter++)
 	{
 		// At present, only parsing base-layer NAL unit in advance
 		if (!IS_AVC_VCL_NAL(iter->nal_unit_type))
 			continue;
+
+		if (represent_nal_unit_type == -1 && iter->nal_unit_type == BST::H264Video::CS_IDR_PIC)
+		{
+			represent_nal_unit_type = iter->nal_unit_type;
+			bCVSChange = true;
+		}
 
 		if (slice_pic_parameter_set_id == -1)
 		{
@@ -1347,7 +1375,10 @@ int CNALParser::CommitAVCPicture(
 		case 2:	// For I
 		case 7:
 			if (picture_slice_type == 0xFF)
+			{
+				first_I_nal_unit_type = iter->nal_unit_type;
 				picture_slice_type = AVC_PIC_SLICE_I;
+			}
 			else if (picture_slice_type == AVC_PIC_SLICE_SI)
 				picture_slice_type = AVC_PIC_SLICE_SI_I;
 			else if (picture_slice_type == AVC_PIC_SLICE_SP || picture_slice_type == AVC_PIC_SLICE_P)
@@ -1376,6 +1407,12 @@ int CNALParser::CommitAVCPicture(
 				picture_slice_type = AVC_PIC_SLICE_SI_I_SP_P_B;
 			break;
 		}
+	}
+
+	if (picture_slice_type == AVC_PIC_SLICE_I && bCVSChange == false)
+	{
+		represent_nal_unit_type = first_I_nal_unit_type;
+		bCVSChange = true;
 	}
 
 	auto byte_stream_nal_unit_start_pos = pic_start->file_offset - pic_start->leading_bytes;
@@ -1542,6 +1579,18 @@ int CNALParser::CommitAVCPicture(
 	{
 		uint8_t* pAUBuf = pAUBufStart;
 		size_t cbAUBuf = (size_t)(pAUBufEnd - pAUBufStart);
+
+		if (bSequenceChange && (m_nal_enum_options&NAL_ENUM_OPTION_VSEQ) && AMP_FAILED(m_nal_enum->EnumNewVSEQ(m_pCtx)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		if (bCVSChange && (m_nal_enum_options&NAL_ENUM_OPTION_CVS) && AMP_FAILED(m_nal_enum->EnumNewCVS(m_pCtx, represent_nal_unit_type)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
 
 		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
 		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);

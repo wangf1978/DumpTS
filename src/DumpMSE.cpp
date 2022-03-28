@@ -121,6 +121,7 @@ struct MSENav
 			MSEID_RANGE		vcl_nu;						// VCL NAL unit index
 			MSEID_RANGE		au;							// Access unit index
 			MSEID_RANGE		cvs;						// Codec video sequence index
+			MSEID_RANGE		vseq;
 		}NAL;
 		struct
 		{
@@ -185,7 +186,7 @@ protected:
 };
 
 std::vector<std::string> MSENav::nal_supported_authority_components 
-					= { "cvs", "au", "nu", "vcl", "seimsg", "seipl" };
+					= { "vseq", "cvs", "au", "nu", "vcl", "seimsg", "seipl" };
 std::vector<std::string> MSENav::audio_supported_authority_components 
 					= { "au" };
 std::vector<std::string> MSENav::av1_supported_authority_components 
@@ -203,6 +204,7 @@ void MSENav::InitAs(MSEID mseid)
 		NAL.vcl_nu.Reset(mseid);
 		NAL.au.Reset(mseid);
 		NAL.cvs.Reset(mseid);
+		NAL.vseq.Reset(mseid);
 	}
 	else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
@@ -244,6 +246,9 @@ uint32_t MSENav::GetEnumOptions()
 
 		if (!NAL.cvs.IsNull() && !NAL.cvs.IsNaR())
 			enum_options |= NAL_ENUM_OPTION_CVS;
+
+		if (!NAL.vseq.IsNull() && !NAL.cvs.IsNaR())
+			enum_options |= NAL_ENUM_OPTION_VSEQ;
 	}
 	else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
@@ -555,19 +560,20 @@ int MSENav::NormalizeAuthorityPart()
 
 int MSENav::CheckNALAuthorityComponent(size_t idxComponent)
 {
-	// Check the occur sequence, "cvs", "au", "nu", "vcl", "seimsg", "seipl"
-	if ((idxComponent > 0 && !NAL.cvs.IsNull()		&& !NAL.cvs.IsNaR()) ||	// au or deeper
-		(idxComponent > 1 && !NAL.au.IsNull()		&& !NAL.au.IsNaR()) ||	// nu or deeper
-		(idxComponent > 3 && !NAL.nu.IsNull()		&& !NAL.nu.IsNaR()) ||	// sei-message or sei_payload
-		(idxComponent > 4 && !NAL.sei_msg.IsNull()	&& !NAL.sei_msg.IsNaR()))	// sei-payload
+	// Check the occur sequence, "vseq", "cvs", "au", "nu", "vcl", "seimsg", "seipl"
+	if ((idxComponent > 0 && !NAL.vseq.IsNull()		&& !NAL.vseq.IsNaR()) ||// cvs or deeper
+		(idxComponent > 1 && !NAL.cvs.IsNull()		&& !NAL.cvs.IsNaR()) ||	// au or deeper
+		(idxComponent > 2 && !NAL.au.IsNull()		&& !NAL.au.IsNaR()) ||	// nu or deeper
+		(idxComponent > 4 && !NAL.nu.IsNull()		&& !NAL.nu.IsNaR()) ||	// sei-message or sei_payload
+		(idxComponent > 5 && !NAL.sei_msg.IsNull()	&& !NAL.sei_msg.IsNaR()))	// sei-payload
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
 	}
-	else if (idxComponent == 2 || idxComponent == 3)
+	else if (idxComponent == 3 || idxComponent == 4)
 	{
-		if ((idxComponent == 2 && !NAL.vcl_nu.IsNull() && !NAL.vcl_nu.IsNaR()) ||
-			(idxComponent == 3 && !NAL.nu.IsNull() && !NAL.nu.IsNaR()))
+		if ((idxComponent == 3 && !NAL.vcl_nu.IsNull() && !NAL.vcl_nu.IsNaR()) ||
+			(idxComponent == 4 && !NAL.nu.IsNull() && !NAL.nu.IsNaR()))
 		{
 			printf("'nu' should NOT occur at the same time with 'vcl'.\n");
 			return RET_CODE_ERROR;
@@ -644,7 +650,7 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 		break;
 	case MEDIA_SCHEME_NAL:
 	{
-		MSEID_RANGE* ranges[] = {&NAL.cvs, &NAL.au, &NAL.nu, &NAL.vcl_nu, &NAL.sei_msg, &NAL.sei_pl};
+		MSEID_RANGE* ranges[] = {&NAL.vseq, &NAL.cvs, &NAL.au, &NAL.nu, &NAL.vcl_nu, &NAL.sei_msg, &NAL.sei_pl};
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, nal_supported_authority_components, ranges);
 		break;
 	}
@@ -1138,7 +1144,7 @@ public:
 				m_level[i] = next_level;
 
 				// CVS is the point, not a range
-				if (i == NAL_LEVEL_CVS)
+				if (i == NAL_LEVEL_VSEQ || i == NAL_LEVEL_CVS)
 					m_unit_index[next_level] = -1;
 				else
 					m_unit_index[next_level] = 0;
@@ -1170,6 +1176,49 @@ public:
 public:
 	RET_CODE EnumNewVSEQ(IUnknown* pCtx)
 	{
+		m_unit_index[m_level[NAL_LEVEL_VSEQ]]++;
+		if (m_level[NAL_LEVEL_CVS] > 0)
+			m_unit_index[m_level[NAL_LEVEL_CVS]] = 0;
+		if (m_level[NAL_LEVEL_AU] > 0)
+			m_unit_index[m_level[NAL_LEVEL_AU]] = 0;
+		if (m_level[NAL_LEVEL_NU] > 0)
+			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
+		m_curr_vcl_count = 0;
+		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
+		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
+			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
+
+		int iRet = RET_CODE_SUCCESS;
+		if ((iRet = CheckFilter(NAL_LEVEL_VSEQ)) != RET_CODE_SUCCESS)
+			return iRet;
+
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sVideo Sequence#%" PRId64 "",
+			(m_level[NAL_LEVEL_VSEQ]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_VSEQ]]);
+
+		if (ccWrittenOnce <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		if ((size_t)ccWrittenOnce < column_width_name)
+			memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+		szItem[column_width_name] = '|';
+		ccWritten = column_width_name + 1;
+
+		if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%12s |", " ")) <= 0)
+			return RET_CODE_NOTHING_TODO;
+
+		ccWritten += ccWrittenOnce;
+
+		AppendURI(szItem, ccWritten, NAL_LEVEL_VSEQ);
+
+		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+		printf("%s\n", szItem);
+
 		return RET_CODE_SUCCESS;
 	}
 
@@ -1195,9 +1244,9 @@ public:
 
 		const char* szCVSType = "";
 		if (m_curr_nal_coding == NAL_CODING_HEVC)
-			szCVSType = IS_BLA(represent_nal_unit_type) ? "(BLA)" : (IS_IDR(represent_nal_unit_type) ? "(IDR)" : "");
+			szCVSType = IS_CRA(represent_nal_unit_type) ? "(CRA, open GOP)" : (IS_BLA(represent_nal_unit_type) ? "(BLA)" : (IS_IDR(represent_nal_unit_type) ? "(IDR, closed GOP)" : ""));
 		else if (m_curr_nal_coding == NAL_CODING_AVC)
-			szCVSType = represent_nal_unit_type == AVC_CS_IDR_PIC ? "(IDR)" : "";
+			szCVSType = represent_nal_unit_type == AVC_CS_IDR_PIC ? "(IDR, closed GOP)" : "(I, open GOP)";
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sCVS#%" PRId64 " %s",
 			(m_level[NAL_LEVEL_CVS]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_CVS]], szCVSType);
@@ -1540,7 +1589,7 @@ protected:
 		if (m_pMSENav == nullptr)
 			return RET_CODE_SUCCESS;
 
-		MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->NAL.cvs, m_pMSENav->NAL.au, m_pMSENav->NAL.nu, m_pMSENav->NAL.sei_msg,
+		MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->NAL.vseq, m_pMSENav->NAL.cvs, m_pMSENav->NAL.au, m_pMSENav->NAL.nu, m_pMSENav->NAL.sei_msg,
 			m_pMSENav->NAL.sei_pl, MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() };
 
 		bool bNullParent = true;
@@ -1689,7 +1738,7 @@ protected:
 	uint32_t				m_options = 0;
 	const size_t			column_width_name = 47;
 	const size_t			column_width_len = 13;
-	const size_t			column_width_URI = 27;
+	const size_t			column_width_URI = 36;
 	const size_t			right_padding = 1;
 };
 
@@ -1847,7 +1896,7 @@ void PrintMSEHeader(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_option
 		if (scheme_type == MEDIA_SCHEME_MPV)
 			printf("------------Name-------------------------------|-----len-----|------------URI-------------\n");
 		else if (scheme_type == MEDIA_SCHEME_NAL)
-			printf("------------Name-------------------------------|-----len-----|------------URI-------------\n");
+			printf("------------Name-------------------------------|-----len-----|------------URI----------------------\n");
 	}
 }
 
