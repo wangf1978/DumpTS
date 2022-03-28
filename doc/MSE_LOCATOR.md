@@ -19,7 +19,7 @@
             * [7. List all macro-blocks](#list-all-macro-blocks)
             * [8. List all GOPs in a specified video sequence](#list-all-gops-in-a-specified-video-sequence)
             * [9. List all access-units in a specified GOP](#list-all-access-units-in-a-specified-gop)
-            * [10. List some syntax elements in a or some specified GOP(s) or/and Access Unit(s)](#list-some-syntax-elements-in-a-or-some-specified-gop-s-or-and-access-unit-s)
+            * [10. List some syntax elements in a/some specified GOP(s) or/and Access Unit(s)](#list-some-syntax-elements-in-asome-specified-gops-orand-access-units)
 	* [`showMSE` command](#showmse-command)
 	* [`showMSEHex` command](#showmse-command)
 
