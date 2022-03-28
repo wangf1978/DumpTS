@@ -1168,6 +1168,11 @@ public:
 	}
 
 public:
+	RET_CODE EnumNewVSEQ(IUnknown* pCtx)
+	{
+		return RET_CODE_SUCCESS;
+	}
+
 	RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type)
 	{
 		char szItem[256] = { 0 };
@@ -1220,7 +1225,7 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType)
+	RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
@@ -1231,7 +1236,8 @@ public:
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sAU#%" PRId64 " (%s)",
 			(m_level[NAL_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_AU]],
-			PICTURE_CODING_TYPE_SHORTNAME(picCodingType));
+			m_curr_nal_coding == NAL_CODING_AVC?AVC_PIC_SLICE_TYPE_NAMEA(picture_slice_type):(
+			m_curr_nal_coding == NAL_CODING_HEVC?HEVC_PIC_SLICE_TYPE_NAMEA(picture_slice_type):""));
 
 		if (ccWrittenOnce <= 0)
 			return RET_CODE_NOTHING_TODO;

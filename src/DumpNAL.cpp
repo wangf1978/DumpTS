@@ -127,9 +127,10 @@ int	ShowNUs()
 		}
 
 	public:
+		RET_CODE EnumNewVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
 		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type){return RET_CODE_SUCCESS;}
 
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType)
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type)
 		{
 			printf("Access-Unit#%" PRIu64 "\n", m_AUCount);
 			return RET_CODE_SUCCESS;
@@ -868,8 +869,9 @@ int GetStreamInfoFromSPS(NAL_CODING coding, uint8_t* pAnnexBBuf, size_t cbAnnexB
 		}
 
 	public:
+		RET_CODE EnumNewVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
 		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) { return RET_CODE_SUCCESS; }
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType) { return RET_CODE_SUCCESS; }
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type) { return RET_CODE_SUCCESS; }
 
 		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
@@ -1404,10 +1406,11 @@ int ShowNALObj(int object_type)
 
 			return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
 		}
+		RET_CODE EnumNewVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
 
 		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) { return RET_CODE_SUCCESS; }
 
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType){return RET_CODE_SUCCESS;}
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type){return RET_CODE_SUCCESS;}
 
 		RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 		{
@@ -1771,9 +1774,10 @@ int RunH264HRD()
 		}
 
 	public:
+		RET_CODE EnumNewVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
 		RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) { return RET_CODE_SUCCESS; }
 
-		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType)
+		RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type)
 		{ 
 			bHaveSEIBufferingPeriod = false;
 			return RET_CODE_SUCCESS; 

@@ -179,6 +179,16 @@ enum AVC_PICTURE_SLICE_TYPE
 #define HEVC_P_SLICE					1
 #define HEVC_I_SLICE					2
 
+#define HEVC_PIC_SLICE_TYPE_NAMEA(st)	(\
+	(st) == HEVC_B_SLICE?"B":(\
+	(st) == HEVC_P_SLICE?"P":(\
+	(st) == HEVC_I_SLICE?"I":"")))
+
+#define HEVC_PIC_SLICE_TYPE_NAMEW(st)	(\
+	(st) == HEVC_B_SLICE?L"B":(\
+	(st) == HEVC_P_SLICE?L"P":(\
+	(st) == HEVC_I_SLICE?L"I":L"")))
+
 #define IS_HEVC_PARAMETERSET_NAL(nal_unit_type)	(\
 	(nal_unit_type) == HEVC_VPS_NUT ||\
 	(nal_unit_type) == HEVC_SPS_NUT ||\

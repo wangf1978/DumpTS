@@ -31,6 +31,7 @@ SOFTWARE.
 #include <cstdint>
 #include "systemdef.h"
 
+#define NAL_LEVEL_VSEQ				2
 #define NAL_LEVEL_CVS				3
 #define NAL_LEVEL_AU				4
 #define NAL_LEVEL_NU				5
@@ -38,11 +39,12 @@ SOFTWARE.
 #define NAL_LEVEL_SEI_PAYLOAD		7
 
 #define NAL_LEVEL_NAME(lvl_id)	(\
+	(lvl_id) == NAL_LEVEL_VSEQ?"VSEQ":(\
 	(lvl_id) == NAL_LEVEL_CVS?"CVS":(\
 	(lvl_id) == NAL_LEVEL_AU?"AU":(\
 	(lvl_id) == NAL_LEVEL_NU?"NU":(\
 	(lvl_id) == NAL_LEVEL_SEI_MSG?"SEIMSG":(\
-	(lvl_id) == NAL_LEVEL_SEI_PAYLOAD?"SEIPL":"")))))
+	(lvl_id) == NAL_LEVEL_SEI_PAYLOAD?"SEIPL":""))))))
 
 #define MPV_LEVEL_VSEQ				2
 #define MPV_LEVEL_GOP				3
@@ -68,6 +70,7 @@ enum MSE_ENUM_OPTION
 	//
 	// For NAL media scheme
 	//
+	NAL_ENUM_OPTION_VSEQ	= (1 << NAL_LEVEL_VSEQ),
 	NAL_ENUM_OPTION_CVS		= (1 << NAL_LEVEL_CVS),
 	NAL_ENUM_OPTION_AU		= (1 << NAL_LEVEL_AU),
 	NAL_ENUM_OPTION_NU		= (1 << NAL_LEVEL_NU),
@@ -134,8 +137,9 @@ public:
 class INALEnumerator : public IUnknown
 {
 public:
+	virtual RET_CODE		EnumNewVSEQ(IUnknown* pCtx) = 0;
 	virtual RET_CODE		EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) = 0;
-	virtual RET_CODE		EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picCodingType) = 0;
+	virtual RET_CODE		EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type) = 0;
 	virtual RET_CODE		EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf) = 0;
 	virtual RET_CODE		EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) = 0;
 	virtual RET_CODE		EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) = 0;

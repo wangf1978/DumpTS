@@ -1110,7 +1110,7 @@ int CNALParser::CommitHEVCPicture(
 		pic_width_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->pic_width_in_luma_samples;
 		pic_height_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->pic_height_in_luma_samples;
 
-		if (!sp_vps &&
+		if(!sp_vps &&
 			sp_vps->ptr_video_parameter_set_rbsp != nullptr &&
 			sp_vps->ptr_video_parameter_set_rbsp->vps_timing_info_present_flag)
 		{
@@ -1247,8 +1247,7 @@ int CNALParser::CommitHEVCPicture(
 
 		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
 		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
-
-		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, 0)))
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, picture_slice_type)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -1546,8 +1545,7 @@ int CNALParser::CommitAVCPicture(
 
 		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
 		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
-
-		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, 0)))
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, picture_slice_type)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
