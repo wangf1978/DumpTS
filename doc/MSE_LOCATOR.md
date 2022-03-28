@@ -574,7 +574,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	```
 	DumpTS 00023.m2v --listmse=se1-4.au1-2.gop2-3
 	```
-	And then, the #1,#2,#3 and #4(0-based)syntax elements of the #2 and #3(0-based) access-units of GOP#2 and #3(0-based) will be listed,
+	And then, the 1st,2nd,3rd and 4th(0-based)syntax elements of the 2nd and 3rd(0-based) access-units of 2nd and 3rd GOP(0-based) will be listed,
 	```
 	GOP#2 (open)                                   |             |                       GOP2
 	    AU#1 (B)                                   |    53,397 B |                   AU1.GOP2
