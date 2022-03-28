@@ -169,9 +169,10 @@ namespace BST {
 						{
 							MAP_BST_BEGIN(0);
 							uint8_t payload_byte;
+							reserved_sei_message_payload_bytes.reserve(payload_size);
 							for (int i = 0; i < payload_size; i++) {
 								nal_read_b(in_bst, payload_byte, 8, uint8_t);
-								reserved_sei_message_payload_bytes[i] = payload_byte;
+								reserved_sei_message_payload_bytes.push_back(payload_byte);
 							}
 							MAP_BST_END();
 						}
