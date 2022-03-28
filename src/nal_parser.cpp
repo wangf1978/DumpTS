@@ -896,6 +896,7 @@ done:
 
 int CNALParser::CommitSliceInfo(bool bDrain)
 {
+	int iRet = RET_CODE_SUCCESS;
 	auto& back = m_nu_entries.back();
 
 	if (!back.first_slice_segment_in_pic_flag && !bDrain)
@@ -951,9 +952,12 @@ int CNALParser::CommitSliceInfo(bool bDrain)
 		if (iter_last_VCL_NAL_unit != m_nu_entries.cend())
 		{
 			if (m_nal_coding == NAL_CODING_AVC)
-				CommitAVCPicture(iter_begin, iter);
+				iRet = CommitAVCPicture(iter_begin, iter);
 			else if (m_nal_coding == NAL_CODING_HEVC)
-				CommitHEVCPicture(iter_begin, iter);
+				iRet = CommitHEVCPicture(iter_begin, iter);
+
+			if (iRet == RET_CODE_ABORT)
+				goto done;
 		}
 
 		iter_firstBlPicNalUnit = iter_last_VCL_NAL_unit = m_nu_entries.cend();
@@ -982,7 +986,8 @@ int CNALParser::CommitSliceInfo(bool bDrain)
 			iter->NU_offset -= num_of_advanced_bytes;
 	}
 
-	return RET_CODE_SUCCESS;
+done:
+	return iRet;
 }
 
 int CNALParser::CommitHEVCPicture(
@@ -1270,8 +1275,7 @@ int CNALParser::CommitHEVCPicture(
 
 
 done:
-
-	return RET_CODE_SUCCESS;
+	return iRet;
 }
 
 int CNALParser::CommitAVCPicture(

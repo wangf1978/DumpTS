@@ -40,9 +40,9 @@ SOFTWARE.
 #define NAL_LEVEL_NAME(lvl_id)	(\
 	(lvl_id) == NAL_LEVEL_CVS?"CVS":(\
 	(lvl_id) == NAL_LEVEL_AU?"AU":(\
-	(lvl_id) == NAL_LEVEL_NU?"NAL Unit":(\
-	(lvl_id) == NAL_LEVEL_SEI_MSG?"SEI message":(\
-	(lvl_id) == NAL_LEVEL_SEI_PAYLOAD?"SEI payload":"")))))
+	(lvl_id) == NAL_LEVEL_NU?"NU":(\
+	(lvl_id) == NAL_LEVEL_SEI_MSG?"SEIMSG":(\
+	(lvl_id) == NAL_LEVEL_SEI_PAYLOAD?"SEIPL":"")))))
 
 #define MPV_LEVEL_VSEQ				2
 #define MPV_LEVEL_GOP				3

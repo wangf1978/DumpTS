@@ -185,7 +185,7 @@ protected:
 };
 
 std::vector<std::string> MSENav::nal_supported_authority_components 
-					= { "cvs", "au", "nu", "seimsg", "seipl" };
+					= { "cvs", "au", "nu", "vcl", "seimsg", "seipl" };
 std::vector<std::string> MSENav::audio_supported_authority_components 
 					= { "au" };
 std::vector<std::string> MSENav::av1_supported_authority_components 
@@ -200,6 +200,7 @@ void MSENav::InitAs(MSEID mseid)
 		NAL.sei_pl.Reset(mseid);
 		NAL.sei_msg.Reset(mseid);
 		NAL.nu.Reset(mseid);
+		NAL.vcl_nu.Reset(mseid);
 		NAL.au.Reset(mseid);
 		NAL.cvs.Reset(mseid);
 	}
@@ -242,7 +243,7 @@ uint32_t MSENav::GetEnumOptions()
 			enum_options |= NAL_ENUM_OPTION_AU;
 
 		if (!NAL.cvs.IsNull() && !NAL.cvs.IsNaR())
-			enum_options |= NAL_ENUM_OPTION_AU;
+			enum_options |= NAL_ENUM_OPTION_CVS;
 	}
 	else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
@@ -540,20 +541,37 @@ int MSENav::NormalizeAuthorityPart()
 				MPV.se.Reset(MSE_UNSPECIFIED);
 		}
 	}
+	else if (scheme_type == MEDIA_SCHEME_NAL)
+	{
+		if (NAL.nu.IsNull())
+		{
+			if (!NAL.vcl_nu.IsNull())
+				NAL.nu.Reset(MSE_UNSPECIFIED);
+		}
+	}
 
 	return RET_CODE_SUCCESS;
 }
 
 int MSENav::CheckNALAuthorityComponent(size_t idxComponent)
 {
-	// Check the occur sequence
-	if ((idxComponent > 0 && !NAL.cvs.IsNull()		&& !NAL.cvs.IsNaR()) ||
-		(idxComponent > 1 && !NAL.au.IsNull()		&& !NAL.au.IsNaR()) ||
-		(idxComponent > 2 && !NAL.nu.IsNull()		&& !NAL.nu.IsNaR()) ||
-		(idxComponent > 3 && !NAL.sei_msg.IsNull()	&& !NAL.sei_msg.IsNaR()))
+	// Check the occur sequence, "cvs", "au", "nu", "vcl", "seimsg", "seipl"
+	if ((idxComponent > 0 && !NAL.cvs.IsNull()		&& !NAL.cvs.IsNaR()) ||	// au or deeper
+		(idxComponent > 1 && !NAL.au.IsNull()		&& !NAL.au.IsNaR()) ||	// nu or deeper
+		(idxComponent > 3 && !NAL.nu.IsNull()		&& !NAL.nu.IsNaR()) ||	// sei-message or sei_payload
+		(idxComponent > 4 && !NAL.sei_msg.IsNull()	&& !NAL.sei_msg.IsNaR()))	// sei-payload
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
+	}
+	else if (idxComponent == 2 || idxComponent == 3)
+	{
+		if ((idxComponent == 2 && !NAL.vcl_nu.IsNull() && !NAL.vcl_nu.IsNaR()) ||
+			(idxComponent == 3 && !NAL.nu.IsNull() && !NAL.nu.IsNaR()))
+		{
+			printf("'nu' should NOT occur at the same time with 'vcl'.\n");
+			return RET_CODE_ERROR;
+		}
 	}
 
 	return RET_CODE_SUCCESS;
@@ -626,7 +644,7 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 		break;
 	case MEDIA_SCHEME_NAL:
 	{
-		MSEID_RANGE* ranges[] = {&NAL.cvs, &NAL.au, &NAL.nu, &NAL.sei_msg, &NAL.sei_pl};
+		MSEID_RANGE* ranges[] = {&NAL.cvs, &NAL.au, &NAL.nu, &NAL.vcl_nu, &NAL.sei_msg, &NAL.sei_pl};
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, nal_supported_authority_components, ranges);
 		break;
 	}
@@ -972,7 +990,9 @@ protected:
 		if (m_pMSENav == nullptr)
 			return false;
 
-		return m_pMSENav->MPV.se.IsAllUnspecfied() && (m_pMSENav->MPV.slice.IsAllUnspecfied() || (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR()));
+		return (m_pMSENav->MPV.se.IsAllUnspecfied()) && 
+			   (m_pMSENav->MPV.slice.IsAllUnspecfied() || (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR())) &&
+			  !(m_pMSENav->MPV.slice.IsAllExcluded());;
 	}
 
 	std::string	GetURI(int level_id)
@@ -1249,15 +1269,23 @@ public:
 
 		if ((iRet = CheckFilter(NAL_LEVEL_NU, nal_unit_type)) == RET_CODE_SUCCESS)
 		{
+			m_curr_nu_type = nal_unit_type;
 			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 			{
 				bool onlyShowVCLNU = OnlyVCLNU();
-				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
-					(m_level[NAL_LEVEL_NU]) * 4, g_szRule,
-					m_curr_nal_coding == NAL_CODING_AVC?(IS_AVC_VCL_NAL(nal_unit_type)?"VCL NU":"non-VCL NU"):(
-					m_curr_nal_coding == NAL_CODING_HEVC?(IS_HEVC_VCL_NAL(nal_unit_type)?"VCL NU":"non-VCL NU"):""),
-					onlyShowVCLNU ? m_curr_vcl_count : m_unit_index[m_level[NAL_LEVEL_NU]],
-					GetNUName(nal_unit_type));
+				if (onlyShowVCLNU)
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
+						(m_level[NAL_LEVEL_NU]) * 4, g_szRule, "VCL-NU", m_curr_vcl_count, GetNUName(nal_unit_type));
+				}
+				else
+				{
+					ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s::%s",
+						(m_level[NAL_LEVEL_NU]) * 4, g_szRule, "NU", m_unit_index[m_level[NAL_LEVEL_NU]],
+						m_curr_nal_coding == NAL_CODING_AVC ? (IS_AVC_VCL_NAL(nal_unit_type) ? "VCL" : "non-VCL") : (
+						m_curr_nal_coding == NAL_CODING_HEVC ? (IS_HEVC_VCL_NAL(nal_unit_type) ? "VCL" : "non-VCL") : ""),
+						GetNUName(nal_unit_type));
+				}
 
 				if (ccWrittenOnce <= 0)
 					return RET_CODE_NOTHING_TODO;
@@ -1367,9 +1395,9 @@ public:
 		{
 			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 			{
-				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " ",
-					(m_level[NAL_LEVEL_SEI_PAYLOAD]) * 4, g_szRule, GetSEIPayoadTypeName(payload_type),
-					m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]]);
+				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s#%" PRId64 " %s ",
+					(m_level[NAL_LEVEL_SEI_PAYLOAD]) * 4, g_szRule,
+					m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]], GetSEIPayoadTypeName(payload_type));
 
 				if (ccWrittenOnce <= 0)
 					return RET_CODE_NOTHING_TODO;
@@ -1471,7 +1499,9 @@ protected:
 		if (m_pMSENav == nullptr)
 			return false;
 
-		return m_pMSENav->NAL.nu.IsAllUnspecfied() && (m_pMSENav->NAL.vcl_nu.IsAllUnspecfied() || (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.IsNaR()));
+		return (m_pMSENav->NAL.nu.IsAllUnspecfied()) && 
+			   (m_pMSENav->NAL.vcl_nu.IsAllUnspecfied() || (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.IsNaR())) &&
+			  !(m_pMSENav->NAL.vcl_nu.IsAllExcluded());
 	}
 
 	std::string	GetURI(int level_id)
@@ -1486,7 +1516,7 @@ protected:
 					strURI += ".";
 				if (i == NAL_LEVEL_NU && OnlyVCLNU())
 				{
-					strURI += "VCL NAL Unit" + std::to_string(m_curr_vcl_count);
+					strURI += "VCL" + std::to_string(m_curr_vcl_count);
 				}
 				else
 				{
@@ -1554,6 +1584,8 @@ protected:
 					return RET_CODE_NOTHING_TODO;
 			}
 		}
+		else if (level_id > NAL_LEVEL_NU && OnlyVCLNU())
+			return RET_CODE_NOTHING_TODO;
 
 		return RET_CODE_SUCCESS;
 	}
@@ -1751,7 +1783,20 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 
 	if (scheme_type == MEDIA_SCHEME_NAL)
 	{
+		INALContext* pNALCtx = nullptr;
+		if (SUCCEEDED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
+		{
+			IUnknown* pMSEEnumerator = nullptr;
+			uint32_t options = mse_nav.GetEnumOptions();
+			CNALSEEnumerator* pNALSEEnumerator = new CNALSEEnumerator(pNALCtx, enum_options | options, &mse_nav);
+			if (SUCCEEDED(pNALSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
+			{
+				iRet = pMSEParser->SetEnumerator(pMSEEnumerator, enum_options | options);
+				AMP_SAFERELEASE(pMSEEnumerator);
+			}
 
+			AMP_SAFERELEASE(pNALCtx);
+		}
 	}
 	else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
@@ -1767,7 +1812,7 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 			CMPVSEEnumerator* pMPVSEEnumerator = new CMPVSEEnumerator(pMPVCtx, enum_options | options, &mse_nav);
 			if (SUCCEEDED(pMPVSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
 			{
-				iRet = pMSEParser->SetEnumerator(pMPVSEEnumerator, enum_options | options);
+				iRet = pMSEParser->SetEnumerator(pMSEEnumerator, enum_options | options);
 				AMP_SAFERELEASE(pMSEEnumerator);
 			}
 
@@ -1794,6 +1839,8 @@ void PrintMSEHeader(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_option
 	{
 		MEDIA_SCHEME_TYPE scheme_type = pMSEParser->GetSchemeType();
 		if (scheme_type == MEDIA_SCHEME_MPV)
+			printf("------------Name-------------------------------|-----len-----|------------URI-------------\n");
+		else if (scheme_type == MEDIA_SCHEME_NAL)
 			printf("------------Name-------------------------------|-----len-----|------------URI-------------\n");
 	}
 }

@@ -261,7 +261,7 @@ GOP#120 (closed)                               |             |                  
     AU#0 (I)                                   |   117,313 B |                 AU0.GOP120
 ```
 ### NAL bitstream media syntax element locator
-*[MSE://][SEIPL`i`].[SEIMSG`j`].[NU`k`].[AU`l`].[CVS`m`]/part/part/...#field*
+*[MSE://][[`~`]**SEIPL**[`sp₀`][`-`][`spₙ`]][.][[`~`]**SEIMSG**[`sm₀`][`-`][`smₙ`]][.]\([[`~`]**NU**[`n₀`][`-`][`nₙ`]] | [[`~`]**VCL**[`v₀`][`-`][`vₙ`]])[.][[`~`]**AU**[`a₀`][`-`][`aₙ`]][.][[`~`]**CVS**[`c₀`][`-`][`cₙ`]][.][[`~`]**VSEQ**[`v₀`][`-`][`vₙ`]][/part/part/...][#field]*
 
 | URI | comment |
 | --- | --- |
@@ -275,6 +275,8 @@ GOP#120 (closed)                               |             |                  
 | NU`2`.AU`60`|The NAL-unit#2(0-based) of Access-Unit#60 in the whole NAL stream|
 | NU`1`/seq_parameter_set_rbsp/vui_parameters|vui_parameters of NAL-unit#1(it is a SPS NU)|
 | NU`1`/*/vui_parameters#aspect_ratio_idc |the `aspect_ratio_idc` field of VUI of NAL-unit#1|
+|~vcl.au`1`|all VCL NAL units of the 2nd access-unit|
+|vcl.au`1-2`|all VCL NAL units of access-unit 1 and 2|
 
 ### AV1 bitstream media syntax element locator
 *[MSE://][OBU`i`].[FU`j`].[TU`k`]/part/part/...#field*
