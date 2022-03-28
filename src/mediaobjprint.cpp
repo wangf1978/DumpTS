@@ -25,7 +25,11 @@ SOFTWARE.
 */
 #include "platcomm.h"
 #include "mediaobjprint.h"
+#include "combase.h"
 #include "mpeg2_video.h"
+#include "h264_video.h"
+#include "h265_video.h"
+#include "h266_video.h"
 
 void PrintMPVSyntaxElement(IUnknown* pCtx, uint8_t* pMPVSE, size_t cbMPVSE, int indent)
 {
@@ -260,6 +264,78 @@ done:
 
 void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALNUBuf, int indent)
 {
+	int iRet = RET_CODE_SUCCESS;
+	INALContext* pNALCtx = nullptr;
+	if (pCtx == nullptr)
+		return;
+
+	uint8_t* p = pNALNUBuf;
+	size_t cbLeft = cbNALNUBuf;
+
+	if (cbLeft < 1 || p == nullptr)
+		return;
+
+	if (FAILED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
+		return;
+
+	AMBst bst = nullptr;
+	NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
+	INALAVCContext* pNALAVCCtx = nullptr;
+	INALHEVCContext* pNALHEVCCtx = nullptr;
+	if (nal_coding_type == NAL_CODING_AVC)
+	{
+		if (FAILED(pNALCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else if (nal_coding_type == NAL_CODING_HEVC)
+	{
+		if (cbLeft < 2)
+			return;
+
+		if (FAILED(pNALCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else
+		return;
+
+	bst = AMBst_CreateFromBuffer(p, (int)cbLeft);
+
+	try
+	{
+		if (nal_coding_type == NAL_CODING_AVC)
+		{
+			auto h264_nu = pNALAVCCtx->CreateAVCNU();
+			if (AMP_FAILED(iRet = h264_nu->Map(bst)))
+				throw AMException(iRet);
+
+			PrintMediaObject(h264_nu.get(), false, indent);
+		}
+		else if (nal_coding_type == NAL_CODING_HEVC)
+		{
+			auto h265_nu = pNALHEVCCtx->CreateHEVCNU();
+			if (AMP_FAILED(iRet = h265_nu->Map(bst)))
+				throw AMException(iRet);
+
+			PrintMediaObject(h265_nu.get(), false, indent);
+		}
+	}
+	catch (...)
+	{
+		printf("Can't parse the NAL bitstream.\n");
+	}
+
+
+done:
+	AMBst_Destroy(bst);
+	AMP_SAFERELEASE(pNALCtx);
+	AMP_SAFERELEASE(pNALAVCCtx);
+	AMP_SAFERELEASE(pNALHEVCCtx);
 	return;
 }
 
