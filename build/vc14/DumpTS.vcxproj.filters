@@ -36,12 +36,12 @@
     <Filter Include="build\linux\common">
       <UniqueIdentifier>{78b32510-e004-4c59-84ea-ab391c091a85}</UniqueIdentifier>
     </Filter>
+    <Filter Include="build\macos">
+      <UniqueIdentifier>{9f145cf5-4a75-4bc7-8e9a-508b6c2825f3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\README.md" />
-    <None Include="..\..\doc\references.md">
-      <Filter>doc</Filter>
-    </None>
     <None Include="..\..\doc\index.html">
       <Filter>doc</Filter>
     </None>
@@ -50,6 +50,45 @@
     </None>
     <None Include="..\linux\Makefile">
       <Filter>build\linux</Filter>
+    </None>
+    <None Include="..\macos\Makefile">
+      <Filter>build\macos</Filter>
+    </None>
+    <None Include="..\..\doc\diagrams.vsdx">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\AV1_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\ISOBMFF_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MKV_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MMT_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\NAL_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\REFERENCES.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\TS_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\UTILITY_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\AUDIO_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\OPT_SYNTAX.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MSE_LOCATOR.md">
+      <Filter>doc</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -122,7 +161,91 @@
     <ClCompile Include="..\..\src\RefactorTS.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\StdAfx.cpp">
+    <ClCompile Include="..\..\src\DumpPS.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\system_13818_1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Syncer.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\TSTD.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMBitStream.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\h264_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sei.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\nal_com.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMBitArray.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\tinyxml2.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMSHA1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\platcomm.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\nal_parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\h265_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpNAL.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\h266_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ISO14496_3.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpAAC.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\av1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpAV1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\descriptors_13818_1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\descriptors_hdmv.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMRFC3986.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mpeg2_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mpeg2_video_parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpMSE.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\av1_parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mediaobjprint.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\range_lex.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -184,9 +307,6 @@
     <ClInclude Include="..\..\src\QTFF.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\StdAfx.h">
-      <Filter>src\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\LibPlatform\basetsd.h">
       <Filter>src\Header Files\LibPlatform</Filter>
     </ClInclude>
@@ -216,6 +336,93 @@
     </ClInclude>
     <ClInclude Include="..\..\src\LibPlatform\wtypes.h">
       <Filter>src\Header Files\LibPlatform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\NAL.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\dump_data_type.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\Syncer.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMBitStream.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\h264_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\sei.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\nal_com.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\DumpUtil.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMArray.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\tinyxml2.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMSHA1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\platcomm.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\nal_parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\h265_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\h266_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ISO14496_3.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mediaobjprint.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\av1_def.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\version.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system_13818_1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\descriptors_13818_1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\systemdef.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\descriptors_hdmv.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMRFC3986.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mpeg2_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mpeg2_video_parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\MSE.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\av1_parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\range_lex.h">
+      <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

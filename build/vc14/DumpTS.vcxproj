@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -20,24 +20,24 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BF77391C-3A97-460E-B1F1-3741C5B3DB78}</ProjectGuid>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -102,12 +102,12 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -138,7 +138,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
@@ -174,7 +174,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Release/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
@@ -210,7 +210,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>Create</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>platcomm.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <ProgramDataBaseFileName>.\Release/</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
@@ -232,8 +232,19 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\..\doc\AUDIO_README.md" />
+    <None Include="..\..\doc\AV1_README.md" />
+    <None Include="..\..\doc\diagrams.vsdx" />
     <None Include="..\..\doc\index.html" />
-    <None Include="..\..\doc\references.md" />
+    <None Include="..\..\doc\ISOBMFF_README.md" />
+    <None Include="..\..\doc\MKV_README.md" />
+    <None Include="..\..\doc\MMT_README.md" />
+    <None Include="..\..\doc\MSE_LOCATOR.md" />
+    <None Include="..\..\doc\NAL_README.md" />
+    <None Include="..\..\doc\OPT_SYNTAX.md" />
+    <None Include="..\..\doc\REFERENCES.md" />
+    <None Include="..\..\doc\TS_README.md" />
+    <None Include="..\..\doc\UTILITY_README.md" />
     <None Include="..\..\README.md" />
     <None Include="..\linux\common\Toolchain.mk">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -247,49 +258,97 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="..\macos\Makefile">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\AIFF.cpp" />
+    <ClCompile Include="..\..\src\AMBitArray.cpp" />
+    <ClCompile Include="..\..\src\AMBitStream.cpp" />
+    <ClCompile Include="..\..\src\AMRFC3986.cpp" />
     <ClCompile Include="..\..\src\AMRingBuffer.cpp" />
+    <ClCompile Include="..\..\src\AMSHA1.cpp" />
     <ClCompile Include="..\..\src\AudChMap.cpp" />
+    <ClCompile Include="..\..\src\av1.cpp" />
+    <ClCompile Include="..\..\src\av1_parser.cpp" />
     <ClCompile Include="..\..\src\Bitstream.cpp" />
     <ClCompile Include="..\..\src\combase.cpp" />
     <ClCompile Include="..\..\src\crc.cpp" />
+    <ClCompile Include="..\..\src\descriptors_13818_1.cpp" />
+    <ClCompile Include="..\..\src\descriptors_hdmv.cpp" />
+    <ClCompile Include="..\..\src\DumpAAC.cpp" />
+    <ClCompile Include="..\..\src\DumpAV1.cpp" />
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
     <ClCompile Include="..\..\src\DumpMMT.cpp" />
     <ClCompile Include="..\..\src\DumpMP4.cpp" />
+    <ClCompile Include="..\..\src\DumpMSE.cpp" />
+    <ClCompile Include="..\..\src\DumpNAL.cpp" />
+    <ClCompile Include="..\..\src\DumpPS.cpp" />
     <ClCompile Include="..\..\src\DumpStream.cpp" />
     <ClCompile Include="..\..\src\DumpTS.cpp" />
     <ClCompile Include="..\..\src\ESRepacker.cpp" />
+    <ClCompile Include="..\..\src\h264_video.cpp" />
+    <ClCompile Include="..\..\src\h265_video.cpp" />
+    <ClCompile Include="..\..\src\h266_video.cpp" />
     <ClCompile Include="..\..\src\HuffmanTree.cpp" />
     <ClCompile Include="..\..\src\IP.cpp" />
     <ClCompile Include="..\..\src\ISO14496_1.cpp" />
     <ClCompile Include="..\..\src\ISO14496_12.cpp" />
     <ClCompile Include="..\..\src\ISO14496_15.cpp" />
+    <ClCompile Include="..\..\src\ISO14496_3.cpp" />
     <ClCompile Include="..\..\src\Matroska.cpp" />
+    <ClCompile Include="..\..\src\mediaobjprint.cpp" />
     <ClCompile Include="..\..\src\MMT.cpp" />
+    <ClCompile Include="..\..\src\mpeg2_video_parser.cpp" />
+    <ClCompile Include="..\..\src\mpeg2_video.cpp" />
+    <ClCompile Include="..\..\src\nal_com.cpp" />
+    <ClCompile Include="..\..\src\nal_parser.cpp" />
     <ClCompile Include="..\..\src\PartitialTS.cpp" />
     <ClCompile Include="..\..\src\PayloadBuf.cpp" />
     <ClCompile Include="..\..\src\QTFF.cpp" />
+    <ClCompile Include="..\..\src\range_lex.cpp" />
     <ClCompile Include="..\..\src\RefactorTS.cpp" />
-    <ClCompile Include="..\..\src\StdAfx.cpp" />
+    <ClCompile Include="..\..\src\sei.cpp" />
+    <ClCompile Include="..\..\src\platcomm.cpp" />
+    <ClCompile Include="..\..\src\Syncer.cpp" />
+    <ClCompile Include="..\..\src\system_13818_1.cpp" />
+    <ClCompile Include="..\..\src\tinyxml2.cpp" />
+    <ClCompile Include="..\..\src\TSTD.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\AIFF.h" />
+    <ClInclude Include="..\..\src\AMArray.h" />
+    <ClInclude Include="..\..\src\AMBitStream.h" />
+    <ClInclude Include="..\..\src\AMRFC3986.h" />
     <ClInclude Include="..\..\src\AMRingBuffer.h" />
+    <ClInclude Include="..\..\src\AMSHA1.h" />
     <ClInclude Include="..\..\src\AudChMap.h" />
     <ClInclude Include="..\..\src\av1.h" />
+    <ClInclude Include="..\..\src\av1_parser.h" />
+    <ClInclude Include="..\..\src\av1_def.h" />
     <ClInclude Include="..\..\src\Bitstream.h" />
     <ClInclude Include="..\..\src\CodecID.h" />
     <ClInclude Include="..\..\src\combase.h" />
     <ClInclude Include="..\..\src\crc.h" />
     <ClInclude Include="..\..\src\DataUtil.h" />
+    <ClInclude Include="..\..\src\descriptors_13818_1.h" />
+    <ClInclude Include="..\..\src\descriptors_hdmv.h" />
     <ClInclude Include="..\..\src\DumpTS.h" />
+    <ClInclude Include="..\..\src\DumpUtil.h" />
+    <ClInclude Include="..\..\src\dump_data_type.h" />
     <ClInclude Include="..\..\src\ESRepacker.h" />
+    <ClInclude Include="..\..\src\h264_video.h" />
+    <ClInclude Include="..\..\src\h265_video.h" />
+    <ClInclude Include="..\..\src\h266_video.h" />
     <ClInclude Include="..\..\src\IP.h" />
     <ClInclude Include="..\..\src\ISO14496_1.h" />
     <ClInclude Include="..\..\src\ISO14496_12.h" />
     <ClInclude Include="..\..\src\ISO14496_15.h" />
+    <ClInclude Include="..\..\src\ISO14496_3.h" />
     <ClInclude Include="..\..\src\LibPlatform\basetsd.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -346,10 +405,24 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="..\..\src\Matroska.h" />
+    <ClInclude Include="..\..\src\mediaobjprint.h" />
     <ClInclude Include="..\..\src\MMT.h" />
+    <ClInclude Include="..\..\src\mpeg2_video_parser.h" />
+    <ClInclude Include="..\..\src\mpeg2_video.h" />
+    <ClInclude Include="..\..\src\MSE.h" />
+    <ClInclude Include="..\..\src\NAL.h" />
+    <ClInclude Include="..\..\src\nal_com.h" />
+    <ClInclude Include="..\..\src\nal_parser.h" />
     <ClInclude Include="..\..\src\PayloadBuf.h" />
     <ClInclude Include="..\..\src\QTFF.h" />
-    <ClInclude Include="..\..\src\StdAfx.h" />
+    <ClInclude Include="..\..\src\range_lex.h" />
+    <ClInclude Include="..\..\src\sei.h" />
+    <ClInclude Include="..\..\src\platcomm.h" />
+    <ClInclude Include="..\..\src\Syncer.h" />
+    <ClInclude Include="..\..\src\systemdef.h" />
+    <ClInclude Include="..\..\src\system_13818_1.h" />
+    <ClInclude Include="..\..\src\tinyxml2.h" />
+    <ClInclude Include="..\..\src\version.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt" />
