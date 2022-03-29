@@ -1010,11 +1010,16 @@ int CNALParser::CommitHEVCPicture(
 	int16_t slice_pic_parameter_set_id = -1;
 	uint8_t nal_unit_type = 0XFF, picture_slice_type = 3;
 	auto firstBlPicNalUnit = pic_end;
-	bool bCVSChange = false;
-	int8_t represent_nal_unit_type = -1;
+	bool bCVSChange = false, bHasVPS = false, bHasSPS = false;
+	int8_t represent_nal_unit_type = -1, first_I_nal_unit_type = -1;
 
 	for (auto iter = pic_start; iter != pic_end; iter++)
 	{
+		if (iter->nal_unit_type == BST::H265Video::VPS_NUT)
+			bHasVPS = true;
+		else if (iter->nal_unit_type == BST::H265Video::SPS_NUT)
+			bHasSPS = true;
+
 		// At present, only parsing base-layer NAL unit in advance
 		if (!IS_HEVC_VCL_NAL(iter->nal_unit_type) || iter->nuh_layer_id != 0)
 			continue;
@@ -1054,7 +1059,16 @@ int CNALParser::CommitHEVCPicture(
 		else if (iter->slice_type == BST::H265Video::P_SLICE && picture_slice_type >= 2)
 			picture_slice_type = 1;
 		else if (iter->slice_type == BST::H265Video::I_SLICE && picture_slice_type == 3)
+		{
+			first_I_nal_unit_type = iter->nal_unit_type;
 			picture_slice_type = 2;
+		}
+	}
+
+	if (picture_slice_type == 2 && bCVSChange == false && bHasVPS && bHasSPS)
+	{
+		represent_nal_unit_type = first_I_nal_unit_type;
+		bCVSChange = true;
 	}
 
 	// Judge the current picture type
@@ -1318,10 +1332,13 @@ int CNALParser::CommitAVCPicture(
 	int16_t slice_pic_parameter_set_id = -1;
 	uint8_t nal_unit_type = 0XFF, picture_slice_type = 0xFF;
 	auto firstBlPicNalUnit = pic_end;
-	bool bCVSChange = false;
+	bool bCVSChange = false, bHasSPS = false;
 	int8_t represent_nal_unit_type = -1, first_I_nal_unit_type = -1;
 	for (auto iter = pic_start; iter != pic_end; iter++)
 	{
+		if (iter->nal_unit_type == BST::H264Video::SPS_NUT)
+			bHasSPS = true;
+
 		// At present, only parsing base-layer NAL unit in advance
 		if (!IS_AVC_VCL_NAL(iter->nal_unit_type))
 			continue;
@@ -1412,7 +1429,7 @@ int CNALParser::CommitAVCPicture(
 		}
 	}
 
-	if (picture_slice_type == AVC_PIC_SLICE_I && bCVSChange == false)
+	if (picture_slice_type == AVC_PIC_SLICE_I && bCVSChange == false && bHasSPS)
 	{
 		represent_nal_unit_type = first_I_nal_unit_type;
 		bCVSChange = true;
