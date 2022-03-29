@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: Linux_Build
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: enter into the build path
-      run: cd build/linux
     - name: make
-      run: make
+      run:
+        cd ./build/linux
+        make
