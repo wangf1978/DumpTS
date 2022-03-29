@@ -302,7 +302,7 @@ void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALN
 		}
 	}
 	else
-		return;
+		goto done;
 
 	bst = AMBst_CreateFromBuffer(p, (int)cbLeft);
 
@@ -368,9 +368,6 @@ void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIM
 	}
 	else if (nal_coding_type == NAL_CODING_HEVC)
 	{
-		if (cbLeft < 2)
-			return;
-
 		if (FAILED(pNALCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
 		{
 			iRet = RET_CODE_ERROR_NOTIMPL;
@@ -378,7 +375,7 @@ void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIM
 		}
 	}
 	else
-		return;
+		goto done;
 
 	bst = AMBst_CreateFromBuffer(p, (int)cbLeft);
 
@@ -386,6 +383,9 @@ void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIM
 	{
 		BST::SEI_RBSP sei_rbsp((uint8_t)pNALCtx->GetActiveNUType(), pNALCtx);
 		AMP_NEWT1(pSEIMsg, BST::SEI_RBSP::SEI_MESSAGE, (uint8_t)pNALCtx->GetActiveNUType(), &sei_rbsp);
+		if (pSEIMsg == nullptr)
+			goto done;
+
 		if (AMP_FAILED(iRet = pSEIMsg->Map(bst)))
 		{
 			AMP_SAFEDEL2(pSEIMsg);
@@ -408,7 +408,74 @@ done:
 	return;
 }
 
-void PrintSEIPayloadSyntaxElement(IUnknown* pCtx, uint8_t* pSEIPayloadBuf, size_t cbSEIPayloadBuf, int indent)
+void PrintSEIPayloadSyntaxElement(IUnknown* pCtx, uint32_t payload_type, uint8_t* pSEIPayloadBuf, size_t cbSEIPayloadBuf, int indent)
 {
+	int iRet = RET_CODE_SUCCESS;
+	INALContext* pNALCtx = nullptr;
+	if (pCtx == nullptr)
+		return;
+
+	uint8_t* p = pSEIPayloadBuf;
+	size_t cbLeft = cbSEIPayloadBuf;
+
+	if (p == nullptr)
+		return;
+
+	if (FAILED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
+		return;
+
+	AMBst bst = nullptr;
+	NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
+	INALAVCContext* pNALAVCCtx = nullptr;
+	INALHEVCContext* pNALHEVCCtx = nullptr;
+	if (nal_coding_type == NAL_CODING_AVC)
+	{
+		if (FAILED(pNALCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else if (nal_coding_type == NAL_CODING_HEVC)
+	{
+		if (FAILED(pNALCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else
+		goto done;
+
+	bst = AMBst_CreateFromBuffer(p, (int)cbLeft);
+
+	try
+	{
+		int8_t nu_type = pNALCtx->GetActiveNUType();
+		BST::SEI_RBSP sei_rbsp((uint8_t)nu_type, pNALCtx);
+		BST::SEI_RBSP::SEI_MESSAGE null_sei_msg((uint8_t)nu_type, &sei_rbsp);
+		AMP_NEWT1(pSEIPayload, BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD, (uint8_t)nu_type, (int)payload_type, (int)cbSEIPayloadBuf, &null_sei_msg);
+		if (pSEIPayload == nullptr)
+			goto done;
+
+		if (AMP_FAILED(iRet = pSEIPayload->Map(bst)))
+		{
+			AMP_SAFEDEL2(pSEIPayload);
+			throw AMException(iRet);
+		}
+
+		PrintMediaObject(pSEIPayload, false, indent);
+		AMP_SAFEDEL2(pSEIPayload);
+	}
+	catch (...)
+	{
+		printf("Can't parse the NAL bitstream.\n");
+	}
+
+done:
+	AMBst_Destroy(bst);
+	AMP_SAFERELEASE(pNALCtx);
+	AMP_SAFERELEASE(pNALAVCCtx);
+	AMP_SAFERELEASE(pNALHEVCCtx);
 	return;
 }

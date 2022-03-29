@@ -658,6 +658,7 @@ namespace BST {
 									{
 										assert(active_seq_parameter_set_id[0] >= 0 && active_seq_parameter_set_id[0] <= 15);
 										pNALHEVCCtx->ActivateSPS((int8_t)active_seq_parameter_set_id[0]);
+										AMP_SAFERELEASE(pNALHEVCCtx);
 									}
 								}
 							}
@@ -679,24 +680,23 @@ namespace BST {
 					}
 
 					DECLARE_FIELDPROP_BEGIN()
-					long long orig_bit_offset = bit_offset ? *bit_offset : 0;
-					BST_FIELD_PROP_2NUMBER1(active_video_parameter_set_id, 4, "indicates and shall be equal to the value of the vps_video_parameter_set_id of the VPS that is referred to by the VCL NAL units of the access unit associated with the SEI message");
-					BST_FIELD_PROP_BOOL(self_contained_cvs_flag, "indicates that each parameter set that is (directly or indirectly) referenced by any VCL NAL unit of the CVS that is not a VCL NAL unit of a RASL picture is present within the CVS at a position that precedes, in decoding order, any NAL unit that (directly or indirectly) references the parameter set.", 
-						"indicates that this property may or may not apply");
-					BST_FIELD_PROP_BOOL(no_parameter_set_update_flag, "indicates that there is no parameter set update in the CVS", "indicates that there may or may not be parameter set update in the CVS");
+						long long orig_bit_offset = bit_offset ? *bit_offset : 0;
+						BST_FIELD_PROP_2NUMBER1(active_video_parameter_set_id, 4, "indicates and shall be equal to the value of the vps_video_parameter_set_id of the VPS that is referred to by the VCL NAL units of the access unit associated with the SEI message");
+						BST_FIELD_PROP_BOOL(self_contained_cvs_flag, "indicates that each parameter set that is (directly or indirectly) referenced by any VCL NAL unit of the CVS that is not a VCL NAL unit of a RASL picture is present within the CVS at a position that precedes, in decoding order, any NAL unit that (directly or indirectly) references the parameter set.", 
+							"indicates that this property may or may not apply");
+						BST_FIELD_PROP_BOOL(no_parameter_set_update_flag, "indicates that there is no parameter set update in the CVS", "indicates that there may or may not be parameter set update in the CVS");
 
-					BST_FIELD_PROP_UE(num_sps_ids_minus1, "plus 1 shall be less than or equal to the number of SPSs that are referred to by the VCL NAL units of the access unit associated with the active parameter sets SEI message");
-					if (num_sps_ids_minus1 >= 0) {
-						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0; i&lt;=num_sps_ids_minus1;i++)", "");
-						for (int i = 0; i <= num_sps_ids_minus1; i++) {
-							BST_ARRAY_FIELD_PROP_UE(active_seq_parameter_set_id, i, "a value of the sps_seq_parameter_set_id of the SPS that may be referred to by any VCL NAL unit of the access unit associated with the SEI message");
+						BST_FIELD_PROP_UE(num_sps_ids_minus1, "plus 1 shall be less than or equal to the number of SPSs that are referred to by the VCL NAL units of the access unit associated with the active parameter sets SEI message");
+						if (num_sps_ids_minus1 >= 0) {
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0; i&lt;=num_sps_ids_minus1;i++)", "");
+							for (int i = 0; i <= num_sps_ids_minus1; i++) {
+								BST_ARRAY_FIELD_PROP_UE(active_seq_parameter_set_id, i, "a value of the sps_seq_parameter_set_id of the SPS that may be referred to by any VCL NAL unit of the access unit associated with the SEI message");
+							}
+							NAV_WRITE_TAG_END("Tag0");
 						}
-						NAV_WRITE_TAG_END("Tag0");
-					}
 
-					if (bit_offset)
-						*bit_offset = orig_bit_offset + ptr_sei_payload->payload_size;
-						
+						if (bit_offset)
+							*bit_offset = orig_bit_offset + ptr_sei_payload->payload_size;
 					DECLARE_FIELDPROP_END()
 
 				};

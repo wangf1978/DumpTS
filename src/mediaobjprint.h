@@ -36,7 +36,7 @@ extern const char* g_szRule;
 void PrintMPVSyntaxElement(IUnknown* pCtx, uint8_t* pMPVSE, size_t cbMPVSE, int indent);
 void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALNUBuf, int indent);
 void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIMsgBuf, int indent);
-void PrintSEIPayloadSyntaxElement(IUnknown* pCtx, uint8_t* pSEIPayloadBuf, size_t cbSEIPayloadBuf, int indent);
+void PrintSEIPayloadSyntaxElement(IUnknown* pCtx, uint32_t payload_type, uint8_t* pSEIPayloadBuf, size_t cbSEIPayloadBuf, int indent);
 
 template<class T>
 int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)

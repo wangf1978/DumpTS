@@ -1484,7 +1484,7 @@ public:
 
 					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
 					if (m_options&MSE_ENUM_SYNTAX_VIEW)
-						PrintSEIPayloadSyntaxElement(pCtx, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
+						PrintSEIPayloadSyntaxElement(pCtx, payload_type, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
 					else if (m_options&MSE_ENUM_HEX_VIEW)
 						print_mem(pRBSPSEIPayloadBuf, (int)cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
 					printf("\n");
