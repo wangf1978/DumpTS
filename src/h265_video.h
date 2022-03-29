@@ -4536,9 +4536,9 @@ namespace BST {
 									nal_read_u(in_bst, short_term_ref_pic_set_sps_flag, 1, uint8_t);
 
 									if (!short_term_ref_pic_set_sps_flag) {
-										nal_read_ref(in_bst, st_ref_pic_set,
+										nal_read_ref(in_bst, ptr_sps->st_ref_pic_sets->st_ref_pic_set[ptr_sps->num_short_term_ref_pic_sets],
 											ST_REF_PIC_SETS::ST_REF_PIC_SET, ptr_sps->st_ref_pic_sets, ptr_sps->num_short_term_ref_pic_sets);
-										ptr_sps->st_ref_pic_sets->st_ref_pic_set[ptr_sps->num_short_term_ref_pic_sets] = st_ref_pic_set;
+										st_ref_pic_set = ptr_sps->st_ref_pic_sets->st_ref_pic_set[ptr_sps->num_short_term_ref_pic_sets];
 									}
 									else if (ptr_sps->num_short_term_ref_pic_sets > 1) {
 										nal_read_u(in_bst, short_term_ref_pic_set_idx, quick_ceil_log2(ptr_sps->num_short_term_ref_pic_sets), uint8_t);
@@ -5012,6 +5012,8 @@ namespace BST {
 						iRet = e.RetCode();
 					}
 
+					// After a slice is parsed or decoded the st_ref_pic_sets[num_short_term_ref_pic_sets] is not used any more
+					// It is better to unlink it, otherwise it may affect the other slices
 					if (ptr_slice_header != NULL && ptr_slice_header->sp_pps)
 					{
 						auto sp_sps = ptr_nal_unit->ptr_ctx_video_bst->GetHEVCSPS(ptr_slice_header->sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
@@ -5032,9 +5034,9 @@ namespace BST {
 				}
 
 				DECLARE_FIELDPROP_BEGIN()
-				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "slice_segment_header", "");
-				BST_FIELD_PROP_REF(ptr_slice_header);
-				NAV_WRITE_TAG_END("Tag1");
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "slice_segment_header", "");
+					BST_FIELD_PROP_REF(ptr_slice_header);
+					NAV_WRITE_TAG_END("Tag1");
 				DECLARE_FIELDPROP_END()
 
 			}PACKED;
