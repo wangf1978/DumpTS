@@ -1,4 +1,4 @@
-name: MSBuild-VC15
+name: MSBuild_vc15
 
 on:
   push:
