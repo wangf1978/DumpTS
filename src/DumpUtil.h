@@ -1180,7 +1180,7 @@ SOFTWARE.
 #define BST_FIELD_PROP_1D_ARRAY_MATROX1(Field_Name, M, N, Field_Desc) BST_FIELD_PROP_1D_ARRAY_MATRIX(#Field_Name, Field_Name, M, N, Field_Desc)
 
 #define NAV_FIELD_PROP_FIXSIZE_BINCHARSTR(Field_Name, Field_Bits, Field_Value, Value_Size, Field_Desc)\
-	if (Field_Bits >0 && Field_Value > 0)\
+	if (Field_Bits >0 && Value_Size > 0)\
 	{\
 		unsigned long jjj=0;\
 		memset(szTemp2, 0, sizeof(szTemp2));\

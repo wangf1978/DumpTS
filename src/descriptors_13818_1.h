@@ -1497,7 +1497,7 @@ namespace BST {
 			}
 
 			metadata_format = AMBst_GetByte(bst_t);ulMappedSize += 1;
-			if (metadata_format == 0xFFFF)
+			if (metadata_format == 0xFF)
 			{
 				if (cbSize < 15)
 					return RET_CODE_BUFFER_TOO_SMALL;
