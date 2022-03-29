@@ -1,5 +1,8 @@
 [![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/Linux_Build/badge.svg)](https://github.com/wangf1978/DumpTS/actions)
 [![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MacOS_Build/badge.svg)](https://github.com/wangf1978/DumpTS/actions)
+[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MSBuild_vc14/badge.svg)](https://github.com/wangf1978/DumpTS/actions)
+[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MSBuild_vc15/badge.svg)](https://github.com/wangf1978/DumpTS/actions)
+[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MSBuild_vc16/badge.svg)](https://github.com/wangf1978/DumpTS/actions)
 # Contents
 * [Terminology](#terminology)
 * [What is DumpTS?](#what-is-dumpts)
