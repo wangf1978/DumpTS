@@ -37,13 +37,13 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 # How to build?
 
 - Windows<br>
-    1. VS2015/vc14<br>
+    1. VS2015/vc14[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MSBuild_vc14/badge.svg)](https://github.com/wangf1978/DumpTS/actions)       <br>
         Open build/DumpTS_vc14.sln and build it
-    2. VS2017/vc15<br>
+    2. VS2017/vc15[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MSBuild_vc15/badge.svg)](https://github.com/wangf1978/DumpTS/actions)<br>
         Open build/DumpTS_vc15.sln and build it
-    3. VS2019/vc16<br>
+    3. VS2019/vc16[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MSBuild_vc16/badge.svg)](https://github.com/wangf1978/DumpTS/actions)<br>
         Open build/DumpTS_vc16.sln and build it
-- Linux<br>
+- Linux[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/Linux_Build/badge.svg)](https://github.com/wangf1978/DumpTS/actions)<br>
     *Make sure gcc with modern C++11/14 support is installed*<br>
     Here are steps to build and install this application
     ```
@@ -53,7 +53,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     cd ../../bin/linux/
     ./DumpTS --help
     ```
-- MacOS<br>
+- MacOS[![DumpTS Build](https://github.com/wangf1978/DumpTS/workflows/MacOS_Build/badge.svg)](https://github.com/wangf1978/DumpTS/actions)<br>
     *Make sure clang with modern C++11/14 support is installed*<br>
     Here are steps to build and install this application:
     ```
