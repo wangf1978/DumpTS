@@ -3940,7 +3940,7 @@ namespace BST {
 						}
 
 						auto sps_unit = ptr_nal_unit->ptr_ctx_video_bst->GetAVCSPS(sp_pps->ptr_pic_parameter_set_rbsp->seq_parameter_set_id);
-						if (!sps_unit || sps_unit->ptr_seq_parameter_set_rbsp)
+						if (!sps_unit || sps_unit->ptr_seq_parameter_set_rbsp == nullptr)
 						{
 							printf("[H264] Sequence Parameter Set is not available.\n");
 							throw AMException(RET_CODE_ERROR_NOTIMPL);

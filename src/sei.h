@@ -989,9 +989,11 @@ namespace BST {
 							}
 
 							int start_num_of_fields = map_status.number_of_fields;
+							itu_t_t35_payload_byte.reserve(ptr_sei_payload->payload_size);
 							while (map_status.number_of_fields < ptr_sei_payload->payload_size) {
-								itu_t_t35_payload_byte.reserve(1);
-								nal_read_b(in_bst, itu_t_t35_payload_byte[(size_t)map_status.number_of_fields - start_num_of_fields], 8, uint8_t);
+								uint8_t payload_byte = 0;
+								nal_read_b(in_bst, payload_byte, 8, uint8_t);
+								itu_t_t35_payload_byte.push_back(payload_byte);
 							}
 
 							// For UHDBD dynamic HDR metadata
@@ -1321,11 +1323,14 @@ namespace BST {
 									items.reserve(cc_count);
 
 								for (int i = 0; i < cc_count; i++) {
-									nal_read_u(in_bst, items[i].marker_bits, 5, uint8_t);
-									nal_read_u(in_bst, items[i].cc_valid, 1, uint8_t);
-									nal_read_u(in_bst, items[i].cc_type, 2, uint8_t);
-									nal_read_u(in_bst, items[i].cc_data_1, 8, uint8_t);
-									nal_read_u(in_bst, items[i].cc_data_2, 8, uint8_t);
+									CC_DATA_ITEM cc_data_item;
+									nal_read_u(in_bst, cc_data_item.marker_bits, 5, uint8_t);
+									nal_read_u(in_bst, cc_data_item.cc_valid, 1, uint8_t);
+									nal_read_u(in_bst, cc_data_item.cc_type, 2, uint8_t);
+									nal_read_u(in_bst, cc_data_item.cc_data_1, 8, uint8_t);
+									nal_read_u(in_bst, cc_data_item.cc_data_2, 8, uint8_t);
+
+									items.push_back(cc_data_item);
 								}
 
 								nal_read_u(in_bst, marker_bits, 8, uint8_t);
@@ -1394,9 +1399,11 @@ namespace BST {
 								if (number_of_pictures_in_GOP > 0)
 									GOP_pic_info.reserve(number_of_pictures_in_GOP);
 								for (int i = 0; i < number_of_pictures_in_GOP; i++) {
-									nal_read_u(in_bst, GOP_pic_info[i].stuffing_bits, 1, uint8_t);
-									nal_read_u(in_bst, GOP_pic_info[i].picture_structure, 3, uint8_t);
-									nal_read_u(in_bst, GOP_pic_info[i].picture_type, 4, uint8_t);
+									GOP_PIC_INFO info;
+									nal_read_u(in_bst, info.stuffing_bits, 1, uint8_t);
+									nal_read_u(in_bst, info.picture_structure, 3, uint8_t);
+									nal_read_u(in_bst, info.picture_type, 4, uint8_t);
+									GOP_pic_info.push_back(info);
 								}
 								MAP_BST_END();
 							}
@@ -1454,11 +1461,13 @@ namespace BST {
 								if (number_of_pictures_in_GOP > 0)
 									GOP_pic_info.reserve(number_of_pictures_in_GOP);
 								for (int i = 0; i < number_of_pictures_in_GOP; i++) {
-									nal_read_u(in_bst, GOP_pic_info[i].stuffing_bits, 5, uint8_t);
-									nal_read_u(in_bst, GOP_pic_info[i].picture_structure, 3, uint8_t);
-									nal_read_u(in_bst, GOP_pic_info[i].reserved, 1, uint8_t);
-									nal_read_u(in_bst, GOP_pic_info[i].temporal_id, 3, uint8_t);
-									nal_read_u(in_bst, GOP_pic_info[i].picture_type, 4, uint8_t);
+									GOP_PIC_INFO info;
+									nal_read_u(in_bst, info.stuffing_bits, 5, uint8_t);
+									nal_read_u(in_bst, info.picture_structure, 3, uint8_t);
+									nal_read_u(in_bst, info.reserved, 1, uint8_t);
+									nal_read_u(in_bst, info.temporal_id, 3, uint8_t);
+									nal_read_u(in_bst, info.picture_type, 4, uint8_t);
+									GOP_pic_info.push_back(info);
 								}
 								MAP_BST_END();
 							}
@@ -1557,8 +1566,10 @@ namespace BST {
 
 								for (uint16_t i = 0; i < number_of_offset_sequences; i++)
 									for (uint16_t j = 0; j < number_of_displayed_frames_in_GOP; j++) {
-										nal_read_u(in_bst, plane_offsets[(size_t)i*number_of_displayed_frames_in_GOP + j].Plane_offset_direction_flag, 1, uint8_t);
-										nal_read_u(in_bst, plane_offsets[(size_t)i*number_of_displayed_frames_in_GOP + j].Plane_offset_value, 7, uint8_t);
+										PLANE_OFFSET plane_offset;
+										nal_read_u(in_bst, plane_offset.Plane_offset_direction_flag, 1, uint8_t);
+										nal_read_u(in_bst, plane_offset.Plane_offset_value, 7, uint8_t);
+										plane_offsets.push_back(plane_offset);
 									}
 								MAP_BST_END();
 							}
@@ -2024,10 +2035,15 @@ namespace BST {
 										comp_model_info[c].intensity_interval_upper_bound.reserve((size_t)comp_model_info[c].num_intensity_intervals_minus1 + 1);
 										comp_model_info[c].comp_model_value.reserve(((size_t)comp_model_info[c].num_intensity_intervals_minus1 + 1)*((size_t)comp_model_info[c].num_model_values_minus1 + 1));
 										for (int i = 0; i <= comp_model_info[c].num_intensity_intervals_minus1; i++) {
-											nal_read_u(in_bst, comp_model_info[c].intensity_interval_lower_bound[i], 8, uint8_t);
-											nal_read_u(in_bst, comp_model_info[c].intensity_interval_upper_bound[i], 8, uint8_t);
+											uint8_t tmp_byte = 0;
+											nal_read_u(in_bst, tmp_byte, 8, uint8_t);
+											comp_model_info[c].intensity_interval_lower_bound.push_back(tmp_byte);
+											nal_read_u(in_bst, tmp_byte, 8, uint8_t);
+											comp_model_info[c].intensity_interval_upper_bound.push_back(tmp_byte);
 											for (int j = 0; j <= comp_model_info[c].num_model_values_minus1; j++) {
-												nal_read_se(in_bst, comp_model_info[c].comp_model_value[(size_t)i*((size_t)comp_model_info[c].num_model_values_minus1 + 1) + j], int32_t);
+												int32_t tmpInt = 0;
+												nal_read_se(in_bst, tmpInt, int32_t);
+												comp_model_info[c].comp_model_value.push_back(tmpInt);
 											}
 										}
 									}
@@ -2220,8 +2236,11 @@ namespace BST {
 									pivot_layout->target_pivot_value.reserve(pivot_layout->num_pivots);
 									uint8_t v = ((coded_data_bit_depth + 7) >> 3) << 3;
 									for (int i = 0; i < pivot_layout->num_pivots; i++) {
-										nal_read_u(in_bst, pivot_layout->coded_pivot_value[i], v, uint32_t);
-										nal_read_u(in_bst, pivot_layout->target_pivot_value[i], v, uint32_t);
+										uint32_t tmpuint = 0;
+										nal_read_u(in_bst, tmpuint, v, uint32_t);
+										pivot_layout->coded_pivot_value.push_back(tmpuint);
+										nal_read_u(in_bst, tmpuint, v, uint32_t);
+										pivot_layout->target_pivot_value.push_back(tmpuint);
 									}
 								}
 								else if (tone_map_model_id == 4)
@@ -2560,16 +2579,19 @@ namespace BST {
 
 							sop_entries.reserve((size_t)num_entries_in_sop_minus1 + 1);
 							for (int i = 0; i <= num_entries_in_sop_minus1; i++) {
-								nal_read_u(in_bst, sop_entries[i].sop_vcl_nut, 6, uint8_t);
-								nal_read_u(in_bst, sop_entries[i].sop_temporal_id, 3, uint8_t);
+								SOP_ENTRY sop_entry;
+								nal_read_u(in_bst, sop_entry.sop_vcl_nut, 6, uint8_t);
+								nal_read_u(in_bst, sop_entry.sop_temporal_id, 3, uint8_t);
 								
-								if (sop_entries[i].sop_vcl_nut != 19 && sop_entries[i].sop_vcl_nut != 20) {
-									nal_read_ue(in_bst, sop_entries[i].sop_short_term_rps_idx, uint8_t);
+								if (sop_entry.sop_vcl_nut != 19 && sop_entry.sop_vcl_nut != 20) {
+									nal_read_ue(in_bst, sop_entry.sop_short_term_rps_idx, uint8_t);
 								}
 
 								if (i > 0) {
-									nal_read_se(in_bst, sop_entries[i].sop_poc_delta, int16_t);
+									nal_read_se(in_bst, sop_entry.sop_poc_delta, int16_t);
 								}
+
+								sop_entries.push_back(sop_entry);
 							}
 							MAP_BST_END();
 						}
@@ -2728,8 +2750,11 @@ namespace BST {
 										pre_lut_coded_value[c].reserve((size_t)pre_lut_num_val_minus1[c] + 1);
 										pre_lut_target_value[c].reserve((size_t)pre_lut_num_val_minus1[c] + 1);
 										for (int i = 0; i <= pre_lut_num_val_minus1[c]; i++) {
-											nal_read_u(in_bst, pre_lut_coded_value[c][i], coded_v, uint32_t);
-											nal_read_u(in_bst, pre_lut_target_value[c][i], coded_v, uint32_t);
+											uint32_t u32Val = 0;
+											nal_read_u(in_bst, u32Val, coded_v, uint32_t);
+											pre_lut_coded_value[c].push_back(u32Val);
+											nal_read_u(in_bst, u32Val, coded_v, uint32_t);
+											pre_lut_target_value[c].push_back(u32Val);
 										}
 									}
 								}
@@ -2750,8 +2775,11 @@ namespace BST {
 										post_lut_coded_value[c].reserve((size_t)post_lut_num_val_minus1[c] + 1);
 										post_lut_target_value[c].reserve((size_t)post_lut_num_val_minus1[c] + 1);
 										for (int i = 0; i <= pre_lut_num_val_minus1[c]; i++) {
-											nal_read_u(in_bst, post_lut_coded_value[c][i], coded_v, uint32_t);
-											nal_read_u(in_bst, post_lut_target_value[c][i], coded_v, uint32_t);
+											uint32_t u32Val = 0;
+											nal_read_u(in_bst, u32Val, coded_v, uint32_t);
+											post_lut_coded_value[c].push_back(u32Val);
+											nal_read_u(in_bst, u32Val, coded_v, uint32_t);
+											post_lut_target_value[c].push_back(u32Val);
 										}
 									}
 								}
@@ -3530,7 +3558,7 @@ namespace BST {
 
 						if (left_bits > 0)
 						{
-							left_bytes.reserve(left_bits / 8);
+							left_bytes.resize(left_bits / 8);
 							AMBst_GetBytes(in_bst, left_bytes.data(), left_bits / 8);
 						}
 
