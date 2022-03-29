@@ -14,13 +14,34 @@
 			* [2. List all GOPs](#list-all-gops)
 			* [3. List all access units](#list-all-access-units)
 			* [4. List all MPEG2 syntactic elements](#list-all-mpeg2-syntactic-elements)
-            * [5. List all slices](#list-all-slices)
-            * [6. List all non-slices syntactic elements](#list-all-non-slices-syntactic-elements)
-            * [7. List all macro-blocks](#list-all-macro-blocks)
-            * [8. List all GOPs in a specified video sequence](#list-all-gops-in-a-specified-video-sequence)
-            * [9. List all access-units in a specified GOP](#list-all-access-units-in-a-specified-gop)
-            * [10. List some syntax elements in a/some specified GOP(s) or/and Access Unit(s)](#list-some-syntax-elements-in-a-or-some-specified-gops-orand-access-units)
+			* [5. List all slices](#list-all-slices)
+			* [6. List all non-slices syntactic elements](#list-all-non-slices-syntactic-elements)
+			* [7. List all macro-blocks](#list-all-macro-blocks)
+			* [8. List all GOPs in a specified video sequence](#list-all-gops-in-a-specified-video-sequence)
+			* [9. List all access-units in a specified GOP](#list-all-access-units-in-a-specified-gop)
+			* [10. List some syntax elements in a/some specified GOP(s) or/and Access Unit(s)](#list-some-syntax-elements-in-a-or-some-specified-gops-orand-access-units)
+		* [NAL Video](#nal-video)
+			* [1. List all video sequences](#list-all-video-sequences)
+			* [2. List all GOPs(CVSes)](#list-all-gopscvses)
+			* [3. List all access units](#list-all-access-units)
+			* [4. List NAL Units](#list-nal-units)
+			* [5. List all SEI messages](#list-all-sei-messages)
+			* [6. List all SEI payloads](#list-all-sei-payloads)
+			* [7. List all VCL NAL units](#list-all-vcl-nal-units)
+			* [8. List all non-VCL NAL units](#list-all-non-vcl-nal-units)
+			* [9. List all access units in a specified GOP](#list-all-access-units-in-a-specified-gop)
+			* [10. List the first access unit of the specified GOP in a specified GOP](#list-the-first-access-unit-of-the-specified-gop-in-a-specified-gop)
+			* [11. List SEI payloads in a specified access unit of a specified GOP](#list-sei-payloads-in-a-specified-access-unit-of-a-specified-gop)
 	* [`showMSE` command](#showmse-command)
+		* [MPEG2 Video](#mpeg2-video)
+			* [1. Show Sequence Header](#show-sequence-header)
+			* [2. Show sequence header and extension together](#show-sequence-header-and-extension-together)
+			* [3. Show all syntactic elements with full hierarchical layout](#show-all-syntactic-elements-with-full-hierarchical-layout)
+			* [4. Show syntax view of the first access-unit of the 3rd and 4th GOP](#show-syntax-view-of-the-first-access-unit-of-the-3rd-and-4th-gop)
+		* [NAL Video](#nal-video)
+			* [1. Show syntax view of VPS](#show-syntax-view-of-vps)
+			* [2. Show the syntax view of all NAL units](#show-the-syntax-view-of-all-nal-units)
+			* [3. Show all SEI payloads syntax view](#show-all-sei-payloads-syntax-view)
 	* [`showMSEHex` command](#showmse-command)
 
 [Return to Main](../README.md)
@@ -147,108 +168,6 @@ Video Sequence#0                               |             |                  
             SE#32 slice28                      |     1,678 B |        SE32.AU0.GOP0.VSEQ0
             SE#33 slice29                      |     1,620 B |        SE33.AU0.GOP0.VSEQ0
 ......
-```
-Ok, now want to see the sequence header syntax according to its given URI,
-```
-DumpTS 00023.m2v --showmse=SE0.AU0.GOP0.VSEQ0
-```
-And then,
-```
-Video Sequence#0                               |             |                      VSEQ0
-    GOP#0 (closed)                             |             |                 GOP0.VSEQ0
-        AU#0 (I)                               |    91,997 B |             AU0.GOP0.VSEQ0
-            SE#0 sequence_header               |       140 B |         SE0.AU0.GOP0.VSEQ0
-            ------------------------------------------------------------------------------
-            sequence_header_code: 00 00 01 b3 // should be 00 00 01 B3
-            horizontal_size_value: 1920(0X780)// This word forms the 12 least significant bits of horizontal_size
-            vertical_size_value: 1080(0X438)  // This word forms the 12 least significant bits of vertical_size
-            aspect_ratio_information: 3(0X3)  // 16:9
-            frame_rate_code: 4(0X4)           // 30 000/1001 (29.97...)
-            bit_rate_value: 87500(0X155CC)    // The lower 18 bits of bit_rate, and the upper 12 bits are in bit_rat...
-            marker_bit: 1
-            vbv_buffer_size_value: 597(0X255) // the lower 10 bits of vbv_buffer_size, and the upper 8 bits are in v...
-            constrained_parameters_flag: 0    // This flag (used in ISO/IEC 11172-2) has no meaning in this Specific...
-            load_intra_quantiser_matrix: 1    // See 6.3.11 "Quant matrix extension".
-            intra_quantiser_matrix:           // See 6.3.11 "Quant matrix extension".
-                  8  16  16  19  16  19  22  22
-                 22  22  22  22  26  24  26  27
-                 27  27  26  26  26  26  27  27
-                 27  29  29  29  34  34  34  29
-                 29  29  27  27  29  29  32  32
-                 34  34  37  38  37  35  35  34
-                 35  38  38  40  40  40  48  48
-                 46  46  56  56  58  69  69  83
-
-            load_non_intra_quantiser_matrix: 1// See 6.3.11 "Quant matrix extension".
-            non_intra_quantiser_matrix:       // See 6.3.11 "Quant matrix extension".
-                 16  17  17  18  18  18  19  19
-                 19  19  20  20  20  20  20  21
-                 21  21  21  21  21  22  22  22
-                 22  22  22  22  23  23  23  23
-                 23  23  23  23  24  24  24  25
-                 24  24  24  25  26  26  26  26
-                 25  27  27  27  27  27  28  28
-                 28  28  30  30  30  31  31  33
-```
-Now, sequence_header and sequence_extension want to be shown together,
-```
-DumpTS 00023.m2v --showmse=SE0.AU0.GOP0.VSEQ0
-```
-And then
-```
-Video Sequence#0                               |             |                      VSEQ0
-    GOP#0 (closed)                             |             |                 GOP0.VSEQ0
-        AU#0 (I)                               |    91,997 B |             AU0.GOP0.VSEQ0
-            SE#0 sequence_header               |       140 B |         SE0.AU0.GOP0.VSEQ0
-            ------------------------------------------------------------------------------
-            sequence_header_code: 00 00 01 b3 // should be 00 00 01 B3
-            horizontal_size_value: 1920(0X780)// This word forms the 12 least significant bits of horizontal_size
-            vertical_size_value: 1080(0X438)  // This word forms the 12 least significant bits of vertical_size
-            aspect_ratio_information: 3(0X3)  // 16:9
-            frame_rate_code: 4(0X4)           // 30 000/1001 (29.97...)
-            bit_rate_value: 87500(0X155CC)    // The lower 18 bits of bit_rate, and the upper 12 bits are in bit_rat...
-            marker_bit: 1
-            vbv_buffer_size_value: 597(0X255) // the lower 10 bits of vbv_buffer_size, and the upper 8 bits are in v...
-            constrained_parameters_flag: 0    // This flag (used in ISO/IEC 11172-2) has no meaning in this Specific...
-            load_intra_quantiser_matrix: 1    // See 6.3.11 "Quant matrix extension".
-            intra_quantiser_matrix:           // See 6.3.11 "Quant matrix extension".
-                  8  16  16  19  16  19  22  22
-                 22  22  22  22  26  24  26  27
-                 27  27  26  26  26  26  27  27
-                 27  29  29  29  34  34  34  29
-                 29  29  27  27  29  29  32  32
-                 34  34  37  38  37  35  35  34
-                 35  38  38  40  40  40  48  48
-                 46  46  56  56  58  69  69  83
-
-            load_non_intra_quantiser_matrix: 1// See 6.3.11 "Quant matrix extension".
-            non_intra_quantiser_matrix:       // See 6.3.11 "Quant matrix extension".
-                 16  17  17  18  18  18  19  19
-                 19  19  20  20  20  20  20  21
-                 21  21  21  21  21  22  22  22
-                 22  22  22  22  23  23  23  23
-                 23  23  23  23  24  24  24  25
-                 24  24  24  25  26  26  26  26
-                 25  27  27  27  27  27  28  28
-                 28  28  30  30  30  31  31  33
-
-
-            SE#1 sequence_extension            |        10 B |         SE1.AU0.GOP0.VSEQ0
-            ------------------------------------------------------------------------------
-            extension_start_code: 00 00 01 b5      // should be 00 00 01 B5
-            extension_start_code_identifier: 1(0X1)// Should be 1
-            profile_and_level_indication: 68(0X44) // Main@High
-            progressive_sequence: 0                // the coded video sequence may contain both frame-pictures and field-...
-            chroma_format: 1(0X1)                  // 4:2:0
-            horizontal_size_extension: 0(0X0)      // (horizontal_size_extension<<12)|horizontal_size_value
-            vertical_size_extension: 0(0X0)        // (vertical_size_extension<<12)|vertical_size_value
-            bit_rate_extension: 0(0X0)             // (bit_rate_extension<18)|bit_rate_value
-            marker_bit: 1
-            vbv_buffer_size_extension: 0(0X0)      // (vbv_buffer_size_extension<10)|vbv_buffer_size_value
-            low_delay: 0                           // the sequence may contain B-pictures, that the frame re-ordering del...
-            frame_rate_extension_n: 0(0X0)         // frame_rate = frame_rate_value * (frame_rate_extension_n + 1) / (fra...
-            frame_rate_extension_d: 0(0X0)         // frame_rate = frame_rate_value * (frame_rate_extension_n + 1) / (fra...
-
 ```
 According to the command `listmse=gop`, we can know how many gops in this MPEG2 video stream, and now we want to show access-units of  the first and the last GOP,
 ```
@@ -382,7 +301,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	------------Name-------------------------------|-----len-----|------------URI-------------
 	Video Sequence#0                               |             |                      VSEQ0
 	```
-2. #### List all GOPs
+2. ##### List all GOPs
 	```
 	DumpTS 00023.m2v --listmse=gop
 	```
@@ -408,7 +327,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	GOP#16 (open)                                  |             |                      GOP16
 	...
 	```
-3. ### List all access units
+3. ##### List all access units
 	```
 	DumpTS 00023.m2v --listmse=au
 	```
@@ -435,7 +354,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	AU#17 (B)                                      |    48,750 B |                       AU17
 	...
 	```
-4. ### List all MPEG2 syntactic elements
+4. ##### List all MPEG2 syntactic elements
 	```
 	DumpTS 00023.m2v --listmse=se
 	```
@@ -462,7 +381,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	SE#17 slice13                                  |     1,762 B |                       SE17
 	...
 	```
-5. #### List all slices
+5. ##### List all slices
 	```
 	DumpTS 00023.m2v --listmse=slice
 	```
@@ -491,7 +410,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	Slice#19 slice20                               |     1,791 B |                    SLICE19
 	...
 	```
-6. #### List all non-slices syntactic elements
+6. ##### List all non-slices syntactic elements
 	```
 	DumpTS 00023.m2v --listmse=~slice
 	```
@@ -519,9 +438,9 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	SE#494 picture_coding_extension                |         9 B |                      SE494
 	...
 	```
-7. #### List all macro-blocks
+7. ##### List all macro-blocks
 	Not supported at present
-8. #### List all GOPs in a specified video sequence
+8. ##### List all GOPs in a specified video sequence
 	```
 	DumpTS 00023.m2v --listmse=gop.vseq0
 	```
@@ -545,7 +464,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	    GOP#13 (open)                              |             |                GOP13.VSEQ0
 	...
 	```
-9. #### List all access-units in a specified GOP
+9. ##### List all access-units in a specified GOP
 	```
 	DumpTS 00023.m2v --listmse=au.gop2
 	```
@@ -570,7 +489,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	    AU#14 (B)                                  |    67,136 B |                  AU14.GOP2
 	...
 	```
-10. #### List some syntax elements in a or some specified GOP(s) or/and Access Unit(s)
+10. ##### List some syntax elements in a or some specified GOP(s) or/and Access Unit(s)
 	```
 	DumpTS 00023.m2v --listmse=se1-4.au1-2.gop2-3
 	```
@@ -599,38 +518,226 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	        SE#3 slice2                            |       105 B |               SE3.AU2.GOP3
 	        SE#4 slice3                            |       145 B |               SE4.AU2.GOP3
 	```
-```
-DumpTS xxxx.h264 --listMSE=MSE://AU
-```
-And it may show the below output
 
-```
-...
----------Name---------------|--URI---|
-Access-Unit#123	            |  AU123 |
-...
-```
-List AU/NU tree
-```
-DumpTS xxxxx.h264 --listMSE=NU.AU
-```
-And then
-```
-----------Name--------------|----len----|----URI-----|------------Description-------------------
-...
-Access-Unit#84              |           | AU84     | Access unit delimiter
-    NAL Unit#0 non-VCL::AUD |       2 B | NU0.AU84   | Sequence parameter set
-    NAL Unit#1 non-VCL::SPS |      51 B | NU1.AU84   | Picture parameter set
-    NAL Unit#2 non-VCL::PPS |       6 B | NU2.AU84   | Supplemental enhancement information(SEI)
-    NAL Unit#3 non-VCL::SEI |      14 B | NU3.AU84   | Supplemental enhancement information(SEI)
-    NAL Unit#4 non-VCL::SEI |      14 B | NU4.AU84   | Supplemental enhancement information(SEI)
-    NAL Unit#5 non-VCL::SEI |       5 B | NU5.AU84   | Supplemental enhancement information(SEI)
-    NAL Unit#6 VCL::IDR     | 113,827 B | NU6.AU84   | Coded slice of an IDR picture
-    NAL Unit#7 VCL::IDR     | 114,431 B | NU7.AU84   | Coded slice of an IDR picture
-    NAL Unit#8 VCL::IDR     |  94,709 B | NU8.AU84   | Coded slice of an IDR picture
-    NAL Unit#9 VCL::IDR     |  75,413 B | NU9.AU84   | Coded slice of an IDR picture
-...
-```
+[Top](#contents)
+#### NAL Video
+
+1. ##### List all video sequences
+	```
+	DumpTS 02021_interlaced.hevc --listmse=vseq
+	```
+	And then
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	Video Sequence#0
+	```
+2. ##### List all GOPs(CVSes)
+	```
+	DumpTS i:\02021_interlaced.hevc --listmse=cvs
+	```
+	And then
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	CVS#0 (IDR, closed GOP)                        |             |                                CVS0
+	CVS#1                                          |             |                                CVS1
+	CVS#2                                          |             |                                CVS2
+	CVS#3                                          |             |                                CVS3
+	CVS#4                                          |             |                                CVS4
+	CVS#5                                          |             |                                CVS5
+	CVS#6                                          |             |                                CVS6
+	CVS#7                                          |             |                                CVS7
+	CVS#8                                          |             |                                CVS8
+	CVS#9                                          |             |                                CVS9	```
+	```
+3. ##### List all access units
+	```
+	DumpTS 02021_interlaced.hevc --listmse=au
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	AU#0 (I)                                       |    32,948 B |                                 AU0
+	AU#1 (P)                                       |    20,076 B |                                 AU1
+	AU#2 (P)                                       |    16,882 B |                                 AU2
+	AU#3 (P)                                       |     9,896 B |                                 AU3
+	AU#4 (B)                                       |    10,829 B |                                 AU4
+	AU#5 (B)                                       |     4,670 B |                                 AU5
+	AU#6 (B)                                       |     7,862 B |                                 AU6
+	AU#7 (B)                                       |     3,481 B |                                 AU7
+	AU#8 (B)                                       |     7,996 B |                                 AU8
+	AU#9 (B)                                       |     3,510 B |                                 AU9
+	...
+	```
+4. ##### List NAL Units
+	```
+	DumpTS 02021_interlaced.hevc --listmse=nu
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	NU#0 non-VCL::AUD_NUT                          |         3 B |                                 NU0
+	NU#1 non-VCL::VPS_NUT                          |        24 B |                                 NU1
+	NU#2 non-VCL::SPS_NUT                          |        77 B |                                 NU2
+	NU#3 non-VCL::PPS_NUT                          |         7 B |                                 NU3
+	NU#4 non-VCL::PREFIX_SEI_NUT                   |         6 B |                                 NU4
+	NU#5 non-VCL::PREFIX_SEI_NUT                   |         8 B |                                 NU5
+	NU#6 non-VCL::PREFIX_SEI_NUT                   |         6 B |                                 NU6
+	NU#7 VCL::IDR_W_RADL                           |    32,789 B |                                 NU7
+	NU#8 non-VCL::AUD_NUT                          |         3 B |                                 NU8
+	NU#9 non-VCL::PREFIX_SEI_NUT                   |         8 B |                                 NU9
+	NU#10 VCL::TRAIL_R                             |    20,055 B |                                NU10
+	NU#11 non-VCL::AUD_NUT                         |         3 B |                                NU11
+	NU#12 non-VCL::PREFIX_SEI_NUT                  |         8 B |                                NU12
+	NU#13 VCL::TRAIL_R                             |    16,861 B |                                NU13
+	NU#14 non-VCL::AUD_NUT                         |         3 B |                                NU14
+	NU#15 non-VCL::PREFIX_SEI_NUT                  |         8 B |                                NU15
+	NU#16 VCL::TRAIL_R                             |     9,875 B |                                NU16
+	...
+	```
+5. ##### List all SEI messages
+	```
+	DumpTS 02021_interlaced.hevc --listmse=seimsg
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	SEI message#0                                  |         3 B |                             SEIMSG0
+	SEI message#1                                  |         5 B |                             SEIMSG1
+	SEI message#2                                  |         3 B |                             SEIMSG2
+	SEI message#3                                  |         5 B |                             SEIMSG3
+	SEI message#4                                  |         5 B |                             SEIMSG4
+	SEI message#5                                  |         5 B |                             SEIMSG5
+	SEI message#6                                  |         5 B |                             SEIMSG6
+	SEI message#7                                  |         5 B |                             SEIMSG7
+	SEI message#8                                  |         5 B |                             SEIMSG8
+	SEI message#9                                  |         5 B |                             SEIMSG9
+	...
+	```
+6. ##### List all SEI payloads
+	```
+	DumpTS 02021_interlaced.hevc --listmse=seipl
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	#0 active_parameter_sets                       |         1 B |                              SEIPL0
+	#1 pic_timing                                  |         3 B |                              SEIPL1
+	#2 recovery_point                              |         1 B |                              SEIPL2
+	#3 pic_timing                                  |         3 B |                              SEIPL3
+	#4 pic_timing                                  |         3 B |                              SEIPL4
+	#5 pic_timing                                  |         3 B |                              SEIPL5
+	#6 pic_timing                                  |         3 B |                              SEIPL6
+	#7 pic_timing                                  |         3 B |                              SEIPL7
+	#8 pic_timing                                  |         3 B |                              SEIPL8
+	#9 pic_timing                                  |         3 B |                              SEIPL9
+	...
+	```
+7. ##### List all VCL NAL units
+	```
+	DumpTS 02021_interlaced.hevc --listmse=vcl
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	VCL-NU#0 IDR_W_RADL                            |    32,789 B |                                VCL0
+	VCL-NU#1 TRAIL_R                               |    20,055 B |                                VCL1
+	VCL-NU#2 TRAIL_R                               |    16,861 B |                                VCL2
+	VCL-NU#3 TRAIL_R                               |     9,875 B |                                VCL3
+	VCL-NU#4 TRAIL_R                               |    10,808 B |                                VCL4
+	VCL-NU#5 TRAIL_R                               |     4,649 B |                                VCL5
+	VCL-NU#6 TRAIL_R                               |     7,841 B |                                VCL6
+	VCL-NU#7 TRAIL_N                               |     3,460 B |                                VCL7
+	VCL-NU#8 TRAIL_R                               |     7,975 B |                                VCL8
+	VCL-NU#9 TRAIL_N                               |     3,489 B |                                VCL9
+	...
+	```
+8. ##### List all non-VCL NAL units
+	```
+	DumpTS 02021_interlaced.hevc --listmse=~vcl
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	NU#0 non-VCL::AUD_NUT                          |         3 B |                                 NU0
+	NU#1 non-VCL::VPS_NUT                          |        24 B |                                 NU1
+	NU#2 non-VCL::SPS_NUT                          |        77 B |                                 NU2
+	NU#3 non-VCL::PPS_NUT                          |         7 B |                                 NU3
+	NU#4 non-VCL::PREFIX_SEI_NUT                   |         6 B |                                 NU4
+	NU#5 non-VCL::PREFIX_SEI_NUT                   |         8 B |                                 NU5
+	NU#6 non-VCL::PREFIX_SEI_NUT                   |         6 B |                                 NU6
+	NU#8 non-VCL::AUD_NUT                          |         3 B |                                 NU8
+	NU#9 non-VCL::PREFIX_SEI_NUT                   |         8 B |                                 NU9
+	...
+	```
+9. ##### List all access units in a specified GOP
+	```
+	DumpTS 02021_interlaced.hevc --listmse=au.cvs1
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	CVS#1                                          |             |                                CVS1
+	    AU#0 (I)                                   |    31,318 B |                            AU0.CVS1
+	    AU#1 (P)                                   |     8,482 B |                            AU1.CVS1
+	    AU#2 (B)                                   |     8,530 B |                            AU2.CVS1
+	    AU#3 (B)                                   |     2,972 B |                            AU3.CVS1
+	    AU#4 (B)                                   |     6,758 B |                            AU4.CVS1
+	    AU#5 (B)                                   |     2,706 B |                            AU5.CVS1
+	    AU#6 (B)                                   |     6,840 B |                            AU6.CVS1
+	    AU#7 (B)                                   |     2,758 B |                            AU7.CVS1
+	    AU#8 (P)                                   |    16,125 B |                            AU8.CVS1
+	    AU#9 (P)                                   |     9,617 B |                            AU9.CVS1
+	...
+	```
+10. ##### List the first access unit of the specified GOP in a specified GOP
+	```
+	DumpTS 02021_interlaced.hevc --listmse=au0.cvs1-10.vseq0
+	```
+	And then the first access-unit of 2nd,....10th GOP of the first video sequence will be listed as,
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	Video Sequence#0                               |             |                               VSEQ0
+	    CVS#1 (IDR, closed GOP)                    |             |                          CVS1.VSEQ0
+	        AU#0 (I)                               |    32,948 B |                      AU0.CVS1.VSEQ0
+	    CVS#2                                      |             |                          CVS2.VSEQ0
+	        AU#0 (I)                               |    31,318 B |                      AU0.CVS2.VSEQ0
+	    CVS#3                                      |             |                          CVS3.VSEQ0
+	        AU#0 (I)                               |    31,441 B |                      AU0.CVS3.VSEQ0
+	    CVS#4                                      |             |                          CVS4.VSEQ0
+	        AU#0 (I)                               |    31,879 B |                      AU0.CVS4.VSEQ0
+	    CVS#5                                      |             |                          CVS5.VSEQ0
+	        AU#0 (I)                               |    33,453 B |                      AU0.CVS5.VSEQ0
+	    CVS#6                                      |             |                          CVS6.VSEQ0
+	        AU#0 (I)                               |    33,310 B |                      AU0.CVS6.VSEQ0
+	    CVS#7                                      |             |                          CVS7.VSEQ0
+	        AU#0 (I)                               |    32,222 B |                      AU0.CVS7.VSEQ0
+	    CVS#8                                      |             |                          CVS8.VSEQ0
+	        AU#0 (I)                               |    32,417 B |                      AU0.CVS8.VSEQ0
+	    CVS#9                                      |             |                          CVS9.VSEQ0
+	        AU#0 (I)                               |    32,798 B |                      AU0.CVS9.VSEQ0
+	    CVS#10                                     |             |                         CVS10.VSEQ0
+	        AU#0 (I)                               |    30,385 B |                     AU0.CVS10.VSEQ0
+	```
+11. ##### List SEI payloads in a specified access unit of a specified GOP
+	```
+	DumpTS 02021_interlaced.hevc --listmse=seipl.seimsg.au0.cvs1
+	```
+	And then all SEI messages and payloads of the 1st access-unit of the 2nd GOP
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	CVS#1                                          |             |                                CVS1
+	    AU#0 (I)                                   |    31,318 B |                            AU0.CVS1
+	        SEI message#0                          |         3 B |                    SEIMSG0.AU0.CVS1
+	            #0 active_parameter_sets           |         1 B |             SEIPL0.SEIMSG0.AU0.CVS1
+	        SEI message#1                          |         5 B |                    SEIMSG1.AU0.CVS1
+	            #0 pic_timing                      |         3 B |             SEIPL0.SEIMSG1.AU0.CVS1
+	        SEI message#2                          |         3 B |                    SEIMSG2.AU0.CVS1
+	            #0 recovery_point                  |         1 B |             SEIPL0.SEIMSG2.AU0.CVS1
+	```
+
+[Top](#contents)
+#### AV1 Video
+
 List TU/FR/OBU tree
 ```
 DumpTS xxxxx.av1 --listMSE=OBU.FU.TU
@@ -649,6 +756,8 @@ Temporal Unit#41           |  xxx B |          TU41 |        |         |
 ...
 ```
 
+[Top](#contents)
+#### ISOBMFF
 List ISOBMFF boxes
 ```
 DumpTS xxxxx.mp4 --listMSE
@@ -733,7 +842,481 @@ moov.trak[0].mdia.minf
   
 ```
 
+[Top](#contents)
 ### `showMSE` command
+#### MPEG2 Video
+1. ##### Show Sequence Header
+	List non-slice syntactic of first access-unit,
+	```
+	DumpTS 00023.m2v --listmse=~slice.au0
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	AU#0 (I)                                       |    91,997 B |                        AU0
+	    SE#0 sequence_header                       |       140 B |                    SE0.AU0
+	    SE#1 sequence_extension                    |        10 B |                    SE1.AU0
+	    SE#2 group_of_pictures_header              |         8 B |                    SE2.AU0
+	    SE#3 picture_header                        |         8 B |                    SE3.AU0
+	    SE#4 picture_coding_extension              |         9 B |                    SE4.AU0`
+	```
+	And then show the sequence header,
+	```
+	DumpTS 00023.m2v --showmse=se0.au0
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	AU#0 (I)                                       |    91,997 B |                        AU0
+	    SE#0 sequence_header                       |       140 B |                    SE0.AU0
+	    --------------------------------------------------------------------------------------
+	    sequence_header_code: 00 00 01 b3   // should be 00 00 01 B3
+	    horizontal_size_value: 1920(0X780)  // This word forms the 12 least significant bits of horizontal_size
+	    vertical_size_value: 1080(0X438)    // This word forms the 12 least significant bits of vertical_size
+	    aspect_ratio_information: 3(0X3)    // 16:9
+	    frame_rate_code: 4(0X4)             // 30 000/1001 (29.97...)
+	    bit_rate_value: 87500(0X155CC)      // The lower 18 bits of bit_rate, and the upper 12 bits are in bit_rat...
+	    marker_bit: 1
+	    vbv_buffer_size_value: 597(0X255)   // the lower 10 bits of vbv_buffer_size, and the upper 8 bits are in v...
+	    constrained_parameters_flag: 0      // This flag (used in ISO/IEC 11172-2) has no meaning in this Specific...
+	    load_intra_quantiser_matrix: 1      // See 6.3.11 "Quant matrix extension".
+	    intra_quantiser_matrix:             // See 6.3.11 "Quant matrix extension".
+	          8  16  16  19  16  19  22  22
+	         22  22  22  22  26  24  26  27
+	         27  27  26  26  26  26  27  27
+	         27  29  29  29  34  34  34  29
+	         29  29  27  27  29  29  32  32
+	         34  34  37  38  37  35  35  34
+	         35  38  38  40  40  40  48  48
+	         46  46  56  56  58  69  69  83
+	
+	    load_non_intra_quantiser_matrix: 1  // See 6.3.11 "Quant matrix extension".
+	    non_intra_quantiser_matrix:         // See 6.3.11 "Quant matrix extension".
+	         16  17  17  18  18  18  19  19
+	         19  19  20  20  20  20  20  21
+	         21  21  21  21  21  22  22  22
+	         22  22  22  22  23  23  23  23
+	         23  23  23  23  24  24  24  25
+	         24  24  24  25  26  26  26  26
+	         25  27  27  27  27  27  28  28
+	         28  28  30  30  30  31  31  33
+	```
+2. ##### Show sequence header and extension together
+	```
+	DumpTS i:\00023.m2v --showmse=se0-1.au0
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	AU#0 (I)                                       |    91,997 B |                        AU0
+	    SE#0 sequence_header                       |       140 B |                    SE0.AU0
+	    --------------------------------------------------------------------------------------
+	    sequence_header_code: 00 00 01 b3   // should be 00 00 01 B3
+	    horizontal_size_value: 1920(0X780)  // This word forms the 12 least significant bits of horizontal_size
+	    vertical_size_value: 1080(0X438)    // This word forms the 12 least significant bits of vertical_size
+	    aspect_ratio_information: 3(0X3)    // 16:9
+	    frame_rate_code: 4(0X4)             // 30 000/1001 (29.97...)
+	    bit_rate_value: 87500(0X155CC)      // The lower 18 bits of bit_rate, and the upper 12 bits are in bit_rat...
+	    marker_bit: 1
+	    vbv_buffer_size_value: 597(0X255)   // the lower 10 bits of vbv_buffer_size, and the upper 8 bits are in v...
+	    constrained_parameters_flag: 0      // This flag (used in ISO/IEC 11172-2) has no meaning in this Specific...
+	    load_intra_quantiser_matrix: 1      // See 6.3.11 "Quant matrix extension".
+	    intra_quantiser_matrix:             // See 6.3.11 "Quant matrix extension".
+	          8  16  16  19  16  19  22  22
+	         22  22  22  22  26  24  26  27
+	         27  27  26  26  26  26  27  27
+	         27  29  29  29  34  34  34  29
+	         29  29  27  27  29  29  32  32
+	         34  34  37  38  37  35  35  34
+	         35  38  38  40  40  40  48  48
+	         46  46  56  56  58  69  69  83
+	
+	    load_non_intra_quantiser_matrix: 1  // See 6.3.11 "Quant matrix extension".
+	    non_intra_quantiser_matrix:         // See 6.3.11 "Quant matrix extension".
+	         16  17  17  18  18  18  19  19
+	         19  19  20  20  20  20  20  21
+	         21  21  21  21  21  22  22  22
+	         22  22  22  22  23  23  23  23
+	         23  23  23  23  24  24  24  25
+	         24  24  24  25  26  26  26  26
+	         25  27  27  27  27  27  28  28
+	         28  28  30  30  30  31  31  33
+	
+	
+	    SE#1 sequence_extension                    |        10 B |                    SE1.AU0
+	    --------------------------------------------------------------------------------------
+	    extension_start_code: 00 00 01 b5        // should be 00 00 01 B5
+	    extension_start_code_identifier: 1(0X1)  // Should be 1
+	    profile_and_level_indication: 68(0X44)   // Main@High
+	    progressive_sequence: 0                  // the coded video sequence may contain both frame-pictures and field-...
+	    chroma_format: 1(0X1)                    // 4:2:0
+	    horizontal_size_extension: 0(0X0)        // (horizontal_size_extension<<12)|horizontal_size_value
+	    vertical_size_extension: 0(0X0)          // (vertical_size_extension<<12)|vertical_size_value
+	    bit_rate_extension: 0(0X0)               // (bit_rate_extension<18)|bit_rate_value
+	    marker_bit: 1
+	    vbv_buffer_size_extension: 0(0X0)        // (vbv_buffer_size_extension<10)|vbv_buffer_size_value
+	    low_delay: 0                             // the sequence may contain B-pictures, that the frame re-ordering del...
+	    frame_rate_extension_n: 0(0X0)           // frame_rate = frame_rate_value * (frame_rate_extension_n + 1) / (fra...
+	    frame_rate_extension_d: 0(0X0)           // frame_rate = frame_rate_value * (frame_rate_extension_n + 1) / (fra...
+	```
+3. ##### Show all syntactic elements with full hierarchical layout
+	```
+	DumpTS 00023.m2v --showmse=se.au.gop.vseq
+	```
+	And then,
+	```
+	...
+	            SE#2 group_of_pictures_header      |         8 B |         SE2.AU0.GOP0.VSEQ0
+	            ------------------------------------------------------------------------------
+	            group_start_code: 00 00 01 b8     // should be 00 00 01 B8
+	            drop_frame_flag: 0                // pictures are counted assuming rounding to the nearest integral numb...
+	            time_code_hours: 0(0X0)           // hours
+	            time_code_minutes: 0(0X0)         // minutes
+	            marker_bit: 1                   
+	            time_code_seconds: 0(0X0)         // seconds
+	            time_code_pictures: 0(0X0)        // frames
+	            closed_gop: 1                     // these B-pictures have been encoded using only backward prediction o...
+	            broken_link: 0                  
+	
+	            SE#3 picture_header                |         8 B |         SE3.AU0.GOP0.VSEQ0
+	            ------------------------------------------------------------------------------
+	            picture_start_code: 00 00 01 00   // should be 00 00 01 00
+	            temporal_reference: 0(0X0)        
+	            picture_coding_type: 1(0X1)       // intra-coded (I)
+	            vbv_delay: 65535(0XFFFF)          
+	
+	            SE#4 picture_coding_extension      |         9 B |         SE4.AU0.GOP0.VSEQ0
+	            ------------------------------------------------------------------------------
+	            extension_start_code_identifier: 8(0X8)
+	            f_code_0_0: 15(0XF)               // forward horizontal
+	            f_code_0_1: 15(0XF)               // forward vertical
+	            f_code_1_0: 15(0XF)               // backward horizontal
+	            f_code_1_1: 15(0XF)               // backward vertical
+	            intra_dc_precision: 2(0X2)        // 10bits precision
+	            picture_structure: 3(0X3)         // Frame picture
+	            top_field_first: 1                // The meaning of this element depends upon picture_structure, progres...
+	            frame_pred_frame_dct: 0        
+	            concealment_motion_vectors: 0     // indicate that no motion vectors are coded in intra macroblocks
+	            q_scale_type: 1                   // This flag affects the inverse quantisation process as described in ...
+	            intra_vlc_format: 1               // This flag affects the decoding of transform coefficient data as des...
+	            alternate_scan: 1                 // This flag affects the decoding of transform coefficient data as des...
+	            repeat_first_field: 0             // This flag is applicable only in a frame picture; in a field picture...
+	            chroma_420_type: 0                
+	            progressive_frame: 0              // the two fields of the frame are interlaced fields in which an inter...
+	            composite_display_flag: 0         // these parameters do not occur in the bitstream
+	
+	            SE#5 slice1                        |       688 B |         SE5.AU0.GOP0.VSEQ0
+	            ------------------------------------------------------------------------------
+	            slice_start_code: 00 00 01 01     // should be 00 00 01 01~AF
+	            mb_row: 0(0X0)                    // macroblock row
+	            quantiser_scale_code: 5(0X5)    
+	            extra_bit_slice: 0                // Should be 0
+	...
+	```
+4. ##### Show syntax view of the first access-unit of the 3rd and 4th GOP
+	```
+	DumpTS 00023.m2v --showmse=se.au0.gop2-3
+	```
+	And then,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-------------
+	GOP#2 (open)                                   |             |                       GOP2
+	    AU#0 (I)                                   |   361,074 B |                   AU0.GOP2
+	        SE#0 sequence_header                   |       140 B |               SE0.AU0.GOP2
+	        ----------------------------------------------------------------------------------
+			...
+	            
+	
+	        SE#1 sequence_extension                |        10 B |               SE1.AU0.GOP2
+	        ----------------------------------------------------------------------------------
+			...
+			
+	        SE#2 group_of_pictures_header          |         8 B |               SE2.AU0.GOP2
+	        ----------------------------------------------------------------------------------
+	        group_start_code: 00 00 01 b8   // should be 00 00 01 B8
+	        drop_frame_flag: 0              // pictures are counted assuming rounding to the nearest integral numb...
+	        time_code_hours: 0(0X0)         // hours
+	        time_code_minutes: 0(0X0)       // minutes
+	        marker_bit: 1                   
+	        time_code_seconds: 0(0X0)       // seconds
+	        time_code_pictures: 28(0X1C)    // frames
+	        closed_gop: 0                   
+	        broken_link: 0                  
+	
+	        SE#3 picture_header                    |         8 B |               SE3.AU0.GOP2
+	        ----------------------------------------------------------------------------------
+	        picture_start_code: 00 00 01 00   // should be 00 00 01 00
+	        temporal_reference: 2(0X2)        
+	        picture_coding_type: 1(0X1)       // intra-coded (I)
+	        vbv_delay: 65535(0XFFFF)          
+	
+	        SE#4 picture_coding_extension          |         9 B |               SE4.AU0.GOP2
+	        ----------------------------------------------------------------------------------
+	        extension_start_code_identifier: 8(0X8)
+	        f_code_0_0: 15(0XF)            // forward horizontal
+	        f_code_0_1: 15(0XF)            // forward vertical
+	        f_code_1_0: 15(0XF)            // backward horizontal
+	        f_code_1_1: 15(0XF)            // backward vertical
+	        intra_dc_precision: 2(0X2)     // 10bits precision
+	        picture_structure: 3(0X3)      // Frame picture
+	        top_field_first: 1             // The meaning of this element depends upon picture_structure, progres...
+	        frame_pred_frame_dct: 0        
+	        concealment_motion_vectors: 0  // indicate that no motion vectors are coded in intra macroblocks
+	        q_scale_type: 1                // This flag affects the inverse quantisation process as described in ...
+	        intra_vlc_format: 1            // This flag affects the decoding of transform coefficient data as des...
+	        alternate_scan: 1              // This flag affects the decoding of transform coefficient data as des...
+	        repeat_first_field: 0          // This flag is applicable only in a frame picture; in a field picture...
+	        chroma_420_type: 0             
+	        progressive_frame: 0           // the two fields of the frame are interlaced fields in which an inter...
+	        composite_display_flag: 0      // these parameters do not occur in the bitstream
+	
+	        SE#5 slice1                            |     7,677 B |               SE5.AU0.GOP2
+	        ----------------------------------------------------------------------------------
+	        slice_start_code: 00 00 01 01   // should be 00 00 01 01~AF
+	        mb_row: 0(0X0)                  // macroblock row
+	        quantiser_scale_code: 1(0X1)    
+	        extra_bit_slice: 0              // Should be 0
+	
+	        SE#6 slice2                            |     7,248 B |               SE6.AU0.GOP2
+	        ----------------------------------------------------------------------------------
+	        slice_start_code: 00 00 01 02   // should be 00 00 01 01~AF
+	        mb_row: 1(0X1)                  // macroblock row
+	        quantiser_scale_code: 4(0X4)    
+	        extra_bit_slice: 0              // Should be 0
+	
+			...
+	
+	GOP#3 (open)                                   |             |                       GOP3
+	    AU#0 (I)                                   |   366,066 B |                   AU0.GOP3
+	        SE#0 sequence_header                   |       140 B |               SE0.AU0.GOP3
+	        ----------------------------------------------------------------------------------
+			...
+	
+	        SE#1 sequence_extension                |        10 B |               SE1.AU0.GOP3
+	        ----------------------------------------------------------------------------------
+			...
+	
+	        SE#2 group_of_pictures_header          |         8 B |               SE2.AU0.GOP3
+	        ----------------------------------------------------------------------------------
+	        group_start_code: 00 00 01 b8   // should be 00 00 01 B8
+	        drop_frame_flag: 0              // pictures are counted assuming rounding to the nearest integral numb...
+	        time_code_hours: 0(0X0)         // hours
+	        time_code_minutes: 0(0X0)       // minutes
+	        marker_bit: 1                   
+	        time_code_seconds: 1(0X1)       // seconds
+	        time_code_pictures: 13(0XD)     // frames
+	        closed_gop: 0                   
+	        broken_link: 0                  
+	
+	        SE#3 picture_header                    |         8 B |               SE3.AU0.GOP3
+	        ----------------------------------------------------------------------------------
+	        picture_start_code: 00 00 01 00   // should be 00 00 01 00
+	        temporal_reference: 2(0X2)        
+	        picture_coding_type: 1(0X1)       // intra-coded (I)
+	        vbv_delay: 65535(0XFFFF)          
+	
+	        SE#4 picture_coding_extension          |         9 B |               SE4.AU0.GOP3
+	        ----------------------------------------------------------------------------------
+	        extension_start_code_identifier: 8(0X8)
+	        f_code_0_0: 15(0XF)            // forward horizontal
+	        f_code_0_1: 15(0XF)            // forward vertical
+	        f_code_1_0: 15(0XF)            // backward horizontal
+	        f_code_1_1: 15(0XF)            // backward vertical
+	        intra_dc_precision: 2(0X2)     // 10bits precision
+	        picture_structure: 3(0X3)      // Frame picture
+	        top_field_first: 1             // The meaning of this element depends upon picture_structure, progres...
+	        frame_pred_frame_dct: 0        
+	        concealment_motion_vectors: 0  // indicate that no motion vectors are coded in intra macroblocks
+	        q_scale_type: 1                // This flag affects the inverse quantisation process as described in ...
+	        intra_vlc_format: 1            // This flag affects the decoding of transform coefficient data as des...
+	        alternate_scan: 1              // This flag affects the decoding of transform coefficient data as des...
+	        repeat_first_field: 0          // This flag is applicable only in a frame picture; in a field picture...
+	        chroma_420_type: 0             
+	        progressive_frame: 0           // the two fields of the frame are interlaced fields in which an inter...
+	        composite_display_flag: 0      // these parameters do not occur in the bitstream
+	
+	        SE#5 slice1                            |     7,651 B |               SE5.AU0.GOP3
+	        ----------------------------------------------------------------------------------
+	        slice_start_code: 00 00 01 01   // should be 00 00 01 01~AF
+	        mb_row: 0(0X0)                  // macroblock row
+	        quantiser_scale_code: 2(0X2)    
+	        extra_bit_slice: 0              // Should be 0
+	
+	        SE#6 slice2                            |     7,240 B |               SE6.AU0.GOP3
+	        ----------------------------------------------------------------------------------
+	        slice_start_code: 00 00 01 02   // should be 00 00 01 01~AF
+	        mb_row: 1(0X1)                  // macroblock row
+	        quantiser_scale_code: 5(0X5)    
+	        extra_bit_slice: 0              // Should be 0
+	
+			...
+	```
+
+[Top](#contents)
+#### NAL Video
+1. ##### Show syntax view of VPS
+	At first, list all non-VCL NAL units of the first GOP
+	```
+	DumpTS 02021_interlaced.hevc --listmse=~vcl.cvs0
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	CVS#0 (IDR, closed GOP)                        |             |                                CVS0
+	    NU#0 non-VCL::AUD_NUT                      |         3 B |                            NU0.CVS0
+	    NU#1 non-VCL::VPS_NUT                      |        24 B |                            NU1.CVS0
+	    NU#2 non-VCL::SPS_NUT                      |        77 B |                            NU2.CVS0
+	    NU#3 non-VCL::PPS_NUT                      |         7 B |                            NU3.CVS0
+	    NU#4 non-VCL::PREFIX_SEI_NUT               |         6 B |                            NU4.CVS0
+	    NU#5 non-VCL::PREFIX_SEI_NUT               |         8 B |                            NU5.CVS0
+	    NU#6 non-VCL::PREFIX_SEI_NUT               |         6 B |                            NU6.CVS0
+	    NU#8 non-VCL::AUD_NUT                      |         3 B |                            NU8.CVS0
+	```
+	And then get the URI of the VPS `NU1.CVS0`, and run
+	```
+	DumpTS 02021_interlaced.hevc --showmse=nu1.cvs0
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	CVS#0 (IDR, closed GOP)                        |             |                                CVS0
+	    NU#1 non-VCL::VPS_NUT                      |        24 B |                            NU1.CVS0
+	    -----------------------------------------------------------------------------------------------
+	    NAL_UNIT:                                               // non-VCL::VPS_NUT Video parameter set video_parameter_set_rbsp( )
+	        forbidden_zero_bit: 0                               // shall be equal to 0.
+	        nal_unit_type: 32(0X20)                             // non-VCL::VPS_NUT Video parameter set video_parameter_set_rbsp( )
+	        nuh_layer_id: 0(0X0)                                // the identifier of the layer to which a VCL NAL unit belongs or	the ...
+	        nuh_temporal_id_plus1: 1(0X1)                       // Should be 1
+	        vps_video_parameter_set_id: 0(0X0)                  // identifies the VPS for reference by other syntax elements
+	        vps_base_layer_internal_flag: 1
+	        vps_base_layer_available_flag: 1
+	        vps_max_layers_minus1: 0(0X0)                       // plus 1 specifies the maximum allowed number of layers in each CVS	r...
+	        vps_max_sub_layers_minus1: 0(0X0)                   // plus 1 specifies the maximum number of temporal sub-layers that	may...
+	        vps_temporal_id_nesting_flag: 1                     // when vps_max_sub_layers_minus1 is greater than 0, specifies	whether...
+	        vps_reserved_0xffff_16bits: 65535(0XFFFF)           // shall be equal to 0xFFFF
+	        profile_tier_level(1, vps_max_sub_layers_minus1):   // Main
+	            general_profile_space: 0(0X0)
+	            general_tier_flag: 0(0X0)
+	            general_profile_idc: 1(0X1)
+	            profile_compatibility_flag:
+	                general_profile_compatibility_flag[0]: 0
+	                general_profile_compatibility_flag[1]: 1
+	                general_profile_compatibility_flag[2]: 1
+	                general_profile_compatibility_flag[3]: 0
+	                general_profile_compatibility_flag[4]: 0
+	                general_profile_compatibility_flag[5]: 0
+	                general_profile_compatibility_flag[6]: 0
+	                general_profile_compatibility_flag[7]: 0
+	                general_profile_compatibility_flag[8]: 0
+	                general_profile_compatibility_flag[9]: 0
+	                general_profile_compatibility_flag[10]: 0
+	                general_profile_compatibility_flag[11]: 0
+	                general_profile_compatibility_flag[12]: 0
+	                general_profile_compatibility_flag[13]: 0
+	                general_profile_compatibility_flag[14]: 0
+	                general_profile_compatibility_flag[15]: 0
+	                general_profile_compatibility_flag[16]: 0
+	                general_profile_compatibility_flag[17]: 0
+	                general_profile_compatibility_flag[18]: 0
+	                general_profile_compatibility_flag[19]: 0
+	                general_profile_compatibility_flag[20]: 0
+	                general_profile_compatibility_flag[21]: 0
+	                general_profile_compatibility_flag[22]: 0
+	                general_profile_compatibility_flag[23]: 0
+	                general_profile_compatibility_flag[24]: 0
+	                general_profile_compatibility_flag[25]: 0
+	                general_profile_compatibility_flag[26]: 0
+	                general_profile_compatibility_flag[27]: 0
+	                general_profile_compatibility_flag[28]: 0
+	                general_profile_compatibility_flag[29]: 0
+	                general_profile_compatibility_flag[30]: 0
+	                general_profile_compatibility_flag[31]: 0
+	            general_progressive_source_flag: 0
+	            general_interlaced_source_flag: 1
+	            general_non_packed_constraint_flag: 0
+	            general_frame_only_constraint_flag: 0
+	            general_reserved_zero_43bits: 0(0X0)
+	            general_inbld_flag: 0
+	            general_level_idc: 93(0X5D)                     // Level 3.1
+	        vps_sub_layer_ordering_info_present_flag: 1         // specifies that vps_max_dec_pic_buffering_minus1[ i ],	vps_max_num_r...
+	        for(i = ( vps_sub_layer_ordering_info_present_flag ? 0 : vps_max_sub_layers_minus1 ); i <= vps_max_sub_layers_minus1; i+	+ ) {:
+	            vps_max_dec_pic_buffering_minus1[0]: 7          // plus 1 specifies the maximum required size of the decoded picture	b...
+	            vps_max_num_reorder_pics[0]: 4                  // indicates the maximum allowed number of pictures with	PicOutputFlag...
+	            vps_max_latency_increase_plus1[0]: 0            // no corresponding limit is expressed
+	        vps_max_layer_id: 0(0X0)                            // specifies the maximum allowed value of nuh_layer_id of all NAL	unit...
+	        vps_num_layer_sets_minus1: 0(0X0)                   // plus 1 specifies the number of layer sets that are specified by	the...
+	        vps_timing_info_present_flag: 0                     // specifies that vps_num_units_in_tick, vps_time_scale,	vps_poc_propo...
+	        vps_extension_flag: 0
+	        rbsp_trailing_bits:
+	            rbsp_stop_one_bit: 1                            // Should be 1
+	```
+2. ##### Show the syntax view of all NAL units
+	```
+	DumpTS 02021_interlaced.hevc --showmse=nu
+	```
+3. ##### Show all SEI payloads syntax view
+	```
+	DumpTS 02021_interlaced.hevc --showmse=seipl.seimsg.au.cvs
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	CVS#0 (IDR, closed GOP)                        |             |                                CVS0
+	    AU#0 (I)                                   |    32,948 B |                            AU0.CVS0
+	        SEI message#0                          |         3 B |                    SEIMSG0.AU0.CVS0
+	            #0 active_parameter_sets           |         1 B |             SEIPL0.SEIMSG0.AU0.CVS0
+	            ---------------------------------------------------------------------------------------
+	            active_video_parameter_set_id: 0(0X0)  // indicates and shall be equal to the value of the vps_video_paramete...
+	            self_contained_cvs_flag: 0             // indicates that this property may or may not apply
+	            no_parameter_set_update_flag: 0        // indicates that there may or may not be parameter set update in the ...
+	            num_sps_ids_minus1: 0(0X0)             // plus 1 shall be less than or equal to the number of SPSs that are r...
+	            for(i=0; i<=num_sps_ids_minus1;i++):
+	                active_seq_parameter_set_id[0]: 0  // a value of the sps_seq_parameter_set_id of the SPS that may be refe...
+	
+	        SEI message#1                          |         5 B |                    SEIMSG1.AU0.CVS0
+	            #0 pic_timing                      |         3 B |             SEIPL0.SEIMSG1.AU0.CVS0
+	            ---------------------------------------------------------------------------------------
+	            pic_struct: 1(0X1)                   // top field
+	            source_scan_type: 0(0X0)             // Interlaced
+	            duplicate_flag: 0                    // the current picture is not indicated to be a duplicate of a previou...
+	            au_cpb_removal_delay_minus1: 0(0X0)  // plus 1 is used to calculate the number of clock ticks between the n...
+	            pic_dpb_output_delay: 4(0X4)         // how many clock ticks to wait after removal of the last decoding uni...
+	
+	        SEI message#2                          |         3 B |                    SEIMSG2.AU0.CVS0
+	            #0 recovery_point                  |         1 B |             SEIPL0.SEIMSG2.AU0.CVS0
+	            ---------------------------------------------------------------------------------------
+	            recovery_poc_cnt: 0  // the recovery point of decoded pictures in output order
+	            exact_match_flag: 1  // the match will be exact
+	            broken_link_flag: 0  // no indication is given regarding any potential presence of visual a...
+	            payload_bit_equal_to_one: 1
+	            while(!byte_aligned()):
+	                payload_bit_equal_to_zero[0]: 0
+	                payload_bit_equal_to_zero[1]: 0
+	                payload_bit_equal_to_zero[2]: 0
+	                payload_bit_equal_to_zero[3]: 0
+	
+	    AU#1 (P)                                   |    20,076 B |                            AU1.CVS0
+	        SEI message#0                          |         5 B |                    SEIMSG0.AU1.CVS0
+	            #0 pic_timing                      |         3 B |             SEIPL0.SEIMSG0.AU1.CVS0
+	            ---------------------------------------------------------------------------------------
+	            pic_struct: 2(0X2)                   // bottom field
+	            source_scan_type: 0(0X0)             // Interlaced
+	            duplicate_flag: 0                    // the current picture is not indicated to be a duplicate of a previou...
+	            au_cpb_removal_delay_minus1: 0(0X0)  // plus 1 is used to calculate the number of clock ticks between the n...
+	            pic_dpb_output_delay: 4(0X4)         // how many clock ticks to wait after removal of the last decoding uni...
+	
+	    AU#2 (P)                                   |    16,882 B |                            AU2.CVS0
+	        SEI message#0                          |         5 B |                    SEIMSG0.AU2.CVS0
+	            #0 pic_timing                      |         3 B |             SEIPL0.SEIMSG0.AU2.CVS0
+	            ---------------------------------------------------------------------------------------
+	            pic_struct: 1(0X1)                   // top field
+	            source_scan_type: 0(0X0)             // Interlaced
+	            duplicate_flag: 0                    // the current picture is not indicated to be a duplicate of a previou...
+	            au_cpb_removal_delay_minus1: 1(0X1)  // plus 1 is used to calculate the number of clock ticks between the n...
+	            pic_dpb_output_delay: 10(0XA)        // how many clock ticks to wait after removal of the last decoding uni...
+	
+	    AU#3 (P)                                   |     9,896 B |                            AU3.CVS0
+	        SEI message#0                          |         5 B |                    SEIMSG0.AU3.CVS0
+	            #0 pic_timing                      |         3 B |             SEIPL0.SEIMSG0.AU3.CVS0
+	            ---------------------------------------------------------------------------------------
+	            pic_struct: 2(0X2)                   // bottom field
+	            source_scan_type: 0(0X0)             // Interlaced
+	            duplicate_flag: 0                    // the current picture is not indicated to be a duplicate of a previou...
+	            au_cpb_removal_delay_minus1: 2(0X2)  // plus 1 is used to calculate the number of clock ticks between the n...
+	            pic_dpb_output_delay: 10(0XA)        // how many clock ticks to wait after removal of the last decoding uni...
+	
+	    AU#4 (B)                                   |    10,829 B |                            AU4.CVS0
+	        SEI message#0                          |         5 B |                    SEIMSG0.AU4.CVS0
+	            #0 pic_timing                      |         3 B |             SEIPL0.SEIMSG0.AU4.CVS0
+	            ---------------------------------------------------------------------------------------
+	            pic_struct: 1(0X1)                   // top field
+	            source_scan_type: 0(0X0)             // Interlaced
+	            duplicate_flag: 0                    // the current picture is not indicated to be a duplicate of a previou...
+	            au_cpb_removal_delay_minus1: 3(0X3)  // plus 1 is used to calculate the number of clock ticks between the n...
+	            pic_dpb_output_delay: 4(0X4)         // how many clock ticks to wait after removal of the last decoding uni...
+	```
 
 [Top](#contents)
 ### `showMSEHex` command
