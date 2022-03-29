@@ -1178,7 +1178,7 @@ public:
 	{
 		m_unit_index[m_level[NAL_LEVEL_VSEQ]]++;
 		if (m_level[NAL_LEVEL_CVS] > 0)
-			m_unit_index[m_level[NAL_LEVEL_CVS]] = 0;
+			m_unit_index[m_level[NAL_LEVEL_CVS]] = -1;
 		if (m_level[NAL_LEVEL_AU] > 0)
 			m_unit_index[m_level[NAL_LEVEL_AU]] = 0;
 		if (m_level[NAL_LEVEL_NU] > 0)
