@@ -1,4 +1,4 @@
-name: MSBuild_VC14
+name: MSBuild_vc14
 
 on:
   push:
