@@ -139,6 +139,7 @@ extern const char* blending_mode_id_names[4];
 extern const char* vui_colour_primaries_names[256];
 extern const char* vui_transfer_characteristics_names[256];
 extern const char* vui_matrix_coeffs_descs[256];
+extern const char* pic_struct_names[16];
 
 class INALContext;
 
@@ -302,8 +303,9 @@ namespace BST {
 					uint32_t		cpb_removal_delay;
 					uint32_t		dpb_output_delay;
 
+					uint8_t			CpbDpbDelaysPresentFlag : 1;
+					uint8_t			CpbDpbDelaysPresentIfNAL : 1;
 					uint8_t			pic_struct_present_flag : 1;
-					uint8_t			reserved_0 : 2;
 					uint8_t			pic_struct : 5;
 					uint8_t			reserved_1[3] = { 0 };
 
@@ -313,6 +315,9 @@ namespace BST {
 									reserved_sei_message_payload_bytes;
 					int				payload_size;
 					INALContext*	ptr_NAL_Context;
+
+					uint8_t			cpb_removal_delay_length_minus1 = 23;
+					uint8_t			dpb_output_delay_length_minus1 = 23;
 
 					PIC_TIMING_H264(int payloadSize, INALContext* pNALCtx);
 
@@ -324,10 +329,95 @@ namespace BST {
 						return RET_CODE_ERROR_NOTIMPL;
 					}
 
-					size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL) {
-						return 0;
+					DECLARE_FIELDPROP_BEGIN()
+					if (CpbDpbDelaysPresentFlag)
+					{
+						BST_FIELD_PROP_2NUMBER1(cpb_removal_delay, (long long)cpb_removal_delay_length_minus1 + 1, 
+							"specifies how many clock ticks to wait after removal from the CPB of the access unit associated with the most recent buffering period SEI message in a preceding access unit before removing from the buffer the access unit data associated with the picture timing SEI message");
+						BST_FIELD_PROP_2NUMBER1(dpb_output_delay, (long long)dpb_output_delay_length_minus1 + 1,
+							"specifies how many clock ticks to wait after removal of an access unit from the CPB before the decoded picture can be output from the DPB");
 					}
 
+					if (pic_struct_present_flag)
+					{
+						BST_FIELD_PROP_2NUMBER1(pic_struct, 4, pic_struct_names[pic_struct]);
+
+						int NumClockTS = 0;
+						if (pic_struct >= 0 && pic_struct <= 2)
+							NumClockTS = 1;
+						else if (pic_struct == 3 || pic_struct == 4 || pic_struct == 7)
+							NumClockTS = 2;
+						else if (pic_struct == 5 || pic_struct == 6 || pic_struct == 8)
+							NumClockTS = 3;
+
+						if (NumClockTS > 0)
+						{
+							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;NumClockTS;i++)", "");
+							for (int i = 0; i < NumClockTS; i++)
+							{
+								NAV_WRITE_TAG_ARRAY_BEGIN0("ClockTS", i, "");
+								BST_FIELD_PROP_BOOL1(ClockTS[i], clock_timestamp_flag, 
+									"indicates that a number of clock timestamp syntax elements are present and follow immediately", 
+									"indicates that the associated clock timestamp syntax elements are not present");
+								if (ClockTS[i].clock_timestamp_flag)
+								{
+									BST_FIELD_PROP_2NUMBER("ct_type", 2, ClockTS[i].ct_type, 
+										ClockTS[i].ct_type == 0 ? "progressive" : (
+										ClockTS[i].ct_type == 1 ? "interlaced" : (
+										ClockTS[i].ct_type == 2 ? "unknown" : "")));
+									
+									BST_FIELD_PROP_BOOL1(ClockTS[i], nuit_field_based_flag,
+										"is used in calculating clockTimestamp", "is used in calculating clockTimestamp");
+									BST_FIELD_PROP_2NUMBER("counting_type", 5, ClockTS[i].counting_type, "specifies the method of dropping values of the n_frames");
+									BST_FIELD_PROP_BOOL1(ClockTS[i], full_timestamp_flag,
+										"specifies that the n_frames syntax element is followed by seconds_value, minutes_value, and hours_value", 
+										"specifies that the n_frames syntax element is followed by seconds_flag");
+									BST_FIELD_PROP_BOOL1(ClockTS[i], discontinuity_flag,
+										"indicates that the difference between the current value of clockTimestamp and the value of clockTimestamp computed from the previous clock timestamp in output order should not be interpreted as the time difference between the times of origin or capture of the associated frames or fields",
+										"indicates that the difference between the current value of clockTimestamp and the value of clockTimestamp computed from the previous clock timestamp in output order can be interpreted as the time difference between the times of origin or capture of the associated frames or fields");
+									BST_FIELD_PROP_BOOL1(ClockTS[i], cnt_dropped_flag,
+										"specifies the skipping of one or more values of n_frames using the counting method specified by counting_type",
+										"specifies the skipping of one or more values of n_frames using the counting method specified by counting_type");
+									BST_FIELD_PROP_2NUMBER("n_frames", 5, (uint8_t)ClockTS[i].n_frames, "specifies the method of dropping values of the n_frames");
+
+									if (ClockTS[i].full_timestamp_flag)
+									{
+										BST_FIELD_PROP_2NUMBER("seconds_value", 6, (uint8_t)ClockTS[i].seconds_value, "0..59");
+										BST_FIELD_PROP_2NUMBER("minutes_value", 6, (uint8_t)ClockTS[i].minutes_value, "0..59");
+										BST_FIELD_PROP_2NUMBER("hours_value",   5, (uint8_t)ClockTS[i].hours_value,   "0..23");
+									}
+									else
+									{
+										BST_FIELD_PROP_BOOL1(ClockTS[i], seconds_flag, "", "");
+										if (ClockTS[i].seconds_flag)
+										{
+											BST_FIELD_PROP_2NUMBER("seconds_value", 6, (uint8_t)ClockTS[i].seconds_value, "0..59");
+											BST_FIELD_PROP_BOOL1(ClockTS[i], minutes_flag, "", "");
+											if (ClockTS[i].minutes_flag)
+											{
+												BST_FIELD_PROP_2NUMBER("minutes_value", 6, (uint8_t)ClockTS[i].minutes_value, "0..59");
+												BST_FIELD_PROP_BOOL1(ClockTS[i], hours_flag, "", "");
+												if (ClockTS[i].hours_flag)
+												{
+													BST_FIELD_PROP_2NUMBER("hours_value", 5, (uint8_t)ClockTS[i].hours_value, "0..23");
+												}
+											}
+										}
+									}
+
+									if (ClockTS[i].time_offset_length > 0) {
+										BST_FIELD_PROP_2LLNUMBER("time_offset", ClockTS[i].time_offset_length, ClockTS[i].time_offset, "");
+									}
+
+								}
+								NAV_WRITE_TAG_END("ClockTS");
+							}
+							NAV_WRITE_TAG_END("Tag0");
+						}
+					}
+
+
+					DECLARE_FIELDPROP_END()
 				};
 
 				struct PIC_TIMING_H265 : public SYNTAX_BITSTREAM_MAP
@@ -368,6 +458,12 @@ namespace BST {
 					int				payload_size;
 					INALContext*	ptr_NAL_Context;
 
+					uint8_t			du_cpb_removal_delay_increment_length_minus1 = 0;
+					uint8_t			dpb_output_delay_du_length_minus1 = 0;
+					uint8_t			initial_cpb_removal_delay_length_minus1 = 23;
+					uint8_t			au_cpb_removal_delay_length_minus1 = 23;
+					uint8_t			dpb_output_delay_length_minus1 = 23;
+
 					PIC_TIMING_H265(int payloadSize, INALContext* pNALCtx);
 
 					int Map(AMBst in_bst);
@@ -378,9 +474,52 @@ namespace BST {
 						return RET_CODE_ERROR_NOTIMPL;
 					}
 
-					size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL) {
-						return 0;
-					}
+					DECLARE_FIELDPROP_BEGIN()
+						if (frame_field_info_present_flag)
+						{
+							BST_FIELD_PROP_2NUMBER1(pic_struct, 4, pic_struct_names[pic_struct]);
+							BST_FIELD_PROP_2NUMBER1(source_scan_type, 2, source_scan_type == 0 ? "Interlaced" : (
+																		 source_scan_type == 1 ? "Progressive" : (
+																		 source_scan_type == 2 ? "Unspecified" : "")));
+							BST_FIELD_PROP_BOOL(duplicate_flag, "the current picture is indicated to be a duplicate of a previous picture in output order"
+															  , "the current picture is not indicated to be a duplicate of a previous picture in output order");
+						}
+
+						if (CpbDpbDelaysPresentFlag)
+						{
+							BST_FIELD_PROP_2NUMBER1(au_cpb_removal_delay_minus1, (long long)au_cpb_removal_delay_length_minus1 + 1,
+								"plus 1 is used to calculate the number of clock ticks between the nominal CPB removal times of the access unit associated with the picture timing SEI message and the preceding access unit in decoding order that contained a buffering period SEI message");
+							BST_FIELD_PROP_2NUMBER1(pic_dpb_output_delay, (long long)dpb_output_delay_length_minus1 + 1,
+								"how many clock ticks to wait after removal of the last decoding unit in an access unit from the CPB before the decoded picture is output from the DPB");
+							if (sub_pic_hrd_params_present_flag){
+								BST_FIELD_PROP_2NUMBER1(pic_dpb_output_du_delay, (long long)dpb_output_delay_du_length_minus1 + 1,
+									"how many sub clock ticks to wait after removal of the last decoding unit in an access unit from the CPB before the decoded picture is output from the DPB");
+							}
+							if (sub_pic_hrd_params_present_flag && sub_pic_cpb_params_in_pic_timing_sei_flag)
+							{
+								BST_FIELD_PROP_UE((uint32_t)num_decoding_units_minus1, "plus 1 specifies the number of decoding units in the access unit the picture timing SEI message is associated with");
+								BST_FIELD_PROP_BOOL(du_common_cpb_removal_delay_flag, "the syntax element du_common_cpb_removal_delay_increment_minus1 is present"
+																					, "the syntax element du_common_cpb_removal_delay_increment_minus1 is not present");
+								if (du_common_cpb_removal_delay_flag)
+								{
+									BST_FIELD_PROP_2NUMBER1(du_common_cpb_removal_delay_increment_minus1, (long long)du_cpb_removal_delay_increment_length_minus1 + 1,
+										"plus 1 specifies the duration, in units of clock sub-ticks, between the nominal CPB removal times of any two consecutive decoding units in decoding order in the access unit associated with the picture timing SEI message");
+								}
+
+								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;=num_decoding_units_minus1;i++)", "");
+								for (i = 0; i <= (int)num_decoding_units_minus1; i++) {
+									NAV_WRITE_TAG_ARRAY_BEGIN0("decoding_units", i, "");
+									BST_FIELD_PROP_UE1((uint32_t)dus[i].num_nalus_in_du_minus1, "num_nalus_in_du_minus1", "plus 1 specifies the number of decoding units in the access unit the picture timing SEI message is associated with");
+									if (!du_common_cpb_removal_delay_flag && i < (int)num_decoding_units_minus1)
+									{
+										BST_FIELD_PROP_2NUMBER("du_cpb_removal_delay_increment_minus1", (long long)du_cpb_removal_delay_increment_length_minus1 + 1, dus[i].du_cpb_removal_delay_increment_minus1, "");
+									}
+									NAV_WRITE_TAG_END("decoding_units");
+								}
+								NAV_WRITE_TAG_END("Tag0");
+							}
+						}
+					DECLARE_FIELDPROP_END()
 				};
 
 				struct MASTERING_DISPLAY_COLOUR_VOLUME : public SYNTAX_BITSTREAM_MAP
@@ -2750,6 +2889,8 @@ namespace BST {
 				union {
 					RESERVED_SEI_MESSAGE*				reserved_sei_message = nullptr;
 					BUFFERING_PERIOD*					buffering_period;
+					PIC_TIMING_H264*					pic_timing_h264;
+					PIC_TIMING_H265*					pic_timing_h265;
 					MASTERING_DISPLAY_COLOUR_VOLUME*	mastering_display_colour_volume;
 					ACTIVE_PARAMETER_SETS*				active_parameter_sets;
 					RECOVERY_POINT*						recovery_point;
@@ -2790,7 +2931,23 @@ namespace BST {
 						UNMAP_STRUCT_POINTER5(buffering_period);
 						break;
 					case SEI_PAYLOAD_PIC_TIMING:
-						UNMAP_STRUCT_POINTER5(reserved_sei_message);
+						if (ptr_sei_message != nullptr)
+						{
+							INALContext* pNALCtx = ptr_sei_message->ptr_sei_rbsp->ctx_NAL;
+							NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
+							if (nal_coding_type == NAL_CODING_AVC)
+							{
+								UNMAP_STRUCT_POINTER5(pic_timing_h264);
+							}
+							else if (nal_coding_type == NAL_CODING_HEVC)
+							{
+								UNMAP_STRUCT_POINTER5(pic_timing_h265);
+							}
+						}
+						else
+						{
+							UNMAP_STRUCT_POINTER5(reserved_sei_message);
+						}
 						break;
 					case SEI_PAYLOAD_PAN_SCAN_RECT:
 						UNMAP_STRUCT_POINTER5(pan_scan_rect);
@@ -3069,7 +3226,23 @@ namespace BST {
 							nal_read_ref(in_bst, buffering_period, BUFFERING_PERIOD, payload_size, ptr_sei_message->ptr_sei_rbsp->ctx_NAL);
 							break;
 						case SEI_PAYLOAD_PIC_TIMING:
-							nal_read_ref(in_bst, reserved_sei_message, RESERVED_SEI_MESSAGE, payload_size);
+							if (ptr_sei_message != nullptr)
+							{
+								INALContext* pNALCtx = ptr_sei_message->ptr_sei_rbsp->ctx_NAL;
+								NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
+								if (nal_coding_type == NAL_CODING_AVC)
+								{
+									nal_read_ref(in_bst, pic_timing_h264, PIC_TIMING_H264, payload_size, pNALCtx);
+								}
+								else if (nal_coding_type == NAL_CODING_HEVC)
+								{
+									nal_read_ref(in_bst, pic_timing_h265, PIC_TIMING_H265, payload_size, pNALCtx);
+								}
+							}
+							else
+							{
+								nal_read_ref(in_bst, reserved_sei_message, RESERVED_SEI_MESSAGE, payload_size);
+							}
 							break;
 						case SEI_PAYLOAD_PAN_SCAN_RECT:
 							nal_read_ref(in_bst, pan_scan_rect, PAN_SCAN_RECT);
@@ -3388,7 +3561,23 @@ namespace BST {
 						BST_FIELD_PROP_REF(buffering_period);
 						break;
 					case SEI_PAYLOAD_PIC_TIMING:
-						BST_FIELD_PROP_REF(reserved_sei_message);
+						if (ptr_sei_message != nullptr)
+						{
+							INALContext* pNALCtx = ptr_sei_message->ptr_sei_rbsp->ctx_NAL;
+							NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
+							if (nal_coding_type == NAL_CODING_AVC)
+							{
+								BST_FIELD_PROP_REF(pic_timing_h264);
+							}
+							else if (nal_coding_type == NAL_CODING_HEVC)
+							{
+								BST_FIELD_PROP_REF(pic_timing_h265);
+							}
+						}
+						else
+						{
+							BST_FIELD_PROP_REF(reserved_sei_message);
+						}
 						break;
 					case SEI_PAYLOAD_PAN_SCAN_RECT:
 						BST_FIELD_PROP_REF(pan_scan_rect);
@@ -3862,12 +4051,12 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
-		for (i = 0; i < (int)sei_messages.size(); i++) {
-			NAV_FIELD_PROP_REF(sei_messages[i]);
-		}
-		if (rbsp_trailing_bits.rbsp_trailing_bits.UpperBound() >= 0) {
-			NAV_FIELD_PROP_OBJECT(rbsp_trailing_bits);
-		}
+			for (i = 0; i < (int)sei_messages.size(); i++) {
+				NAV_FIELD_PROP_REF(sei_messages[i]);
+			}
+			if (rbsp_trailing_bits.rbsp_trailing_bits.UpperBound() >= 0) {
+				NAV_FIELD_PROP_OBJECT(rbsp_trailing_bits);
+			}
 		DECLARE_FIELDPROP_END()
 
 	};

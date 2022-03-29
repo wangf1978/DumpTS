@@ -1831,8 +1831,9 @@ size_t BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::BUFFERING_PERIOD::ProduceDesc(_O
 BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::PIC_TIMING_H264(int payloadSize, INALContext* pNALCtx)
 	: cpb_removal_delay(0)
 	, dpb_output_delay(0)
+	, CpbDpbDelaysPresentFlag(0)
+	, CpbDpbDelaysPresentIfNAL(1)
 	, pic_struct_present_flag(0)
-	, reserved_0(0)
 	, pic_struct(0)
 	, payload_size(payloadSize)
 	, ptr_NAL_Context(pNALCtx){
@@ -1890,15 +1891,16 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H264::Map(AMBst in_bst)
 		auto vui_parameters = cur_h264_sps->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
 		if (vui_parameters && (vui_parameters->nal_hrd_parameters_present_flag || vui_parameters->vcl_hrd_parameters_present_flag))
 		{
-			uint8_t cpb_removal_delay_length_minus1 = 23;
-			uint8_t dpb_output_delay_length_minus1 = 23;
+			CpbDpbDelaysPresentFlag = 1;
 			if (vui_parameters->nal_hrd_parameters_present_flag && vui_parameters->nal_hrd_parameters)
 			{
+				CpbDpbDelaysPresentIfNAL = 1;
 				cpb_removal_delay_length_minus1 = vui_parameters->nal_hrd_parameters->cpb_removal_delay_length_minus1;
 				dpb_output_delay_length_minus1 = vui_parameters->nal_hrd_parameters->dpb_output_delay_length_minus1;
 			}
 			else if (vui_parameters->vcl_hrd_parameters_present_flag && vui_parameters->vcl_hrd_parameters)
 			{
+				CpbDpbDelaysPresentIfNAL = 0;
 				cpb_removal_delay_length_minus1 = vui_parameters->vcl_hrd_parameters->cpb_removal_delay_length_minus1;
 				dpb_output_delay_length_minus1 = vui_parameters->vcl_hrd_parameters->dpb_output_delay_length_minus1;
 			}
@@ -2015,6 +2017,7 @@ BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265::PIC_TIMING_H265(int pa
 	, pic_dpb_output_du_delay(0)
 	, num_decoding_units_minus1(0)
 	, du_common_cpb_removal_delay_increment_minus1(0)
+	, payload_size(payloadSize)
 	, ptr_NAL_Context(pNALCtx)
 {
 
@@ -2027,11 +2030,6 @@ int BST::SEI_RBSP::SEI_MESSAGE::SEI_PAYLOAD::PIC_TIMING_H265::Map(AMBst in_bst)
 
 	// If there is no active SPS, skip all bytes in this payload
 	INALHEVCContext* pHEVCCtx = NULL;
-	uint8_t du_cpb_removal_delay_increment_length_minus1 = 0;
-	uint8_t dpb_output_delay_du_length_minus1 = 0;
-	uint8_t initial_cpb_removal_delay_length_minus1 = 23;
-	uint8_t au_cpb_removal_delay_length_minus1 = 23;
-	uint8_t dpb_output_delay_length_minus1 = 23;
 	if (SUCCEEDED(ptr_NAL_Context->QueryInterface(IID_INALHEVCContext, (void**)&pHEVCCtx)))
 	{
 		int8_t sps_id = pHEVCCtx->GetActiveSPSID();

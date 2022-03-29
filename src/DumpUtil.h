@@ -762,7 +762,7 @@ SOFTWARE.
 
 #define BST_FIELD_PROP_NUMBER1(Field_Name, Field_Bits, Field_Desc)		BST_FIELD_PROP_NUMBER(#Field_Name, Field_Bits, Field_Name, Field_Desc)
 #define BST_FIELD_PROP_BOOL(Field_Name, TRUE_Desc, FALSE_Desc)			BST_FIELD_PROP_NUMBER1(Field_Name, 1, Field_Name?TRUE_Desc:FALSE_Desc)
-#define BST_FIELD_PROP_BOOL1(Obj, Field_Name, TRUE_Desc, FALSE_Desc)	BST_FIELD_PROP_NUMBER(#Field_Name, 1, Obj.Field_Name, Obj.Field_Name?TRUE_Desc:FALSE_Desc)
+#define BST_FIELD_PROP_BOOL1(Obj, Field_Name, TRUE_Desc, FALSE_Desc)	BST_FIELD_PROP_NUMBER(#Field_Name, 1, (uint32_t)Obj.Field_Name, Obj.Field_Name?TRUE_Desc:FALSE_Desc)
 
 #define BST_FIELD_PROP_BOOL_BEGIN(Field_Name, TRUE_Desc, FALSE_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
@@ -1057,6 +1057,11 @@ SOFTWARE.
 	NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
 	if (bit_offset)*bit_offset += Field_Bits;\
 
+#define NAV_FIELD_PROP_2LLNUMBER(Field_Name, Field_Bits, Field_Value, Field_Desc)\
+	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%" PRId64 "(0X%" PRIX64 ")", (int64_t)(Field_Value), (int64_t)(Field_Value));\
+	NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
+	if (bit_offset)*bit_offset += Field_Bits;\
+
 #define NAV_FIELD_PROP_2NUMBER_WITH_ALIAS(Field_Alias, Field_Bits, Field_Value, Field_Desc)\
 	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%" PRIu32 "(0X%" PRIX32 ")", (uint32_t)(Field_Value), (uint32_t)(Field_Value));\
 	NAV_FIELD_PROP_WITH_ALIAS("Field", Field_Alias, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
@@ -1081,6 +1086,11 @@ SOFTWARE.
 #define BST_FIELD_PROP_2NUMBER1_F(Field_Name, Field_Bits, Field_Desc, ...)	\
 	{MBCSPRINTF_S(szTemp2, TEMP2_SIZE, Field_Desc, ##__VA_ARGS__); \
 	BST_FIELD_PROP_2NUMBER1(Field_Name, Field_Bits, szTemp2);}\
+
+#define BST_FIELD_PROP_2LLNUMBER(Field_Name, Field_Bits, Field_Value, Field_Desc)\
+	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		NAV_FIELD_PROP_2LLNUMBER(Field_Name, Field_Bits, Field_Value, Field_Desc)\
+		field_prop_idx++;}\
 
 #define BST_FIELD_PROP_UE(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
 #define BST_FIELD_PROP_UE1(Field_Name, AliasName, Field_Desc)			BST_FIELD_PROP_2NUMBER_ALIAS_F_(#Field_Name, "%s", (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc, AliasName)

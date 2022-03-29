@@ -330,7 +330,6 @@ void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALN
 		printf("Can't parse the NAL bitstream.\n");
 	}
 
-
 done:
 	AMBst_Destroy(bst);
 	AMP_SAFERELEASE(pNALCtx);

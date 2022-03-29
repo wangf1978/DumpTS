@@ -145,7 +145,7 @@ int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)
 						szDesc && strcmp(szDesc, "") != 0 ? "// " : "",
 						szDesc ? GetFixedWidthStrWithEllipsis(szDesc, 70).c_str() : "");
 
-					if (szType != nullptr && szType[0] == 'M' && szType[1] == '\0')
+					if (szType != nullptr && szType[0] == 'M' && szType[1] == '\0' && szValue != nullptr)
 					{
 						int value_line_width = 0;
 						const char* szLineStart = szValue;

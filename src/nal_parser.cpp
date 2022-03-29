@@ -365,7 +365,7 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 
 	if (bDrain)
 	{
-		if (m_nal_enum_options&(NAL_ENUM_OPTION_AU|NAL_ENUM_OPTION_CVS|NAL_ENUM_OPTION_VSEQ))
+		if (m_nal_enum_options&(NAL_ENUM_OPTION_AU|NAL_ENUM_OPTION_CVS|NAL_ENUM_OPTION_VSEQ| MSE_ENUM_SYNTAX_VIEW))
 			CommitSliceInfo(true);
 
 		AM_LRB_Reset(m_rbRawBuf);
@@ -766,7 +766,7 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 		return RET_CODE_NEEDMOREINPUT;
 
 	// Don't need analyze the Access-Unit
-	if (!(m_nal_enum_options&(NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_CVS | NAL_ENUM_OPTION_VSEQ)))
+	if (!(m_nal_enum_options&(NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_CVS | NAL_ENUM_OPTION_VSEQ | MSE_ENUM_SYNTAX_VIEW)))
 	{
 		uint8_t* pNUBuf = pEBSPBuf;
 		size_t cbNUBuf = (size_t)read_buf_len;
@@ -1113,6 +1113,9 @@ int CNALParser::CommitHEVCPicture(
 			printf("[HEVCScanner] The current picture unit is NOT associated with an available SPS.\n");
 			goto done;
 		}
+
+		if (m_nal_enum_options&MSE_ENUM_SYNTAX_VIEW)
+			m_pNALHEVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
 		
 		sp_vps = m_pNALHEVCCtx->GetHEVCVPS(sp_sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id);
 
@@ -1643,9 +1646,9 @@ int CNALParser::ParseNALUnit(uint8_t* pNUBuf, int cbNUBuf)
 		// If the current NAL unit is a SEI, try to drill its sei_message and sei_payload
 		if (m_nal_enum_options&(NAL_ENUM_OPTION_SEI_MSG | NAL_ENUM_OPTION_SEI_PAYLOAD))
 		{
-			if ((m_nal_coding == NAL_CODING_AVC && nal_unit_type == BST::H264Video::SEI_NUT) ||
+			if ((m_nal_coding == NAL_CODING_AVC  && (nal_unit_type == BST::H264Video::SEI_NUT)) ||
 				(m_nal_coding == NAL_CODING_HEVC && (nal_unit_type == BST::H265Video::PREFIX_SEI_NUT || nal_unit_type == BST::H265Video::SUFFIX_SEI_NUT)) ||
-				(m_nal_coding == NAL_CODING_VVC && (nal_unit_type == BST::H266Video::PREFIX_SEI_NUT || nal_unit_type == BST::H266Video::SUFFIX_SEI_NUT)))
+				(m_nal_coding == NAL_CODING_VVC  && (nal_unit_type == BST::H266Video::PREFIX_SEI_NUT || nal_unit_type == BST::H266Video::SUFFIX_SEI_NUT)))
 			{
 				if (ParseSEINU(pNUBuf, (int)cbNUBuf) == RET_CODE_ABORT)
 				{
