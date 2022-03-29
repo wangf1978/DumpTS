@@ -42,9 +42,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\README.md" />
-    <None Include="..\..\doc\references.md">
-      <Filter>doc</Filter>
-    </None>
     <None Include="..\..\doc\index.html">
       <Filter>doc</Filter>
     </None>
@@ -54,9 +51,44 @@
     <None Include="..\linux\Makefile">
       <Filter>build\linux</Filter>
     </None>
-    <None Include="..\..\MMT_Readme.md" />
     <None Include="..\macos\Makefile">
       <Filter>build\macos</Filter>
+    </None>
+    <None Include="..\..\doc\diagrams.vsdx">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\AV1_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\ISOBMFF_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MKV_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MMT_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\NAL_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\REFERENCES.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\TS_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\UTILITY_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\AUDIO_README.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\OPT_SYNTAX.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\..\doc\MSE_LOCATOR.md">
+      <Filter>doc</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -181,6 +213,39 @@
       <Filter>src\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\DumpAAC.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\av1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpAV1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\descriptors_13818_1.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\descriptors_hdmv.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\AMRFC3986.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mpeg2_video.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mpeg2_video_parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\DumpMSE.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\av1_parser.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mediaobjprint.cpp">
+      <Filter>src\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\range_lex.cpp">
       <Filter>src\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -321,6 +386,42 @@
       <Filter>src\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\mediaobjprint.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\av1_def.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\version.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\system_13818_1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\descriptors_13818_1.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\systemdef.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\descriptors_hdmv.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\AMRFC3986.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mpeg2_video.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\mpeg2_video_parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\MSE.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\av1_parser.h">
+      <Filter>src\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\range_lex.h">
       <Filter>src\Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -232,9 +232,19 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\..\doc\AUDIO_README.md" />
+    <None Include="..\..\doc\AV1_README.md" />
+    <None Include="..\..\doc\diagrams.vsdx" />
     <None Include="..\..\doc\index.html" />
-    <None Include="..\..\doc\references.md" />
-    <None Include="..\..\MMT_Readme.md" />
+    <None Include="..\..\doc\ISOBMFF_README.md" />
+    <None Include="..\..\doc\MKV_README.md" />
+    <None Include="..\..\doc\MMT_README.md" />
+    <None Include="..\..\doc\MSE_LOCATOR.md" />
+    <None Include="..\..\doc\NAL_README.md" />
+    <None Include="..\..\doc\OPT_SYNTAX.md" />
+    <None Include="..\..\doc\REFERENCES.md" />
+    <None Include="..\..\doc\TS_README.md" />
+    <None Include="..\..\doc\UTILITY_README.md" />
     <None Include="..\..\README.md" />
     <None Include="..\linux\common\Toolchain.mk">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -259,16 +269,23 @@
     <ClCompile Include="..\..\src\AIFF.cpp" />
     <ClCompile Include="..\..\src\AMBitArray.cpp" />
     <ClCompile Include="..\..\src\AMBitStream.cpp" />
+    <ClCompile Include="..\..\src\AMRFC3986.cpp" />
     <ClCompile Include="..\..\src\AMRingBuffer.cpp" />
     <ClCompile Include="..\..\src\AMSHA1.cpp" />
     <ClCompile Include="..\..\src\AudChMap.cpp" />
+    <ClCompile Include="..\..\src\av1.cpp" />
+    <ClCompile Include="..\..\src\av1_parser.cpp" />
     <ClCompile Include="..\..\src\Bitstream.cpp" />
     <ClCompile Include="..\..\src\combase.cpp" />
     <ClCompile Include="..\..\src\crc.cpp" />
+    <ClCompile Include="..\..\src\descriptors_13818_1.cpp" />
+    <ClCompile Include="..\..\src\descriptors_hdmv.cpp" />
     <ClCompile Include="..\..\src\DumpAAC.cpp" />
+    <ClCompile Include="..\..\src\DumpAV1.cpp" />
     <ClCompile Include="..\..\src\DumpMKV.cpp" />
     <ClCompile Include="..\..\src\DumpMMT.cpp" />
     <ClCompile Include="..\..\src\DumpMP4.cpp" />
+    <ClCompile Include="..\..\src\DumpMSE.cpp" />
     <ClCompile Include="..\..\src\DumpNAL.cpp" />
     <ClCompile Include="..\..\src\DumpPS.cpp" />
     <ClCompile Include="..\..\src\DumpStream.cpp" />
@@ -284,12 +301,16 @@
     <ClCompile Include="..\..\src\ISO14496_15.cpp" />
     <ClCompile Include="..\..\src\ISO14496_3.cpp" />
     <ClCompile Include="..\..\src\Matroska.cpp" />
+    <ClCompile Include="..\..\src\mediaobjprint.cpp" />
     <ClCompile Include="..\..\src\MMT.cpp" />
+    <ClCompile Include="..\..\src\mpeg2_video_parser.cpp" />
+    <ClCompile Include="..\..\src\mpeg2_video.cpp" />
     <ClCompile Include="..\..\src\nal_com.cpp" />
     <ClCompile Include="..\..\src\nal_parser.cpp" />
     <ClCompile Include="..\..\src\PartitialTS.cpp" />
     <ClCompile Include="..\..\src\PayloadBuf.cpp" />
     <ClCompile Include="..\..\src\QTFF.cpp" />
+    <ClCompile Include="..\..\src\range_lex.cpp" />
     <ClCompile Include="..\..\src\RefactorTS.cpp" />
     <ClCompile Include="..\..\src\sei.cpp" />
     <ClCompile Include="..\..\src\platcomm.cpp" />
@@ -302,15 +323,20 @@
     <ClInclude Include="..\..\src\AIFF.h" />
     <ClInclude Include="..\..\src\AMArray.h" />
     <ClInclude Include="..\..\src\AMBitStream.h" />
+    <ClInclude Include="..\..\src\AMRFC3986.h" />
     <ClInclude Include="..\..\src\AMRingBuffer.h" />
     <ClInclude Include="..\..\src\AMSHA1.h" />
     <ClInclude Include="..\..\src\AudChMap.h" />
     <ClInclude Include="..\..\src\av1.h" />
+    <ClInclude Include="..\..\src\av1_parser.h" />
+    <ClInclude Include="..\..\src\av1_def.h" />
     <ClInclude Include="..\..\src\Bitstream.h" />
     <ClInclude Include="..\..\src\CodecID.h" />
     <ClInclude Include="..\..\src\combase.h" />
     <ClInclude Include="..\..\src\crc.h" />
     <ClInclude Include="..\..\src\DataUtil.h" />
+    <ClInclude Include="..\..\src\descriptors_13818_1.h" />
+    <ClInclude Include="..\..\src\descriptors_hdmv.h" />
     <ClInclude Include="..\..\src\DumpTS.h" />
     <ClInclude Include="..\..\src\DumpUtil.h" />
     <ClInclude Include="..\..\src\dump_data_type.h" />
@@ -381,15 +407,22 @@
     <ClInclude Include="..\..\src\Matroska.h" />
     <ClInclude Include="..\..\src\mediaobjprint.h" />
     <ClInclude Include="..\..\src\MMT.h" />
+    <ClInclude Include="..\..\src\mpeg2_video_parser.h" />
+    <ClInclude Include="..\..\src\mpeg2_video.h" />
+    <ClInclude Include="..\..\src\MSE.h" />
     <ClInclude Include="..\..\src\NAL.h" />
     <ClInclude Include="..\..\src\nal_com.h" />
     <ClInclude Include="..\..\src\nal_parser.h" />
     <ClInclude Include="..\..\src\PayloadBuf.h" />
     <ClInclude Include="..\..\src\QTFF.h" />
+    <ClInclude Include="..\..\src\range_lex.h" />
     <ClInclude Include="..\..\src\sei.h" />
     <ClInclude Include="..\..\src\platcomm.h" />
     <ClInclude Include="..\..\src\Syncer.h" />
+    <ClInclude Include="..\..\src\systemdef.h" />
+    <ClInclude Include="..\..\src\system_13818_1.h" />
     <ClInclude Include="..\..\src\tinyxml2.h" />
+    <ClInclude Include="..\..\src\version.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\test\materials\huffmancodebook\AACScalefactorHuffmanCodebook.txt" />
