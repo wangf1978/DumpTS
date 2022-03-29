@@ -404,6 +404,7 @@ namespace BST
 			sp_h264_ppses.clear(); 
 			sp_prev_nal_unit = nullptr;
 			m_active_sps_id = -1;
+			m_active_nu_type = -1;
 		}
 		
 		H264_NU VideoBitstreamCtx::GetAVCSPS(uint8_t sps_id)

@@ -1676,11 +1676,12 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 	int iRet = RET_CODE_SUCCESS;
 	uint8_t nalUnitHeaderBytes = 1;
 
+	int8_t nal_unit_type = -1;
 	if (m_nal_coding == NAL_CODING_AVC)
 	{
 		int8_t forbidden_zero_bit = (pNUBuf[0] >> 7) & 0x01;
 		int8_t nal_ref_idc = (pNUBuf[0] >> 5) & 0x3;
-		int8_t nal_unit_type = pNUBuf[0] & 0x1F;
+		nal_unit_type = pNUBuf[0] & 0x1F;
 
 		int8_t svc_extension_flag = 0;
 		int8_t avc_3d_extension_flag = 0;
@@ -1715,6 +1716,7 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 	else if (m_nal_coding == NAL_CODING_HEVC || m_nal_coding == NAL_CODING_VVC)
 	{
 		nalUnitHeaderBytes = 2;
+		nal_unit_type = (pNUBuf[0] >> 1) & 0x3F;
 	}
 	else
 		return RET_CODE_ERROR_NOTIMPL;
@@ -1726,6 +1728,8 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 
 	std::vector<uint8_t> sei_message_buf;
 	sei_message_buf.reserve((size_t)cbNUBuf - nalUnitHeaderBytes);
+
+	m_pCtx->SetActiveNUType(nal_unit_type);
 
 	try
 	{
@@ -1810,6 +1814,8 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 done:
 	if (in_bst)
 		AMBst_Destroy(in_bst);
+
+	m_pCtx->SetActiveNUType(-1);
 
 	return iRet;
 }

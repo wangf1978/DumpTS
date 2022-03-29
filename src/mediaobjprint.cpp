@@ -340,6 +340,71 @@ done:
 
 void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIMsgBuf, int indent)
 {
+	int iRet = RET_CODE_SUCCESS;
+	INALContext* pNALCtx = nullptr;
+	if (pCtx == nullptr)
+		return;
+
+	uint8_t* p = pSEIMsgBuf;
+	size_t cbLeft = cbSEIMsgBuf;
+
+	if (cbLeft < 1 || p == nullptr)
+		return;
+
+	if (FAILED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
+		return;
+
+	AMBst bst = nullptr;
+	NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
+	INALAVCContext* pNALAVCCtx = nullptr;
+	INALHEVCContext* pNALHEVCCtx = nullptr;
+	if (nal_coding_type == NAL_CODING_AVC)
+	{
+		if (FAILED(pNALCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else if (nal_coding_type == NAL_CODING_HEVC)
+	{
+		if (cbLeft < 2)
+			return;
+
+		if (FAILED(pNALCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else
+		return;
+
+	bst = AMBst_CreateFromBuffer(p, (int)cbLeft);
+
+	try
+	{
+		BST::SEI_RBSP sei_rbsp((uint8_t)pNALCtx->GetActiveNUType(), pNALCtx);
+		AMP_NEWT1(pSEIMsg, BST::SEI_RBSP::SEI_MESSAGE, (uint8_t)pNALCtx->GetActiveNUType(), &sei_rbsp);
+		if (AMP_FAILED(iRet = pSEIMsg->Map(bst)))
+		{
+			AMP_SAFEDEL2(pSEIMsg);
+			throw AMException(iRet);
+		}
+
+		PrintMediaObject(pSEIMsg, false, indent);
+		AMP_SAFEDEL2(pSEIMsg);
+	}
+	catch (...)
+	{
+		printf("Can't parse the NAL bitstream.\n");
+	}
+
+done:
+	AMBst_Destroy(bst);
+	AMP_SAFERELEASE(pNALCtx);
+	AMP_SAFERELEASE(pNALAVCCtx);
+	AMP_SAFERELEASE(pNALHEVCCtx);
 	return;
 }
 

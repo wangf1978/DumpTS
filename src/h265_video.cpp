@@ -403,6 +403,7 @@ namespace BST {
 			sp_h265_spses.clear(); 
 			sp_h265_ppses.clear(); 
 			sp_prev_nal_unit = nullptr; 
+			m_active_nu_type = -1;
 		}
 
 		H265_NU VideoBitstreamCtx::GetHEVCVPS(uint8_t vps_id)

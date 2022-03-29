@@ -78,6 +78,8 @@ public:
 	virtual RET_CODE		SetNUFilters(std::initializer_list<uint8_t> NU_type_filters) = 0;
 	virtual RET_CODE		GetNUFilters(std::vector<uint8_t>& NU_type_filters) = 0;
 	virtual bool			IsNUFiltered(uint8_t nal_unit_type) = 0;
+	virtual RET_CODE		SetActiveNUType(int8_t nu_type) = 0;
+	virtual int8_t			GetActiveNUType() = 0;
 	virtual void			Reset() = 0;
 
 public:
