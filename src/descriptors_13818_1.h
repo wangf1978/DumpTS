@@ -1600,7 +1600,7 @@ namespace BST {
 				:(metadata_format==0x3F?"Defined by metadata application format"
 				:(metadata_format==0xFF?"Defined by metadata_format_identifier field"
 				:(metadata_format>=0x40 && metadata_format<=0xFE?"Private use":"Reserved")))))
-			if (metadata_format == 0xFFFF){
+			if (metadata_format == 0xFF){
 				NAV_FIELD_PROP_2NUMBER1(metadata_format_identifier, 4, "fully equivalent to the coding of the format_identifier field in the registration_descriptor")
 			}
 			NAV_FIELD_PROP_2NUMBER1(metadata_service_id, 8, "This 8-bit field references the metadata service. It is used for retrieving a metadata service from within a metadata stream.")
@@ -1743,7 +1743,7 @@ namespace BST {
 			}
 
 			metadata_format = AMBst_GetByte(bst_t);ulMappedSize += 1;
-			if (metadata_format == 0xFFFF)
+			if (metadata_format == 0xFF)
 			{
 				if (cbSize < 15)
 					return RET_CODE_BUFFER_TOO_SMALL;
@@ -1858,7 +1858,7 @@ namespace BST {
 				:(metadata_format==0x3F?"Defined by metadata application format"
 				:(metadata_format==0xFF?"Defined by metadata_format_identifier field"
 				:(metadata_format>=0x40 && metadata_format<=0xFE?"Private use":"Reserved")))))
-			if (metadata_format == 0xFFFF){
+			if (metadata_format == 0xFF){
 				NAV_FIELD_PROP_2NUMBER1(metadata_format_identifier, 4, "fully equivalent to the coding of the format_identifier field in the registration_descriptor")
 			}
 			NAV_FIELD_PROP_2NUMBER1(metadata_service_id, 8, "This 8-bit field references the metadata service. It is used for retrieving a metadata service from within a metadata stream.")

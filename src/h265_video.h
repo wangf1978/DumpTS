@@ -1126,7 +1126,7 @@ namespace BST {
 									if (sizeId > 1) {
 										int16_t iTmp;
 										nal_read_se(in_bst, iTmp, int16_t);
-										if (iTmp < -7 && iTmp > 247)
+										if (iTmp < -7 || iTmp > 247)
 											printf("[H265] scaling_list_dc_coef_minus8(%d) should be in the range -7 to 247, inclusive.\n", iTmp);
 										scaling_list_dc_coef[sizeId - 2][matrixId] = (uint8_t)(iTmp + 8);
 									}

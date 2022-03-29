@@ -304,7 +304,7 @@ namespace BST {
 			DBG_UNREFERENCED_LOCAL_VARIABLE(szTemp);
 			NAV_FIELD_PROP_2NUMBER1(descriptor_tag, 8, hdmv_descriptor_tag_names[descriptor_tag]);
 			NAV_FIELD_PROP_2NUMBER1(descriptor_length, 8, "");
-			NAV_FIELD_PROP_FIXSIZE_BINCHARSTR("format_identifier", 32, format_identifier, 4, "Should be 0¡Á41432D33 (&quot;AC-3&quot;).");
+			NAV_FIELD_PROP_FIXSIZE_BINCHARSTR("format_identifier", 32, format_identifier, 4, "Should be 41h 43h 2Dh 33h (&quot;AC-3&quot;).");
 		DECLARE_FIELDPROP_END()
 	}PACKED;
 
