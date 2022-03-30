@@ -17,6 +17,34 @@ env:
   BUILD_PLATFORM: x64
 
 jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    - name: make
+      run: cd ./build/macos; make
+    
+    - name: Archive Release
+      uses: thedoctor0/zip-release@master
+      with:
+        type: 'tar'
+        filename: DumpTS.tar.gz
+        path: DumpTS
+        directory: ./bin/macos
+        
+    - name: Deploy Mac-OS release
+      uses: WebFreak001/deploy-nightly@v1.1.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: https://uploads.github.com/repos/wangf1978/DumpTS/releases/63095007/assets{?name,label}
+        release_id: 63095007
+        asset_path: ./bin/macos/DumpTS.tar.gz # path to archive to upload
+        asset_name: DumpTS-macos-nightly-$$.tar.gz # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+        asset_content_type: application/zip
+        max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
+    
   build-ubuntu-latest:
     runs-on: ubuntu-latest
     
@@ -43,7 +71,7 @@ jobs:
         asset_path: ./bin/linux/DumpTS.tar.gz # path to archive to upload
         asset_name: DumpTS-linux-nightly-$$.tar.gz # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
         asset_content_type: application/zip
-        max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted        
+        max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
     
   build-windows-latest:
     runs-on: windows-latest
@@ -70,7 +98,7 @@ jobs:
       with:
         type: 'zip'
         filename: bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.zip
-        path: bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.exe        
+        path: bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.exe
       
     - name: Deploy Windows release
       uses: WebFreak001/deploy-nightly@v1.1.0

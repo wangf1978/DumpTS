@@ -92,11 +92,11 @@ $(OBJECTDIR)/%.o: $(SOURCEDIR)/%.c
 all: $(EXECUTABLE) $(EXTRATARGETS)
 
 $(EXECUTABLE): $(OBJECTS)
+	@if [ ! -d $(BINDIR)/ ]; then mkdir $(BINDIR)/ ; fi
 	$(CXX) -L$(BINDIR) -o $@ $^ -static-libgcc -static-libstdc++ -static -Wl,-Bsymbolic
 ifneq ($(OPT_DEBUG),true)
 	$(STRIP) $(EXECUTABLE)
 endif
-	@if [ ! -d $(BINDIR)/ ]; then mkdir $(BINDIR)/ ; fi
 	cp -f $@ $(BINDIR)/
 
 clean:
