@@ -4,15 +4,15 @@ on:
   push:
     branches: [ master ]
     paths:
-      - 'src'
-      - 'build/common'
-      - 'build/macos'
+      - 'src/**'
+      - 'build/common/**'
+      - 'build/macos/**'
   pull_request:
     branches: [ master ]
     paths:
-      - 'src'
-      - 'build/common'
-      - 'build/macos'
+      - 'src/**'
+      - 'build/common/**'
+      - 'build/macos/**'
 
 jobs:
   build:

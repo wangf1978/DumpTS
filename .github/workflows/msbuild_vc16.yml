@@ -4,15 +4,15 @@ on:
   push:
     branches: [ master ]
     paths:
-      - 'src'
+      - 'src/**'
       - 'build/DumpTS_vc16.sln'
-      - 'build/vc16'
+      - 'build/vc16/**'
   pull_request:
     branches: [ master ]
     paths:
-      - 'src'
+      - 'src/**'
       - 'build/DumpTS_vc16.sln'
-      - 'build/vc16'
+      - 'build/vc16/**'
 
 env:
   # Path to the solution file relative to the root of the project.
