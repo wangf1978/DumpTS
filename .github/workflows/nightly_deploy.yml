@@ -60,7 +60,7 @@ jobs:
         type: 'tar'
         filename: DumpTS.tar.gz
         path: DumpTS
-        directory: ./bin/macos
+        directory: ./bin/linux
         
     - name: Deploy linux release
       uses: WebFreak001/deploy-nightly@v1.1.0
