@@ -3,8 +3,16 @@ name: MSBuild_vc15
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'src'
+      - 'build/DumpTS_vc15.sln'
+      - 'build/vc15'
   pull_request:
     branches: [ master ]
+    paths:
+      - 'src'
+      - 'build/DumpTS_vc15.sln'
+      - 'build/vc15'
 
 env:
   # Path to the solution file relative to the root of the project.
