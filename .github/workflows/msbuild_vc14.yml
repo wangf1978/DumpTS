@@ -3,6 +3,11 @@ name: MSBuild_vc14
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'src'
+      - 'build/DumpTS_vc14.sln'
+      - 'build/vc14'
+      
   pull_request:
     branches: [ master ]
 
