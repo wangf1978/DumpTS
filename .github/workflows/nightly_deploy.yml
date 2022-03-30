@@ -1,0 +1,61 @@
+# This is a basic workflow to help you get started with Actions
+
+name: nightly_deploy
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  nightly:
+    name: Deploy nightly
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    runs-on: windows-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: the Windows release
+        env:
+          # Path to the solution file relative to the root of the project.
+          SOLUTION_FILE_PATH: ./build/DumpTS_vc15.sln
+
+          # Configuration type to build.
+          # You can convert this to a build matrix if you need coverage of multiple configuration types.
+          # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+          BUILD_CONFIGURATION: Release
+
+      - uses: actions/checkout@v3
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - name: Restore NuGet packages
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        run: nuget restore ${{env.SOLUTION_FILE_PATH}}
+
+      - name: Build
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        # Add additional options to the MSBuild command line here (like platform or verbosity level).
+        # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+        run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}    
+        
+      - name: Deploy Windows release
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # automatically provided by github actions
+        with:
+          upload_url: https://uploads.github.com/repos/wangf1978/DumpTS/releases/63095007/assets{?name,label}
+          release_id: 63095007
+          asset_path: ./dumpts_v0.1.0_nightly.zip # path to archive to upload
+          asset_name: dumpts_windows-nightly-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+          asset_content_type: application/zip # required by GitHub API
+          max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted            
