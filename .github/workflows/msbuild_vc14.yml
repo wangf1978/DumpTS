@@ -7,10 +7,13 @@ on:
       - 'src'
       - 'build/DumpTS_vc14.sln'
       - 'build/vc14'
-      
   pull_request:
     branches: [ master ]
-
+    paths:
+      - 'src'
+      - 'build/DumpTS_vc14.sln'
+      - 'build/vc14'
+      
 env:
   # Path to the solution file relative to the root of the project.
   SOLUTION_FILE_PATH: ./build/DumpTS_vc14.sln
