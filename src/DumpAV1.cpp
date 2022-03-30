@@ -884,7 +884,7 @@ class CAV1ShowSeqHdrOBUEnumerator : public CAV1BaseEnumerator
 {
 public:
 	CAV1ShowSeqHdrOBUEnumerator(IAV1Context* pCtx) : CAV1BaseEnumerator(pCtx) {}
-	RET_CODE EnumOBU(IAV1Context* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
+	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
 		if (obu_type == OBU_SEQUENCE_HEADER)
 		{
 			AMSHA1_RET retSHA1 = { 0 };

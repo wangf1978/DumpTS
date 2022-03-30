@@ -3702,6 +3702,7 @@ namespace BST {
 		unsigned char		pointer_field;
 		unsigned char		table_id;
 		unsigned char		section_syntax_indicator;
+		unsigned char		align_0[5];
 		union {
 			void*							pSection = nullptr;
 			CProgramAssociationSection*		program_association_section;
@@ -3716,14 +3717,17 @@ namespace BST {
 			CShortGenericSection*			short_section_object;
 			CLongGenericSection*			long_section_object;
 		}PACKED;
-		CPSIContext			psi_ctx;
+		CPSIContext*			psi_ctx;
 
-		CPSISection(TS_FORMAT ts_format=TSF_GENERIC): MEM_MAP_MGR(-1, NULL), pointer_field(0), table_id(0xFF), section_syntax_indicator(0){
-			psi_ctx.ts_format = ts_format;
-			psi_ctx.ptr_section = this;
-			psi_ctx.loop_idx = 0xFF;
+		CPSISection(TS_FORMAT ts_format=TSF_GENERIC): MEM_MAP_MGR(-1, NULL), pointer_field(0), table_id(0xFF), section_syntax_indicator(0), align_0{0}, psi_ctx(NULL){
+			psi_ctx = new CPSIContext;
+			if (psi_ctx != nullptr){
+				psi_ctx->ts_format = ts_format;
+				psi_ctx->ptr_section = this;
+				psi_ctx->loop_idx = 0xFF;
+			}
 		}
-		~CPSISection(){Unmap();}
+		~CPSISection(){Unmap(); AMP_SAFEDELA2(psi_ctx);}
 
 		BOOL IsEqual(CPSISection* pPSISection){
 			if (pPSISection == NULL || pPSISection->table_id != table_id)
@@ -3843,7 +3847,7 @@ namespace BST {
 			switch(table_id){
 			case TID_program_association_section: MAP_MEM_TO_STRUCT_POINTER2(1, program_association_section, CProgramAssociationSection); break;
 			case TID_conditional_access_section: MAP_MEM_TO_STRUCT_POINTER2(1, conditional_access_section, CConditionalAccessSection); break;
-			case TID_TS_program_map_section: MAP_MEM_TO_STRUCT_POINTER2(1, program_map_section, CTSProgramMapSection, &psi_ctx); break;
+			case TID_TS_program_map_section: MAP_MEM_TO_STRUCT_POINTER2(1, program_map_section, CTSProgramMapSection, psi_ctx); break;
 			case TID_TS_description_section: MAP_MEM_TO_STRUCT_POINTER2(1, ts_description_section, CTSDescriptionSection); break;
 			case TID_ISO_IEC_14496_scene_description_section: MAP_MEM_TO_STRUCT_POINTER2(1, ISO_IEC_14496_scene_description_section, CISOIEC14496Section); break;
 			case TID_ISO_IEC_14496_object_descriptor_section: MAP_MEM_TO_STRUCT_POINTER2(1, ISO_IEC_14496_object_descriptor_section, CISOIEC14496Section); break;
