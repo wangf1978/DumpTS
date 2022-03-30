@@ -3,8 +3,16 @@ name: MacOS_Build
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'src'
+      - 'build/common'
+      - 'build/macos'
   pull_request:
     branches: [ master ]
+    paths:
+      - 'src'
+      - 'build/common'
+      - 'build/macos'
 
 jobs:
   build:
