@@ -34,7 +34,9 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       # Add additional options to the MSBuild command line here (like platform or verbosity level).
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} ${{env.SOLUTION_FILE_PATH}}
+      run: |
+        msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} ${{env.SOLUTION_FILE_PATH}}
+        zip -r ./bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.zip ./bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.exe
       
     - name: Deploy Windows release
       uses: WebFreak001/deploy-nightly@v1.1.0
@@ -43,7 +45,7 @@ jobs:
       with:
         upload_url: https://uploads.github.com/repos/wangf1978/DumpTS/releases/63095007/assets{?name,label}
         release_id: 63095007
-        asset_path: ./bin/Release/x64/DumpTS.exe # path to archive to upload
-        asset_name: DumpTS-nightly-$$.exe # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
-        asset_content_type: application/exe
+        asset_path: ./bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.zip # path to archive to upload
+        asset_name: DumpTS-${{env.BUILD_PLATFORM}}-nightly-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+        asset_content_type: application/zip
         max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
