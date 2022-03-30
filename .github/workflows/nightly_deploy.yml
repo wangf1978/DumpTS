@@ -1,4 +1,4 @@
-name: MSBuild_vc15
+name: nightly_deploy
 
 on:
   push:
