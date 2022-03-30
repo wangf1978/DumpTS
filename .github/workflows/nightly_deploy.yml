@@ -42,7 +42,13 @@ jobs:
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
       run: |
         msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{env.BUILD_PLATFORM}} ${{env.SOLUTION_FILE_PATH}}
-        zip -r ./bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.zip ./bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.exe
+        
+    - name: Archive Release
+      uses: thedoctor0/zip-release@master
+      with:
+        type: 'zip'
+        filename: bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.zip
+        path: bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.exe        
       
     - name: Deploy Windows release
       uses: WebFreak001/deploy-nightly@v1.1.0
