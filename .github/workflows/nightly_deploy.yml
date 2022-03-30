@@ -1,16 +1,8 @@
 name: nightly_deploy
 
 on:
-  push:
-    branches: [ master ]
-    paths:
-      - 'src'
-      - 'build'
-  pull_request:
-    branches: [ master ]
-    paths:
-      - 'src'
-      - 'build'
+  schedule:
+    - cron: '30 18 * * *'
 
 env:
   # Path to the solution file relative to the root of the project.
