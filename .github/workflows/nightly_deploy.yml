@@ -58,8 +58,9 @@ jobs:
       uses: thedoctor0/zip-release@master
       with:
         type: 'tar'
-        filename: bin/linux/DumpTS.tar.gz
-        path: bin/linux/DumpTS           
+        filename: DumpTS.tar.gz
+        path: DumpTS
+        directory: ./bin/macos
         
     - name: Deploy linux release
       uses: WebFreak001/deploy-nightly@v1.1.0
@@ -97,8 +98,9 @@ jobs:
       uses: thedoctor0/zip-release@master
       with:
         type: 'zip'
-        filename: bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.zip
-        path: bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.exe
+        filename: DumpTS.zip
+        path: DumpTS.exe
+        directory: ./bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/
       
     - name: Deploy Windows release
       uses: WebFreak001/deploy-nightly@v1.1.0
