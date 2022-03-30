@@ -3,8 +3,16 @@ name: Linux_Build
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'src'
+      - 'build/common'
+      - 'build/linux'
   pull_request:
     branches: [ master ]
+    paths:
+      - 'src'
+      - 'build/common'
+      - 'build/linux'
 
 jobs:
   build:
