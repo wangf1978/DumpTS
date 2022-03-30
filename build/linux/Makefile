@@ -92,7 +92,7 @@ $(OBJECTDIR)/%.o: $(SOURCEDIR)/%.c
 all: $(EXECUTABLE) $(EXTRATARGETS)
 
 $(EXECUTABLE): $(OBJECTS)
-	$(CXX) -L$(BINDIR) -o $@ $^ -Wl,-Bsymbolic
+	$(CXX) -L$(BINDIR) -o $@ $^ -static-libgcc -static-libstdc++ -Wl,-Bsymbolic
 ifneq ($(OPT_DEBUG),true)
 	$(STRIP) $(EXECUTABLE)
 endif

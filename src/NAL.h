@@ -247,6 +247,7 @@ struct NAL_UNIT_ENTRY
 
 	union
 	{
+		uint8_t		bytes_reserved[24];
 		struct
 		{
 			uint16_t	forbidden_zero_bit : 1;
@@ -290,8 +291,9 @@ struct NAL_UNIT_ENTRY
 
 	int16_t		slice_pic_parameter_set_id;
 
-	NAL_UNIT_ENTRY() {
-		memset(this, 0xff, sizeof(*this));
+	NAL_UNIT_ENTRY() 
+		: file_offset(0), NU_offset(0), NU_length(0), leading_bytes(0), reserved_for_use{ 0 }
+		, bytes_reserved{ 0 }, first_slice_segment_in_pic_flag(0), byte_align_1(0), slice_type(0), slice_pic_parameter_set_id(0){
 	}
 
 	NAL_UNIT_ENTRY(uint64_t pos, uint8_t nLeadingBytes, uint16_t zero_bit, uint16_t nuType, uint16_t nuhLayerID, uint16_t nuhTemporalIDPlus1) :

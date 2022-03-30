@@ -1468,7 +1468,7 @@ int DumpTransportPackets()
 	{
 		if (nStart >= number_of_ts_packs)
 		{
-			printf("The specified start transport packet id(start from 0) should be NOT greater than %zu\n", number_of_ts_packs);
+			printf("The specified start transport packet id(start from 0) should be NOT greater than %" PRId64 "\n", number_of_ts_packs);
 			fclose(fp);
 			return -1;
 		}
