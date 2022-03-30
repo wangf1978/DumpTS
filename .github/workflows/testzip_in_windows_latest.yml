@@ -18,6 +18,8 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
+        with:
+          path: DumpTS-src-nightly-$$
 
       # Runs a single command using the runners shell
       - name: Run a one-line script
@@ -27,8 +29,19 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          filename: AIFF.zip
-          path: src/AIFF.cpp
+          filename: DumpTS-0.1.0-nightly.zip
+          
+      - name: Deploy linux release
+        uses: WebFreak001/deploy-nightly@v1.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: https://uploads.github.com/repos/wangf1978/DumpTS/releases/63095007/assets{?name,label}
+          release_id: 63095007
+          asset_path: ./DumpTS-0.1.0-nightly.zip # path to archive to upload
+          asset_name: DumpTS-0.1.0-nightly.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+          asset_content_type: application/zip
+          max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted          
 
       # Runs a set of commands using the runners shell
       - name: Run a multi-line script
