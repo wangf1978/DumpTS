@@ -152,6 +152,8 @@ extern const uint8_t Segmentation_Feature_Bits[SEG_LVL_MAX];
 extern const uint8_t Segmentation_Feature_Signed[SEG_LVL_MAX];
 extern const uint8_t Segmentation_Feature_Max[SEG_LVL_MAX];
 extern const WarpedMotionParams default_warp_params;
+extern const char* get_av1_profile_name(int profile);
+extern const char* get_av1_level_name(int level);
 
 extern RET_CODE CreateAV1Context(IAV1Context** ppAV1Ctx, bool bAnnexB, bool bSingleOBUParse);
 
@@ -168,6 +170,43 @@ namespace BST
 {
 	namespace AV1
 	{
+		enum AV1_PROFILE
+		{
+			AV1_PROFILE_UNKNOWN = -1,
+			AV1_PROFILE_MAIN,
+			AV1_PROFILE_HIGH,
+			AV1_PROFILE_PROFESSIONAL,
+		};
+
+		enum AV1_LEVEL
+		{
+			AV1_LEVEL_UNKNOWN	= -1,
+			AV1_LEVEL_2			= 0,
+			AV1_LEVEL_2_1		= 1,
+			AV1_LEVEL_2_2		= 2,
+			AV1_LEVEL_2_3		= 3,
+			AV1_LEVEL_3			= 4,
+			AV1_LEVEL_3_1		= 5,
+			AV1_LEVEL_3_2		= 6,
+			AV1_LEVEL_3_3		= 7,
+			AV1_LEVEL_4			= 8,
+			AV1_LEVEL_4_1		= 9,
+			AV1_LEVEL_4_2		= 10,
+			AV1_LEVEL_4_3		= 11,
+			AV1_LEVEL_5			= 12,
+			AV1_LEVEL_5_1		= 13,
+			AV1_LEVEL_5_2		= 14,
+			AV1_LEVEL_5_3		= 15,
+			AV1_LEVEL_6			= 16,
+			AV1_LEVEL_6_1		= 17,
+			AV1_LEVEL_6_2		= 18,
+			AV1_LEVEL_6_3		= 19,
+			AV1_LEVEL_7			= 20,
+			AV1_LEVEL_7_1		= 21,
+			AV1_LEVEL_7_2		= 22,
+			AV1_LEVEL_7_3		= 23,
+		};
+
 		template <typename T>
 		inline int8_t FloorLog2(T x)
 		{
@@ -1548,7 +1587,7 @@ namespace BST
 				}
 
 				DECLARE_FIELDPROP_BEGIN()
-					BST_FIELD_PROP_2NUMBER1(seq_profile, 3, "specifies the features that can be used in the coded video sequence");
+					BST_FIELD_PROP_2NUMBER1_F(seq_profile, 3, "%s Profile", get_av1_profile_name(seq_profile));
 					BST_FIELD_PROP_BOOL(still_picture, "the coded video sequence contains only one coded frame", "the coded video sequence contains one or more coded frames");
 					BST_FIELD_PROP_NUMBER1(reduced_still_picture_header, 1, "specifies that the syntax elements not needed by a still picture are omitted");
 					if (reduced_still_picture_header)
@@ -1558,7 +1597,7 @@ namespace BST
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(initial_display_delay_present_flag, "");
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(operating_points_cnt_minus_1, "");
 						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("operating_point_idc", "operating_point_idc[0]", operating_points[0].operating_point_idc, "");
-						BST_FIELD_PROP_2NUMBER_ALIAS_F_("seq_level_idx", "seq_level_idx[0]", 5, operating_points[0].seq_level_idx, "");
+						BST_FIELD_PROP_2NUMBER_ALIAS_F_("seq_level_idx", "seq_level_idx[0]", 5, operating_points[0].seq_level_idx, get_av1_level_name(operating_points[0].seq_level_idx));
 						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("seq_tier", "seq_tier[0]", operating_points[0].seq_tier, "");
 						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("decoder_model_present_for_this_op", "decoder_model_present_for_this_op[0]", operating_points[0].decoder_model_present_for_this_op, "");
 						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("initial_display_delay_present_for_this_op", "initial_display_delay_present_for_this_op[0]", operating_points[0].initial_display_delay_present_for_this_op, "");
@@ -1586,7 +1625,7 @@ namespace BST
 						for (i = 0; i <= operating_points_cnt_minus_1; i++) {
 							NAV_WRITE_TAG_ARRAY_BEGIN0("operating_point", i, "");
 							BST_FIELD_PROP_2NUMBER("operating_point_idc", 12, operating_points[i].operating_point_idc, "contains a bitmask that indicates which spatial and temporal layers should be decoded for the current operating point");
-							BST_FIELD_PROP_2NUMBER("seq_level_idx", 5, operating_points[i].seq_level_idx, "specifies the level that the coded video sequence conforms to when the current operating point is selected");
+							BST_FIELD_PROP_2NUMBER("seq_level_idx", 5, operating_points[i].seq_level_idx, get_av1_level_name(operating_points[i].seq_level_idx));
 							if (operating_points[i].seq_level_idx > 7)
 							{
 								BST_FIELD_PROP_2NUMBER("seq_tier", 1, operating_points[i].seq_tier, "specifies the tier that the coded video sequence conforms to when the current operating point is selected");

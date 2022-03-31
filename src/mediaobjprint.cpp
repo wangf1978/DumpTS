@@ -30,6 +30,7 @@ SOFTWARE.
 #include "h264_video.h"
 #include "h265_video.h"
 #include "h266_video.h"
+#include "av1.h"
 
 void PrintMPVSyntaxElement(IUnknown* pCtx, uint8_t* pMPVSE, size_t cbMPVSE, int indent)
 {
@@ -477,5 +478,52 @@ done:
 	AMP_SAFERELEASE(pNALCtx);
 	AMP_SAFERELEASE(pNALAVCCtx);
 	AMP_SAFERELEASE(pNALHEVCCtx);
+	return;
+}
+
+void PrintOBUSyntaxElement(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, int indent)
+{
+	int iRet = RET_CODE_SUCCESS;
+	IAV1Context* pAV1Ctx = nullptr;
+	if (pCtx == nullptr)
+		return;
+
+	uint8_t* p = pOBUBuf;
+	size_t cbLeft = cbOBUBuf;
+
+	if (cbLeft <= 0 || p == nullptr)
+		return;
+
+	if (FAILED(pCtx->QueryInterface(IID_IAV1Context, (void**)&pAV1Ctx)))
+		return;
+
+	AMBst bst = nullptr;
+	auto byte_stream_format = pAV1Ctx->GetByteStreamFormat();
+
+	bst = AMBst_CreateFromBuffer(p, (int)cbLeft);
+
+	try
+	{
+		BST::AV1::OPEN_BITSTREAM_UNIT* ptr_obu = new BST::AV1::OPEN_BITSTREAM_UNIT((BST::AV1::VideoBitstreamCtx*)pAV1Ctx, (uint32_t)cbOBUBuf);
+		if (ptr_obu == nullptr)
+			goto done;
+
+		if (AMP_FAILED(iRet = ptr_obu->Map(bst)))
+		{
+			delete ptr_obu; ptr_obu = nullptr;
+			throw AMException(iRet);
+		}
+
+		PrintMediaObject(ptr_obu, false, indent);
+		delete ptr_obu; ptr_obu = nullptr;
+	}
+	catch (...)
+	{
+		printf("Can't parse the NAL bitstream.\n");
+	}
+
+done:
+	AMBst_Destroy(bst);
+	AMP_SAFERELEASE(pAV1Ctx);
 	return;
 }

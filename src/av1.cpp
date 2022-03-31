@@ -124,6 +124,52 @@ const WarpedMotionParams default_warp_params = {
 	0,
 };
 
+const char* get_av1_profile_name(int profile)
+{
+	switch (profile)
+	{
+		case BST::AV1::AV1_PROFILE_MAIN: return "Main";
+		case BST::AV1::AV1_PROFILE_HIGH: return "High";
+		case BST::AV1::AV1_PROFILE_PROFESSIONAL: return "Professional";
+		default: break;
+	}
+	return "Unknown";
+}
+
+const char* get_av1_level_name(int level)
+{
+	switch (level)
+	{
+	case BST::AV1::AV1_LEVEL_2:		return "2.0";
+	case BST::AV1::AV1_LEVEL_2_1:	return "2.1";
+	case BST::AV1::AV1_LEVEL_2_2:	return "2.2";
+	case BST::AV1::AV1_LEVEL_2_3:	return "2.3";
+	case BST::AV1::AV1_LEVEL_3:		return "3.0";
+	case BST::AV1::AV1_LEVEL_3_1:	return "3.1";
+	case BST::AV1::AV1_LEVEL_3_2:	return "3.2";
+	case BST::AV1::AV1_LEVEL_3_3:	return "3.3";
+	case BST::AV1::AV1_LEVEL_4:		return "4.0";
+	case BST::AV1::AV1_LEVEL_4_1:	return "4.1";
+	case BST::AV1::AV1_LEVEL_4_2:	return "4.2";
+	case BST::AV1::AV1_LEVEL_4_3:	return "4.3";
+	case BST::AV1::AV1_LEVEL_5:		return "5.0";
+	case BST::AV1::AV1_LEVEL_5_1:	return "5.1";
+	case BST::AV1::AV1_LEVEL_5_2:	return "5.2";
+	case BST::AV1::AV1_LEVEL_5_3:	return "5.3";
+	case BST::AV1::AV1_LEVEL_6:		return "6.0";
+	case BST::AV1::AV1_LEVEL_6_1:	return "6.1";
+	case BST::AV1::AV1_LEVEL_6_2:	return "6.2";
+	case BST::AV1::AV1_LEVEL_6_3:	return "6.3";
+	case BST::AV1::AV1_LEVEL_7:		return "7.0";
+	case BST::AV1::AV1_LEVEL_7_1:	return "7.0";
+	case BST::AV1::AV1_LEVEL_7_2:	return "7.0";
+	case BST::AV1::AV1_LEVEL_7_3:	return "7.0";
+	default:
+		break;
+	}
+	return "Unknown";
+}
+
 RET_CODE CreateAV1Context(IAV1Context** ppAV1Ctx, bool bAnnexB, bool bSingleOBUParse)
 {
 	if (ppAV1Ctx == NULL)

@@ -2035,7 +2035,7 @@ public:
 
 					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
 					if (m_options&MSE_ENUM_SYNTAX_VIEW)
-						PrintSEIMsgSyntaxElement(pCtx, pOBUBuf, cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
+						PrintOBUSyntaxElement(pCtx, pOBUBuf, cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
 					else if (m_options&MSE_ENUM_HEX_VIEW)
 						print_mem(pOBUBuf, (int)cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
 					printf("\n");
