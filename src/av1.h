@@ -122,6 +122,8 @@ SOFTWARE.
 #define CSP_COLOCATED				2	// co-located with(0, 0) luma sample
 #define CSP_RESERVED				3
 
+#define IS_OBU_FRAME(obu_type)		(obu_type == OBU_FRAME || obu_type == OBU_FRAME_HEADER || obu_type == OBU_REDUNDANT_FRAME_HEADER)
+
 auto constexpr GetFrameRestorationTypeName(uint8_t type) {
 	return (type == 0 ? "RESTORE_NONE" : 
 		   (type == 1 ? "RESTORE_WIENER" : 
@@ -141,6 +143,7 @@ auto constexpr GetFrameRestorationTypeName(uint8_t type) {
 	(GmType) == AFFINE?"AFFINE":"Unknown"))))
 
 extern const char* obu_type_names[16];
+extern const char* obu_type_short_names[16];
 extern const char* color_primaries_descs[23];
 extern const char* transfer_characteristics_descs[19];
 extern const char* matrix_coefficients_descs[15];

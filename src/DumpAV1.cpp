@@ -380,14 +380,16 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 				case 1:
 					temporal_unit_layout = std::make_tuple(Leb128Bytes, (uint32_t)unit_size, std::vector<FRAME_UNIT_LAYOUT>());
 					scan_phase++;
-					printf("[AV1] hit one temporal_unit (Leb128Bytes: %d, unit_size: %" PRId64 ").\n", Leb128Bytes, unit_size);
+					if (g_verbose_level > 0)
+						printf("[AV1] hit one temporal_unit (Leb128Bytes: %d, unit_size: %" PRId64 ").\n", Leb128Bytes, unit_size);
 					break;
 				case 2:
 				{
 					auto& frame_units = std::get<2>(temporal_unit_layout);
 					frame_units.emplace_back(Leb128Bytes, (uint32_t)unit_size, std::vector<OBU_UNIT_LAYOUT>());
 					scan_phase++;
-					printf("[AV1] \thit one frame_unit (Leb128Bytes: %d, unit_size: %" PRId64 ").\n", Leb128Bytes, unit_size);
+					if (g_verbose_level > 0)
+						printf("[AV1] \thit one frame_unit (Leb128Bytes: %d, unit_size: %" PRId64 ").\n", Leb128Bytes, unit_size);
 				}
 				break;
 				case 3:
@@ -395,7 +397,8 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 					auto& last_frame_unit = std::get<2>(temporal_unit_layout).back();
 					auto& obu_units = std::get<2>(last_frame_unit);
 					obu_units.emplace_back(Leb128Bytes, (uint32_t)unit_size);
-					printf("[AV1] \t\thit one obu_unit (Leb128Bytes: %d, unit_size: %" PRId64 ").\n", Leb128Bytes, unit_size);
+					if (g_verbose_level > 0)
+						printf("[AV1] \t\thit one obu_unit (Leb128Bytes: %d, unit_size: %" PRId64 ").\n", Leb128Bytes, unit_size);
 				}
 				break;
 				default:
@@ -428,7 +431,8 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 					cbAvailSize--;
 					pOBUBuf++;
 
-					printf("[AV1] \t\thit obu_type: %s.\n", obu_type_names[obu_type]);
+					if (g_verbose_level > 0)
+						printf("[AV1] \t\thit obu_type: %s.\n", obu_type_names[obu_type]);
 
 					if (obu_extension_flag)
 					{
@@ -646,7 +650,8 @@ int AV1_ProcessLowOverheadBitstream(const char* szAV1FileName, int64_t start_pos
 		cbAvailSize--;
 		pOBUBuf++;
 
-		printf("[AV1] \t\thit obu_type: %s.\n", obu_type_names[obu_type]);
+		if (g_verbose_level > 0)
+			printf("[AV1] \t\thit obu_type: %s.\n", obu_type_names[obu_type]);
 
 		if (obu_extension_flag)
 		{
@@ -813,10 +818,10 @@ public:
 	}
 
 public:
-	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) {
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type) {
 		return RET_CODE_SUCCESS;
 	}
 	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
@@ -841,12 +846,12 @@ class CAV1ShowOBUEnumerator : public CAV1BaseEnumerator
 public:
 	CAV1ShowOBUEnumerator(IAV1Context* pCtx) : CAV1BaseEnumerator(pCtx) {}
 
-	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
+	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) {
 		m_FU_count_in_TU = 0;
 		printf("Temporal Unit#[%" PRId64 "]:\n", m_TU_count);
 		return RET_CODE_SUCCESS;
 	}
-	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
+	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type) {
 		m_OBU_count_in_FU = 0;
 		printf("%.*sFrame Unit#%" PRId64 "/global#%" PRId64 "\n", m_indent[1], m_szIndent, m_FU_count_in_TU, m_FU_count);
 		return RET_CODE_SUCCESS;

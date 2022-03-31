@@ -1,7 +1,7 @@
 #include "platcomm.h"
 #include "av1.h"
 
-const char* obu_type_names[] = {
+const char* obu_type_names[16] = {
 	"Reserved",
 	"Sequence header OBU", 
 	"Temporal delimiter OBU",
@@ -18,6 +18,25 @@ const char* obu_type_names[] = {
 	"Reserved",
 	"Reserved",
 	"Padding OBU"
+};
+
+const char* obu_type_short_names[16] = {
+	"Reserved",
+	"Sequence header",
+	"Temporal delimiter",
+	"Frame header",
+	"Tile group",
+	"Metadata",
+	"Frame",
+	"Redundant frame header",
+	"Tile list",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Padding"
 };
 
 const char* color_primaries_descs[23] = {

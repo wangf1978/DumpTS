@@ -475,7 +475,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	bool bAnnexB = m_pCtx->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
 
-	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, -1)))
 	{
 		iRet = RET_CODE_ABORT;
 		goto done;
@@ -507,7 +507,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 		cbParsed += cbLeb128;
 		pFrameUnit = pBuf + cbParsed;
 
-		if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size)))
+		if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, -1)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -622,7 +622,7 @@ RET_CODE CAV1Parser::SubmitTU()
 	auto iterFrame = parsed_obus.begin();
 	auto iter = parsed_obus.begin();
 
-	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, -1)))
 	{
 		iRet = RET_CODE_ABORT;
 		goto done;
@@ -780,7 +780,7 @@ RET_CODE CAV1Parser::SubmitTU()
 				else
 					frame_unit_size = (uint32_t)(pTUBuf + cbTUBuf - pFrameUnit);
 
-				if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size)))
+				if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, -1)))
 				{
 					iRet = RET_CODE_ABORT;
 					goto done;

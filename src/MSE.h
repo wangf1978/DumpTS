@@ -59,9 +59,18 @@ SOFTWARE.
 	(lvl_id) == MPV_LEVEL_SE?"SE":(\
 	(lvl_id) == MPV_LEVEL_MB?"MB":"")))))
 
+#define AV1_LEVEL_VSEQ				2
+#define AV1_LEVEL_GOP				3
 #define AV1_LEVEL_TU				4
 #define AV1_LEVEL_FU				5
 #define AV1_LEVEL_OBU				6
+
+#define AV1_LEVEL_NAME(lvl_id)	(\
+	(lvl_id) == AV1_LEVEL_VSEQ?"VSEQ":(\
+	(lvl_id) == AV1_LEVEL_GOP?"GOP":(\
+	(lvl_id) == AV1_LEVEL_TU?"TU":(\
+	(lvl_id) == AV1_LEVEL_FU?"FU":(\
+	(lvl_id) == AV1_LEVEL_OBU?"OBU":"")))))
 
 #define GENERAL_LEVEL_AU			4
 
@@ -162,8 +171,8 @@ public:
 class IAV1Enumerator : public IUnknown
 {
 public:
-	virtual RET_CODE		EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
-	virtual RET_CODE		EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
+	virtual RET_CODE		EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) = 0;
+	virtual RET_CODE		EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type) = 0;
 	virtual RET_CODE		EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) = 0;
 	virtual RET_CODE		EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) = 0;
 	virtual RET_CODE		EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) = 0;
