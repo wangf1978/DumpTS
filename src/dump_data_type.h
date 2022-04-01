@@ -30,6 +30,7 @@ SOFTWARE.
 
 #include <functional>
 #include <stdint.h>
+#include "AMSHA1.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -123,6 +124,58 @@ struct ACCESS_UNIT_INFO
 }PACKED;
 
 using CB_AU_STARTPOINT = std::function<void(TM_90KHZ, TM_90KHZ, const PROCESS_DATA_INFO*, const ACCESS_UNIT_INFO*, void*)>;
+
+struct SHA1HashVaue
+{
+	bool		fValid = false;
+	AMSHA1_RET	hash = { 0 };
+
+	SHA1HashVaue(){}
+
+	SHA1HashVaue(uint8_t* pBuf, size_t cbBuf) { UpdateHash(pBuf, cbBuf); }
+
+	void UpdateHash(uint8_t* pBuf, size_t cbBuf) {
+		if (pBuf == nullptr || cbBuf == 0){
+			fValid = false;
+			return;
+		}
+
+		AMSHA1 hSha1 = AM_SHA1_Init(pBuf, (unsigned long)cbBuf);
+		if (hSha1 != nullptr){
+			if (AMP_SUCCEEDED(AM_SHA1_Finalize(hSha1)) && AMP_SUCCEEDED(AM_SHA1_GetHash(hSha1, hash)))
+				fValid = true;
+			else
+				fValid = false;
+			AM_SHA1_Uninit(hSha1);
+		}
+		else
+			fValid = false;
+	}
+};
+
+inline bool operator==(SHA1HashVaue const &hash_val1, SHA1HashVaue const &hash_val2){
+	return (hash_val1.fValid == hash_val2.fValid && hash_val1.fValid && memcmp(hash_val1.hash, hash_val2.hash, sizeof(hash_val1.hash)) == 0) ? true : false;
+}
+
+inline bool operator==(SHA1HashVaue const &hash_val1, AMSHA1_RET hash_val2){
+	return (hash_val1.fValid && memcmp(hash_val1.hash, hash_val2, sizeof(hash_val1.hash)) == 0) ? true : false;
+}
+
+inline bool operator==(AMSHA1_RET hash_val1, SHA1HashVaue const &hash_val2){
+	return (hash_val2.fValid && memcmp(hash_val2.hash, hash_val1, sizeof(hash_val2.hash)) == 0) ? true : false;
+}
+
+inline bool operator!=(SHA1HashVaue const &hash_val1, SHA1HashVaue const &hash_val2) {
+	return (hash_val1.fValid == hash_val2.fValid && hash_val1.fValid && memcmp(hash_val1.hash, hash_val2.hash, sizeof(hash_val1.hash)) == 0) ? false : true;
+}
+
+inline bool operator!=(SHA1HashVaue const &hash_val1, AMSHA1_RET hash_val2) {
+	return (hash_val1.fValid && memcmp(hash_val1.hash, hash_val2, sizeof(hash_val1.hash)) == 0) ? false : true;
+}
+
+inline bool operator!=(AMSHA1_RET hash_val1, SHA1HashVaue const &hash_val2) {
+	return (hash_val2.fValid && memcmp(hash_val2.hash, hash_val1, sizeof(hash_val2.hash)) == 0) ? false : true;
+}
 
 #ifdef _MSC_VER
 #pragma pack(pop)
