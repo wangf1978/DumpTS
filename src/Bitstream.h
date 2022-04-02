@@ -333,6 +333,56 @@ struct BITBUF
 		return RET_CODE_SUCCESS;
 	}
 
+	template<class T>
+	int AV1ns(uint64_t v_max, T& uVal)
+	{
+		if (v_max == 0)
+			return RET_CODE_INVALID_PARAMETER;
+
+		int8_t w = 0;
+		uint64_t vv = v_max;
+		int iRet = RET_CODE_SUCCESS;
+		while (vv != 0){
+			vv = vv >> 1;
+			w++;
+		}
+
+		uint64_t v = 0;
+		uint64_t m = (1ULL << w) - v_max;
+		if (w > 1) {
+			if (AMP_FAILED(iRet = GetValue(w - 1, v)))
+				return iRet;
+		}
+
+		if (v < m)
+			return v;
+
+		uint64_t extract_bit;
+		if (AMP_FAILED(iRet = GetValue(1, extract_bit)))
+			return iRet;
+
+		uVal = (T)((v << 1) - m + extract_bit);
+		return iRet;
+	}
+
+	template<class T>
+	int AV1su(uint8_t nBits, T& uVal)
+	{
+		if (nBits > 64)
+			return RET_CODE_INVALID_PARAMETER;
+
+		uint64_t value;
+		int iRet = RET_CODE_SUCCESS;
+		if (AMP_FAILED(iRet = GetValue(nBits, value)))
+			return iRet;
+		uint64_t signMask = 1ULL << (nBits - 1);
+		if (value & signMask)
+			uVal = (T)(value - (signMask << 1));
+		else
+			uVal = (T)value;
+		return iRet;
+	}
+
 	inline void SkipFast(size_t nSkipBits){
 		bitoffset += nSkipBits;
 	}
