@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -230,4 +230,116 @@ template<typename First, typename... Rem>
 void fill_bytes_from_tuple(const std::tuple<First, Rem...>& t, std::vector<uint8_t>& bytes) {
 	ArrayFiller<First, decltype(t), 1 + sizeof...(Rem)>::fill_bytes_from_tuple(t, bytes);
 }
+
+//
+// A utility bit stream reader aiming the best performance and the minimum memory foot-print
+// And the allocated buffer is in stack instead of heap
+//
+struct BITBUF
+{
+	const uint8_t*		pBuf;
+	size_t				cbBuf;
+	size_t				bitoffset = 0;
+
+	BITBUF(const uint8_t* p, size_t cb) : pBuf(p), cbBuf(cb) {}
+
+	int GetFlag(bool& bFlag) {
+		if (bitoffset + 1 > (cbBuf << 3))
+			return RET_CODE_BUFFER_TOO_SMALL;
+
+		pBuf += (bitoffset >> 3);
+		cbBuf -= (bitoffset >> 3);
+		bitoffset = bitoffset & 0x7;
+
+		bFlag = (*pBuf >> (8 - (bitoffset % 8) - 1)) & 0x1;
+		bitoffset = (bitoffset % 8) + 1;
+		return RET_CODE_SUCCESS;
+	}
+
+	int GetByte(uint8_t& u8Val)
+	{
+		if (bitoffset + 8 > (cbBuf << 3))
+			return RET_CODE_BUFFER_TOO_SMALL;
+
+		pBuf += (bitoffset >> 3);
+		cbBuf -= (bitoffset >> 3);
+		bitoffset = bitoffset & 0x7;
+
+		uint8_t left_bits = (uint8_t)(8 - (bitoffset % 8));
+		u8Val = (*pBuf) &((1 << left_bits) - 1);
+		pBuf++;
+		cbBuf--;
+
+		if (left_bits < 8)
+		{
+			left_bits = 8 - left_bits;
+			u8Val = (u8Val << left_bits) | (((*pBuf) >> (8 - left_bits))&((1 << left_bits) - 1));
+			bitoffset = left_bits;
+		}
+		else
+			bitoffset = 0;
+		return RET_CODE_SUCCESS;
+	}
+
+	template<class T>
+	int GetValue(uint8_t n, T& uVal) {
+		if (n > 64)
+			return RET_CODE_INVALID_PARAMETER;
+
+		if (bitoffset + n > (cbBuf << 3))
+			return RET_CODE_BUFFER_TOO_SMALL;
+
+		uint64_t u64Val;
+		uint8_t head_part_left = 0, body_cout_of_bytes = 0, tail_part_left = 0;
+
+		pBuf += (bitoffset >> 3);
+		cbBuf -= (bitoffset >> 3);
+		bitoffset = bitoffset & 0x7;
+
+		head_part_left = 8 - (uint8_t)(bitoffset % 8);
+		pBuf += bitoffset / 8;
+
+		if (head_part_left < n)
+		{
+			body_cout_of_bytes = (n - head_part_left) / 8;
+			tail_part_left = (n - head_part_left) % 8;
+		}
+
+		u64Val = (*pBuf)&((1 << head_part_left) - 1); pBuf++; cbBuf--;
+
+		for (uint8_t i = 0; i < body_cout_of_bytes; i++) {
+			u64Val = (u64Val << 8) | (*pBuf);
+			pBuf++; cbBuf--;
+		}
+
+		if (tail_part_left > 0) {
+			u64Val = (u64Val << tail_part_left) | (((*pBuf) >> (8 - tail_part_left))&((1 << tail_part_left) - 1));
+			bitoffset = tail_part_left;
+		}
+		else
+			bitoffset = 0;
+
+		uVal = (T)(u64Val);
+
+		return RET_CODE_SUCCESS;
+	}
+
+	inline int Skip(size_t nSkipBits)
+	{
+		if (bitoffset + nSkipBits > (cbBuf << 3))
+			return RET_CODE_BUFFER_TOO_SMALL;
+
+		bitoffset += nSkipBits;
+		return RET_CODE_SUCCESS;
+	}
+
+	inline void SkipFast(size_t nSkipBits){
+		bitoffset += nSkipBits;
+	}
+
+	inline void ByteAlign(){
+		if (bitoffset % 8)
+			bitoffset += 8 - (bitoffset % 8);
+	}
+};
 
