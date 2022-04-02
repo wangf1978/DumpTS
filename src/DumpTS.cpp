@@ -453,6 +453,125 @@ bool VerifyCommandLine()
 	return true;
 }
 
+MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* param_name)
+{
+	MEDIA_SCHEME_TYPE media_scheme_fmt = MEDIA_SCHEME_UNKNOWN;
+	size_t nPos1 = filepath.rfind('\\');
+	size_t nPos2 = filepath.rfind('/');
+
+	size_t file_name_start_pos = 0;
+	if (nPos1 == std::string::npos)
+	{
+		if (nPos2 != std::string::npos)
+			file_name_start_pos = nPos2 + 1;
+	}
+	else if (nPos2 == std::string::npos)
+		file_name_start_pos = nPos1 + 1;
+	else
+		file_name_start_pos = AMP_MAX(nPos1, nPos2) + 1;
+
+	std::string file_name = filepath.substr(file_name_start_pos);
+	size_t file_ext_start_pos = file_name.rfind('.');
+	if (file_ext_start_pos != std::string::npos)
+	{
+		std::string file_name_ext = file_name.substr(file_ext_start_pos);
+		if (_stricmp(file_name_ext.c_str(), ".m2ts") == 0)
+		{
+			g_params[param_name] = "m2ts";
+			media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".ts") == 0)
+		{
+			g_params[param_name] = "ts";
+			media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
+		{
+			g_params[param_name] = "tts";
+			media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".vob") == 0)
+		{
+			g_params[param_name] = "vob";
+			media_scheme_fmt = MEDIA_SCHEME_PROGRAM_STREAM;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".mpg") == 0 || _stricmp(file_name_ext.c_str(), ".mpeg") == 0)
+		{
+			g_params[param_name] = "mpg";
+			media_scheme_fmt = MEDIA_SCHEME_PROGRAM_STREAM;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".mov") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".m4a") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".m4v") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".m4s") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".heif") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".heic") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".avif") == 0)
+		{
+			g_params[param_name] = "mp4";
+			media_scheme_fmt = MEDIA_SCHEME_ISOBMFF;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".mka") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".mk3d") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".webm") == 0)
+		{
+			g_params[param_name] = "mkv";
+			media_scheme_fmt = MEDIA_SCHEME_MATROSKA;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".aiff") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".aif") == 0 ||
+			_stricmp(file_name_ext.c_str(), ".aifc") == 0)
+		{
+			g_params[param_name] = "aiff";
+			media_scheme_fmt = MEDIA_SCHEME_AIFF;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".mmts") == 0)
+		{
+			g_params[param_name] = "mmt";
+			media_scheme_fmt = MEDIA_SCHEME_MMT;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".h264") == 0 || _stricmp(file_name_ext.c_str(), ".avc") == 0)
+		{
+			g_params[param_name] = "h264";
+			media_scheme_fmt = MEDIA_SCHEME_NAL;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".h265") == 0 || _stricmp(file_name_ext.c_str(), ".hevc") == 0)
+		{
+			g_params[param_name] = "h265";
+			media_scheme_fmt = MEDIA_SCHEME_NAL;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".h266") == 0 || _stricmp(file_name_ext.c_str(), ".vvc") == 0)
+		{
+			g_params[param_name] = "h266";
+			media_scheme_fmt = MEDIA_SCHEME_NAL;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".m2v") == 0 || _stricmp(file_name_ext.c_str(), ".mpv") == 0 || _stricmp(file_name_ext.c_str(), ".mp2v") == 0)
+		{
+			g_params[param_name] = "mpv";
+			media_scheme_fmt = MEDIA_SCHEME_MPV;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".adts") == 0)
+		{
+			g_params[param_name] = "adts";
+			media_scheme_fmt = MEDIA_SCHEME_ADTS;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".loas") == 0)
+		{
+			g_params[param_name] = "loas";
+			media_scheme_fmt = MEDIA_SCHEME_LOAS_LATM;
+		}
+		else if (_stricmp(file_name_ext.c_str(), ".av1") == 0 || _stricmp(file_name_ext.c_str(), ".obu") == 0)
+		{
+			g_params[param_name] = "av1";
+			media_scheme_fmt = MEDIA_SCHEME_AV1;
+		}
+	}
+
+	return media_scheme_fmt;
+}
+
 int PrepareParams()
 {
 	int iRet = -1;
@@ -469,118 +588,7 @@ int PrepareParams()
 		if (g_params.find("input") != g_params.end())
 		{
 			std::string& str_input_file_name = g_params["input"];
-			size_t nPos1 = str_input_file_name.rfind('\\');
-			size_t nPos2 = str_input_file_name.rfind('/');
-			
-			size_t file_name_start_pos = 0;
-			if (nPos1 == std::string::npos)
-			{
-				if (nPos2 != std::string::npos)
-					file_name_start_pos = nPos2 + 1;
-			}
-			else if (nPos2 == std::string::npos)
-				file_name_start_pos = nPos1 + 1;
-			else
-				file_name_start_pos = AMP_MAX(nPos1, nPos2) + 1;
-
-			std::string file_name = str_input_file_name.substr(file_name_start_pos);
-			size_t file_ext_start_pos = file_name.rfind('.');
-			if (file_ext_start_pos != std::string::npos)
-			{
-				std::string file_name_ext = file_name.substr(file_ext_start_pos);
-				if (_stricmp(file_name_ext.c_str(), ".m2ts") == 0)
-				{
-					g_params["srcfmt"] = "m2ts";
-					g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".ts") == 0)
-				{
-					g_params["srcfmt"] = "ts";
-					g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
-				{
-					g_params["srcfmt"] = "tts";
-					g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".vob") == 0)
-				{
-					g_params["srcfmt"] = "vob";
-					g_media_scheme_type = MEDIA_SCHEME_PROGRAM_STREAM;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".mpg") == 0 || _stricmp(file_name_ext.c_str(), ".mpeg") == 0)
-				{
-					g_params["srcfmt"] = "mpg";
-					g_media_scheme_type = MEDIA_SCHEME_PROGRAM_STREAM;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".mov") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".m4a") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".m4v") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".m4s") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".heif") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".heic") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".avif") == 0)
-				{
-					g_params["srcfmt"] = "mp4";
-					g_media_scheme_type = MEDIA_SCHEME_ISOBMFF;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".mka") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".mk3d") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".webm") == 0)
-				{
-					g_params["srcfmt"] = "mkv";
-					g_media_scheme_type = MEDIA_SCHEME_MATROSKA;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".aiff") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".aif") == 0 ||
-					_stricmp(file_name_ext.c_str(), ".aifc") == 0)
-				{
-					g_params["srcfmt"] = "aiff";
-					g_media_scheme_type = MEDIA_SCHEME_AIFF;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".mmts") == 0)
-				{
-					g_params["srcfmt"] = "mmt";
-					g_media_scheme_type = MEDIA_SCHEME_MMT;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".h264") == 0 || _stricmp(file_name_ext.c_str(), ".avc") == 0)
-				{
-					g_params["srcfmt"] = "h264";
-					g_media_scheme_type = MEDIA_SCHEME_NAL;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".h265") == 0 || _stricmp(file_name_ext.c_str(), ".hevc") == 0)
-				{
-					g_params["srcfmt"] = "h265";
-					g_media_scheme_type = MEDIA_SCHEME_NAL;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".h266") == 0 || _stricmp(file_name_ext.c_str(), ".vvc") == 0)
-				{
-					g_params["srcfmt"] = "h266";
-					g_media_scheme_type = MEDIA_SCHEME_NAL;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".m2v") == 0 || _stricmp(file_name_ext.c_str(), ".mpv") == 0 || _stricmp(file_name_ext.c_str(), ".mp2v") == 0)
-				{
-					g_params["srcfmt"] = "mpv";
-					g_media_scheme_type = MEDIA_SCHEME_MPV;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".adts") == 0)
-				{
-					g_params["srcfmt"] = "adts";
-					g_media_scheme_type = MEDIA_SCHEME_ADTS;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".loas") == 0)
-				{
-					g_params["srcfmt"] = "loas";
-					g_media_scheme_type = MEDIA_SCHEME_LOAS_LATM;
-				}
-				else if (_stricmp(file_name_ext.c_str(), ".av1") == 0 || _stricmp(file_name_ext.c_str(), ".obu") == 0)
-				{
-					g_params["srcfmt"] = "av1";
-					g_media_scheme_type = MEDIA_SCHEME_AV1;
-				}
-			}
+			g_media_scheme_type = CheckAndUpdateFileFormat(str_input_file_name, "srcfmt");
 		}
 
 		iter = g_params.find("srcfmt");

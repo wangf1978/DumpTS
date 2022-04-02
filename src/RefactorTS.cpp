@@ -33,6 +33,7 @@ SOFTWARE.
 extern map<std::string, std::string, CaseInsensitiveComparator> 
 											g_params;
 extern MEDIA_SCHEME_TYPE					g_media_scheme_type;
+extern MEDIA_SCHEME_TYPE					CheckAndUpdateFileFormat(std::string& filepath, const char* param_name);
 
 // Refactor TS, for example, change PID, PTS, or changing from ts to m2ts and so on
 int RefactorTS()
@@ -57,6 +58,7 @@ int RefactorTS()
 	unsigned char dest_ts_pack_size = TS_PACKET_SIZE - 4;
 
 	unsigned long ts_pack_idx = 0;
+	auto iterOutput = g_params.find("output");
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -64,8 +66,8 @@ int RefactorTS()
 		printf("Failed to open the file: %s {errno: %d}.\n", g_params["input"].c_str(), errn);
 		goto done;
 	}
-
-	if (g_params.find("output") != g_params.end())
+	
+	if (iterOutput != g_params.end())
 	{
 		errn = fopen_s(&fw, g_params["output"].c_str(), "wb+");
 		if (errn != 0 || fw == NULL)
@@ -101,8 +103,16 @@ int RefactorTS()
 
 	if (g_params.find("outputfmt") == g_params.end())
 	{
-		// Assume the output format is the same with input format
-		g_params["outputfmt"] = g_params["srcfmt"];
+		// Check whether the output file is specified or not
+		if (iterOutput != g_params.end())
+		{
+			auto dstFileScheme = CheckAndUpdateFileFormat(iterOutput->second, "outputfmt");
+		}
+		else
+		{
+			// Assume the output format is the same with input format
+			g_params["outputfmt"] = g_params["srcfmt"];
+		}
 	}
 
 	// Check whether to add 30bits of ATC time at the beginning of each 188 TS packet
