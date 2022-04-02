@@ -7,6 +7,8 @@ on:
   workflow_dispatch:
 
 env:
+  # optional Regex for assets names recognition (this is example of asset name matching used regex - "DumpTS-linux-nightly.zip")
+  ASSETS_NAMES_REGEX: DumpTS-(linux|macos|x64-Release)-nightly-.+\.(zip|tar\.gz)
   # Path to the solution file relative to the root of the project.
   SOLUTION_FILE_PATH: ./build/DumpTS_vc15.sln
 
@@ -42,6 +44,7 @@ jobs:
         release_id: 63095007
         asset_path: ./bin/macos/DumpTS.tar.gz # path to archive to upload
         asset_name: DumpTS-macos-nightly-$$.tar.gz # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+        assets_names_regex: ${{env.ASSETS_NAMES_REGEX}}
         asset_content_type: application/zip
         max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
     
@@ -71,6 +74,7 @@ jobs:
         release_id: 63095007
         asset_path: ./bin/linux/DumpTS.tar.gz # path to archive to upload
         asset_name: DumpTS-linux-nightly-$$.tar.gz # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+        assets_names_regex: ${{env.ASSETS_NAMES_REGEX}}
         asset_content_type: application/zip
         max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
     
@@ -111,5 +115,6 @@ jobs:
         release_id: 63095007
         asset_path: ./bin/${{env.BUILD_CONFIGURATION}}/${{env.BUILD_PLATFORM}}/DumpTS.zip # path to archive to upload
         asset_name: DumpTS-${{env.BUILD_PLATFORM}}-${{env.BUILD_CONFIGURATION}}-nightly-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+        assets_names_regex: ${{env.ASSETS_NAMES_REGEX}}
         asset_content_type: application/zip
         max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
