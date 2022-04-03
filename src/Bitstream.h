@@ -355,7 +355,10 @@ struct BITBUF
 		}
 
 		if (v < m)
-			return v;
+		{
+			uVal = (T)v;
+			return RET_CODE_SUCCESS;
+		}
 
 		uint64_t extract_bit;
 		if (AMP_FAILED(iRet = GetValue(1, extract_bit)))
