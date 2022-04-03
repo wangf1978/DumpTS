@@ -132,15 +132,15 @@ struct SHA1HashVaue
 
 	SHA1HashVaue(){}
 
-	SHA1HashVaue(uint8_t* pBuf, size_t cbBuf) { UpdateHash(pBuf, cbBuf); }
+	SHA1HashVaue(const uint8_t* pBuf, size_t cbBuf) { UpdateHash(pBuf, cbBuf); }
 
-	void UpdateHash(uint8_t* pBuf, size_t cbBuf) {
+	void UpdateHash(const uint8_t* pBuf, size_t cbBuf) {
 		if (pBuf == nullptr || cbBuf == 0){
 			fValid = false;
 			return;
 		}
 
-		AMSHA1 hSha1 = AM_SHA1_Init(pBuf, (unsigned long)cbBuf);
+		AMSHA1 hSha1 = AM_SHA1_Init((uint8_t*)pBuf, (unsigned long)cbBuf);
 		if (hSha1 != nullptr){
 			if (AMP_SUCCEEDED(AM_SHA1_Finalize(hSha1)) && AMP_SUCCEEDED(AM_SHA1_GetHash(hSha1, hash)))
 				fValid = true;
