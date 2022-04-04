@@ -27,6 +27,65 @@ SOFTWARE.
 #include "av1.h"
 #include "av1_parser.h"
 
+INLINE RET_CODE decode_subexp(BITBUF& bitbuf, int32_t numSyms, int32_t& val)
+{
+	int iRet = RET_CODE_SUCCESS;
+	int32_t i = 0;
+	int32_t mk = 0;
+	int32_t k = 3;
+	while (1) {
+		uint8_t b2 = i ? k + i - 1 : k;
+		int32_t a = 1 << b2;
+		if (numSyms <= mk + 3 * a) {
+			int32_t subexp_final_bits;
+			if (AMP_FAILED(iRet = bitbuf.AV1ns(numSyms - mk, subexp_final_bits)))break;
+			val = subexp_final_bits + mk;
+			break;
+		}
+		else {
+			bool subexp_more_bits;
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(subexp_more_bits)))break;
+			if (subexp_more_bits) {
+				i++;
+				mk += a;
+			}
+			else {
+				uint32_t subexp_bits;
+				if (AMP_FAILED(iRet = bitbuf.GetValue(b2, subexp_bits)))break;
+				val = subexp_bits + mk;
+				break;
+			}
+		}
+	}
+
+	return iRet;
+}
+
+INLINE RET_CODE decode_unsigned_subexp_with_ref(BITBUF& bitbuf, int32_t mx, int32_t r, int32_t& val)
+{
+	int32_t v;
+	int iRet = decode_subexp(bitbuf, mx, v);
+	if (AMP_FAILED(iRet))return iRet;
+
+	if ((r << 1) <= mx) {
+		val = BST::AV1::inverse_recenter(r, v);
+	}
+	else {
+		val = mx - 1 - BST::AV1::inverse_recenter(mx - 1 - r, v);
+	}
+
+	return iRet;
+}
+
+INLINE RET_CODE decode_signed_subexp_with_ref(BITBUF& bitbuf, int32_t low, int32_t high, int32_t r, int32_t& val)
+{
+	int32_t x;
+	int iRet = decode_unsigned_subexp_with_ref(bitbuf, high - low, r - low, x);
+	if (AMP_FAILED(iRet))return iRet;
+	val = x + low;
+	return iRet;
+}
+
 CAV1Parser::CAV1Parser(bool bAnnexB, bool bSingleOBUParse, RET_CODE* pRetCode)
 	: m_av1_bytestream_format(bAnnexB?AV1_BYTESTREAM_LENGTH_DELIMITED: AV1_BYTESTREAM_RAW)
 	, m_rbTemporalUnit(nullptr)
@@ -471,15 +530,27 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
+	std::vector<
+		std::tuple<uint32_t			/* offset to TU start */, 
+				   uint8_t*			/*FU buffer start*/, 
+				   uint32_t			/*FU size*/,
+				   int,				/*Frame Type*/
+				   std::vector<
+						std::tuple<uint32_t			/* OBU offset to TU start */,
+								   uint8_t*			/* OBU buffer start*/,
+								   uint32_t,		/* OBU buffer length */
+								   uint8_t,			/* OBU type */
+								   uint32_t,		/* OBU size in OBU header */
+								   OBU_PARSE_PARAMS	/* OBU parser parameters which will be updated to AV1 context separately */>
+				   >
+		>
+	> tu_fu_obus;
+
 	uint8_t* pBuf = pTUBuf;
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	bool bAnnexB = m_pCtx->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
-
-	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, -1)))
-	{
-		iRet = RET_CODE_ABORT;
-		goto done;
-	}
+	bool SeenFrameHeader = false;	// According to AV1 spec
+	OBU_PARSE_PARAMS parse_params = m_TU_parse_params, next_parse_params = m_TU_parse_params;
 
 	temporal_unit_size = BST::AV1::leb128(pBuf + cbParsed, cbSize - cbParsed, &cbLeb128);
 	if (temporal_unit_size == UINT32_MAX)
@@ -507,11 +578,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 		cbParsed += cbLeb128;
 		pFrameUnit = pBuf + cbParsed;
 
-		if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, -1)))
-		{
-			iRet = RET_CODE_ABORT;
-			goto done;
-		}
+		tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, -1, std::vector<std::tuple<uint32_t, uint8_t*, uint32_t, uint8_t, uint32_t, OBU_PARSE_PARAMS>>());
 
 		while (cbFrameParsed < frame_unit_size)
 		{
@@ -525,68 +592,178 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 			cbFrameParsed += cbLeb128;
 			cbParsed += cbLeb128;
 
-			if (obu_length > 0 && (int64_t)cbParsed < (int64_t)cbTUBuf)
+			do
 			{
+				if (obu_length == 0 || (int64_t)cbParsed >= (int64_t)cbTUBuf)
+					break;
+
+				BST::AV1::OBU_HEADER obu_hdr;
+
 				uint8_t* p = pBuf + cbParsed;
 				size_t cbOBULeft = obu_length;
-				uint8_t obu_type = ((*p) >> 3) & 0xF;
-				uint8_t obu_extension_flag = ((*p) >> 2) & 0x1;
-				uint8_t obu_has_size_field = ((*p) >> 1) & 0x1;
-				uint8_t obu_reserved_1bit = (*p) & 0x1;
 				uint32_t obu_size = UINT32_MAX;
 
-				if (obu_extension_flag)
-				{
+				obu_hdr.obu_type = ((*p) >> 3) & 0xF;
+				obu_hdr.obu_extension_flag = ((*p) >> 2) & 0x1;
+				obu_hdr.obu_has_size_field = ((*p) >> 1) & 0x1;
+				obu_hdr.obu_reserved_1bit = (*p) & 0x1;
+				
+				p++; cbOBULeft--;
+				
+				if (obu_hdr.obu_extension_flag){
+					if (cbOBULeft == 0)
+						break;
+
+					obu_hdr.obu_extension_header.temporal_id = ((*p) >> 5) & 0x7;
+					obu_hdr.obu_extension_header.spatial_id = ((*p) >> 3) & 0x3;
 					cbOBULeft--;
 					p++;
 				}
 
-				if (cbOBULeft > 0)
+				if (obu_hdr.obu_has_size_field)
 				{
-					if (obu_has_size_field)
-					{
-						obu_size = BST::AV1::leb128(p, (uint32_t)cbOBULeft, &cbLeb128);
-						if (obu_size != UINT32_MAX)
-						{
-							uint32_t ob_preceding_size = 1 + obu_extension_flag + cbLeb128;
-							if (obu_size + ob_preceding_size != obu_length)
-								printf("[AV1Parser] obu_size and obu_length are NOT set consistently.\n");
-						}
-					}
-					else
-						obu_size = obu_length >= (1UL + obu_extension_flag) ? (obu_length - 1 - obu_extension_flag) : 0;
+					if (cbOBULeft == 0)
+						break;
 
-					if (m_av1_enum != nullptr && (m_av1_enum_options&AV1_ENUM_OPTION_OBU) && obu_size != UINT32_MAX && obu_size > 0)
-						m_av1_enum->EnumOBU(m_pCtx, pBuf + cbParsed, obu_length, obu_type, obu_size);
+					obu_size = BST::AV1::leb128(p, (uint32_t)cbOBULeft, &cbLeb128);
+					if (obu_size != UINT32_MAX)
+					{
+						uint32_t ob_preceding_size = 1 + obu_hdr.obu_extension_flag + cbLeb128;
+						if (obu_size + ob_preceding_size != obu_length)
+							printf("[AV1Parser] obu_size and obu_length are NOT set consistently.\n");
+					}
+
+					if (cbOBULeft < cbLeb128)
+						break;
+
+					cbOBULeft -= cbLeb128;
+					p += cbLeb128;
 				}
-			}
+				else
+					obu_size = obu_length >= (1UL + obu_hdr.obu_extension_flag) ? (obu_length - 1 - obu_hdr.obu_extension_flag) : 0;
+
+				uint8_t obu_type = obu_hdr.obu_type;
+				if (obu_type == OBU_TEMPORAL_DELIMITER)
+				{
+					next_parse_params.SeenFrameHeader = false;
+				}
+				else if (obu_type == OBU_SEQUENCE_HEADER)
+				{
+					// Update the Sequence Header OBU to the AV1 context
+					if (AMP_FAILED(iRet == UpdateSeqHdrToContext(pBuf + cbParsed, obu_length)))
+					{
+						iRet = RET_CODE_ABORT;
+						goto done;
+					}
+				}
+				else if (obu_type == OBU_FRAME_HEADER || obu_type == OBU_FRAME || obu_type == OBU_REDUNDANT_FRAME_HEADER)
+				{
+					if ((iRet = UpdateOBUParsePreconditionParams(p, cbOBULeft, obu_hdr, parse_params, next_parse_params)) == RET_CODE_ABORT)
+					{
+						iRet = RET_CODE_ABORT;
+						goto done;
+					}
+				}
+
+				std::get<4>(tu_fu_obus.back()).emplace_back((uint32_t)(pBuf + cbParsed - pTUBuf), pBuf + cbParsed, obu_length, obu_type, obu_size, parse_params);
+
+				parse_params = next_parse_params;
+
+			} while (0);
 
 			cbFrameParsed += obu_length;
 			cbParsed += obu_length;
 		}
+	}
 
-		if (AMP_FAILED(iRet))
-			break;
-		else
+	// prepare the notification for the current TU
+	if (m_av1_enum != nullptr && AMP_SUCCEEDED(iRet))
+	{
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, -1)))
 		{
-			if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		for (auto& fu : tu_fu_obus)
+		{
+			auto pFrameUnit = std::get<1>(fu);
+			auto frame_unit_size = std::get<2>(fu);
+			if ((m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, std::get<3>(fu))))
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+
+			for (auto& obu : std::get<4>(fu))
+			{
+				auto pOBUBuf = std::get<1>(obu);
+				auto obu_length = std::get<2>(obu);
+				auto obu_type = std::get<3>(obu);
+				auto obu_size = std::get<4>(obu);
+				if ((m_av1_enum_options&AV1_ENUM_OPTION_OBU) && obu_length != UINT32_MAX && obu_length > 0)
+				{
+					if (AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, pOBUBuf, obu_length, obu_type, obu_size)))
+					{
+						iRet = RET_CODE_ABORT;
+						goto done;
+					}
+				}
+			}
+
+			if ((m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
 			}
 		}
-	}
 
-	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
-	{
-		iRet = RET_CODE_ABORT;
-		goto done;
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
 	}
 
 	m_num_temporal_units++;
 
 done:
 	AM_LRB_Reset(m_rbTemporalUnit);
+	return iRet;
+}
+
+RET_CODE CAV1Parser::UpdateSeqHdrToContext(const uint8_t* pOBUBuf, uint32_t cbOBUBuf)
+{
+	int iRet = RET_CODE_SUCCESS;
+	AMBst in_bst = nullptr;
+	// Try to update the sequence header
+	SHA1HashVaue currHashValue(pOBUBuf, cbOBUBuf);
+	auto spSeqHdr = m_pCtx->GetSeqHdrOBU();
+	if (spSeqHdr == nullptr || (currHashValue.fValid && spSeqHdr->obu_hash_value != currHashValue))
+	{
+		// New VideoSequence has been found?
+		BST::AV1::OPEN_BITSTREAM_UNIT* ptr_obu_seq_hdr = new BST::AV1::OPEN_BITSTREAM_UNIT(nullptr);
+		if (ptr_obu_seq_hdr == nullptr) {
+			iRet = RET_CODE_OUTOFMEMORY;;
+			goto done;
+		}
+
+		AV1_OBU sp_obu_seq_hdr = AV1_OBU(ptr_obu_seq_hdr);
+		in_bst = AMBst_CreateFromBuffer((uint8_t*)pOBUBuf, (int)cbOBUBuf);
+		if (in_bst == nullptr) {
+			iRet = RET_CODE_OUTOFMEMORY;
+			goto done;
+		}
+
+		if (AMP_SUCCEEDED(sp_obu_seq_hdr->Map(in_bst)))
+		{
+			sp_obu_seq_hdr->obu_hash_value.UpdateHash(pOBUBuf, cbOBUBuf);
+			m_pCtx->UpdateSeqHdrOBU(sp_obu_seq_hdr);
+		}
+	}
+
+done:
+	AMBst_Destroy(in_bst);
 	return iRet;
 }
 
@@ -826,5 +1003,1274 @@ done:
 	AM_LRB_Reset(m_rbTemporalUnit);
 
 	return iRet;
+}
+
+RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
+	const uint8_t* pOBUBodyBuf, size_t cbOBUBodyBuf, BST::AV1::OBU_HEADER& obu_hdr,
+	OBU_PARSE_PARAMS& prev_parse_params, OBU_PARSE_PARAMS& curr_parse_params)
+{
+	/*
+		The input parameter 'parse_params' is the parameter set of the previous frame OBU
+		After finishing this function successfully, the current OBU context parameter will be updated into it
+	*/
+	int iRet = RET_CODE_SUCCESS;
+
+	auto spSeqHdr = m_pCtx->GetSeqHdrOBU();
+	if (spSeqHdr == nullptr || spSeqHdr->ptr_sequence_header_obu == nullptr)
+		return RET_CODE_HEADER_LOST;
+
+	BITBUF bitbuf(pOBUBodyBuf, cbOBUBodyBuf);
+
+	if (prev_parse_params.SeenFrameHeader)
+	{
+		curr_parse_params.frame_type = prev_parse_params.frame_type;
+		curr_parse_params.refresh_frame_flags = prev_parse_params.refresh_frame_flags;
+		curr_parse_params.SeenFrameHeader = prev_parse_params.SeenFrameHeader;
+	}
+	else
+	{
+		// parsing uncompressed_header()
+		if (AMP_FAILED(iRet = ParseUncompressedHeader(bitbuf, obu_hdr, spSeqHdr, prev_parse_params, curr_parse_params)))
+		{
+			printf("[AV1Parse] Failed to parse uncompressed_header() {error code: %d}.\n", iRet);
+			return iRet;
+		}
+
+		if (curr_parse_params.show_existing_frame)
+		{
+			// decode_frame_wrapup()
+			curr_parse_params.SeenFrameHeader = false;
+		}
+		else
+		{
+			curr_parse_params.TileNum = 0;
+			curr_parse_params.SeenFrameHeader = true;
+		}
+	}
+
+	if (obu_hdr.obu_type == OBU_FRAME)
+	{
+		if (AMP_FAILED(iRet = bitbuf.ByteAlign()))goto done;
+
+		if (bitbuf.cbBuf > 0)
+		{
+			bool tile_start_and_end_present_flag = false;
+			// process a part of tile_group_obu
+			uint32_t NumTiles = curr_parse_params.TileCols*curr_parse_params.TileRows;
+			uint32_t tg_start, tg_end;
+			if (NumTiles > 1 && AMP_FAILED(iRet = bitbuf.GetFlag(tile_start_and_end_present_flag)))goto done;
+
+			if (NumTiles == 1 || !tile_start_and_end_present_flag) {
+				tg_start = 0;
+				tg_end = NumTiles - 1;
+			}
+			else
+			{
+				uint8_t tileBits = curr_parse_params.TileColsLog2 + curr_parse_params.TileRowsLog2;
+				if (AMP_FAILED(iRet = bitbuf.GetValue(tileBits, tg_start)))goto done;
+				if (AMP_FAILED(iRet = bitbuf.GetValue(tileBits, tg_end)))goto done;
+			}
+
+			if (AMP_FAILED(iRet = bitbuf.ByteAlign()))goto done;
+
+			// Don't parse any more, and calculate whether it is the last tile or not
+			if (tg_end == NumTiles - 1) {
+				/*
+				if (!disable_frame_end_update_cdf) {
+					frame_end_update_cdf()
+				}
+				decode_frame_wrapup()
+				*/
+				curr_parse_params.SeenFrameHeader = false;
+			}
+		}
+		
+	}
+
+done:
+	return iRet;
+}
+
+RET_CODE CAV1Parser::ParseUncompressedHeader(
+	BITBUF& bitbuf, BST::AV1::OBU_HEADER& obu_hdr, AV1_OBU spSeqHdrOBU,
+	OBU_PARSE_PARAMS& prev_parse_params, OBU_PARSE_PARAMS& curr_parse_params)
+{
+	bool FrameIsIntra = false;
+	bool show_existing_frame = false;
+	bool show_frame = true;
+	bool showable_frame = false;
+	bool error_resilient_mode = true;
+	int8_t ref_frame_idx[REFS_PER_FRAME] = {-1, -1, -1, -1, -1, -1, -1};
+
+	auto pSeqHdrOBU = spSeqHdrOBU->ptr_sequence_header_obu;
+
+	int iRet = RET_CODE_SUCCESS;
+	uint8_t idLen = pSeqHdrOBU->additional_frame_id_length_minus_1 +
+		pSeqHdrOBU->delta_frame_id_length_minus_2 + 3;
+
+	curr_parse_params.SeenFrameHeader = true;
+	uint32_t allFrames = (1 << NUM_REF_FRAMES) - 1;
+	bool disable_cdf_update;
+	bool allow_screen_content_tools;
+	bool force_integer_mv;
+	bool frame_size_override_flag;
+	uint8_t primary_ref_frame;
+	bool allow_intrabc = false;
+	bool disable_frame_end_update_cdf;
+	uint8_t base_q_idx;
+	int8_t DeltaQYDc;
+	uint8_t NumPlanes = pSeqHdrOBU->color_config->mono_chrome ? 1 : 3;
+	bool diff_uv_delta = false;
+	int8_t DeltaQUDc = 0, DeltaQUAc = 0, DeltaQVDc = 0, DeltaQVAc = 0;
+	bool using_qmatrix;
+	bool segmentation_enabled = false;
+	bool segmentation_update_map = true;;
+	bool segmentation_temporal_update = false;
+	bool segmentation_update_data = true;
+	bool FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
+	int16_t FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
+	int64_t feature_value = 0;
+	bool delta_q_present = false;
+	bool delta_lf_present = false;
+	bool CodedLossless = true;
+	bool LosslessArray[MAX_SEGMENTS];
+	bool AllLossless;
+	uint8_t loop_filter_level[4] = { 0 };
+	bool UsesLr = false, usesChromaLr = false;
+	bool reference_select = false;
+	bool skipModeAllowed, skip_mode_present;
+	bool allow_warped_motion;
+	bool reduced_tx_set;
+	bool allow_high_precision_mv = false;
+
+	if (pSeqHdrOBU->reduced_still_picture_header)
+	{
+		curr_parse_params.show_existing_frame = false;
+		curr_parse_params.frame_type = KEY_FRAME;
+		FrameIsIntra = true;
+	}
+	else
+	{
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(show_existing_frame)))goto done;
+
+		curr_parse_params.show_existing_frame = show_existing_frame;
+
+		if (show_existing_frame == 1)
+		{
+			uint8_t frame_to_show_map_idx;
+			if (AMP_FAILED(iRet = bitbuf.GetValue(3, frame_to_show_map_idx)))goto done;
+			if (pSeqHdrOBU->decoder_model_info_present_flag &&
+				!pSeqHdrOBU->ptr_timing_info->equal_picture_interval)
+			{
+				uint8_t frame_presentation_time_length =
+					(uint8_t)(pSeqHdrOBU->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1);
+				bitbuf.SkipFast(frame_presentation_time_length);
+			}
+
+			curr_parse_params.refresh_frame_flags = 0;
+			// check uncompressed_header partly
+			if (pSeqHdrOBU->frame_id_numbers_present_flag) {
+				bitbuf.SkipFast(idLen);	// skip display_frame_id
+			}
+
+			curr_parse_params.frame_type = prev_parse_params.VBI[frame_to_show_map_idx].RefFrameType;
+			if (curr_parse_params.frame_type == KEY_FRAME)
+				curr_parse_params.refresh_frame_flags = allFrames;
+
+			return RET_CODE_SUCCESS;
+		}
+		
+		if (AMP_FAILED(iRet = bitbuf.GetValue(2, curr_parse_params.frame_type)))goto done;
+		FrameIsIntra = (curr_parse_params.frame_type == INTRA_ONLY_FRAME ||
+						curr_parse_params.frame_type == KEY_FRAME);
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(show_frame)))goto done;
+
+		if (show_frame && pSeqHdrOBU->decoder_model_info_present_flag && !pSeqHdrOBU->ptr_timing_info->equal_picture_interval)
+		{
+			// temporal_point_info()
+			uint8_t frame_presentation_time_length =
+				(uint8_t)(pSeqHdrOBU->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1);
+			if (AMP_FAILED(iRet = bitbuf.Skip(frame_presentation_time_length)))goto done;
+		}
+
+		showable_frame = curr_parse_params.frame_type != KEY_FRAME;
+		if (!show_frame && AMP_FAILED(iRet = bitbuf.GetFlag(showable_frame)))goto done;
+
+		if (curr_parse_params.frame_type == SWITCH_FRAME || (curr_parse_params.frame_type == KEY_FRAME && show_frame))
+			error_resilient_mode = true;
+		else if (AMP_FAILED(iRet = bitbuf.GetFlag(error_resilient_mode)))
+			goto done;
+	}
+
+	if (curr_parse_params.frame_type == KEY_FRAME && show_frame)
+	{
+		for (uint8_t i = 0; i < NUM_REF_FRAMES; i++) {
+			curr_parse_params.VBI[i].RefValid = 0;
+			curr_parse_params.VBI[i].RefOrderHint = 0;
+		}
+
+		//
+		// Wait for the advance check...
+		//
+		//for (i = 0; i < REFS_PER_FRAME; i++) {
+		//	OrderHints[LAST_FRAME + i] = 0
+		//}
+	}
+
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(disable_cdf_update)))goto done;
+
+	if (pSeqHdrOBU->seq_force_screen_content_tools == SELECT_SCREEN_CONTENT_TOOLS) {
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(allow_screen_content_tools)))goto done;
+	}
+	else
+		allow_screen_content_tools = pSeqHdrOBU->seq_force_screen_content_tools;
+
+	if (allow_screen_content_tools)
+	{
+		if (pSeqHdrOBU->seq_force_integer_mv == SELECT_INTEGER_MV) {
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(force_integer_mv)))goto done;
+		}
+		else
+			force_integer_mv = pSeqHdrOBU->seq_force_integer_mv;
+	}
+	else
+		force_integer_mv = false;
+
+	if (FrameIsIntra)
+		force_integer_mv = true;
+
+	if (pSeqHdrOBU->frame_id_numbers_present_flag) {
+		curr_parse_params.previous_frame_id = prev_parse_params.current_frame_id;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(idLen, curr_parse_params.current_frame_id)))goto done;
+		mark_ref_frames(spSeqHdrOBU, idLen, curr_parse_params);
+	}
+	else
+		curr_parse_params.current_frame_id = 0;
+
+	if (curr_parse_params.frame_type == SWITCH_FRAME)
+		frame_size_override_flag = 1;
+	else if (pSeqHdrOBU->reduced_still_picture_header)
+		frame_size_override_flag = 0;
+	else if (AMP_FAILED(iRet = bitbuf.GetFlag(frame_size_override_flag)))
+		goto done;
+
+	if (AMP_FAILED(iRet = bitbuf.GetValue(pSeqHdrOBU->OrderHintBits, curr_parse_params.OrderHint)))goto done;
+
+	if (FrameIsIntra || error_resilient_mode)
+		primary_ref_frame = PRIMARY_REF_NONE;
+	else if (AMP_FAILED(iRet = bitbuf.GetValue(3, primary_ref_frame)))goto done;
+
+	if (pSeqHdrOBU->decoder_model_info_present_flag)
+	{
+		bool buffer_removal_time_present_flag;
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(buffer_removal_time_present_flag)))goto done;
+
+		if (buffer_removal_time_present_flag)
+		{
+			for (uint8_t opNum = 0; opNum <= pSeqHdrOBU->operating_points_cnt_minus_1; opNum++)
+			{
+				if (pSeqHdrOBU->operating_points[opNum].decoder_model_present_for_this_op)
+				{
+					uint8_t temporal_id = obu_hdr.obu_extension_flag ? obu_hdr.obu_extension_header.temporal_id : 0;
+					uint8_t spatial_id = obu_hdr.obu_extension_flag ? obu_hdr.obu_extension_header.spatial_id : 0;
+					uint32_t opPtIdc = pSeqHdrOBU->operating_points[opNum].operating_point_idc;
+					uint32_t inTemporalLayer = (opPtIdc >> temporal_id) & 1;
+					uint32_t inSpatialLayer = (opPtIdc >> (spatial_id + 8)) & 1;
+					if (opPtIdc == 0 || (inTemporalLayer && inSpatialLayer))
+						bitbuf.SkipFast((size_t)(pSeqHdrOBU->ptr_decoder_model_info->buffer_removal_time_length_minus_1 + 1));
+				}
+			}
+		}
+	}
+
+	if (curr_parse_params.frame_type == SWITCH_FRAME || (curr_parse_params.frame_type == KEY_FRAME && show_frame))
+		curr_parse_params.refresh_frame_flags = allFrames;
+	else if (AMP_FAILED(iRet = bitbuf.GetByte(curr_parse_params.refresh_frame_flags)))
+		goto done;
+
+	if (!FrameIsIntra || curr_parse_params.refresh_frame_flags != allFrames)
+	{
+		if (error_resilient_mode && pSeqHdrOBU->enable_order_hint)
+		{
+			for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
+			{
+				int8_t ref_order_hint;
+				if (AMP_FAILED(iRet = bitbuf.GetValue(pSeqHdrOBU->OrderHintBits, ref_order_hint)))goto done;
+				if (ref_order_hint != curr_parse_params.VBI[i].RefOrderHint)
+					curr_parse_params.VBI[i].RefValid = 0;
+			}
+		}
+	}
+
+	if (FrameIsIntra)
+	{
+		// Skip frame_size()
+		if (AMP_FAILED(iRet = frame_size(spSeqHdrOBU, bitbuf, curr_parse_params, frame_size_override_flag)))goto done;
+
+		// Skip render_size()
+		if (AMP_FAILED(iRet = render_size(spSeqHdrOBU, bitbuf, curr_parse_params)))goto done; 
+
+		if (allow_screen_content_tools && curr_parse_params.UpscaledWidth == curr_parse_params.FrameWidth) {
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(allow_intrabc)))goto done;
+		}
+	}
+	else
+	{
+		bool frame_refs_short_signaling = false;
+		if (pSeqHdrOBU->enable_order_hint && AMP_FAILED(iRet = bitbuf.GetFlag(frame_refs_short_signaling)))goto done;
+
+		int8_t last_frame_idx = -1, gold_frame_idx = -1;
+		if (frame_refs_short_signaling) {
+			if (AMP_FAILED(iRet = bitbuf.GetValue(3, last_frame_idx)))goto done;
+			if (AMP_FAILED(iRet = bitbuf.GetValue(3, gold_frame_idx)))goto done;
+
+			if (AMP_FAILED(iRet = set_frame_refs(spSeqHdrOBU, bitbuf, curr_parse_params, last_frame_idx, gold_frame_idx, ref_frame_idx)))goto done;
+		}
+
+		for (uint8_t i = 0; i < REFS_PER_FRAME; i++)
+		{
+			if (!frame_refs_short_signaling) {
+				if (AMP_FAILED(iRet = bitbuf.GetValue(3, ref_frame_idx[i])))goto done;
+			}
+
+			if (pSeqHdrOBU->frame_id_numbers_present_flag) {
+				bitbuf.SkipFast(pSeqHdrOBU->delta_frame_id_length_minus_2 + 2);	// skip delta_frame_id_minus_1
+			}
+		}
+
+		if (frame_size_override_flag && !error_resilient_mode)
+		{
+			if (AMP_FAILED(iRet = frame_size_with_refs(spSeqHdrOBU, bitbuf, curr_parse_params, frame_size_override_flag, ref_frame_idx)))goto done;
+		}
+		else
+		{
+			// Skip frame_size()
+			if (AMP_FAILED(iRet = frame_size(spSeqHdrOBU, bitbuf, curr_parse_params, frame_size_override_flag)))goto done;
+
+			// Skip render_size()
+			if (AMP_FAILED(iRet = render_size(spSeqHdrOBU, bitbuf, curr_parse_params)))goto done;
+		}
+
+		if (!force_integer_mv && AMP_FAILED(iRet = bitbuf.GetFlag(allow_high_precision_mv)))goto done;
+
+		// Skip read_interpolation_filter()
+		bool is_filter_switchable = false;
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(is_filter_switchable)))goto done;
+
+		uint8_t interpolation_filter = SWITCHABLE;
+		if (is_filter_switchable && AMP_FAILED(iRet = bitbuf.GetValue(2, interpolation_filter)))goto done;
+
+		bool is_motion_mode_switchable = false;
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(is_motion_mode_switchable)))goto done;
+
+		bool use_ref_frame_mvs;
+		if (error_resilient_mode || !pSeqHdrOBU->enable_ref_frame_mvs)
+			use_ref_frame_mvs = false;
+		else if (AMP_FAILED(iRet = bitbuf.GetFlag(use_ref_frame_mvs)))goto done;
+
+		for (uint8_t i = 0; i < REFS_PER_FRAME; i++) {
+			uint8_t refFrame = LAST_FRAME + i;
+			auto hint = curr_parse_params.VBI[ref_frame_idx[i]].RefOrderHint;
+			/*
+				OrderHints[ refFrame ] = hint;
+				if ( !enable_order_hint ) {
+					RefFrameSignBias[ refFrame ] = 0;
+				} else {
+					RefFrameSignBias[ refFrame ] = get_relative_dist( hint, OrderHint) > 0;
+				}
+			*/
+		}
+	}	// end if (FrameIsIntra)
+
+	if (pSeqHdrOBU->reduced_still_picture_header || disable_cdf_update)
+		disable_frame_end_update_cdf = true;
+	else if (AMP_FAILED(iRet = bitbuf.GetFlag(disable_frame_end_update_cdf)))goto done;
+
+	if (primary_ref_frame == PRIMARY_REF_NONE) {
+		// init_non_coeff_cdfs()
+		curr_parse_params.setup_past_independence();
+	}
+	else
+	{
+		// load_cdfs(ref_frame_idx[primary_ref_frame])
+		// load_previous()
+		curr_parse_params.load_previous(ref_frame_idx[primary_ref_frame]);
+	}
+
+	// Skip tile_info
+	if (AMP_FAILED(iRet = tile_info(spSeqHdrOBU, bitbuf, curr_parse_params)))goto done;
+
+	// Skip quantization_params()
+	if (AMP_FAILED(iRet = bitbuf.GetByte(base_q_idx)))goto done;
+
+	if (AMP_FAILED(iRet = read_delta_q(bitbuf, DeltaQYDc)))goto done;
+
+	if (NumPlanes > 1) {
+		if (pSeqHdrOBU->color_config->separate_uv_delta_q && AMP_FAILED(iRet = bitbuf.GetFlag(diff_uv_delta)))goto done;
+		if (AMP_FAILED(iRet = read_delta_q(bitbuf, DeltaQUDc)))goto done;
+		if (AMP_FAILED(iRet = read_delta_q(bitbuf, DeltaQUAc)))goto done;
+		if (diff_uv_delta)
+		{
+			if (AMP_FAILED(iRet = read_delta_q(bitbuf, DeltaQVDc)))goto done;
+			if (AMP_FAILED(iRet = read_delta_q(bitbuf, DeltaQVAc)))goto done;
+		}
+		else
+		{
+			DeltaQVDc = DeltaQUDc;
+			DeltaQVAc = DeltaQUAc;
+		}
+	}
+	
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(using_qmatrix)))goto done;
+	if (using_qmatrix)
+	{
+		bitbuf.SkipFast(4);	// qm_y
+		bitbuf.SkipFast(4);	// qm_u
+		if (pSeqHdrOBU->color_config->separate_uv_delta_q)
+			bitbuf.SkipFast(4);	// qm_v
+	}
+
+	// Skip segmentation_params()
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(segmentation_enabled)))goto done;
+	if (segmentation_enabled)
+	{
+		if (primary_ref_frame != PRIMARY_REF_NONE)
+		{
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(segmentation_update_map)))goto done;
+			if (segmentation_update_data) {
+				if (AMP_FAILED(iRet = bitbuf.GetFlag(segmentation_temporal_update)))
+					goto done;
+			}
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(segmentation_update_data)))goto done;
+		}
+
+		if (segmentation_update_data == 1) {
+			for (uint8_t i = 0; i < MAX_SEGMENTS; i++) {
+				for (uint8_t j = 0; j < SEG_LVL_MAX; j++) {
+					feature_value = 0;
+					bool feature_enabled;
+					if (AMP_FAILED(iRet = bitbuf.GetFlag(feature_enabled))) goto done;
+					FeatureEnabled[i][j] = feature_enabled;
+					int16_t clippedValue = 0;
+					if (feature_enabled)
+					{
+						auto bitsToRead = Segmentation_Feature_Bits[j];
+						auto limit = Segmentation_Feature_Max[j];
+						if (Segmentation_Feature_Signed[j] == 1)
+						{
+							int16_t feature_value;
+							if (AMP_FAILED(iRet = bitbuf.AV1su(1 + bitsToRead, feature_value))) goto done;
+							clippedValue = AV1_Clip3(-limit, limit, feature_value);
+						}
+						else
+						{
+							uint16_t feature_value;
+							if (AMP_FAILED(iRet = bitbuf.GetValue(bitsToRead, feature_value))) goto done;
+							clippedValue = AV1_Clip3(0, limit, feature_value);
+						}
+					}
+					FeatureData[i][j] = clippedValue;
+				}
+			}
+		}
+	}
+
+	// delta_q_params()
+	if (base_q_idx > 0 && AMP_FAILED(iRet = bitbuf.GetFlag(delta_q_present)))goto done;
+	if (delta_q_present)bitbuf.SkipFast(2);
+
+	// delta_lf_params()
+	
+	if (delta_q_present) {
+		if (!allow_intrabc) {
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(delta_lf_present)))
+				goto done;
+		}
+
+		if (delta_lf_present) {
+			bitbuf.SkipFast(2);	// delta_lf_res
+			bitbuf.SkipFast(1);	// delta_lf_multi
+		}
+	}
+
+	for (uint8_t segmentId = 0; segmentId < MAX_SEGMENTS; segmentId++) {
+		int qindex = base_q_idx;
+		if (segmentation_enabled && FeatureEnabled[segmentId][SEG_LVL_ALT_Q])
+		{
+			const int data = FeatureData[segmentId][SEG_LVL_ALT_Q];
+			const int seg_qindex = base_q_idx + data;
+			qindex = AV1_Clip3(0, 255, seg_qindex);
+		}
+		LosslessArray[segmentId] = qindex == 0 && DeltaQYDc == 0 &&
+			DeltaQUAc == 0 && DeltaQUDc == 0 &&
+			DeltaQVAc == 0 && DeltaQVDc == 0;
+
+		if (!LosslessArray[segmentId])
+			CodedLossless = 0;
+	}
+
+	AllLossless = CodedLossless && (curr_parse_params.FrameWidth == curr_parse_params.UpscaledWidth);
+
+	// skip loop_filter_params()
+	if (!(CodedLossless || allow_intrabc)) {
+		if (AMP_FAILED(iRet = bitbuf.GetValue(6, loop_filter_level[0])))goto done;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(6, loop_filter_level[1])))goto done;
+		if (NumPlanes > 1) {
+			if (loop_filter_level[0] || loop_filter_level[1]) {
+				if (AMP_FAILED(iRet = bitbuf.GetValue(6, loop_filter_level[2])))goto done;
+				if (AMP_FAILED(iRet = bitbuf.GetValue(6, loop_filter_level[3])))goto done;
+			}
+		}
+
+		bitbuf.SkipFast(3);	// loop_filter_sharpness
+		bool loop_filter_delta_enabled;
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(loop_filter_delta_enabled)))goto done;
+		int8_t loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME];
+		int8_t loop_filter_mode_deltas[2];
+		if (loop_filter_delta_enabled) {
+			bool loop_filter_delta_update;
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(loop_filter_delta_update)))goto done;
+			if (loop_filter_delta_update == 1) {
+				for (uint8_t i = 0; i < TOTAL_REFS_PER_FRAME; i++) {
+					bool update_ref_delta;
+					if (AMP_FAILED(iRet = bitbuf.GetFlag(update_ref_delta))) goto done;
+
+					if (update_ref_delta) {
+						if (AMP_FAILED(iRet = bitbuf.AV1su(7, loop_filter_ref_deltas[i]))) goto done;
+					}
+				}
+				for (uint8_t i = 0; i < 2; i++) {
+					bool update_mode_delta;
+					if (AMP_FAILED(iRet = bitbuf.GetFlag(update_mode_delta))) goto done;
+					if (update_mode_delta) {
+						if (AMP_FAILED(iRet = bitbuf.AV1su(7, loop_filter_mode_deltas[i]))) goto done;
+					}
+				}
+			}
+		}
+	}
+
+	// skip cdef_params()
+	if (!(CodedLossless || allow_intrabc || !pSeqHdrOBU->enable_cdef)) {
+		// Skip cdef_damping_minus_3
+		bitbuf.SkipFast(2);
+		uint8_t cdef_bits;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(2, cdef_bits)))goto done;
+		for (uint32_t i = 0; i < (uint32_t)(1UL << cdef_bits); i++) {
+			bitbuf.SkipFast(4);	// cdef_y_pri_strength[i]
+			bitbuf.SkipFast(2);	// cdef_y_sec_strength[i]
+			if (NumPlanes > 1) {
+				bitbuf.SkipFast(4);	// cdef_uv_pri_strength[i]
+				bitbuf.SkipFast(2);	// cdef_uv_sec_strength[i]
+			}
+		}
+	}
+
+	// skip lr_params()
+	if (!(AllLossless || allow_intrabc || !pSeqHdrOBU->enable_restoration)) {
+		for (uint8_t i = 0; i < NumPlanes; i++) {
+			uint8_t lr_type;
+			if (AMP_FAILED(iRet = bitbuf.GetValue(2, lr_type))) goto done;
+			if (Remap_Lr_Type[lr_type] != RESTORE_NONE) {
+				UsesLr = true;
+				if (i > 0)
+					usesChromaLr = true;
+			}
+		}
+		if (UsesLr) {
+			uint8_t lr_unit_shift, lr_unit_extra_shift, lr_uv_shift;
+			if (AMP_FAILED(iRet = bitbuf.GetValue(1, lr_unit_shift)))goto done;
+			if (pSeqHdrOBU->use_128x128_superblock)
+				lr_unit_shift++;
+			else
+			{
+				if (lr_unit_shift) {
+					if (AMP_FAILED(iRet = bitbuf.GetValue(1, lr_unit_extra_shift)))goto done;
+					lr_unit_shift += lr_unit_extra_shift;
+				}
+			}
+
+			if (pSeqHdrOBU->color_config->subsampling_x && pSeqHdrOBU->color_config->subsampling_y && usesChromaLr) {
+				if (AMP_FAILED(iRet = bitbuf.GetValue(1, lr_uv_shift)))goto done;
+			}
+		}
+	}
+
+	// skip read_tx_mode()
+	if (!CodedLossless)
+		bitbuf.SkipFast(1);	// tx_mode_select
+
+	// skip frame_reference_mode()
+	if (!FrameIsIntra && AMP_FAILED(iRet = bitbuf.GetFlag(reference_select)))goto done;
+
+	// skip skip_mode_params()
+	if (FrameIsIntra || !reference_select || !pSeqHdrOBU->enable_order_hint) {
+		skipModeAllowed = false;
+	}
+	else
+	{
+		int8_t forwardIdx = -1, backwardIdx = -1, forwardHint = -1, backwardHint = -1;
+		for (int8_t i = 0; i < REFS_PER_FRAME; i++) {
+			auto refHint = curr_parse_params.VBI[ref_frame_idx[i]].RefOrderHint;
+			auto diff = get_relative_dist(spSeqHdrOBU, refHint, curr_parse_params.OrderHint);
+			if (diff < 0)
+			{
+				if (forwardIdx < 0 || get_relative_dist(spSeqHdrOBU, refHint, forwardHint) > 0) {
+					forwardIdx = i;
+					forwardHint = refHint;
+				}
+			}
+			else if (diff > 0)
+			{
+				if (backwardIdx < 0 || get_relative_dist(spSeqHdrOBU, refHint, backwardHint) < 0) {
+					backwardIdx = i;
+					backwardHint = refHint;
+				}
+			}
+		}
+
+		if (forwardIdx < 0) {
+			skipModeAllowed = false;
+		}
+		else if (backwardIdx >= 0) {
+			skipModeAllowed = true;
+		}
+		else {
+			int8_t secondForwardIdx = -1, secondForwardHint = -1;
+			for (int8_t i = 0; i < REFS_PER_FRAME; i++) {
+				auto refHint = curr_parse_params.VBI[ref_frame_idx[i]].RefOrderHint;
+				if (get_relative_dist(spSeqHdrOBU, refHint, forwardHint) < 0) {
+					if (secondForwardIdx < 0 ||
+						get_relative_dist(spSeqHdrOBU, refHint, secondForwardHint) > 0) {
+						secondForwardIdx = i;
+						secondForwardHint = refHint;
+					}
+				}
+			}
+
+			if (secondForwardIdx < 0) {
+				skipModeAllowed = false;
+			}
+			else {
+				skipModeAllowed = true;
+			}
+		}
+	}
+
+	if (skipModeAllowed)
+	{
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(skip_mode_present)))goto done;
+	}
+	else
+		skip_mode_present = false;
+
+	if (FrameIsIntra || error_resilient_mode || !pSeqHdrOBU->enable_warped_motion)
+		allow_warped_motion = false;
+	else if (AMP_FAILED(iRet = bitbuf.GetFlag(allow_warped_motion)))goto done;
+
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(reduced_tx_set)))goto done;
+
+	// skip global_motion_params()
+	if (AMP_FAILED(iRet = global_motion_params(spSeqHdrOBU, bitbuf, curr_parse_params, FrameIsIntra, allow_high_precision_mv)))goto done;
+
+	// skip film_grain_params
+	if (AMP_FAILED(iRet = film_grain_params(spSeqHdrOBU, bitbuf, curr_parse_params, show_frame, showable_frame)))goto done;
+
+done:
+	return iRet;
+}
+
+RET_CODE CAV1Parser::read_delta_q(BITBUF& bitbuf, int8_t& ret_delta_q)
+{
+	bool delta_coded;
+	int iRet = RET_CODE_SUCCESS;
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(delta_coded)))
+		return iRet;
+
+	int8_t delta_q = 0;
+	if (AMP_FAILED(iRet = bitbuf.GetValue(7, delta_q)))
+		return iRet;
+
+	ret_delta_q = delta_q;
+	return iRet;
+}
+
+RET_CODE CAV1Parser::mark_ref_frames(AV1_OBU spSeqHdrOBU, uint8_t idLen, OBU_PARSE_PARAMS& obu_parse_params)
+{
+	uint8_t diffLen = spSeqHdrOBU->ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
+	for (uint8_t i = 0; i < NUM_REF_FRAMES; i++) {
+		if (obu_parse_params.current_frame_id > (1 << diffLen)) {
+			if (obu_parse_params.VBI[i].RefFrameId > obu_parse_params.current_frame_id ||
+				obu_parse_params.VBI[i].RefFrameId < (obu_parse_params.current_frame_id - (1 << diffLen)))
+				obu_parse_params.VBI[i].RefValid = 0;
+		}
+		else {
+			if (obu_parse_params.VBI[i].RefFrameId > obu_parse_params.current_frame_id &&
+				obu_parse_params.VBI[i].RefFrameId < ((1 << idLen) + obu_parse_params.current_frame_id - (1 << diffLen)))
+				obu_parse_params.VBI[i].RefValid = 0;
+		}
+	}
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CAV1Parser::frame_size(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params, bool frame_size_override_flag)
+{
+	int iRet = RET_CODE_SUCCESS;
+	if (frame_size_override_flag)
+	{
+		uint32_t frame_width_minus_1 = 0, frame_height_minus_1 = 0;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(spSeqHdrOBU->ptr_sequence_header_obu->frame_width_bits_minus_1 + 1, frame_width_minus_1)))return iRet;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(spSeqHdrOBU->ptr_sequence_header_obu->frame_width_bits_minus_1 + 1, frame_width_minus_1)))return iRet;
+		obu_parse_params.FrameWidth = frame_width_minus_1 + 1;
+		obu_parse_params.FrameHeight = frame_height_minus_1 + 1;
+	}
+	else
+	{
+		obu_parse_params.FrameWidth = spSeqHdrOBU->ptr_sequence_header_obu->max_frame_width_minus_1 + 1;
+		obu_parse_params.FrameHeight = spSeqHdrOBU->ptr_sequence_header_obu->max_frame_height_minus_1 + 1;
+	}
+
+	if (AMP_FAILED(iRet = superres_params(spSeqHdrOBU, bitbuf, obu_parse_params)))return iRet;
+	if (AMP_FAILED(iRet = compute_image_size(spSeqHdrOBU, bitbuf, obu_parse_params)))return iRet;
+
+	return iRet;
+}
+
+RET_CODE CAV1Parser::superres_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params)
+{
+	int iRet = RET_CODE_SUCCESS;
+	bool use_superres = false;
+	uint8_t SuperresDenom = SUPERRES_NUM;
+	if (spSeqHdrOBU->ptr_sequence_header_obu->enable_superres) {
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(use_superres)))return iRet;
+		if (use_superres)
+		{
+			uint8_t coded_denom;
+			if (AMP_FAILED(iRet = bitbuf.GetValue(SUPERRES_DENOM_BITS, coded_denom)))return iRet;
+			SuperresDenom = (uint8_t)((uint16_t)coded_denom + SUPERRES_DENOM_MIN);
+		}
+	}
+	obu_parse_params.UpscaledWidth = obu_parse_params.FrameWidth;
+	obu_parse_params.FrameWidth = (obu_parse_params.UpscaledWidth * SUPERRES_NUM + (SuperresDenom / 2)) / SuperresDenom;
+
+	return iRet;
+}
+
+RET_CODE CAV1Parser::compute_image_size(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params)
+{
+	obu_parse_params.MiCols = 2 * ((obu_parse_params.FrameWidth + 7) >> 3);
+	obu_parse_params.MiRows = 2 * ((obu_parse_params.FrameHeight + 7) >> 3);
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CAV1Parser::render_size(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params)
+{
+	int iRet = RET_CODE_SUCCESS;
+	bool render_and_frame_size_different;
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(render_and_frame_size_different)))return iRet;
+	if (render_and_frame_size_different) {
+		uint16_t render_width_minus_1, render_height_minus_1;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(16, render_width_minus_1)))return iRet;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(16, render_height_minus_1)))return iRet;
+		obu_parse_params.RenderWidth = render_width_minus_1 + 1;
+		obu_parse_params.RenderHeight = render_height_minus_1 + 1;
+	}
+	else
+	{
+		obu_parse_params.RenderWidth = obu_parse_params.UpscaledWidth;
+		obu_parse_params.RenderHeight = obu_parse_params.FrameHeight;
+	}
+
+	return iRet;
+}
+
+RET_CODE CAV1Parser::frame_size_with_refs(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params, bool frame_size_override_flag, int8_t ref_frame_idx[REFS_PER_FRAME])
+{
+	int iRet = RET_CODE_SUCCESS;
+	bool found_ref = false;
+	for (uint8_t i = 0; i < REFS_PER_FRAME; i++) {
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(found_ref)))return iRet;
+		if (found_ref == 1) {
+			obu_parse_params.UpscaledWidth	= obu_parse_params.VBI[ref_frame_idx[i]].RefUpscaledWidth;
+			obu_parse_params.FrameWidth		= obu_parse_params.UpscaledWidth;
+			obu_parse_params.FrameHeight	= obu_parse_params.VBI[ref_frame_idx[i]].RefFrameHeight;
+			obu_parse_params.RenderWidth	= obu_parse_params.VBI[ref_frame_idx[i]].RefRenderWidth;
+			obu_parse_params.RenderHeight	= obu_parse_params.VBI[ref_frame_idx[i]].RefRenderHeight;
+			break;
+		}
+	}
+
+	if (found_ref == false) {
+		if (AMP_FAILED(iRet = frame_size(spSeqHdrOBU, bitbuf, obu_parse_params, frame_size_override_flag)))return iRet;
+		if (AMP_FAILED(iRet = render_size(spSeqHdrOBU, bitbuf, obu_parse_params)))return iRet;
+	}
+	else {
+		if (AMP_FAILED(iRet = superres_params(spSeqHdrOBU, bitbuf, obu_parse_params)))return iRet;
+		if (AMP_FAILED(iRet = compute_image_size(spSeqHdrOBU, bitbuf, obu_parse_params)))return iRet;
+	}
+
+	return iRet;
+}
+
+int8_t find_latest_backward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint){
+	int8_t ref = -1;
+	int16_t latestOrderHint = -1;
+	for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
+		auto hint = shiftedOrderHints[i];
+		if (!usedFrame[i] &&
+			hint >= curFrameHint &&
+			(ref < 0 || hint >= latestOrderHint)) {
+			ref = i;
+			latestOrderHint = hint;
+		}
+	}
+	return ref;
+}
+
+int8_t find_earliest_backward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint) {
+	int8_t ref = -1;
+	int16_t earliestOrderHint = INT8_MAX;
+	for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
+		auto hint = shiftedOrderHints[i];
+		if (!usedFrame[i] &&
+			hint >= curFrameHint &&
+			(ref < 0 || hint < earliestOrderHint)) {
+			ref = i;
+			earliestOrderHint = hint;
+		}
+	}
+	return ref;
+}
+
+int8_t find_latest_forward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint) {
+	int8_t ref = -1;
+	int16_t latestOrderHint = -1;
+	for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
+		auto hint = shiftedOrderHints[i];
+		if (!usedFrame[i] &&
+			hint < curFrameHint &&
+			(ref < 0 || hint >= latestOrderHint)) {
+			ref = i;
+			latestOrderHint = hint;
+		}
+	}
+	return ref;
+}
+
+RET_CODE CAV1Parser::set_frame_refs(
+	AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params,
+	int8_t last_frame_idx, int gold_frame_idx, int8_t ref_frame_idx[REFS_PER_FRAME])
+{
+	int iRet = RET_CODE_SUCCESS;
+	bool usedFrame[REFS_PER_FRAME] = { 0 };
+	int16_t shiftedOrderHints[NUM_REF_FRAMES] = { 0 };
+
+	for (uint8_t i = 0; i < REFS_PER_FRAME; i++)
+		ref_frame_idx[i] = -1;
+	ref_frame_idx[LAST_FRAME - LAST_FRAME] = last_frame_idx;
+	ref_frame_idx[GOLDEN_FRAME - LAST_FRAME] = gold_frame_idx;
+
+	usedFrame[last_frame_idx] = true;
+	usedFrame[gold_frame_idx] = true;
+
+	uint8_t curFrameHint = (uint8_t)(1 << (spSeqHdrOBU->ptr_sequence_header_obu->OrderHintBits - 1));
+	for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
+		shiftedOrderHints[i] = curFrameHint + get_relative_dist(spSeqHdrOBU, obu_parse_params.VBI[i].RefOrderHint, obu_parse_params.OrderHint);
+
+	int16_t lastOrderHint = shiftedOrderHints[last_frame_idx];
+	int16_t goldOrderHint = shiftedOrderHints[gold_frame_idx];
+
+	int16_t ref = find_latest_backward(shiftedOrderHints, usedFrame, curFrameHint);
+
+	if (ref >= 0) {
+		ref_frame_idx[ALTREF_FRAME - LAST_FRAME] = (int8_t)ref;
+		usedFrame[ref] = true;
+	}
+
+	ref = find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
+	if (ref >= 0) {
+		ref_frame_idx[BWDREF_FRAME - LAST_FRAME] = (int8_t)ref;
+		usedFrame[ref] = true;
+	}
+
+	ref = find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
+	if (ref >= 0) {
+		ref_frame_idx[ALTREF2_FRAME - LAST_FRAME] = (int8_t)ref;
+		usedFrame[ref] = true;
+	}
+
+	for (uint8_t i = 0; i < REFS_PER_FRAME - 2; i++) {
+		auto refFrame = Ref_Frame_List[i];
+		if (ref_frame_idx[refFrame - LAST_FRAME] < 0) {
+			auto ref = find_latest_forward(shiftedOrderHints, usedFrame, curFrameHint);
+			if (ref >= 0) {
+				ref_frame_idx[refFrame - LAST_FRAME] = (int8_t)ref;
+				usedFrame[ref] = true;
+			}
+		}
+	}
+
+	ref = -1;
+	int16_t earliestOrderHint = INT8_MAX;
+	for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
+		auto hint = shiftedOrderHints[i];
+		if (ref < 0 || hint < earliestOrderHint) {
+			ref = i;
+			earliestOrderHint = hint;
+		}
+	}
+	for (int8_t i = 0; i < REFS_PER_FRAME; i++) {
+		if (ref_frame_idx[i] < 0) {
+			ref_frame_idx[i] = (int8_t)ref;
+		}
+	}
+
+	return iRet;
+}
+
+int16_t CAV1Parser::get_relative_dist(AV1_OBU spSeqHdrOBU, int16_t a, int16_t b)
+{
+	if (!spSeqHdrOBU->ptr_sequence_header_obu->enable_order_hint)
+		return 0;
+	int16_t diff = a - b;
+	uint8_t m = 1 << (spSeqHdrOBU->ptr_sequence_header_obu->OrderHintBits - 1);
+	diff = (diff & (m - 1)) - (diff & m);
+	return diff;
+}
+
+RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params)
+{
+	int iRet = RET_CODE_SUCCESS;
+	auto pSeqHdrOBU = spSeqHdrOBU->ptr_sequence_header_obu;
+	uint32_t sbCols = pSeqHdrOBU->use_128x128_superblock ? ((obu_parse_params.MiCols + 31) >> 5) : ((obu_parse_params.MiCols + 15) >> 4);
+	uint32_t sbRows = pSeqHdrOBU->use_128x128_superblock ? ((obu_parse_params.MiRows + 31) >> 5) : ((obu_parse_params.MiRows + 15) >> 4);
+	uint32_t sbShift = pSeqHdrOBU->use_128x128_superblock ? 5 : 4;
+	uint32_t sbSize = sbShift + 2;
+	uint32_t maxTileWidthSb = MAX_TILE_WIDTH >> sbSize;
+	uint32_t maxTileAreaSb = MAX_TILE_AREA >> (2 * sbSize);
+	uint8_t	 minLog2TileCols = BST::AV1::tile_log2(maxTileWidthSb, sbCols);
+	uint8_t	 maxLog2TileCols = BST::AV1::tile_log2(1, Min(sbCols, MAX_TILE_COLS));
+	uint8_t	 maxLog2TileRows = BST::AV1::tile_log2(1, Min(sbRows, MAX_TILE_ROWS));
+	uint8_t	 maxLog2TitleAreaSb = BST::AV1::tile_log2(maxTileAreaSb, sbRows * sbCols);
+	uint8_t	 minLog2Tiles = AMP_MAX(minLog2TileCols, maxLog2TitleAreaSb);
+	std::vector<uint32_t> MiColStarts, MiRowStarts;
+	uint32_t TileSizeBytes = 0;
+	uint32_t context_update_tile_id = 0;
+
+	bool uniform_tile_spacing_flag = false;
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(uniform_tile_spacing_flag)))goto done;
+
+	if (uniform_tile_spacing_flag) {
+		obu_parse_params.TileColsLog2 = minLog2TileCols;
+		while (obu_parse_params.TileColsLog2 < maxLog2TileCols) {
+			bool increment_tile_cols_log2;
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(increment_tile_cols_log2)))goto done;
+
+			if (increment_tile_cols_log2 == 1)
+				obu_parse_params.TileColsLog2++;
+			else
+				goto done;
+		}
+		uint32_t tileWidthSb = (sbCols + (1 << obu_parse_params.TileColsLog2) - 1) >> obu_parse_params.TileColsLog2;
+		uint32_t i = 0;
+		for (uint32_t startSb = 0; startSb < sbCols; startSb += tileWidthSb) {
+			MiColStarts.push_back(startSb << sbShift);
+			i += 1;
+		}
+		MiColStarts.push_back(obu_parse_params.MiCols);
+		obu_parse_params.TileCols = i;
+
+		uint8_t minLog2TileRows = (uint8_t)AMP_MAX((int)(minLog2Tiles - obu_parse_params.TileColsLog2), 0);
+		obu_parse_params.TileRowsLog2 = minLog2TileRows;
+		while (obu_parse_params.TileRowsLog2 < maxLog2TileRows) {
+			bool increment_tile_rows_log2;
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(increment_tile_rows_log2))) goto done;
+			if (increment_tile_rows_log2 == 1)
+				obu_parse_params.TileRowsLog2++;
+			else
+				goto done;
+		}
+		uint32_t tileHeightSb = (sbRows + (1 << obu_parse_params.TileRowsLog2) - 1) >> obu_parse_params.TileRowsLog2;
+		i = 0;
+		for (uint32_t startSb = 0; startSb < sbRows; startSb += tileHeightSb) {
+			MiRowStarts.push_back(startSb << sbShift);
+			i += 1;
+		}
+		MiRowStarts.push_back(obu_parse_params.MiRows);
+		obu_parse_params.TileRows = i;
+	}
+	else {
+		uint32_t widestTileSb = 0;
+		uint32_t startSb = 0;
+		uint32_t i = 0;
+		for (; startSb < sbCols; i++) {
+			MiColStarts.push_back(startSb << sbShift);
+			uint32_t maxWidth = AMP_MIN(sbCols - startSb, maxTileWidthSb);
+			uint32_t width_in_sbs_minus_1;
+			if (AMP_FAILED(iRet = bitbuf.AV1ns(maxWidth, width_in_sbs_minus_1)))goto done;
+			uint32_t sizeSb = width_in_sbs_minus_1 + 1;
+			widestTileSb = AMP_MAX(sizeSb, widestTileSb);
+			startSb += sizeSb;
+		}
+
+		MiColStarts.push_back(obu_parse_params.MiCols);
+		obu_parse_params.TileCols = i;
+		obu_parse_params.TileColsLog2 = BST::AV1::tile_log2(1, obu_parse_params.TileCols);
+		if (minLog2Tiles > 0)
+			maxTileAreaSb = (sbRows * sbCols) >> (minLog2Tiles + 1);
+		else
+			maxTileAreaSb = sbRows * sbCols;
+
+		uint32_t maxTileHeightSb = AMP_MAX(maxTileAreaSb / widestTileSb, 1);
+		startSb = 0;
+		for (i = 0; startSb < sbRows; i++) {
+			MiRowStarts[i] = startSb << sbShift;
+			uint32_t maxHeight = Min(sbRows - startSb, maxTileHeightSb);
+			uint32_t height_in_sbs_minus_1;
+			if (AMP_FAILED(iRet = bitbuf.AV1ns(maxHeight, height_in_sbs_minus_1)))goto done;
+			uint32_t sizeSb = height_in_sbs_minus_1 + 1;
+			startSb += sizeSb;
+		}
+		MiRowStarts.push_back(obu_parse_params.MiRows);
+		obu_parse_params.TileRows = i;
+		obu_parse_params.TileRowsLog2 = BST::AV1::tile_log2(1, obu_parse_params.TileRows);
+	}
+
+	if (obu_parse_params.TileColsLog2 > 0 || obu_parse_params.TileRowsLog2 > 0) {
+		if (AMP_FAILED(iRet = bitbuf.GetValue(obu_parse_params.TileRowsLog2 + obu_parse_params.TileColsLog2, context_update_tile_id)))goto done;
+
+		uint8_t tile_size_bytes_minus_1;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(2, tile_size_bytes_minus_1)))goto done;
+		TileSizeBytes = tile_size_bytes_minus_1 + 1;
+	}
+
+done:
+	return iRet;
+}
+
+RET_CODE CAV1Parser::global_motion_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params, bool FrameIsIntra, bool allow_high_precision_mv)
+{
+	int iRet = RET_CODE_SUCCESS;
+	uint8_t GmType[NUM_REF_FRAMES];
+	int32_t gm_params[NUM_REF_FRAMES][6];
+
+	for (int8_t ref = LAST_FRAME; ref <= ALTREF_FRAME; ref++) {
+		GmType[ref] = IDENTITY;
+		for (uint8_t i = 0; i < 6; i++) {
+			gm_params[ref][i] = ((i % 3 == 2) ?
+				1 << WARPEDMODEL_PREC_BITS : 0);
+		}
+	}
+
+	if (FrameIsIntra)
+		return RET_CODE_SUCCESS;
+
+	for (uint8_t ref = LAST_FRAME; ref <= ALTREF_FRAME; ref++) {
+		bool is_global;
+		uint8_t type;
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(is_global)))goto done;
+		if (is_global)
+		{
+			bool is_rot_zoom;
+			if (AMP_FAILED(iRet = bitbuf.GetFlag(is_rot_zoom)))goto done;
+			if (is_rot_zoom)
+				type = ROTZOOM;
+			else
+			{
+				bool is_translation;
+				if (AMP_FAILED(iRet = bitbuf.GetFlag(is_translation)))goto done;
+				type = is_translation ? TRANSLATION : AFFINE;
+			}
+		}
+		else
+			type = IDENTITY;
+
+		GmType[ref] = type;
+
+		if (type >= ROTZOOM) {
+			if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 2, allow_high_precision_mv)))goto done;
+			if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 3, allow_high_precision_mv)))goto done;
+			if (type == AFFINE) {
+				if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 4, allow_high_precision_mv)))goto done;
+				if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 5, allow_high_precision_mv)))goto done;
+			}
+			else {
+				obu_parse_params.gm_params[ref][4] = -obu_parse_params.gm_params[ref][3];
+				obu_parse_params.gm_params[ref][5] =  obu_parse_params.gm_params[ref][2];
+			}
+		}
+		if (type >= TRANSLATION) {
+			if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 0, allow_high_precision_mv)))goto done;
+			if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 1, allow_high_precision_mv)))goto done;
+		}
+	}
+
+done:
+	return iRet;
+}
+
+RET_CODE CAV1Parser::film_grain_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params, bool show_frame, bool showable_frame)
+{
+	int iRet = RET_CODE_SUCCESS;
+	bool apply_gain = false;
+	uint16_t grain_seed;
+	bool update_grain;
+	uint8_t num_y_points, num_cb_points, num_cr_points;;
+	uint8_t point_y_value[16] = { 0 };
+	uint8_t point_y_scaling[16] = { 0 };
+	uint8_t point_cb_value[16] = { 0 };
+	uint8_t point_cb_scaling[16] = { 0 };
+	uint8_t point_cr_value[16] = { 0 };
+	uint8_t point_cr_scaling[16] = { 0 };
+	uint8_t ar_coeffs_y_plus_128[24] = { 0 };
+	uint8_t ar_coeffs_cb_plus_128[25] = { 0 };
+	uint8_t ar_coeffs_cr_plus_128[25] = { 0 };
+	bool chroma_scaling_from_luma;
+	uint8_t grain_scaling_minus_8;
+	uint8_t ar_coeff_lag = 0, numPosLuma = 0, numPosChroma = 0;
+	uint8_t ar_coeff_shift_minus_6, grain_scale_shift;
+	bool overlap_flag, clip_to_restricted_range;
+	uint8_t cb_mult, cr_mult;
+	uint8_t cb_luma_mult, cr_luma_mult;
+	uint16_t cb_offset, cr_offset;
+	if (!spSeqHdrOBU->ptr_sequence_header_obu->film_gain_params_present || (!show_frame && !showable_frame))
+	{
+		// reset_grain_params();
+		return RET_CODE_SUCCESS;
+	}
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(apply_gain))) goto done;
+
+	if (!apply_gain) {
+		// reset_grain_params();
+		return RET_CODE_SUCCESS;
+	}
+
+	if (AMP_FAILED(iRet = bitbuf.GetValue(16, grain_seed)))goto done;
+	if (obu_parse_params.frame_type == INTER_FRAME)
+	{
+		if (AMP_FAILED(iRet = bitbuf.GetFlag(update_grain)))goto done;
+	}
+	else
+		update_grain = true;
+	
+	if (!update_grain)
+	{
+		uint8_t film_grain_params_ref_idx;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(3, film_grain_params_ref_idx)))goto done;
+		/*
+			tempGrainSeed = grain_seed
+			load_grain_params( film_grain_params_ref_idx )
+			grain_seed = tempGrainSeed
+		*/
+		return RET_CODE_SUCCESS;
+	}
+
+	if (AMP_FAILED(iRet = bitbuf.GetValue(4, num_y_points)))goto done;
+	for (uint8_t i = 0; i < num_y_points; i++)
+	{
+		if (AMP_FAILED(iRet = bitbuf.GetByte(point_y_value[i])))goto done;
+		if (AMP_FAILED(iRet = bitbuf.GetByte(point_y_scaling[i])))goto done;
+	}
+
+	if (spSeqHdrOBU->ptr_sequence_header_obu->color_config->mono_chrome)
+		chroma_scaling_from_luma = false;
+	else if (AMP_FAILED(iRet = bitbuf.GetFlag(chroma_scaling_from_luma)))goto done;
+
+	if (spSeqHdrOBU->ptr_sequence_header_obu->color_config->mono_chrome || chroma_scaling_from_luma ||
+		(spSeqHdrOBU->ptr_sequence_header_obu->color_config->subsampling_x == 1 && 
+			spSeqHdrOBU->ptr_sequence_header_obu->color_config->subsampling_y == 1 &&
+			num_y_points == 0)) {
+		num_cb_points = 0;
+		num_cr_points = 0;
+	}
+	else
+	{
+		if (AMP_FAILED(iRet = bitbuf.GetValue(4, num_cb_points)))goto done;
+		for (uint8_t i = 0; i < num_cb_points; i++)
+		{
+			if (AMP_FAILED(iRet = bitbuf.GetByte(point_cb_value[i])))goto done;
+			if (AMP_FAILED(iRet = bitbuf.GetByte(point_cb_scaling[i])))goto done;
+		}
+		if (AMP_FAILED(iRet = bitbuf.GetValue(4, num_cr_points)))goto done;
+		for (uint8_t i = 0; i < num_cb_points; i++)
+		{
+			if (AMP_FAILED(iRet = bitbuf.GetByte(point_cr_value[i])))goto done;
+			if (AMP_FAILED(iRet = bitbuf.GetByte(point_cr_scaling[i])))goto done;
+		}
+	}
+
+	if (AMP_FAILED(iRet = bitbuf.GetValue(2, grain_scaling_minus_8)))goto done;
+	if (AMP_FAILED(iRet = bitbuf.GetValue(2, ar_coeff_lag)))goto done;
+	numPosLuma = 2 * ar_coeff_lag * (ar_coeff_lag + 1);
+	if (num_y_points) {
+		numPosChroma = numPosLuma + 1;
+		for (uint8_t i = 0; i < numPosLuma; i++) {
+			if (AMP_FAILED(iRet = bitbuf.GetByte(ar_coeffs_y_plus_128[i])))goto done;
+		}
+	}
+	else
+		numPosChroma = numPosLuma;
+
+	if (chroma_scaling_from_luma || num_cb_points) {
+		for (uint8_t i = 0; i < numPosChroma; i++) {
+			if (AMP_FAILED(iRet = bitbuf.GetByte(ar_coeffs_cb_plus_128[i])))goto done;
+		}
+	}
+	if (chroma_scaling_from_luma || num_cr_points) {
+		for (uint8_t i = 0; i < numPosChroma; i++) {
+			if (AMP_FAILED(iRet = bitbuf.GetByte(ar_coeffs_cr_plus_128[i])))goto done;
+		}
+	}
+
+	if (AMP_FAILED(iRet = bitbuf.GetValue(2, ar_coeff_shift_minus_6)))goto done;
+	if (AMP_FAILED(iRet = bitbuf.GetValue(2, grain_scale_shift)))goto done;
+
+	if (num_cb_points) {
+		if (AMP_FAILED(iRet = bitbuf.GetByte(cb_mult)))goto done;
+		if (AMP_FAILED(iRet = bitbuf.GetByte(cb_luma_mult)))goto done;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(9, cb_offset)))goto done;
+	}
+
+	if (num_cr_points) {
+		if (AMP_FAILED(iRet = bitbuf.GetByte(cr_mult)))goto done;
+		if (AMP_FAILED(iRet = bitbuf.GetByte(cr_luma_mult)))goto done;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(9, cr_offset)))goto done;
+	}
+
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(overlap_flag)))goto done;
+	if (AMP_FAILED(iRet = bitbuf.GetFlag(clip_to_restricted_range)))goto done;
+
+done:
+	return iRet;
+}
+
+RET_CODE CAV1Parser::read_global_param(BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params, uint8_t type, uint8_t ref, uint8_t idx, bool allow_high_precision_mv)
+{
+	uint8_t absBits = GM_ABS_ALPHA_BITS;
+	uint8_t precBits = GM_ALPHA_PREC_BITS;
+
+	if (idx < 2) {
+		if (type == TRANSLATION) {
+			absBits = GM_ABS_TRANS_ONLY_BITS - !allow_high_precision_mv;
+			precBits = GM_TRANS_ONLY_PREC_BITS - !allow_high_precision_mv;
+		}
+		else {
+			absBits = GM_ABS_TRANS_BITS;
+			precBits = GM_TRANS_PREC_BITS;
+		}
+	}
+
+	int8_t precDiff = WARPEDMODEL_PREC_BITS - precBits;
+	int32_t round = (idx % 3) == 2 ? (1 << WARPEDMODEL_PREC_BITS) : 0;
+	int32_t sub = (idx % 3) == 2 ? (1 << precBits) : 0;
+	int32_t mx = (1 << absBits);
+	int32_t r = (obu_parse_params.dependency_params.PrevGmParams[ref][idx] >> precDiff) - sub;
+	int32_t val;
+	int iRet = decode_signed_subexp_with_ref(bitbuf, -mx, mx + 1, r, val);
+	if (AMP_FAILED(iRet))return iRet;
+
+	obu_parse_params.gm_params[ref][idx] = (val<< precDiff) + round;
+
+	return RET_CODE_SUCCESS;
 }
 
