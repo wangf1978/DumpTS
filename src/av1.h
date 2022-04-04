@@ -151,6 +151,8 @@ extern const char* chroma_sample_position_descs[4];
 extern const uint8_t Segmentation_Feature_Bits[SEG_LVL_MAX];
 extern const uint8_t Segmentation_Feature_Signed[SEG_LVL_MAX];
 extern const uint8_t Segmentation_Feature_Max[SEG_LVL_MAX];
+extern const uint8_t Remap_Lr_Type[4];
+extern const uint8_t Ref_Frame_List[REFS_PER_FRAME - 2];
 extern const WarpedMotionParams default_warp_params;
 extern const char* get_av1_profile_name(int profile);
 extern const char* get_av1_level_name(int level);
@@ -208,7 +210,7 @@ namespace BST
 		};
 
 		template <typename T>
-		inline int8_t FloorLog2(T x)
+		INLINE int8_t FloorLog2(T x)
 		{
 			int8_t s = 0;
 			while (x != 0)
@@ -220,7 +222,7 @@ namespace BST
 		}
 
 		template <typename T>
-		inline int8_t CeilLog2(T x)
+		INLINE int8_t CeilLog2(T x)
 		{
 			if (x < 2)
 				return 0;
@@ -233,6 +235,13 @@ namespace BST
 			}
 
 			return i;
+		}
+
+		INLINE uint8_t tile_log2(uint16_t blkSize, uint32_t target)
+		{
+			uint8_t k = 0;
+			for (; ((uint32_t)blkSize << k) < target; k++);
+			return k;
 		}
 
 		INLINE uint8_t quick_log2(uint32_t v)
@@ -476,7 +485,7 @@ namespace BST
 			int					output_frame_index;
 			int					ref_frame_id[NUM_REF_FRAMES];
 			int					valid_for_referencing[NUM_REF_FRAMES];
-			int					refresh_frame_flags;
+			uint8_t				refresh_frame_flags;
 			uint8_t				OrderHint;
 
 			FILM_GRAIN_PARAMS_DATA
@@ -572,8 +581,7 @@ namespace BST
 				return true;
 			}
 
-			AV1_OBU GetSeqHdrOBU()
-			{
+			AV1_OBU GetSeqHdrOBU(){
 				return sp_sequence_header;
 			}
 
@@ -586,9 +594,24 @@ namespace BST
 				return RET_CODE_SUCCESS;
 			}
 
-			AV1_BYTESTREAM_FORMAT GetByteStreamFormat()
-			{
+			AV1_BYTESTREAM_FORMAT GetByteStreamFormat(){
 				return AnnexB ? AV1_BYTESTREAM_LENGTH_DELIMITED : AV1_BYTESTREAM_RAW;
+			}
+
+			void SetSeenFrameHeader(bool bSeen){
+				SeenFrameHeader = bSeen;
+			}
+
+			bool GetSeenFrameHeader() {
+				return SeenFrameHeader;
+			}
+
+			void SetRefreshFrameFlags(uint8_t nRefreshFrameFlags){
+				refresh_frame_flags = nRefreshFrameFlags;
+			}
+
+			uint8_t GetRefreshFrameFlags() {
+				return refresh_frame_flags;
 			}
 
 			void Reset()
@@ -698,84 +721,84 @@ namespace BST
 			}
 		}
 
+		struct OBU_HEADER : public SYNTAX_BITSTREAM_MAP
+		{
+			union OBU_EXTENSION_HEADER
+			{
+				uint8_t		byteVal;
+				struct
+				{
+					uint8_t		temporal_id : 3;
+					uint8_t		spatial_id : 2;
+					uint8_t		extension_header_reserved_3bits : 3;
+				}PACKED;
+			}PACKED;
+
+			uint8_t		obu_forbidden_bit : 1;
+			uint8_t		obu_type : 4;
+			uint8_t		obu_extension_flag : 1;
+			uint8_t		obu_has_size_field : 1;
+			uint8_t		obu_reserved_1bit : 1;
+
+			OBU_EXTENSION_HEADER
+						obu_extension_header = {0};
+
+			OBU_HEADER()
+				: obu_forbidden_bit(0), obu_type(0), obu_extension_flag(0), obu_has_size_field(0), obu_reserved_1bit(0) {
+			}
+
+			int Map(AMBst in_bst)
+			{
+				SYNTAX_BITSTREAM_MAP::Map(in_bst);
+				try
+				{
+					MAP_BST_BEGIN(0);
+					bsrb1(in_bst, obu_forbidden_bit, 1);
+					bsrb1(in_bst, obu_type, 4);
+					bsrb1(in_bst, obu_extension_flag, 1);
+					bsrb1(in_bst, obu_has_size_field, 1);
+					bsrb1(in_bst, obu_reserved_1bit, 1);
+					if (obu_extension_flag)
+					{
+						bsrb1(in_bst, obu_extension_header.temporal_id, 3);
+						bsrb1(in_bst, obu_extension_header.spatial_id, 2);
+						bsrb1(in_bst, obu_extension_header.extension_header_reserved_3bits, 3);
+					}
+					MAP_BST_END();
+				}
+				catch (AMException e)
+				{
+					return e.RetCode();
+				}
+
+				return RET_CODE_SUCCESS;
+			}
+
+			int Unmap(AMBst out_bst)
+			{
+				UNREFERENCED_PARAMETER(out_bst);
+				return RET_CODE_ERROR_NOTIMPL;
+			}
+
+			DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_NUMBER1(obu_forbidden_bit, 1, "must be set to 0");
+			BST_FIELD_PROP_2NUMBER1(obu_type, 4, obu_type_names[obu_type]);
+			BST_FIELD_PROP_NUMBER1(obu_extension_flag, 1, "indicates if the optional obu_extension_header is present");
+			BST_FIELD_PROP_BOOL(obu_has_size_field, "indicates that the obu_size syntax element will be present", "indicates that the obu_size syntax element will not be present");
+			BST_FIELD_PROP_NUMBER1(obu_reserved_1bit, 1, "must be set to 0");
+			if (obu_extension_flag)
+			{
+				NAV_WRITE_TAG_BEGIN2("obu_extension_header");
+					BST_FIELD_PROP_2NUMBER("temporal_id", 3, obu_extension_header.temporal_id, "specifies the temporal level of the data contained in the OBU");
+					BST_FIELD_PROP_2NUMBER("spatial_id", 3, obu_extension_header.spatial_id, "specifies the spatial level of the data contained in the OBU");
+					BST_FIELD_PROP_2NUMBER("extension_header_reserved_3bits", 3, obu_extension_header.extension_header_reserved_3bits, "must be set to 0. The value is ignored by a decoder");
+				NAV_WRITE_TAG_END2("obu_extension_header");
+			}
+			DECLARE_FIELDPROP_END()
+		};
+
 		struct OPEN_BITSTREAM_UNIT : public SYNTAX_BITSTREAM_MAP
 		{
-			struct OBU_HEADER : public SYNTAX_BITSTREAM_MAP
-			{
-				union OBU_EXTENSION_HEADER
-				{
-					uint8_t		byteVal;
-					struct
-					{
-						uint8_t		temporal_id : 3;
-						uint8_t		spatial_id : 2;
-						uint8_t		extension_header_reserved_3bits : 3;
-					}PACKED;
-				}PACKED;
-
-				uint8_t		obu_forbidden_bit : 1;
-				uint8_t		obu_type : 4;
-				uint8_t		obu_extension_flag : 1;
-				uint8_t		obu_has_size_field : 1;
-				uint8_t		obu_reserved_1bit : 1;
-
-				OBU_EXTENSION_HEADER
-							obu_extension_header = {0};
-
-				OBU_HEADER()
-					: obu_forbidden_bit(0), obu_type(0), obu_extension_flag(0), obu_has_size_field(0), obu_reserved_1bit(0) {
-				}
-
-				int Map(AMBst in_bst)
-				{
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-					try
-					{
-						MAP_BST_BEGIN(0);
-						bsrb1(in_bst, obu_forbidden_bit, 1);
-						bsrb1(in_bst, obu_type, 4);
-						bsrb1(in_bst, obu_extension_flag, 1);
-						bsrb1(in_bst, obu_has_size_field, 1);
-						bsrb1(in_bst, obu_reserved_1bit, 1);
-						if (obu_extension_flag)
-						{
-							bsrb1(in_bst, obu_extension_header.temporal_id, 3);
-							bsrb1(in_bst, obu_extension_header.spatial_id, 2);
-							bsrb1(in_bst, obu_extension_header.extension_header_reserved_3bits, 3);
-						}
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-				BST_FIELD_PROP_NUMBER1(obu_forbidden_bit, 1, "must be set to 0");
-				BST_FIELD_PROP_2NUMBER1(obu_type, 4, obu_type_names[obu_type]);
-				BST_FIELD_PROP_NUMBER1(obu_extension_flag, 1, "indicates if the optional obu_extension_header is present");
-				BST_FIELD_PROP_BOOL(obu_has_size_field, "indicates that the obu_size syntax element will be present", "indicates that the obu_size syntax element will not be present");
-				BST_FIELD_PROP_NUMBER1(obu_reserved_1bit, 1, "must be set to 0");
-				if (obu_extension_flag)
-				{
-					NAV_WRITE_TAG_BEGIN2("obu_extension_header");
-						BST_FIELD_PROP_2NUMBER("temporal_id", 3, obu_extension_header.temporal_id, "specifies the temporal level of the data contained in the OBU");
-						BST_FIELD_PROP_2NUMBER("spatial_id", 3, obu_extension_header.spatial_id, "specifies the spatial level of the data contained in the OBU");
-						BST_FIELD_PROP_2NUMBER("extension_header_reserved_3bits", 3, obu_extension_header.extension_header_reserved_3bits, "must be set to 0. The value is ignored by a decoder");
-					NAV_WRITE_TAG_END2("obu_extension_header");
-				}
-				DECLARE_FIELDPROP_END()
-			};
-
 			struct TRAILING_BITS : public SYNTAX_BITSTREAM_MAP
 			{
 				int			m_nbBits;
@@ -3137,13 +3160,6 @@ namespace BST
 										ptr_uncompressed_header = nullptr;
 
 						TILE_INFO(UNCOMPRESSED_HEADER* pUncompressedHdr) : ptr_uncompressed_header(pUncompressedHdr) {
-						}
-
-						inline uint8_t tile_log2(uint16_t blkSize, uint32_t target)
-						{
-							uint8_t k = 0;
-							for (; ((uint32_t)blkSize << k) < target; k++);
-							return k;
 						}
 
 						int Map(AMBst in_bst)
@@ -6556,17 +6572,24 @@ namespace BST
 						return 0;
 					}
 
-					int get_qindex(int segment_id, int base_qindex)
+					int get_qindex(bool ignoreDeltaQ, uint8_t segmentId)
 					{
-						if (ptr_segmentation_params->segmentation_enabled && ptr_segmentation_params->FeatureEnabled[segment_id][SEG_LVL_ALT_Q])
+						if (ptr_segmentation_params->segmentation_enabled && ptr_segmentation_params->FeatureEnabled[segmentId][SEG_LVL_ALT_Q])
 						{
-							const int data = ptr_segmentation_params->FeatureData[segment_id][SEG_LVL_ALT_Q];
-							const int seg_qindex = base_qindex + data;
+							const int data = ptr_segmentation_params->FeatureData[segmentId][SEG_LVL_ALT_Q];
+							const int seg_qindex = ptr_quantization_params->base_q_idx + data;
+							if (!ignoreDeltaQ && ptr_delta_q_params->delta_q_present) {
+								// Not implement yet
+								assert(0);
+							}
 							return AV1_Clip3(0, 255, seg_qindex);
 						}
-						else {
-							return base_qindex;
+						else if (!ignoreDeltaQ && ptr_delta_q_params->delta_q_present)
+						{
+							// Not implement yet
+							assert(0);
 						}
+						return ptr_quantization_params->base_q_idx;
 					}
 
 					void mark_ref_frames(SEQUENCE_HEADER_OBU* ptr_seqhdr_obu, uint8_t idLen)
@@ -7318,12 +7341,18 @@ namespace BST
 					BST_FIELD_PROP_NUMBER1(tg_end, tileBits, "");
 				}
 
+				if (is_last_tg)
+				{
+					NAV_WRITE_TAG_WITH_NUMBER_VALUE("SeenFrameHeader", 0, "SeenFrameHeader = 0");
+				}
+
 				DECLARE_FIELDPROP_END()
 			}PACKED;
 
-			OBU_HEADER	obu_header;
-			uint32_t	obu_size = 0;
-			uint8_t		obu_size_leb128_bytes = 0;
+			OBU_HEADER			obu_header;
+			uint32_t			obu_size = 0;
+			uint8_t				obu_size_leb128_bytes = 0;
+			SHA1HashVaue		obu_hash_value;
 
 			union
 			{
@@ -7339,18 +7368,20 @@ namespace BST
 				RESERVED_OBU*			ptr_reserved_obu;
 			};
 
-			TRAILING_BITS*	ptr_trailing_bits = nullptr;
+			TRAILING_BITS*		ptr_trailing_bits = nullptr;
 
-			VideoBitstreamCtx* ctx_video_bst;
+			VideoBitstreamCtx*	ctx_video_bst;
 
-			uint32_t m_full_obu_size;
-			uint16_t m_OperatingPointIdc = 0;
+			uint32_t			m_full_obu_size;
+			uint16_t			m_OperatingPointIdc = 0;
 
-			SEQUENCE_HEADER_OBU*		get_sequence_header_obu();
+			SEQUENCE_HEADER_OBU*
+								get_sequence_header_obu();
 
 			OPEN_BITSTREAM_UNIT(VideoBitstreamCtx* ctxVideoBst, uint32_t sz=0) 
-			: ctx_video_bst(ctxVideoBst)
-			, m_full_obu_size(sz){}
+				: ctx_video_bst(ctxVideoBst)
+				, m_full_obu_size(sz){
+			}
 
 			~OPEN_BITSTREAM_UNIT()
 			{

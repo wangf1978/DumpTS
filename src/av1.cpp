@@ -115,6 +115,8 @@ const char* chroma_sample_position_descs[4] = {
 const uint8_t Segmentation_Feature_Bits[SEG_LVL_MAX] = { 8, 6, 6, 6, 6, 3, 0, 0 };
 const uint8_t Segmentation_Feature_Signed[SEG_LVL_MAX] = { 1, 1, 1, 1, 1, 0, 0, 0 };
 const uint8_t Segmentation_Feature_Max[SEG_LVL_MAX] = { 255, MAX_LOOP_FILTER, MAX_LOOP_FILTER,MAX_LOOP_FILTER, MAX_LOOP_FILTER, 7, 0, 0 };
+const uint8_t Remap_Lr_Type[4] = { RESTORE_NONE, RESTORE_SWITCHABLE, RESTORE_WIENER, RESTORE_SGRPROJ };
+const uint8_t Ref_Frame_List[REFS_PER_FRAME - 2] = {LAST2_FRAME, LAST3_FRAME, BWDREF_FRAME, ALTREF2_FRAME, ALTREF_FRAME};
 
 const WarpedMotionParams default_warp_params = {
 	IDENTITY,
