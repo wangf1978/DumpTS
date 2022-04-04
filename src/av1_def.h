@@ -48,6 +48,7 @@ SOFTWARE.
 #define MAX_SEGMENTS				8				// Number of segments allowed in segmentation map
 #define SEGMENT_ID_CONTEXTS			3				// Number of contexts for segment_id
 #define FRAME_BUFFERS				(NUM_REF_FRAMES + 7)
+#define BUFFER_POOL_MAX_SIZE		10				// Number of frames in buffer pool
 
 typedef enum {
 	SEG_LVL_ALT_Q = 0,								// Use alternate Quantizer ....
