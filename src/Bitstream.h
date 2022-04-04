@@ -390,9 +390,19 @@ struct BITBUF
 		bitoffset += nSkipBits;
 	}
 
-	inline void ByteAlign(){
+	inline int ByteAlign(){
 		if (bitoffset % 8)
+		{
 			bitoffset += 8 - (bitoffset % 8);
+
+			if (bitoffset > (cbBuf << 3))
+				return RET_CODE_BUFFER_TOO_SMALL;
+
+			pBuf += (bitoffset >> 3);
+			cbBuf -= (bitoffset >> 3);
+			bitoffset = 0;
+		}
+		return RET_CODE_SUCCESS;
 	}
 };
 
