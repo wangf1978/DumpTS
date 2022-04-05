@@ -86,7 +86,7 @@ AudioSpecificConfig:
         Frame Duration: 21.333ms
 ```
 
-[top](#contents)
+[Top](#contents)
 ## Show the channel layout and mapping
 There are the below kinds of audio channel layout:
 - D-Cinema(SMPTE Standard 428M), AC3, DD+, Dolby True-HD and LPCM follow or inherit it
@@ -284,7 +284,7 @@ MPEG4 AAC Audio Stream information:
         Channel Layout: 2ch(L, R)@ITU-R BS.
 ```
 
-[top](#contents)
+[Top](#contents)
 ## Show MPEG4 AAC StreamMuxConfig
 Show `StreamMuxConfig` syntax fields of the MPEG4 AAC stream,
 ```
@@ -351,4 +351,4 @@ crcCheckPresent: 1                                              // CRC check bit
 crcCheckSum: 54(0X36)                                           // CRC error detection data
 ```
 
-[top](#contents)
+[Top](#contents)

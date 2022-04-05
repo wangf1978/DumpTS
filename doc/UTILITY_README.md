@@ -13,7 +13,7 @@ Load huffman-codebook from the specified file, and print its huffman-tree
 DumpTs AACScalefactorHuffmanCodebook.txt --VLCTypes=aah --srcfmt=huffman_codebook --outputfmt=binary_search_table
 ```
 
-[top](#contents)
+[Top](#contents)
 Load huffman-codebook from the specified file, and print binary search table for huffman-tree
 ```
 DumpTS Spectrum_Huffman_cb1.txt --VLCTypes=aah --srcfmt=spectrum_huffman_codebook_1
@@ -62,7 +62,7 @@ uint8_t hcb[][2] = {
 };
 ```
 
-[top](#contents)
+[Top](#contents)
 ## CRC
 ### list CRC algorithms
 ```
@@ -120,4 +120,4 @@ DumpTS pmt_section.psi --crc=crc-32
 ```
 it will output the crc-32 value of a PMT section.
 
-[top](#contents)
+[Top](#contents)

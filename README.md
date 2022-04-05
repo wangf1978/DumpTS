@@ -18,7 +18,7 @@
 - **ADTS** The elementary stream exported from MPEG2-AAC stream which is packetized in TS stream, the file extension is normally *.adts*
 - **LOAS/LATM** The elementary stream exported from MPEG4-AAC stream which is packetized in TS or MMT/TLV stream, the file extension is normally .loas(with sync layer) or .latm, normally exported MPEG4-AAC as *.loas*
 
-[top](#contents)
+[Top](#contents)
 
 # What is DumpTS?
 DumpTS is a simple utility tool to process the multimedia files packed into main-stream multimedia container formats, which provides these kinds of features:
@@ -32,7 +32,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
 - Provide some utility features for *ISOBMFF* file reconstruction
 - Provide some utility functions for codec and container technology, for example, Huffman Codebook, CRC, container layout...
 
-[top](#contents)
+[Top](#contents)
 
 # How to build?
 
@@ -70,7 +70,7 @@ DumpTS is a simple utility tool to process the multimedia files packed into main
     ```
     ***(\*) both 32-bit and 64-bit are supported***
 
-[top](#contents)
+[Top](#contents)
 
 # How to run it?
 
@@ -194,7 +194,7 @@ Here are some examples of command lines:
     ```
     Extract the HEVC stream from header compressed IP packet with context_id: 0 and MMT packet id: 0x100 from 00301.mmts
 
-[top](#contents)
+[Top](#contents)
 
 # Operations Manual
 - For MMT, please see [MMT operation guideline](doc/MMT_README.md)
@@ -207,9 +207,9 @@ Here are some examples of command lines:
 - Some utility features are also provided, please see [Utility operation guideline](doc/UTILITY_README.md)
 - Media Syntax Element Locator protocol, please see [Syntax Element Locator protocol](doc/MSE_LOCATOR.md)
 
-[top](#contents)
+[Top](#contents)
 
 # References
 Please see [References](doc/REFERENCES.md)
 
-[top](#contents)
+[Top](#contents)
