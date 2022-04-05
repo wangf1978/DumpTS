@@ -810,6 +810,7 @@ RET_CODE CAV1Parser::SubmitTU()
 	uint8_t* pBuf = pTUBuf;
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	int tu_frame_type = INT32_MIN;
+	bool bCompleteFUFound = false;
 
 	std::vector<
 		std::tuple<uint32_t			/* offset to TU start */, 
@@ -947,6 +948,23 @@ RET_CODE CAV1Parser::SubmitTU()
 
 		uint8_t obu_type = obu_hdr.obu_type;
 
+		if (obu_type == OBU_SEQUENCE_HEADER || obu_type == OBU_FRAME_HEADER || obu_type == OBU_FRAME || obu_type == OBU_REDUNDANT_FRAME_HEADER)
+		{
+			if (bCompleteFUFound)
+			{
+				// calculate the frame unit size
+				frame_unit_size = (uint32_t)(pOBUBuf - pFrameUnit);
+
+				tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.frame_type, fu_obus);
+				
+				fu_obus.clear();
+
+				// Update the start pointer of next frame unit
+				pFrameUnit = pFrameUnit + frame_unit_size;
+				bCompleteFUFound = false;
+			}
+		}
+
 		fu_obus.emplace_back((uint32_t)(pOBUBuf - pTUBuf), pOBUBuf, obu_length, obu_type, obu_size, parse_params);
 
 		if (obu_type == OBU_TEMPORAL_DELIMITER)
@@ -970,18 +988,12 @@ RET_CODE CAV1Parser::SubmitTU()
 				goto done;
 			}
 
-			if (parse_params.SeenFrameHeader == false)
+			if (next_parse_params.SeenFrameHeader == false)
 			{
-				// a frame unit is already finished
-				frame_unit_size = (uint32_t)(pOBUBuf + obu_length - pFrameUnit);
+				// a frame is already finished
+				bCompleteFUFound = true;
 
-				tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.frame_type, fu_obus);
-
-				fu_obus.clear();
-
-				pFrameUnit = pFrameUnit + frame_unit_size;
-
-				std::get<3>(tu_fu_obus.back()) = next_parse_params.frame_type;
+				// Try to update the frame type of frame-unit
 				if (tu_frame_type == INT32_MIN)
 					tu_frame_type = next_parse_params.frame_type;
 				else if (tu_frame_type != next_parse_params.frame_type)
@@ -990,6 +1002,20 @@ RET_CODE CAV1Parser::SubmitTU()
 		}
 
 		parse_params = next_parse_params;
+	}
+
+	// Form the left OBUs as a frame unit whenever the last tile is hit or not
+	if (fu_obus.size() > 0)
+	{
+		// calculate the frame unit size
+		frame_unit_size = (uint32_t)(pTUBuf + cbTUBuf - pFrameUnit);
+
+		if (tu_frame_type == INT32_MIN)
+			tu_frame_type = parse_params.frame_type;
+		else if (tu_frame_type != parse_params.frame_type)
+			tu_frame_type = -1;
+
+		tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.frame_type, fu_obus);
 	}
 
 	m_TU_parse_params = parse_params;
