@@ -464,7 +464,13 @@ namespace BST
 		{
 			/* The current bitstream is annex-b: length delimited bitstream format or not */
 			bool				AnnexB;
-			/* For Single OBU parsing, no reference frame information at all, so all refer-frame related process will be ignored. */
+			/* 
+				For Single OBU parsing, no reference frame information at all, so all refer-frame related process will be ignored. 
+				It is only supported for the case:
+				The AV1 stream is parsed, and save the key information to the database, and when skip to this frame, it can load
+				the key information from the database.
+			*/
+			
 			bool				SingleOBUParse;
 			bool				SeenFrameHeader;
 			bool				camera_frame_header_ready;
@@ -2420,27 +2426,27 @@ namespace BST
 				~METADATA_OBU() {
 					if (metadata_type == METADATA_TYPE_ITUT_T35)
 					{
-						AMP_SAFEDEL(ptr_metadata_itut_t35);
+						AMP_SAFEDEL2(ptr_metadata_itut_t35);
 					}
 					else if (metadata_type == METADATA_TYPE_HDR_CLL)
 					{
-						AMP_SAFEDEL(ptr_metadata_hdr_cll);
+						AMP_SAFEDEL2(ptr_metadata_hdr_cll);
 					}
 					else if (metadata_type == METADATA_TYPE_HDR_MDCV)
 					{
-						AMP_SAFEDEL(ptr_metadata_hdr_mdcv);
+						AMP_SAFEDEL2(ptr_metadata_hdr_mdcv);
 					}
 					else if (metadata_type == METADATA_TYPE_SCALABILITY)
 					{
-						AMP_SAFEDEL(ptr_metadata_scalability);
+						AMP_SAFEDEL2(ptr_metadata_scalability);
 					}
 					else if (metadata_type == METADATA_TYPE_TIMECODE)
 					{
-						AMP_SAFEDEL(ptr_metadata_timecode);
+						AMP_SAFEDEL2(ptr_metadata_timecode);
 					}
 					else
 					{
-						AMP_SAFEDEL(ptr_metadata_unknown);
+						AMP_SAFEDEL2(ptr_metadata_unknown);
 					}
 				}
 
@@ -5071,7 +5077,7 @@ namespace BST
 								}
 
 								virtual ~READ_GLOBAL_PARAM(){
-									AMP_SAFEDEL(decode_subexp);
+									AMP_SAFEDEL2(decode_subexp);
 								}
 
 								int32_t decode_signed_subexp_with_ref(AMBst in_bst, int32_t low, int32_t high, int32_t r)
@@ -7828,7 +7834,7 @@ namespace BST
 			{
 				if (bit_offset != NULL)
 					*bit_offset = start_bit_offset + open_bitstream_units[idx]->bit_pos;
-				NAV_FIELD_PROP_REF2_1(open_bitstream_units[idx], "open_bitstream_unit", obu_type_names[open_bitstream_units[idx]->obu_header.obu_type]);
+				NAV_FIELD_PROP_REF2_3(open_bitstream_units[idx], "open_bitstream_unit", obu_type_names[open_bitstream_units[idx]->obu_header.obu_type], 1);
 			}
 			DECLARE_FIELDPROP_END()
 
