@@ -3702,20 +3702,28 @@ namespace BST
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(DeltaQVAc, "Should be 0, the V AC quantizer relative to base_q_idx");
 						}
 
-						BST_FIELD_PROP_BOOL_BEGIN(using_qmatrix, "the quantizer matrix will be used to compute quantizers", "the quantizer matrix will NOT be used to compute quantizers");
-						BST_FIELD_PROP_2NUMBER1(qm_y, 4, "the level in the quantizer matrix that should be used for luma plane decoding");
-						BST_FIELD_PROP_2NUMBER1(qm_u, 4, "the level in the quantizer matrix that should be used for chroma U plane decoding");
-
-						if (ptr_uncompressed_header->ptr_sequence_header_obu->color_config->separate_uv_delta_q)
+						if (using_qmatrix)
 						{
-							BST_FIELD_PROP_2NUMBER1(qm_v, 4, "the level in the quantizer matrix that should be used for chroma V plane decoding");
+							BST_FIELD_PROP_BOOL_BEGIN(using_qmatrix, "the quantizer matrix will be used to compute quantizers", "the quantizer matrix will NOT be used to compute quantizers");
+
+							BST_FIELD_PROP_2NUMBER1(qm_y, 4, "the level in the quantizer matrix that should be used for luma plane decoding");
+							BST_FIELD_PROP_2NUMBER1(qm_u, 4, "the level in the quantizer matrix that should be used for chroma U plane decoding");
+
+							if (ptr_uncompressed_header->ptr_sequence_header_obu->color_config->separate_uv_delta_q)
+							{
+								BST_FIELD_PROP_2NUMBER1(qm_v, 4, "the level in the quantizer matrix that should be used for chroma V plane decoding");
+							}
+							else
+							{
+								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(qm_v, "qm_v = qm_u");
+							}
+
+							BST_FIELD_PROP_BOOL_END("using_qmatrix");
 						}
 						else
 						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(qm_v, "qm_v = qm_u");
+							BST_FIELD_PROP_BOOL(using_qmatrix, "the quantizer matrix will be used to compute quantizers", "the quantizer matrix will NOT be used to compute quantizers");
 						}
-
-						BST_FIELD_PROP_BOOL_END("using_qmatrix");
 						DECLARE_FIELDPROP_END()
 
 					};
@@ -6935,13 +6943,22 @@ namespace BST
 							}
 							else
 							{
-								BST_FIELD_PROP_BOOL_BEGIN(frame_refs_short_signaling, 
-									"indicates that only two reference frames are explicitly signaled", 
-									"indicates that all reference frames are explicitly signaled");
-									BST_FIELD_PROP_2NUMBER1(last_frame_idx, 3, "specifies the reference frame to use for LAST_FRAME");
-									BST_FIELD_PROP_2NUMBER1(gold_frame_idx, 3, "specifies the reference frame to use for GOLDEN_FRAME");
-									// set_frame_refs()
-								BST_FIELD_PROP_BOOL_END("frame_refs_short_signaling");
+								if (frame_refs_short_signaling)
+								{
+									BST_FIELD_PROP_BOOL_BEGIN(frame_refs_short_signaling, 
+										"indicates that only two reference frames are explicitly signaled", 
+										"indicates that all reference frames are explicitly signaled");
+										BST_FIELD_PROP_2NUMBER1(last_frame_idx, 3, "specifies the reference frame to use for LAST_FRAME");
+										BST_FIELD_PROP_2NUMBER1(gold_frame_idx, 3, "specifies the reference frame to use for GOLDEN_FRAME");
+										// set_frame_refs()
+									BST_FIELD_PROP_BOOL_END("frame_refs_short_signaling");
+								}
+								else
+								{
+									BST_FIELD_PROP_BOOL(frame_refs_short_signaling,
+										"indicates that only two reference frames are explicitly signaled",
+										"indicates that all reference frames are explicitly signaled");
+								}
 							}
 
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "ref_frame_idx and expectedFrameId");
