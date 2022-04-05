@@ -550,6 +550,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	bool bAnnexB = m_pCtx->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
 	bool SeenFrameHeader = false;	// According to AV1 spec
+	int tu_frame_type = INT32_MIN;
 	OBU_PARSE_PARAMS parse_params = m_TU_parse_params, next_parse_params = m_TU_parse_params;
 
 	temporal_unit_size = BST::AV1::leb128(pBuf + cbParsed, cbSize - cbParsed, &cbLeb128);
@@ -674,12 +675,20 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 			cbFrameParsed += obu_length;
 			cbParsed += obu_length;
 		}
+
+		std::get<3>(tu_fu_obus.back()) = next_parse_params.frame_type;
+		if (tu_frame_type == INT32_MIN)
+			tu_frame_type = next_parse_params.frame_type;
+		else if (tu_frame_type != next_parse_params.frame_type)
+			tu_frame_type = -1;
 	}
+
+	m_TU_parse_params = parse_params;
 
 	// prepare the notification for the current TU
 	if (m_av1_enum != nullptr && AMP_SUCCEEDED(iRet))
 	{
-		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, -1)))
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, tu_frame_type)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -1040,6 +1049,10 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 		{
 			// decode_frame_wrapup()
 			curr_parse_params.SeenFrameHeader = false;
+
+			curr_parse_params.UpdateRefreshFrame();
+			if (g_verbose_level > 0)
+				printf("Finished decoding a frame by re-using the previous frame.\n");
 		}
 		else
 		{
@@ -1082,6 +1095,11 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 				decode_frame_wrapup()
 				*/
 				curr_parse_params.SeenFrameHeader = false;
+
+				curr_parse_params.UpdateRefreshFrame();
+
+				if (g_verbose_level > 0)
+					printf("Finished decoding a frame after decoding the last tile.\n");
 			}
 		}
 		
@@ -1357,8 +1375,10 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 		bool is_filter_switchable = false;
 		if (AMP_FAILED(iRet = bitbuf.GetFlag(is_filter_switchable)))goto done;
 
-		uint8_t interpolation_filter = SWITCHABLE;
-		if (is_filter_switchable && AMP_FAILED(iRet = bitbuf.GetValue(2, interpolation_filter)))goto done;
+		uint8_t interpolation_filter;
+		if (is_filter_switchable)
+			interpolation_filter = SWITCHABLE;
+		else if (AMP_FAILED(iRet = bitbuf.GetValue(2, interpolation_filter)))goto done;
 
 		bool is_motion_mode_switchable = false;
 		if (AMP_FAILED(iRet = bitbuf.GetFlag(is_motion_mode_switchable)))goto done;
@@ -1552,16 +1572,24 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 
 	// skip cdef_params()
 	if (!(CodedLossless || allow_intrabc || !pSeqHdrOBU->enable_cdef)) {
+		uint8_t cdef_y_pri_strength[8] = { 0 };
+		uint8_t cdef_y_sec_strength[8] = { 0 };
+		uint8_t cdef_uv_pri_strength[8] = { 0 };
+		uint8_t cdef_uv_sec_strength[8] = { 0 };
 		// Skip cdef_damping_minus_3
 		bitbuf.SkipFast(2);
 		uint8_t cdef_bits;
 		if (AMP_FAILED(iRet = bitbuf.GetValue(2, cdef_bits)))goto done;
 		for (uint32_t i = 0; i < (uint32_t)(1UL << cdef_bits); i++) {
-			bitbuf.SkipFast(4);	// cdef_y_pri_strength[i]
-			bitbuf.SkipFast(2);	// cdef_y_sec_strength[i]
+			//bitbuf.SkipFast(4);	// cdef_y_pri_strength[i]
+			//bitbuf.SkipFast(2);	// cdef_y_sec_strength[i]
+			if (AMP_FAILED(iRet = bitbuf.GetValue(4, cdef_y_pri_strength[i])))goto done;
+			if (AMP_FAILED(iRet = bitbuf.GetValue(2, cdef_y_sec_strength[i])))goto done;
 			if (NumPlanes > 1) {
-				bitbuf.SkipFast(4);	// cdef_uv_pri_strength[i]
-				bitbuf.SkipFast(2);	// cdef_uv_sec_strength[i]
+				//bitbuf.SkipFast(4);	// cdef_uv_pri_strength[i]
+				//bitbuf.SkipFast(2);	// cdef_uv_sec_strength[i]
+				if (AMP_FAILED(iRet = bitbuf.GetValue(4, cdef_uv_pri_strength[i])))goto done;
+				if (AMP_FAILED(iRet = bitbuf.GetValue(2, cdef_uv_sec_strength[i])))goto done;
 			}
 		}
 	}
@@ -1688,7 +1716,7 @@ RET_CODE CAV1Parser::read_delta_q(BITBUF& bitbuf, int8_t& ret_delta_q)
 		return iRet;
 
 	int8_t delta_q = 0;
-	if (AMP_FAILED(iRet = bitbuf.GetValue(7, delta_q)))
+	if (delta_coded && AMP_FAILED(iRet = bitbuf.AV1su(7, delta_q)))
 		return iRet;
 
 	ret_delta_q = delta_q;
@@ -1969,7 +1997,7 @@ RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PA
 			if (increment_tile_cols_log2 == 1)
 				obu_parse_params.TileColsLog2++;
 			else
-				goto done;
+				break;
 		}
 		uint32_t tileWidthSb = (sbCols + (1 << obu_parse_params.TileColsLog2) - 1) >> obu_parse_params.TileColsLog2;
 		uint32_t i = 0;
@@ -1988,7 +2016,7 @@ RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PA
 			if (increment_tile_rows_log2 == 1)
 				obu_parse_params.TileRowsLog2++;
 			else
-				goto done;
+				break;
 		}
 		uint32_t tileHeightSb = (sbRows + (1 << obu_parse_params.TileRowsLog2) - 1) >> obu_parse_params.TileRowsLog2;
 		i = 0;
@@ -2024,7 +2052,7 @@ RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PA
 		uint32_t maxTileHeightSb = AMP_MAX(maxTileAreaSb / widestTileSb, 1);
 		startSb = 0;
 		for (i = 0; startSb < sbRows; i++) {
-			MiRowStarts[i] = startSb << sbShift;
+			MiRowStarts.push_back(startSb << sbShift);
 			uint32_t maxHeight = Min(sbRows - startSb, maxTileHeightSb);
 			uint32_t height_in_sbs_minus_1;
 			if (AMP_FAILED(iRet = bitbuf.AV1ns(maxHeight, height_in_sbs_minus_1)))goto done;
