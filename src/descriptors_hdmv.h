@@ -136,17 +136,17 @@ namespace BST {
 			}PACKED;
 		}PACKED;
 		
-		unsigned char		descriptor_tag;
-		unsigned char		descriptor_length;
-		unsigned char		format_identifier[4];
+		unsigned char		descriptor_tag = 0;
+		unsigned char		descriptor_length = 0;
+		unsigned char		format_identifier[4] = { 0 };
 		
 		std::vector<CSubDescriptor>
 							subdescriptors;
 							
-		unsigned char		stuffing_bytes_count;
-		unsigned char*		stuffing_bytes;
+		unsigned char		stuffing_bytes_count = 0;
+		unsigned char*		stuffing_bytes = nullptr;
 		
-		CVC1RegistrationDescriptor():stuffing_bytes_count(0), stuffing_bytes(NULL){}
+		CVC1RegistrationDescriptor(){}
 		virtual ~CVC1RegistrationDescriptor(){Unmap();}
 		
 		int Map(unsigned char *pBuf, unsigned long cbSize, unsigned long *desired_size=0, unsigned long *stuffing_size=0)

@@ -886,7 +886,7 @@ namespace BST {
 				DECLARE_FIELDPROP_END()
 			}PACKED;
 
-			unsigned char		adaptation_field_extension_length;
+			unsigned char		adaptation_field_extension_length = 0;
 #ifdef _BIG_ENDIAN_
 			unsigned char		ltw_flag:1;
 			unsigned char		piecewise_rate_flag:1;
@@ -902,7 +902,9 @@ namespace BST {
 			CPiecewiseRate*		piecewise_rate;
 			CSeamlessSplice*	seamless_splice;
 
-			CAdaptationFieldExtension():ltw(NULL), piecewise_rate(NULL), seamless_splice(NULL){
+			CAdaptationFieldExtension()
+				: reserved(0), seamless_splice_flag(0), piecewise_rate_flag(0), ltw_flag(0), 
+				ltw(NULL), piecewise_rate(NULL), seamless_splice(NULL){
 			}
 
 			virtual ~CAdaptationFieldExtension(){
@@ -980,7 +982,7 @@ namespace BST {
 		}PACKED;
 		CPCR*			program_clock_reference;
 		CPCR*			original_program_clock_reference;
-		unsigned char	splice_countdown;
+		unsigned char	splice_countdown = 0;
 		CTransportPrivateData*
 						transport_private_data;
 		CAdaptationFieldExtension*
@@ -2042,9 +2044,9 @@ namespace BST {
 			unsigned char prefix_4bytes[4];
 		};
 		union{
+			unsigned char*				pes_data = nullptr;
 			CPESPacketHeaderAndData*	pes_header_body;
 			CPESPacketData*				pes_body;
-			unsigned char*				pes_data;
 		}PACKED;
 
 		CPES(unsigned char StreamType=0xFF): stream_type(StreamType), pes_data(NULL){

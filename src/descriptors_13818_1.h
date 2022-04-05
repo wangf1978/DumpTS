@@ -917,7 +917,7 @@ namespace BST {
 
 			CSubStructure**		substructures;
 
-			CMuxCodeTableEntry(): substructures(NULL){}
+			CMuxCodeTableEntry(): length(0), substructureCount(0), substructures(NULL){}
 
 			virtual ~CMuxCodeTableEntry(){Unmap();}
 
@@ -991,7 +991,7 @@ namespace BST {
 		unsigned char		descriptor_length;
 		CMuxCodeTableEntry*	MuxCodeTableEntry;
 
-		CMuxcodeDescriptor(): MuxCodeTableEntry(NULL){}
+		CMuxcodeDescriptor(): descriptor_tag(0), descriptor_length(0), MuxCodeTableEntry(NULL){}
 		virtual ~CMuxcodeDescriptor(){Unmap();}
 
 		int Map(unsigned char *pBuf, unsigned long cbSize, unsigned long *desired_size=0, unsigned long *stuffing_size=0)
@@ -1469,7 +1469,7 @@ namespace BST {
 		unsigned char*				private_data_byte;
 		unsigned char				private_data_len;
 
-		CMetadataPointerDescriptor(): metadata_locator_record(NULL), MPEG_Carriage_02(NULL), private_data_byte(NULL){}
+		CMetadataPointerDescriptor(): metadata_locator_record_flag(0), metadata_locator_record(NULL), MPEG_Carriage_02(NULL), private_data_byte(NULL){}
 		virtual ~CMetadataPointerDescriptor(){Unmap();}
 
 		int Map(unsigned char *pBuf, unsigned long cbSize, unsigned long *desired_size=0, unsigned long *stuffing_size=0)
@@ -1710,7 +1710,7 @@ namespace BST {
 		unsigned char*				private_data_byte;
 		unsigned char				private_data_len;
 
-		CMetadataDescriptor(): service_identification_record(NULL), reserved_data(NULL), private_data_byte(NULL){}
+		CMetadataDescriptor(): decoder_config_flags(0), service_identification_record(NULL), reserved_data(NULL), private_data_byte(NULL){}
 		virtual ~CMetadataDescriptor(){Unmap();}
 
 		DECLARE_ENDIAN_BEGIN()
@@ -2210,8 +2210,8 @@ namespace BST {
 				DECLARE_FIELDPROP_END()
 			}PACKED;
 
-			unsigned char		tag;
-			unsigned char		textFormat;
+			unsigned char		tag = 0;
+			unsigned char		textFormat = 0;
 
 #ifdef _BIG_ENDIAN_
 			unsigned char		contains_associated_video_information:1;
@@ -2296,11 +2296,11 @@ namespace BST {
 
 		}PACKED;
 
-		unsigned char		descriptor_tag;
-		unsigned char		descriptor_length;
-		CTextConfig*		textConfig;
+		unsigned char		descriptor_tag = 0;
+		unsigned char		descriptor_length = 0;
+		CTextConfig*		textConfig = nullptr;
 
-		CMPEG4TextDescriptor(){textConfig = NULL;}
+		CMPEG4TextDescriptor(){}
 		virtual ~CMPEG4TextDescriptor(){Unmap();}
 			
 		int Map(unsigned char *pBuf, unsigned long cbSize, unsigned long *desired_size=0, unsigned long *stuffing_size=0){
@@ -2358,7 +2358,7 @@ namespace BST {
 #endif
 		unsigned char*		audioProfileLevelIndications;
 
-		unsigned char		ASC_size;
+		unsigned char		ASC_size = 0;
 		AACAudio::CAudioSpecificConfig*
 							audioSpecificConfig;
 
@@ -2672,8 +2672,8 @@ namespace BST {
 				DECLARE_FIELDPROP_END()				
 			}PACKED;
 
-			unsigned char		level_idc;
-			unsigned char		operation_points_count;
+			unsigned char		level_idc = 0;
+			unsigned char		operation_points_count = 0;
 			COperationPoint**	operation_points;
 
 			CLevel():operation_points(NULL){}
@@ -2736,7 +2736,7 @@ namespace BST {
 		unsigned char		constraint_set1_flag:1;
 		unsigned char		constraint_set0_flag:1;
 #endif
-		unsigned char		level_count;
+		unsigned char		level_count = 0;
 
 		CLevel**			levels;
 
@@ -2905,8 +2905,8 @@ namespace BST {
 	}PACKED;
 
 	struct CStereoscopicVideoInfoDescriptor: public ADVANCE_ENDIAN_MAP {
-		unsigned char		descriptor_tag;
-		unsigned char		descriptor_length;
+		unsigned char		descriptor_tag = 0;
+		unsigned char		descriptor_length = 0;
 
 #ifdef _BIG_ENDIAN_
 		unsigned char		reserved_0:7;
