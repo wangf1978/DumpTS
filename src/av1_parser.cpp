@@ -38,7 +38,7 @@ INLINE RET_CODE decode_subexp(BITBUF& bitbuf, int32_t numSyms, int32_t& val)
 		int32_t a = 1 << b2;
 		if (numSyms <= mk + 3 * a) {
 			int32_t subexp_final_bits;
-			if (AMP_FAILED(iRet = bitbuf.AV1ns(numSyms - mk, subexp_final_bits)))break;
+			if (AMP_FAILED(iRet = bitbuf.AV1ns((uint64_t)numSyms - mk, subexp_final_bits)))break;
 			val = subexp_final_bits + mk;
 			break;
 		}
@@ -80,6 +80,9 @@ INLINE RET_CODE decode_unsigned_subexp_with_ref(BITBUF& bitbuf, int32_t mx, int3
 INLINE RET_CODE decode_signed_subexp_with_ref(BITBUF& bitbuf, int32_t low, int32_t high, int32_t r, int32_t& val)
 {
 	int32_t x;
+	if (high < low)
+		return RET_CODE_INVALID_PARAMETER;
+
 	int iRet = decode_unsigned_subexp_with_ref(bitbuf, high - low, r - low, x);
 	if (AMP_FAILED(iRet))return iRet;
 	val = x + low;
@@ -549,7 +552,6 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 	uint8_t* pBuf = pTUBuf;
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	bool bAnnexB = m_pCtx->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
-	bool SeenFrameHeader = false;	// According to AV1 spec
 	int tu_frame_type = INT32_MIN;
 	OBU_PARSE_PARAMS parse_params = m_TU_parse_params, next_parse_params = m_TU_parse_params;
 
@@ -579,7 +581,8 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 		cbParsed += cbLeb128;
 		pFrameUnit = pBuf + cbParsed;
 
-		tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, -1, std::vector<std::tuple<uint32_t, uint8_t*, uint32_t, uint8_t, uint32_t, OBU_PARSE_PARAMS>>());
+		tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, -1, 
+			std::vector<std::tuple<uint32_t, uint8_t*, uint32_t, uint8_t, uint32_t, OBU_PARSE_PARAMS>>());
 
 		while (cbFrameParsed < frame_unit_size)
 		{
@@ -608,15 +611,43 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 				obu_hdr.obu_extension_flag = ((*p) >> 2) & 0x1;
 				obu_hdr.obu_has_size_field = ((*p) >> 1) & 0x1;
 				obu_hdr.obu_reserved_1bit = (*p) & 0x1;
+
+				// obu_reserved_1bit must be set to 0. The value is ignored by a decoder.
+				if (obu_hdr.obu_reserved_1bit != 0)
+				{
+					if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 3)))
+					{
+						iRet = RET_CODE_ABORT;
+						goto done;
+					}
+				}
 				
 				p++; cbOBULeft--;
 				
 				if (obu_hdr.obu_extension_flag){
 					if (cbOBULeft == 0)
+					{
+						if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
+						{
+							iRet = RET_CODE_ABORT;
+							goto done;
+						}
 						break;
+					}
 
 					obu_hdr.obu_extension_header.temporal_id = ((*p) >> 5) & 0x7;
 					obu_hdr.obu_extension_header.spatial_id = ((*p) >> 3) & 0x3;
+					obu_hdr.obu_extension_header.extension_header_reserved_3bits = (*p) & 0x7;
+
+					if (obu_hdr.obu_extension_header.extension_header_reserved_3bits != 0)
+					{
+						if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 3)))
+						{
+							iRet = RET_CODE_ABORT;
+							goto done;
+						}
+					}
+
 					cbOBULeft--;
 					p++;
 				}
@@ -624,14 +655,28 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 				if (obu_hdr.obu_has_size_field)
 				{
 					if (cbOBULeft == 0)
+					{
+						if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
+						{
+							iRet = RET_CODE_ABORT;
+							goto done;
+						}
 						break;
+					}
 
 					obu_size = BST::AV1::leb128(p, (uint32_t)cbOBULeft, &cbLeb128);
 					if (obu_size != UINT32_MAX)
 					{
 						uint32_t ob_preceding_size = 1 + obu_hdr.obu_extension_flag + cbLeb128;
 						if (obu_size + ob_preceding_size != obu_length)
+						{
 							printf("[AV1Parser] obu_size and obu_length are NOT set consistently.\n");
+							if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 4)))
+							{
+								iRet = RET_CODE_ABORT;
+								goto done;
+							}
+						}
 					}
 
 					if (cbOBULeft < cbLeb128)
@@ -741,6 +786,266 @@ done:
 	return iRet;
 }
 
+RET_CODE CAV1Parser::SubmitTU()
+{
+	uint32_t obu_size = UINT32_MAX;
+	uint8_t leb128_byte_count = 0;
+	uint8_t leb128_need_more_data = false;
+
+	int iRet = RET_CODE_SUCCESS;
+	int cbTUBuf = 0;
+	uint8_t* pTUBuf = AM_LRB_GetReadPtr(m_rbTemporalUnit, &cbTUBuf);
+
+	if (cbTUBuf > INT32_MAX)
+	{
+		printf("[AV1Parser] At present, don't support the temporal unit which size is greater than 2GB.\n");
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	unsigned long cbParsed = 0;
+	uint8_t cbLeb128 = 0;
+	uint32_t frame_unit_size = UINT32_MAX;
+	uint32_t obu_length = UINT32_MAX;
+	uint8_t* pFrameUnit = pTUBuf;
+	uint8_t* pBuf = pTUBuf;
+	uint32_t cbSize = (uint32_t)cbTUBuf;
+	int tu_frame_type = INT32_MIN;
+
+	std::vector<
+		std::tuple<uint32_t			/* offset to TU start */, 
+				   uint8_t*			/*FU buffer start*/, 
+				   uint32_t			/*FU size*/,
+				   int,				/*Frame Type*/
+				   std::vector<
+						std::tuple<uint32_t			/* OBU offset to TU start */,
+								   uint8_t*			/* OBU buffer start*/,
+								   uint32_t,		/* OBU buffer length */
+								   uint8_t,			/* OBU type */
+								   uint32_t,		/* OBU size in OBU header */
+								   OBU_PARSE_PARAMS	/* OBU parser parameters which will be updated to AV1 context separately */>
+				   >
+		>
+	> tu_fu_obus;
+
+	OBU_PARSE_PARAMS parse_params = m_TU_parse_params, next_parse_params = m_TU_parse_params;
+
+	uint32_t cbFrameParsed = 0;
+	std::vector<std::tuple<uint32_t, uint8_t*, uint32_t, uint8_t, uint32_t, OBU_PARSE_PARAMS>> fu_obus;
+
+	while (cbParsed < cbSize)
+	{
+		BST::AV1::OBU_HEADER obu_hdr;
+
+		// enumerate each OBU in the current buffer
+		uint8_t* pOBUBuf = pBuf + cbParsed;
+		uint8_t* p = pOBUBuf;
+		uint32_t cbLeft = cbSize > cbParsed ? (cbSize - cbParsed) : 0;
+		if (cbLeft == 0)
+		{
+			if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+		}
+
+		obu_hdr.obu_forbidden_bit = ((*p) >> 7) & 0x1;
+		if (obu_hdr.obu_forbidden_bit != 0)
+		{
+			if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 2)))
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+		}
+
+		obu_hdr.obu_type = ((*p) >> 3) & 0xF;
+		obu_hdr.obu_extension_flag = ((*p) >> 2) & 0x1;
+		obu_hdr.obu_has_size_field = ((*p) >> 1) & 0x1;
+		obu_hdr.obu_reserved_1bit = (*p) & 0x1;
+
+		// obu_reserved_1bit must be set to 0. The value is ignored by a decoder.
+		if (obu_hdr.obu_reserved_1bit != 0)
+		{
+			if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 3)))
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+		}
+
+		p++;
+		cbLeft--;
+
+		if (obu_hdr.obu_extension_flag)
+		{
+			if (cbLeft == 0)
+			{
+				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+			}
+
+			obu_hdr.obu_extension_header.temporal_id = ((*p) >> 5) & 0x7;
+			obu_hdr.obu_extension_header.spatial_id = ((*p) >> 3) & 0x3;
+			obu_hdr.obu_extension_header.extension_header_reserved_3bits = (*p) & 0x7;
+
+			if (obu_hdr.obu_extension_header.extension_header_reserved_3bits != 0)
+			{
+				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 3)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+			}
+
+			p++;
+			cbLeft--;
+		}
+
+		leb128_byte_count = 0;
+		if (obu_hdr.obu_has_size_field)
+		{
+			if (cbLeft == 0)
+			{
+				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+			}
+
+			leb128_need_more_data = false;
+			obu_size = BST::AV1::leb128(p, (int)cbLeft, &leb128_byte_count, &leb128_need_more_data);
+			if (leb128_need_more_data || obu_size == UINT32_MAX)
+			{
+				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 4)))
+				{
+					iRet = RET_CODE_ABORT;
+					goto done;
+				}
+			}
+
+			cbLeft -= leb128_byte_count;
+			p += leb128_byte_count;
+		}
+		else
+		{
+			obu_size = UINT32_MAX;
+		}
+
+		if (obu_size == UINT32_MAX)
+		{
+			printf("[AVParser] Don't know how to process the left OBU stream\n");
+			break;
+		}
+
+		obu_length = obu_size + 1 + obu_hdr.obu_extension_flag + leb128_byte_count;
+		cbParsed += obu_length;
+
+		uint8_t obu_type = obu_hdr.obu_type;
+
+		fu_obus.emplace_back((uint32_t)(pOBUBuf - pTUBuf), pOBUBuf, obu_length, obu_type, obu_size, parse_params);
+
+		if (obu_type == OBU_TEMPORAL_DELIMITER)
+		{
+			next_parse_params.SeenFrameHeader = false;
+		}
+		else if (obu_type == OBU_SEQUENCE_HEADER)
+		{
+			// Update the Sequence Header OBU to the AV1 context
+			if (AMP_FAILED(iRet == UpdateSeqHdrToContext(pOBUBuf, obu_length)))
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+		}
+		else if (obu_type == OBU_FRAME_HEADER || obu_type == OBU_FRAME || obu_type == OBU_REDUNDANT_FRAME_HEADER)
+		{
+			if ((iRet = UpdateOBUParsePreconditionParams(p, cbLeft, obu_hdr, parse_params, next_parse_params)) == RET_CODE_ABORT)
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+
+			if (parse_params.SeenFrameHeader == false)
+			{
+				// a frame unit is already finished
+				frame_unit_size = (uint32_t)(pOBUBuf + obu_length - pFrameUnit);
+
+				tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.frame_type, fu_obus);
+
+				fu_obus.clear();
+
+				pFrameUnit = pFrameUnit + frame_unit_size;
+
+				std::get<3>(tu_fu_obus.back()) = next_parse_params.frame_type;
+				if (tu_frame_type == INT32_MIN)
+					tu_frame_type = next_parse_params.frame_type;
+				else if (tu_frame_type != next_parse_params.frame_type)
+					tu_frame_type = -1;
+			}
+		}
+
+		parse_params = next_parse_params;
+	}
+
+	m_TU_parse_params = parse_params;
+
+	// prepare the notification for the current TU
+	if (m_av1_enum != nullptr && AMP_SUCCEEDED(iRet))
+	{
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, tu_frame_type)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		for (auto& fu : tu_fu_obus)
+		{
+			auto pFrameUnit = std::get<1>(fu);
+			auto frame_unit_size = std::get<2>(fu);
+			if ((m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, std::get<3>(fu))))
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+
+			for (auto& obu : std::get<4>(fu))
+			{
+				if ((m_av1_enum_options&AV1_ENUM_OPTION_OBU) && obu_length != UINT32_MAX && obu_length > 0)
+				{
+					if (AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, std::get<1>(obu), std::get<2>(obu), std::get<3>(obu), std::get<4>(obu))))
+					{
+						iRet = RET_CODE_ABORT;
+						goto done;
+					}
+				}
+			}
+
+			if ((m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+		}
+
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+	}
+
+	m_num_temporal_units++;
+
+done:
+	AM_LRB_Reset(m_rbTemporalUnit);
+	return iRet;
+}
+
 RET_CODE CAV1Parser::UpdateSeqHdrToContext(const uint8_t* pOBUBuf, uint32_t cbOBUBuf)
 {
 	int iRet = RET_CODE_SUCCESS;
@@ -773,244 +1078,6 @@ RET_CODE CAV1Parser::UpdateSeqHdrToContext(const uint8_t* pOBUBuf, uint32_t cbOB
 
 done:
 	AMBst_Destroy(in_bst);
-	return iRet;
-}
-
-RET_CODE CAV1Parser::SubmitTU()
-{
-	uint8_t obu_forbidden_bit, obu_type, obu_extension_flag, obu_has_size_field, obu_reserved_1bit;
-	uint32_t obu_size = UINT32_MAX;
-	uint8_t leb128_byte_count = 0;
-	uint8_t leb128_need_more_data = false;
-
-	int iRet = RET_CODE_SUCCESS;
-	int cbTUBuf = 0;
-	uint8_t* pTUBuf = AM_LRB_GetReadPtr(m_rbTemporalUnit, &cbTUBuf);
-
-	unsigned long cbParsed = 0;
-	uint32_t temporal_unit_size = 0;
-	uint8_t cbLeb128 = 0;
-	uint32_t frame_unit_size = UINT32_MAX;
-	uint8_t* pFrameUnit = nullptr;
-	bool bFrameHeaderHit = false;
-	bool bQuitLoop = false;
-
-	if (cbTUBuf > INT32_MAX)
-	{
-		printf("[AV1Parser] At present, don't support the temporal unit which size is greater than 2GB.\n");
-		return RET_CODE_ERROR_NOTIMPL;
-	}
-
-	uint8_t* pBuf = pTUBuf;
-	uint32_t cbSize = (uint32_t)cbTUBuf;
-
-	std::vector<std::tuple<uint8_t* /*obu buf*/, uint32_t/*the size of buf*/, uint8_t/*obu_type*/, uint32_t /*obu size*/>> parsed_obus;
-	auto iterFrame = parsed_obus.begin();
-	auto iter = parsed_obus.begin();
-
-	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, -1)))
-	{
-		iRet = RET_CODE_ABORT;
-		goto done;
-	}
-
-	while (cbParsed < cbSize)
-	{
-		uint32_t cbFrameParsed = 0;
-		frame_unit_size = UINT32_MAX;
-		pFrameUnit = nullptr;
-
-		// enumerate each OBU in the current buffer
-		uint8_t* p = pBuf + cbParsed;
-		uint32_t cbLeft = cbSize > cbParsed ? (cbSize - cbParsed) : 0;
-		if (cbLeft == 0)
-		{
-			if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
-			{
-				iRet = RET_CODE_ABORT;
-				goto done;
-			}
-		}
-
-		obu_forbidden_bit = ((*p) >> 7) & 0x1;
-		if (obu_forbidden_bit != 0)
-		{
-			if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 2)))
-			{
-				iRet = RET_CODE_ABORT;
-				goto done;
-			}
-		}
-
-		obu_type = ((*p) >> 3) & 0xF;
-		obu_extension_flag = ((*p) >> 2) & 0x1;
-		obu_has_size_field = ((*p) >> 1) & 0x1;
-		obu_reserved_1bit = (*p) & 0x1;
-
-		// obu_reserved_1bit must be set to 0. The value is ignored by a decoder.
-		if (obu_reserved_1bit != 0)
-		{
-			if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 3)))
-			{
-				iRet = RET_CODE_ABORT;
-				goto done;
-			}
-		}
-
-		if (obu_extension_flag)
-		{
-			p++;
-			cbLeft--;
-			if (cbLeft == 0)
-			{
-				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
-				{
-					iRet = RET_CODE_ABORT;
-					goto done;
-				}
-			}
-
-			uint8_t temporal_id = ((*p) >> 5) & 0x7;
-			uint8_t spatial_id = ((*p) >> 3) & 0x3;
-			uint8_t extension_header_reserved_3bits = (*p) & 0x7;
-
-			if (extension_header_reserved_3bits != 0)
-			{
-				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 3)))
-				{
-					iRet = RET_CODE_ABORT;
-					goto done;
-				}
-			}
-		}
-
-		leb128_byte_count = 0;
-		if (obu_has_size_field)
-		{
-			p++;
-			cbLeft--;
-			if (cbLeft == 0)
-			{
-				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 1)))
-				{
-					iRet = RET_CODE_ABORT;
-					goto done;
-				}
-			}
-
-			leb128_need_more_data = false;
-			obu_size = BST::AV1::leb128(p, (int)cbLeft, &leb128_byte_count, &leb128_need_more_data);
-			if (leb128_need_more_data || obu_size == UINT32_MAX)
-			{
-				if (m_av1_enum && AMP_FAILED(m_av1_enum->EnumError(m_pCtx, m_cur_submit_pos, 4)))
-				{
-					iRet = RET_CODE_ABORT;
-					goto done;
-				}
-			}
-		}
-		else
-		{
-			obu_size = UINT32_MAX;
-		}
-
-		if (obu_size == UINT32_MAX)
-		{
-			printf("[AVParser] Don't know how to process the left OBU stream\n");
-			break;
-		}
-
-		pFrameUnit = pBuf + cbParsed;
-		frame_unit_size = obu_size + 1 + obu_extension_flag + leb128_byte_count;
-		cbParsed += frame_unit_size;
-
-		parsed_obus.emplace_back(std::make_tuple(pFrameUnit, frame_unit_size, obu_type, obu_size));
-	}
-
-	// Now enumerate all frames and OBUs
-	bFrameHeaderHit = false;
-	iterFrame = parsed_obus.end();
-	iter = parsed_obus.begin();
-
-	do {
-		if (iterFrame == parsed_obus.end())
-		{
-			if (iter == parsed_obus.end())
-			{
-				bQuitLoop = true;
-				break;
-			}
-
-			if (std::get<2>(*iter) == OBU_FRAME_HEADER)
-				bFrameHeaderHit = true;
-			iterFrame = iter;
-			continue;
-		}
-
-		if (iter == parsed_obus.end() || std::get<2>(*iter) == OBU_FRAME_HEADER)
-		{
-			if (!bFrameHeaderHit && iter != parsed_obus.end())
-			{
-				bFrameHeaderHit = true;
-				iter++;
-				continue;
-			}
-
-			// commit the frame unit
-			if (iterFrame != parsed_obus.end())
-			{
-				frame_unit_size = UINT32_MAX;
-				pFrameUnit = std::get<0>(*iterFrame);
-				if (iter != parsed_obus.end())
-					frame_unit_size = (uint32_t)(std::get<0>(*iter) - pFrameUnit);
-				else
-					frame_unit_size = (uint32_t)(pTUBuf + cbTUBuf - pFrameUnit);
-
-				if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, -1)))
-				{
-					iRet = RET_CODE_ABORT;
-					goto done;
-				}
-
-				for (auto obu_iter = iterFrame; obu_iter != iter; obu_iter++)
-				{
-					if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_OBU) && AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, std::get<0>(*obu_iter), std::get<1>(*obu_iter), std::get<2>(*obu_iter), std::get<3>(*obu_iter))))
-					{
-						iRet = RET_CODE_ABORT;
-						goto done;
-					}
-				}
-
-				if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitEnd(m_pCtx, pFrameUnit, frame_unit_size)))
-				{
-					iRet = RET_CODE_ABORT;
-					goto done;
-				}
-			}
-
-			if (iter != parsed_obus.end())
-			{
-				bFrameHeaderHit = false;
-				iterFrame = iter;
-			}
-			else
-				break;
-		}
-	
-		iter++;
-	} while (!bQuitLoop);
-
-	if (m_av1_enum && (m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
-	{
-		iRet = RET_CODE_ABORT;
-		goto done;
-	}
-
-	m_num_temporal_units++;
-
-done:
-	AM_LRB_Reset(m_rbTemporalUnit);
-
 	return iRet;
 }
 
@@ -1352,7 +1419,7 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 			}
 
 			if (pSeqHdrOBU->frame_id_numbers_present_flag) {
-				bitbuf.SkipFast(pSeqHdrOBU->delta_frame_id_length_minus_2 + 2);	// skip delta_frame_id_minus_1
+				bitbuf.SkipFast((size_t)pSeqHdrOBU->delta_frame_id_length_minus_2 + 2);	// skip delta_frame_id_minus_1
 			}
 		}
 

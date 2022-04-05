@@ -184,7 +184,7 @@ struct OBU_PARSE_PARAMS
 	uint32_t				TileNum = 0;
 	uint8_t					TileColsLog2;
 	uint8_t					TileRowsLog2;
-	int32_t					gm_params[NUM_REF_FRAMES][6];
+	int32_t					gm_params[NUM_REF_FRAMES][6] = { {0} };
 	VirtualBufferIndex		VBI[NUM_REF_FRAMES];
 	HRD_FRAME_BUF			BufferPool[BUFFER_POOL_MAX_SIZE];
 
