@@ -299,25 +299,30 @@ struct BITBUF
 		head_part_left = 8 - (uint8_t)(bitoffset % 8);
 		pBuf += bitoffset / 8;
 
-		if (head_part_left < n)
+		if (head_part_left <= n)
 		{
 			body_cout_of_bytes = (n - head_part_left) / 8;
 			tail_part_left = (n - head_part_left) % 8;
-		}
 
-		u64Val = (*pBuf)&((1 << head_part_left) - 1); pBuf++; cbBuf--;
+			u64Val = (*pBuf)&((1 << head_part_left) - 1); pBuf++; cbBuf--;
 
-		for (uint8_t i = 0; i < body_cout_of_bytes; i++) {
-			u64Val = (u64Val << 8) | (*pBuf);
-			pBuf++; cbBuf--;
-		}
+			for (uint8_t i = 0; i < body_cout_of_bytes; i++) {
+				u64Val = (u64Val << 8) | (*pBuf);
+				pBuf++; cbBuf--;
+			}
 
-		if (tail_part_left > 0) {
-			u64Val = (u64Val << tail_part_left) | (((*pBuf) >> (8 - tail_part_left))&((1 << tail_part_left) - 1));
-			bitoffset = tail_part_left;
+			if (tail_part_left > 0) {
+				u64Val = (u64Val << tail_part_left) | (((*pBuf) >> (8 - tail_part_left))&((1 << tail_part_left) - 1));
+				bitoffset = tail_part_left;
+			}
+			else
+				bitoffset = 0;
 		}
 		else
-			bitoffset = 0;
+		{
+			u64Val = (((*pBuf)&((1 << head_part_left) - 1)) >> (head_part_left - n))&((1 << n) - 1);
+			bitoffset += n;
+		}
 
 		uVal = (T)(u64Val);
 
