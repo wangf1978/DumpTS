@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 MIT License
 
@@ -553,6 +553,8 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	bool bAnnexB = m_pCtx->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
 	int tu_frame_type = INT32_MIN;
+	bool bNewGOP = false;
+	bool bNewVSeq = false;
 	OBU_PARSE_PARAMS parse_params = m_TU_parse_params, next_parse_params = m_TU_parse_params;
 
 	temporal_unit_size = BST::AV1::leb128(pBuf + cbParsed, cbSize - cbParsed, &cbLeb128);
@@ -695,11 +697,23 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 				}
 				else if (obu_type == OBU_SEQUENCE_HEADER)
 				{
+					// 7.5. Ordering of OBUs
+					//	A new coded video sequence is defined to start at each temporal unit which satisfies both of the following conditions :
+					//		• A sequence header OBU appears before the first frame header.
+					bool bHitFirstSeqHdrOBU = m_pCtx->GetSeqHdrOBU() == nullptr ? true : false;
+
 					// Update the Sequence Header OBU to the AV1 context
 					if (AMP_FAILED(iRet == UpdateSeqHdrToContext(pBuf + cbParsed, obu_length)))
 					{
 						iRet = RET_CODE_ABORT;
 						goto done;
+					}
+
+					if (iRet == RET_CODE_SUCCESS)
+					{
+						if (bHitFirstSeqHdrOBU)
+							bNewGOP = true;
+						bNewVSeq = true;
 					}
 				}
 				else if (obu_type == OBU_FRAME_HEADER || obu_type == OBU_FRAME || obu_type == OBU_REDUNDANT_FRAME_HEADER)
@@ -708,6 +722,17 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 					{
 						iRet = RET_CODE_ABORT;
 						goto done;
+					}
+
+					// 7.5. Ordering of OBUs
+					//	A new coded video sequence is defined to start at each temporal unit which satisfies both of the following conditions :
+					//		• A sequence header OBU appears before the first frame header.
+					//		• The first frame header has frame_type equal to KEY_FRAME, show_frame equal to 1, show_existing_frame
+					//		  equal to 0, and temporal_id equal to 0.
+					if (!obu_hdr.obu_extension_flag || (obu_hdr.obu_extension_flag && obu_hdr.obu_extension_header.temporal_id == 0))
+					{
+						if (!next_parse_params.show_existing_frame && next_parse_params.show_frame && next_parse_params.frame_type == KEY_FRAME)
+							bNewGOP = true;
 					}
 				}
 
@@ -733,6 +758,18 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 	// prepare the notification for the current TU
 	if (m_av1_enum != nullptr && AMP_SUCCEEDED(iRet))
 	{
+		if (bNewVSeq && (m_av1_enum_options&AV1_ENUM_OPTION_VSEQ) && AMP_FAILED(m_av1_enum->EnumNewVSEQ(m_pCtx)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		if (bNewGOP && (m_av1_enum_options&AV1_ENUM_OPTION_CVS) && AMP_FAILED(m_av1_enum->EnumNewCVS(m_pCtx, 0)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
 		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, tu_frame_type)))
 		{
 			iRet = RET_CODE_ABORT;
@@ -811,6 +848,8 @@ RET_CODE CAV1Parser::SubmitTU()
 	uint32_t cbSize = (uint32_t)cbTUBuf;
 	int tu_frame_type = INT32_MIN;
 	bool bCompleteFUFound = false;
+	bool bNewGOP = false;
+	bool bNewVSeq = false;
 
 	std::vector<
 		std::tuple<uint32_t			/* offset to TU start */, 
@@ -973,11 +1012,23 @@ RET_CODE CAV1Parser::SubmitTU()
 		}
 		else if (obu_type == OBU_SEQUENCE_HEADER)
 		{
+			// 7.5. Ordering of OBUs
+			//	A new coded video sequence is defined to start at each temporal unit which satisfies both of the following conditions :
+			//		• A sequence header OBU appears before the first frame header.
+			bool bHitFirstSeqHdrOBU = m_pCtx->GetSeqHdrOBU() == nullptr ? true : false;
+			
 			// Update the Sequence Header OBU to the AV1 context
-			if (AMP_FAILED(iRet == UpdateSeqHdrToContext(pOBUBuf, obu_length)))
+			if (AMP_FAILED(iRet = UpdateSeqHdrToContext(pOBUBuf, obu_length)))
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
+			}
+
+			if (iRet == RET_CODE_SUCCESS)
+			{
+				if (bHitFirstSeqHdrOBU)
+					bNewGOP = true;
+				bNewVSeq = true;
 			}
 		}
 		else if (obu_type == OBU_FRAME_HEADER || obu_type == OBU_FRAME || obu_type == OBU_REDUNDANT_FRAME_HEADER)
@@ -986,6 +1037,17 @@ RET_CODE CAV1Parser::SubmitTU()
 			{
 				iRet = RET_CODE_ABORT;
 				goto done;
+			}
+
+			// 7.5. Ordering of OBUs
+			//	A new coded video sequence is defined to start at each temporal unit which satisfies both of the following conditions :
+			//		• A sequence header OBU appears before the first frame header.
+			//		• The first frame header has frame_type equal to KEY_FRAME, show_frame equal to 1, show_existing_frame
+			//		  equal to 0, and temporal_id equal to 0.
+			if (!obu_hdr.obu_extension_flag || (obu_hdr.obu_extension_flag && obu_hdr.obu_extension_header.temporal_id == 0))
+			{
+				if (!next_parse_params.show_existing_frame && next_parse_params.show_frame && next_parse_params.frame_type == KEY_FRAME)
+					bNewGOP = true;
 			}
 
 			if (next_parse_params.SeenFrameHeader == false)
@@ -1023,6 +1085,18 @@ RET_CODE CAV1Parser::SubmitTU()
 	// prepare the notification for the current TU
 	if (m_av1_enum != nullptr && AMP_SUCCEEDED(iRet))
 	{
+		if (bNewVSeq && (m_av1_enum_options&AV1_ENUM_OPTION_VSEQ) && AMP_FAILED(m_av1_enum->EnumNewVSEQ(m_pCtx)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		if (bNewGOP && (m_av1_enum_options&AV1_ENUM_OPTION_CVS) && AMP_FAILED(m_av1_enum->EnumNewCVS(m_pCtx, 0)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
 		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, tu_frame_type)))
 		{
 			iRet = RET_CODE_ABORT;
@@ -1074,7 +1148,7 @@ done:
 
 RET_CODE CAV1Parser::UpdateSeqHdrToContext(const uint8_t* pOBUBuf, uint32_t cbOBUBuf)
 {
-	int iRet = RET_CODE_SUCCESS;
+	int iRet = RET_CODE_NOTHING_TODO;
 	AMBst in_bst = nullptr;
 	// Try to update the sequence header
 	SHA1HashVaue currHashValue(pOBUBuf, cbOBUBuf);
@@ -1095,10 +1169,17 @@ RET_CODE CAV1Parser::UpdateSeqHdrToContext(const uint8_t* pOBUBuf, uint32_t cbOB
 			goto done;
 		}
 
-		if (AMP_SUCCEEDED(sp_obu_seq_hdr->Map(in_bst)))
+		if (AMP_SUCCEEDED(iRet = sp_obu_seq_hdr->Map(in_bst)))
 		{
-			sp_obu_seq_hdr->obu_hash_value.UpdateHash(pOBUBuf, cbOBUBuf);
-			m_pCtx->UpdateSeqHdrOBU(sp_obu_seq_hdr);
+			if (!sp_obu_seq_hdr->obu_header.obu_extension_flag ||
+				(sp_obu_seq_hdr->obu_header.obu_extension_flag && sp_obu_seq_hdr->obu_header.obu_extension_header.temporal_id == 0))
+			{
+				sp_obu_seq_hdr->obu_hash_value.UpdateHash(pOBUBuf, cbOBUBuf);
+				m_pCtx->UpdateSeqHdrOBU(sp_obu_seq_hdr);
+				iRet = RET_CODE_SUCCESS;
+			}
+			else
+				iRet = RET_CODE_NOTHING_TODO;
 		}
 	}
 
@@ -1257,6 +1338,7 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 	if (pSeqHdrOBU->reduced_still_picture_header)
 	{
 		curr_parse_params.show_existing_frame = false;
+		curr_parse_params.show_frame = true;
 		curr_parse_params.frame_type = KEY_FRAME;
 		FrameIsIntra = true;
 	}
@@ -1295,6 +1377,8 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 		FrameIsIntra = (curr_parse_params.frame_type == INTRA_ONLY_FRAME ||
 						curr_parse_params.frame_type == KEY_FRAME);
 		if (AMP_FAILED(iRet = bitbuf.GetFlag(show_frame)))goto done;
+
+		curr_parse_params.show_frame = show_frame;
 
 		if (show_frame && pSeqHdrOBU->decoder_model_info_present_flag && !pSeqHdrOBU->ptr_timing_info->equal_picture_interval)
 		{

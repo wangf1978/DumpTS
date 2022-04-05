@@ -133,7 +133,7 @@ struct MSENav
 			MSEID_RANGE		obu;
 			MSEID_RANGE		fu;
 			MSEID_RANGE		tu;
-			MSEID_RANGE		gop;
+			MSEID_RANGE		cvs;
 			MSEID_RANGE		vseq;
 		}AV1;
 		struct
@@ -193,7 +193,7 @@ std::vector<std::string> MSENav::nal_supported_authority_components
 std::vector<std::string> MSENav::audio_supported_authority_components 
 					= { "au" };
 std::vector<std::string> MSENav::av1_supported_authority_components 
-					= { "vseq", "gop", "tu", "fu", "obu", "frame" };
+					= { "vseq", "cvs", "tu", "fu", "obu", "frame" };
 std::vector<std::string> MSENav::mpv_supported_authority_components 
 					= { "vseq", "gop", "au", "se", "slice", "mb"};
 
@@ -215,7 +215,7 @@ void MSENav::InitAs(MSEID mseid)
 		AV1.obu.Reset(mseid);
 		AV1.fu.Reset(mseid);
 		AV1.tu.Reset(mseid);
-		AV1.gop.Reset(mseid);
+		AV1.cvs.Reset(mseid);
 		AV1.vseq.Reset(mseid);
 	}
 	else if (scheme_type == MEDIA_SCHEME_MPV)
@@ -253,7 +253,7 @@ uint32_t MSENav::GetEnumOptions()
 		if (!NAL.cvs.IsNull() && !NAL.cvs.IsNaR())
 			enum_options |= NAL_ENUM_OPTION_CVS;
 
-		if (!NAL.vseq.IsNull() && !NAL.cvs.IsNaR())
+		if (!NAL.vseq.IsNull() && !NAL.vseq.IsNaR())
 			enum_options |= NAL_ENUM_OPTION_VSEQ;
 	}
 	else if (scheme_type == MEDIA_SCHEME_AV1)
@@ -266,6 +266,12 @@ uint32_t MSENav::GetEnumOptions()
 
 		if (!AV1.tu.IsNull() && !AV1.tu.IsNaR())
 			enum_options |= AV1_ENUM_OPTION_TU;
+
+		if (!AV1.cvs.IsNull() && !AV1.cvs.IsNaR())
+			enum_options |= AV1_ENUM_OPTION_CVS;
+
+		if (!AV1.vseq.IsNull() && !AV1.vseq.IsNaR())
+			enum_options |= AV1_ENUM_OPTION_VSEQ;
 	}
 	else if (scheme_type == MEDIA_SCHEME_MPV)
 	{
@@ -598,9 +604,9 @@ int MSENav::CheckAudioLAuthorityComponent(size_t idxComponent)
 
 int MSENav::CheckAV1AuthorityComponent(size_t idxComponent)
 {
-	// Check the occur sequence according to "vseq", "gop", "tu", "fu", "obu", "frame" 
-	if ((idxComponent > 0 && !AV1.vseq.IsNull() && !MPV.vseq.IsNaR()) || // gop or deeper
-		(idxComponent > 1 && !AV1.gop.IsNull() && !MPV.gop.IsNaR()) ||	 // TU or deeper happen, vseq and gop should NOT happen
+	// Check the occur sequence according to "vseq", "cvs", "tu", "fu", "obu", "frame" 
+	if ((idxComponent > 0 && !AV1.vseq.IsNull() && !AV1.vseq.IsNaR()) || // CVS/GOP or deeper
+		(idxComponent > 1 && !AV1.cvs.IsNull() && !AV1.cvs.IsNaR()) ||	 // TU or deeper happen, vseq and gop should NOT happen
 		(idxComponent > 2 && !AV1.tu.IsNull() && !AV1.tu.IsNaR()) ||
 		(idxComponent > 3 && !AV1.fu.IsNull() && !AV1.fu.IsNaR()))
 	{
@@ -682,7 +688,7 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 	}
 	case MEDIA_SCHEME_AV1:
 	{
-		MSEID_RANGE* ranges[] = { &AV1.vseq, &AV1.gop, &AV1.tu, &AV1.fu, &AV1.obu, &AV1.obu_frame };
+		MSEID_RANGE* ranges[] = { &AV1.vseq, &AV1.cvs, &AV1.tu, &AV1.fu, &AV1.obu, &AV1.obu_frame };
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, av1_supported_authority_components, ranges);
 		break;
 	}
@@ -1791,7 +1797,7 @@ public:
 				m_level[i] = next_level;
 
 				// CVS is the point, not a range
-				if (i == AV1_LEVEL_VSEQ || i == AV1_LEVEL_GOP)
+				if (i == AV1_LEVEL_VSEQ || i == AV1_LEVEL_CVS)
 					m_unit_index[next_level] = -1;
 				else
 					m_unit_index[next_level] = 0;
@@ -1824,8 +1830,8 @@ public:
 	RET_CODE EnumNewVSEQ(IUnknown* pCtx)
 	{
 		m_unit_index[m_level[AV1_LEVEL_VSEQ]]++;
-		if (m_level[AV1_LEVEL_GOP] > 0)
-			m_unit_index[m_level[AV1_LEVEL_GOP]] = -1;
+		if (m_level[AV1_LEVEL_CVS] > 0)
+			m_unit_index[m_level[AV1_LEVEL_CVS]] = -1;
 		if (m_level[AV1_LEVEL_TU] > 0)
 			m_unit_index[m_level[AV1_LEVEL_TU]] = 0;
 		if (m_level[AV1_LEVEL_FU] > 0)
@@ -1867,12 +1873,12 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumNewGOP(IUnknown* pCtx, int8_t represent_nal_unit_type)
+	RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t reserved)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 
-		m_unit_index[m_level[AV1_LEVEL_GOP]]++;
+		m_unit_index[m_level[AV1_LEVEL_CVS]]++;
 		if (m_level[AV1_LEVEL_TU] > 0)
 			m_unit_index[m_level[AV1_LEVEL_TU]] = 0;
 		if (m_level[AV1_LEVEL_FU] > 0)
@@ -1882,13 +1888,13 @@ public:
 			m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
 
 		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(AV1_LEVEL_GOP)) != RET_CODE_SUCCESS)
+		if ((iRet = CheckFilter(AV1_LEVEL_CVS)) != RET_CODE_SUCCESS)
 			return iRet;
 
 		const char* szGOPType = "";
 
-		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sGOP#%" PRId64 " %s",
-			(m_level[AV1_LEVEL_GOP]) * 4, g_szRule, m_unit_index[m_level[AV1_LEVEL_GOP]], szGOPType);
+		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sCVS#%" PRId64 " %s",
+			(m_level[AV1_LEVEL_CVS]) * 4, g_szRule, m_unit_index[m_level[AV1_LEVEL_CVS]], szGOPType);
 
 		if (ccWrittenOnce <= 0)
 			return RET_CODE_NOTHING_TODO;
@@ -1904,7 +1910,7 @@ public:
 
 		ccWritten += ccWrittenOnce;
 
-		AppendURI(szItem, ccWritten, AV1_LEVEL_GOP);
+		AppendURI(szItem, ccWritten, AV1_LEVEL_CVS);
 
 		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
@@ -2121,7 +2127,7 @@ protected:
 			return RET_CODE_SUCCESS;
 
 		MSEID_RANGE filter[] = { 
-			MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->AV1.vseq, m_pMSENav->AV1.gop, m_pMSENav->AV1.tu, m_pMSENav->AV1.fu, m_pMSENav->AV1.obu,
+			MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->AV1.vseq, m_pMSENav->AV1.cvs, m_pMSENav->AV1.tu, m_pMSENav->AV1.fu, m_pMSENav->AV1.obu,
 			MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() 
 		};
 

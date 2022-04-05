@@ -164,6 +164,7 @@ struct OBU_PARSE_PARAMS
 {
 	bool					SeenFrameHeader = false;
 	bool					show_existing_frame = false;
+	bool					show_frame = false;
 	uint8_t					refresh_frame_flags = 0;
 	int8_t					frame_type = -1;			// current frame type
 	int32_t					previous_frame_id = -1;

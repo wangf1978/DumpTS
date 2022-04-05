@@ -818,24 +818,14 @@ public:
 	}
 
 public:
-	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) {
-		return RET_CODE_SUCCESS;
-	}
-	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type) {
-		return RET_CODE_SUCCESS;
-	}
-	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {
-		return RET_CODE_SUCCESS;
-	}
-	RET_CODE EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {
-		return RET_CODE_SUCCESS;
-	}
-	RET_CODE EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {
-		return RET_CODE_SUCCESS;
-	}
-	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) {
-		return RET_CODE_SUCCESS;
-	}
+	RET_CODE EnumNewVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t reserved) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) {return RET_CODE_SUCCESS;}
+	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type) {return RET_CODE_SUCCESS;}
+	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) {return RET_CODE_SUCCESS;}
+	RET_CODE EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf) {return RET_CODE_SUCCESS;}
+	RET_CODE EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size) {return RET_CODE_SUCCESS;}
+	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) {return RET_CODE_SUCCESS;}
 
 protected:
 	IAV1Context* m_pAV1Context = nullptr;
@@ -846,6 +836,8 @@ class CAV1ShowOBUEnumerator : public CAV1BaseEnumerator
 public:
 	CAV1ShowOBUEnumerator(IAV1Context* pCtx) : CAV1BaseEnumerator(pCtx) {}
 
+	RET_CODE EnumNewVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
+	RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t reserved) { return RET_CODE_SUCCESS; }
 	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) {
 		m_FU_count_in_TU = 0;
 		printf("Temporal Unit#[%" PRId64 "]:\n", m_TU_count);

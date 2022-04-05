@@ -60,14 +60,14 @@ SOFTWARE.
 	(lvl_id) == MPV_LEVEL_MB?"MB":"")))))
 
 #define AV1_LEVEL_VSEQ				2
-#define AV1_LEVEL_GOP				3
+#define AV1_LEVEL_CVS				3
 #define AV1_LEVEL_TU				4
 #define AV1_LEVEL_FU				5
 #define AV1_LEVEL_OBU				6
 
 #define AV1_LEVEL_NAME(lvl_id)	(\
 	(lvl_id) == AV1_LEVEL_VSEQ?"VSEQ":(\
-	(lvl_id) == AV1_LEVEL_GOP?"GOP":(\
+	(lvl_id) == AV1_LEVEL_CVS?"CVS":(\
 	(lvl_id) == AV1_LEVEL_TU?"TU":(\
 	(lvl_id) == AV1_LEVEL_FU?"FU":(\
 	(lvl_id) == AV1_LEVEL_OBU?"OBU":"")))))
@@ -86,7 +86,7 @@ enum MSE_ENUM_OPTION
 	NAL_ENUM_OPTION_SEI_MSG	= (1 << NAL_LEVEL_SEI_MSG),
 	NAL_ENUM_OPTION_SEI_PAYLOAD
 							= (1 << NAL_LEVEL_SEI_PAYLOAD),
-	NAL_ENUM_OPTION_ALL		= (NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_NU | NAL_ENUM_OPTION_SEI_MSG | NAL_ENUM_OPTION_SEI_PAYLOAD),
+	NAL_ENUM_OPTION_ALL		= (NAL_ENUM_OPTION_VSEQ | NAL_ENUM_OPTION_CVS | NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_NU | NAL_ENUM_OPTION_SEI_MSG | NAL_ENUM_OPTION_SEI_PAYLOAD),
 
 	//
 	// For MPV media scheme
@@ -96,15 +96,17 @@ enum MSE_ENUM_OPTION
 	MPV_ENUM_OPTION_AU		= (1 << MPV_LEVEL_AU),
 	MPV_ENUM_OPTION_SE		= (1 << MPV_LEVEL_SE),
 	MPV_ENUM_OPTION_MB		= (1 << MPV_LEVEL_MB),
-	MPV_ENUM_OPTION_ALL		= (MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_SE | MPV_ENUM_OPTION_MB),
+	MPV_ENUM_OPTION_ALL		= (MPV_ENUM_OPTION_VSEQ | MPV_ENUM_OPTION_GOP | MPV_ENUM_OPTION_AU | MPV_ENUM_OPTION_SE | MPV_ENUM_OPTION_MB),
 
 	//
 	// For AV1 media scheme
 	//
+	AV1_ENUM_OPTION_VSEQ	= (1 << AV1_LEVEL_VSEQ),
+	AV1_ENUM_OPTION_CVS		= (1 << AV1_LEVEL_CVS),
 	AV1_ENUM_OPTION_TU		= (1 << AV1_LEVEL_TU),	// Temporal Unit
 	AV1_ENUM_OPTION_FU		= (1 << AV1_LEVEL_FU),	// Frame Unit
 	AV1_ENUM_OPTION_OBU		= (1 << AV1_LEVEL_OBU),	// Open Bitstream Unit
-	AV1_ENUM_OPTION_ALL		= (AV1_ENUM_OPTION_TU | AV1_ENUM_OPTION_FU | AV1_ENUM_OPTION_OBU),
+	AV1_ENUM_OPTION_ALL		= (AV1_ENUM_OPTION_VSEQ | AV1_ENUM_OPTION_CVS | AV1_ENUM_OPTION_TU | AV1_ENUM_OPTION_FU | AV1_ENUM_OPTION_OBU),
 
 	//
 	// For general audio scheme
@@ -171,6 +173,8 @@ public:
 class IAV1Enumerator : public IUnknown
 {
 public:
+	virtual RET_CODE		EnumNewVSEQ(IUnknown* pCtx) = 0;
+	virtual RET_CODE		EnumNewCVS(IUnknown* pCtx, int8_t reserved) = 0;
 	virtual RET_CODE		EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) = 0;
 	virtual RET_CODE		EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type) = 0;
 	virtual RET_CODE		EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size) = 0;
