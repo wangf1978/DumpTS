@@ -568,6 +568,14 @@ int MSENav::NormalizeAuthorityPart()
 				NAL.nu.Reset(MSE_UNSPECIFIED);
 		}
 	}
+	else if (scheme_type == MEDIA_SCHEME_AV1)
+	{
+		if (AV1.obu.IsNull())
+		{
+			if (!AV1.obu_frame.IsNull())
+				AV1.obu.Reset(MSE_UNSPECIFIED);
+		}
+	}
 
 	return RET_CODE_SUCCESS;
 }
@@ -2003,13 +2011,14 @@ public:
 		int ccWrittenOnce = 0;
 
 		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(AV1_LEVEL_OBU)) == RET_CODE_SUCCESS)
+		if ((iRet = CheckFilter(AV1_LEVEL_OBU, obu_type)) == RET_CODE_SUCCESS)
 		{
 			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 			{
+				bool bOnlyFrameOBU = OnlyFrameOBU();
 				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
-					(m_level[AV1_LEVEL_OBU]) * 4, g_szRule, "OBU",
-					m_unit_index[m_level[AV1_LEVEL_OBU]], GetOBUName(obu_type));
+					(m_level[AV1_LEVEL_OBU]) * 4, g_szRule, bOnlyFrameOBU?"Frame":"OBU",
+					bOnlyFrameOBU?m_curr_frameobu_count:m_unit_index[m_level[AV1_LEVEL_OBU]], GetOBUName(obu_type));
 
 				if (ccWrittenOnce <= 0)
 					return RET_CODE_NOTHING_TODO;
