@@ -523,6 +523,24 @@ SOFTWARE.
 			printf("<%s Alias=\"%s\" Offset=\"%lld\" Desc=\"%s\" />", Group_Name, Group_Alias, bit_offset?*bit_offset:-1LL, szTemp2);\
 		AMP_NOP1(((void)0))
 
+#define NAV_WRITE_TAG_WITH_VALUEFMTSTR(Group_Name, FormatStr, TAG_Desc, ...)	\
+		if(szOutXml != 0 && cbLen > 0)\
+			cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s Desc=\"%s\" Value=\"" FormatStr "\" />", Group_Name, TAG_Desc, ##__VA_ARGS__);\
+		else\
+			cbRequired += MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "<%s Desc=\"%s\" Value=\"" FormatStr "\" />", Group_Name, TAG_Desc, ##__VA_ARGS__);\
+		if(bPrint)\
+			printf("<%s Desc=\"%s\" Value=\"" FormatStr "\" />", Group_Name, TAG_Desc, ##__VA_ARGS__);\
+		AMP_NOP1(((void)0))
+
+#define NAV_WRITE_TAGALIAS_WITH_VALUEFMTSTR(TAG_Name, TAG_Alias, FormatStr, TAG_Desc, ...)	\
+		if(szOutXml != 0 && cbLen > 0)\
+			cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s Alias=\"%s\" Desc=\"%s\" Value=\"" FormatStr "\" />", TAG_Name, TAG_Alias, TAG_Desc, ##__VA_ARGS__);\
+		else\
+			cbRequired += MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "<%s Alias=\"%s\" Desc=\"%s\" Value=\"" FormatStr "\" />", TAG_Name, TAG_Alias, TAG_Desc, ##__VA_ARGS__);\
+		if(bPrint)\
+			printf("<%s Alias=\"%s\" Desc=\"%s\" Value=\"" FormatStr "\" />", TAG_Name, TAG_Alias, TAG_Desc, ##__VA_ARGS__);\
+		AMP_NOP1(((void)0))
+
 #define NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE(Group_Name, Group_Alias, FormatStr, nValue, TAG_Desc, ...)	\
 		MBCSPRINTF_S(szTemp4, TEMP4_SIZE, Group_Alias, ##__VA_ARGS__);\
 		if(szOutXml != 0 && cbLen > 0)\

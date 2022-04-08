@@ -519,7 +519,7 @@ void PrintOBUSyntaxElement(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, in
 	}
 	catch (...)
 	{
-		printf("Can't parse the NAL bitstream.\n");
+		printf("Can't parse the AV1 bitstream.\n");
 	}
 
 done:

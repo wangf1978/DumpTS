@@ -1224,7 +1224,10 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 			// decode_frame_wrapup()
 			curr_parse_params.SeenFrameHeader = false;
 
-			curr_parse_params.UpdateRefreshFrame();
+			curr_parse_params.UpdateRefreshFrame(m_next_frame_seq_id);
+
+			m_next_frame_seq_id = ((uint32_t)m_next_frame_seq_id + 1) % ((uint32_t)UINT16_MAX + 1);
+
 			if (g_verbose_level > 0)
 				printf("Finished decoding a frame by re-using the previous frame.\n");
 		}
@@ -1270,7 +1273,9 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 				*/
 				curr_parse_params.SeenFrameHeader = false;
 
-				curr_parse_params.UpdateRefreshFrame();
+				curr_parse_params.UpdateRefreshFrame(m_next_frame_seq_id);
+
+				m_next_frame_seq_id = ((uint32_t)m_next_frame_seq_id + 1) % ((uint32_t)UINT16_MAX + 1);
 
 				if (g_verbose_level > 0)
 					printf("Finished decoding a frame after decoding the last tile.\n");
@@ -1519,7 +1524,7 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 			if (AMP_FAILED(iRet = bitbuf.GetValue(3, last_frame_idx)))goto done;
 			if (AMP_FAILED(iRet = bitbuf.GetValue(3, gold_frame_idx)))goto done;
 
-			if (AMP_FAILED(iRet = set_frame_refs(spSeqHdrOBU, bitbuf, curr_parse_params, last_frame_idx, gold_frame_idx, ref_frame_idx)))goto done;
+			if (AMP_FAILED(iRet = set_frame_refs(spSeqHdrOBU, curr_parse_params, last_frame_idx, gold_frame_idx, ref_frame_idx)))goto done;
 		}
 
 		for (uint8_t i = 0; i < REFS_PER_FRAME; i++)
@@ -1817,17 +1822,17 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 		int8_t forwardIdx = -1, backwardIdx = -1, forwardHint = -1, backwardHint = -1;
 		for (int8_t i = 0; i < REFS_PER_FRAME; i++) {
 			auto refHint = curr_parse_params.VBI[ref_frame_idx[i]].RefOrderHint;
-			auto diff = get_relative_dist(spSeqHdrOBU, refHint, curr_parse_params.OrderHint);
+			auto diff = spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, curr_parse_params.OrderHint);
 			if (diff < 0)
 			{
-				if (forwardIdx < 0 || get_relative_dist(spSeqHdrOBU, refHint, forwardHint) > 0) {
+				if (forwardIdx < 0 || spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, forwardHint) > 0) {
 					forwardIdx = i;
 					forwardHint = refHint;
 				}
 			}
 			else if (diff > 0)
 			{
-				if (backwardIdx < 0 || get_relative_dist(spSeqHdrOBU, refHint, backwardHint) < 0) {
+				if (backwardIdx < 0 || spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, backwardHint) < 0) {
 					backwardIdx = i;
 					backwardHint = refHint;
 				}
@@ -1844,9 +1849,9 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 			int8_t secondForwardIdx = -1, secondForwardHint = -1;
 			for (int8_t i = 0; i < REFS_PER_FRAME; i++) {
 				auto refHint = curr_parse_params.VBI[ref_frame_idx[i]].RefOrderHint;
-				if (get_relative_dist(spSeqHdrOBU, refHint, forwardHint) < 0) {
+				if (spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, forwardHint) < 0) {
 					if (secondForwardIdx < 0 ||
-						get_relative_dist(spSeqHdrOBU, refHint, secondForwardHint) > 0) {
+						spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, secondForwardHint) > 0) {
 						secondForwardIdx = i;
 						secondForwardHint = refHint;
 					}
@@ -2017,54 +2022,9 @@ RET_CODE CAV1Parser::frame_size_with_refs(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, O
 	return iRet;
 }
 
-int8_t find_latest_backward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint){
-	int8_t ref = -1;
-	int16_t latestOrderHint = -1;
-	for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
-		auto hint = shiftedOrderHints[i];
-		if (!usedFrame[i] &&
-			hint >= curFrameHint &&
-			(ref < 0 || hint >= latestOrderHint)) {
-			ref = i;
-			latestOrderHint = hint;
-		}
-	}
-	return ref;
-}
-
-int8_t find_earliest_backward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint) {
-	int8_t ref = -1;
-	int16_t earliestOrderHint = INT8_MAX;
-	for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
-		auto hint = shiftedOrderHints[i];
-		if (!usedFrame[i] &&
-			hint >= curFrameHint &&
-			(ref < 0 || hint < earliestOrderHint)) {
-			ref = i;
-			earliestOrderHint = hint;
-		}
-	}
-	return ref;
-}
-
-int8_t find_latest_forward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint) {
-	int8_t ref = -1;
-	int16_t latestOrderHint = -1;
-	for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
-		auto hint = shiftedOrderHints[i];
-		if (!usedFrame[i] &&
-			hint < curFrameHint &&
-			(ref < 0 || hint >= latestOrderHint)) {
-			ref = i;
-			latestOrderHint = hint;
-		}
-	}
-	return ref;
-}
-
 RET_CODE CAV1Parser::set_frame_refs(
-	AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params,
-	int8_t last_frame_idx, int gold_frame_idx, int8_t ref_frame_idx[REFS_PER_FRAME])
+	AV1_OBU spSeqHdrOBU, OBU_PARSE_PARAMS& obu_parse_params,
+	int8_t last_frame_idx, int8_t gold_frame_idx, int8_t ref_frame_idx[REFS_PER_FRAME])
 {
 	int iRet = RET_CODE_SUCCESS;
 	bool usedFrame[REFS_PER_FRAME] = { 0 };
@@ -2080,25 +2040,25 @@ RET_CODE CAV1Parser::set_frame_refs(
 
 	uint8_t curFrameHint = (uint8_t)(1 << (spSeqHdrOBU->ptr_sequence_header_obu->OrderHintBits - 1));
 	for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
-		shiftedOrderHints[i] = curFrameHint + get_relative_dist(spSeqHdrOBU, obu_parse_params.VBI[i].RefOrderHint, obu_parse_params.OrderHint);
+		shiftedOrderHints[i] = curFrameHint + spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(obu_parse_params.VBI[i].RefOrderHint, obu_parse_params.OrderHint);
 
 	int16_t lastOrderHint = shiftedOrderHints[last_frame_idx];
 	int16_t goldOrderHint = shiftedOrderHints[gold_frame_idx];
 
-	int16_t ref = find_latest_backward(shiftedOrderHints, usedFrame, curFrameHint);
+	int16_t ref = BST::AV1::find_latest_backward(shiftedOrderHints, usedFrame, curFrameHint);
 
 	if (ref >= 0) {
 		ref_frame_idx[ALTREF_FRAME - LAST_FRAME] = (int8_t)ref;
 		usedFrame[ref] = true;
 	}
 
-	ref = find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
+	ref = BST::AV1::find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
 	if (ref >= 0) {
 		ref_frame_idx[BWDREF_FRAME - LAST_FRAME] = (int8_t)ref;
 		usedFrame[ref] = true;
 	}
 
-	ref = find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
+	ref = BST::AV1::find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
 	if (ref >= 0) {
 		ref_frame_idx[ALTREF2_FRAME - LAST_FRAME] = (int8_t)ref;
 		usedFrame[ref] = true;
@@ -2107,7 +2067,7 @@ RET_CODE CAV1Parser::set_frame_refs(
 	for (uint8_t i = 0; i < REFS_PER_FRAME - 2; i++) {
 		auto refFrame = Ref_Frame_List[i];
 		if (ref_frame_idx[refFrame - LAST_FRAME] < 0) {
-			auto ref = find_latest_forward(shiftedOrderHints, usedFrame, curFrameHint);
+			auto ref = BST::AV1::find_latest_forward(shiftedOrderHints, usedFrame, curFrameHint);
 			if (ref >= 0) {
 				ref_frame_idx[refFrame - LAST_FRAME] = (int8_t)ref;
 				usedFrame[ref] = true;
@@ -2131,16 +2091,6 @@ RET_CODE CAV1Parser::set_frame_refs(
 	}
 
 	return iRet;
-}
-
-int16_t CAV1Parser::get_relative_dist(AV1_OBU spSeqHdrOBU, int16_t a, int16_t b)
-{
-	if (!spSeqHdrOBU->ptr_sequence_header_obu->enable_order_hint)
-		return 0;
-	int16_t diff = a - b;
-	uint8_t m = 1 << (spSeqHdrOBU->ptr_sequence_header_obu->OrderHintBits - 1);
-	diff = (diff & (m - 1)) - (diff & m);
-	return diff;
 }
 
 RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params)
@@ -2256,13 +2206,11 @@ done:
 RET_CODE CAV1Parser::global_motion_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params, bool FrameIsIntra, bool allow_high_precision_mv)
 {
 	int iRet = RET_CODE_SUCCESS;
-	uint8_t GmType[NUM_REF_FRAMES];
-	int32_t gm_params[NUM_REF_FRAMES][6];
 
 	for (int8_t ref = LAST_FRAME; ref <= ALTREF_FRAME; ref++) {
-		GmType[ref] = IDENTITY;
+		obu_parse_params.GmType[ref-LAST_FRAME] = IDENTITY;
 		for (uint8_t i = 0; i < 6; i++) {
-			gm_params[ref][i] = ((i % 3 == 2) ?
+			obu_parse_params.gm_params[ref-LAST_FRAME][i] = ((i % 3 == 2) ?
 				1 << WARPEDMODEL_PREC_BITS : 0);
 		}
 	}
@@ -2290,7 +2238,7 @@ RET_CODE CAV1Parser::global_motion_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, O
 		else
 			type = IDENTITY;
 
-		GmType[ref] = type;
+		obu_parse_params.GmType[ref - LAST_FRAME] = type;
 
 		if (type >= ROTZOOM) {
 			if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 2, allow_high_precision_mv)))goto done;
@@ -2469,7 +2417,7 @@ RET_CODE CAV1Parser::read_global_param(BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_par
 	int32_t round = (idx % 3) == 2 ? (1 << WARPEDMODEL_PREC_BITS) : 0;
 	int32_t sub = (idx % 3) == 2 ? (1 << precBits) : 0;
 	int32_t mx = (1 << absBits);
-	int32_t r = (obu_parse_params.dependency_params.PrevGmParams[ref][idx] >> precDiff) - sub;
+	int32_t r = (obu_parse_params.PrevGmParams[ref - LAST_FRAME][idx] >> precDiff) - sub;
 	int32_t val;
 	int iRet = decode_signed_subexp_with_ref(bitbuf, -mx, mx + 1, r, val);
 	if (AMP_FAILED(iRet))return iRet;

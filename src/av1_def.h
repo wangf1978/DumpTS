@@ -62,6 +62,15 @@ typedef enum {
 	SEG_LVL_MAX
 } SEG_LVL_FEATURES;
 
+#define SEG_LVL_NAMEA(seg_lvl)		((seg_lvl) == 0?"ALT_Q":(\
+									 (seg_lvl) == 1?"ALT_LF_Y_V":(\
+									 (seg_lvl) == 2?"ALT_LF_Y_H":(\
+									 (seg_lvl) == 3?"ALT_LF_U":(\
+									 (seg_lvl) == 4?"ALT_LF_V":(\
+									 (seg_lvl) == 5?"REF_FRAME":(\
+									 (seg_lvl) == 6?"SKIP":(\
+									 (seg_lvl) == 7?"GLOBALMV":""))))))))
+
 #if 0
 #define SEG_LVL_ALT_Q				0				// Index for quantizer segment feature
 #define SEG_LVL_ALT_LF_Y_V			1				// Index for vertical luma loop filter segment feature
@@ -379,5 +388,183 @@ struct WarpedMotionParams
 	int16_t				alpha, beta, gamma, delta;
 	int8_t				invalid;
 };
+
+//
+// Some inline functions defined in the AV1 specification
+//
+namespace BST {
+	namespace AV1 {
+		template <typename T>
+		INLINE int8_t FloorLog2(T x)
+		{
+			int8_t s = 0;
+			while (x != 0)
+			{
+				x = x >> 1;
+				s++;
+			}
+			return s - 1;
+		}
+
+		template <typename T>
+		INLINE int8_t CeilLog2(T x)
+		{
+			if (x < 2)
+				return 0;
+
+			int8_t i = 1;
+			T p = 2;
+			while (p < x) {
+				i++;
+				p = p << 1;
+			}
+
+			return i;
+		}
+
+		INLINE uint8_t tile_log2(uint16_t blkSize, uint32_t target)
+		{
+			uint8_t k = 0;
+			for (; ((uint32_t)blkSize << k) < target; k++);
+			return k;
+		}
+
+		INLINE uint8_t quick_log2(uint32_t v)
+		{
+			for (int i = 31; i >= 0; i--)
+				if ((v&(1 << i)))
+					return i;
+			return 0;
+		}
+
+		INLINE uint32_t leb128(uint8_t* p, uint32_t cb, uint8_t* pcbLeb128 = nullptr, uint8_t* pbNeedMoreData = nullptr)
+		{
+			int64_t value = 0;
+			uint8_t Leb128Bytes = 0;
+			size_t i = 0, cbAvailLeb128ExtractBytes = AMP_MIN(8, cb);
+
+			for (; i < cbAvailLeb128ExtractBytes; i++)
+			{
+				value |= (((uint64_t)p[i] & 0x7f) << ((uint64_t)i * 7));
+				Leb128Bytes++;
+				if (!(p[i] & 0x80))
+					break;
+			}
+
+			if (i >= 8 || value >= UINT32_MAX)
+			{
+				AMP_SAFEASSIGN(pbNeedMoreData, 0);
+				return UINT32_MAX;
+			}
+
+			if (i >= cbAvailLeb128ExtractBytes)
+			{
+				AMP_SAFEASSIGN(pbNeedMoreData, 1);
+				return UINT32_MAX;
+			}
+
+			AMP_SAFEASSIGN(pcbLeb128, Leb128Bytes);
+
+			return (uint32_t)value;
+		}
+
+		INLINE uint8_t ns_len(uint64_t v_max, uint64_t ns)
+		{
+			int8_t w = 0;
+			unsigned long long vv = v_max;
+			while (vv != 0)
+			{
+				vv = vv >> 1;
+				w++;
+			}
+
+			uint64_t m = (1ULL << w) - v_max;
+			if (ns < m)
+				return w - 1;
+
+			return w;
+		}
+
+		INLINE uint64_t f(AMBst bs, uint8_t n)
+		{
+			return AMBst_GetBits(bs, n);
+		}
+
+		INLINE uint64_t uvlc(AMBst bs)
+		{
+			return AMBst_Get_uvlc(bs);
+		}
+
+		INLINE uint64_t le(AMBst bs, uint8_t nBytes)
+		{
+			return AMBst_Get_le(bs, nBytes);
+		}
+
+		INLINE uint64_t leb128(AMBst bs)
+		{
+			return AMBst_Get_leb128(bs);
+		}
+
+		INLINE int64_t su(AMBst bs, uint8_t n)
+		{
+			return AMBst_Get_su(bs, n);
+		}
+
+		INLINE int32_t inverse_recenter(int32_t r, int32_t v)
+		{
+			if (v > 2 * r)
+				return v;
+			else if (v & 1)
+				return r - ((v + 1) >> 1);
+			else
+				return r + (v >> 1);
+		}
+
+		INLINE int8_t find_latest_backward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint) {
+			int8_t ref = -1;
+			int16_t latestOrderHint = -1;
+			for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
+				auto hint = shiftedOrderHints[i];
+				if (!usedFrame[i] &&
+					hint >= curFrameHint &&
+					(ref < 0 || hint >= latestOrderHint)) {
+					ref = i;
+					latestOrderHint = hint;
+				}
+			}
+			return ref;
+		}
+
+		INLINE int8_t find_earliest_backward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint) {
+			int8_t ref = -1;
+			int16_t earliestOrderHint = INT8_MAX;
+			for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
+				auto hint = shiftedOrderHints[i];
+				if (!usedFrame[i] &&
+					hint >= curFrameHint &&
+					(ref < 0 || hint < earliestOrderHint)) {
+					ref = i;
+					earliestOrderHint = hint;
+				}
+			}
+			return ref;
+		}
+
+		INLINE int8_t find_latest_forward(int16_t shiftedOrderHints[REFS_PER_FRAME], bool usedFrame[REFS_PER_FRAME], uint8_t curFrameHint) {
+			int8_t ref = -1;
+			int16_t latestOrderHint = -1;
+			for (int8_t i = 0; i < NUM_REF_FRAMES; i++) {
+				auto hint = shiftedOrderHints[i];
+				if (!usedFrame[i] &&
+					hint < curFrameHint &&
+					(ref < 0 || hint >= latestOrderHint)) {
+					ref = i;
+					latestOrderHint = hint;
+				}
+			}
+			return ref;
+		}
+	}
+}
 
 #endif
