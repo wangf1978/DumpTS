@@ -89,8 +89,9 @@ INLINE RET_CODE decode_signed_subexp_with_ref(BITBUF& bitbuf, int32_t low, int32
 	return iRet;
 }
 
-CAV1Parser::CAV1Parser(bool bAnnexB, bool bSingleOBUParse, RET_CODE* pRetCode)
-	: m_av1_bytestream_format(bAnnexB?AV1_BYTESTREAM_LENGTH_DELIMITED: AV1_BYTESTREAM_RAW)
+CAV1Parser::CAV1Parser(bool bAnnexB, bool bSingleOBUParse, bool bIVF, RET_CODE* pRetCode)
+	: m_av1_bytestream_format(bAnnexB ? AV1_BYTESTREAM_LENGTH_DELIMITED : AV1_BYTESTREAM_RAW)
+	, m_bIVF(bIVF)
 	, m_rbTemporalUnit(nullptr)
 {
 	RET_CODE ret_code = RET_CODE_SUCCESS;
@@ -236,7 +237,7 @@ RET_CODE CAV1Parser::ProcessLengthDelimitedBitstreamOutput(bool bDrain)
 	int cbSize = 0;
 	uint8_t* pStartBuf = NULL, *pBuf = NULL, *pCurParseStartBuf = NULL;
 
-	uint8_t temporal_unit_size_leb128_bytes = 0;
+	uint8_t temporal_unit_size_len = 0;
 	uint8_t bNeedMoreData = 0;
 	uint8_t last_spatial_id = 0;
 
@@ -252,34 +253,48 @@ RET_CODE CAV1Parser::ProcessLengthDelimitedBitstreamOutput(bool bDrain)
 	{
 		if (m_temporal_unit_size == UINT32_MAX)
 		{
-			m_temporal_unit_size = BST::AV1::leb128(pBuf, cbSize, &temporal_unit_size_leb128_bytes, &bNeedMoreData);
-			if (m_temporal_unit_size == UINT32_MAX)
+			if (m_bIVF)
 			{
-				if (bNeedMoreData)
+				if (cbSize < 12)
 				{
 					iRet2 = RET_CODE_NEEDMOREINPUT;
 					break;
 				}
-				else
+
+				m_temporal_unit_size = pBuf[0] | ((uint32_t)pBuf[1] << 8) | ((uint32_t)pBuf[2] << 16) | ((uint32_t)pBuf[3] << 24);
+				temporal_unit_size_len = 12;
+			}
+			else
+			{
+				m_temporal_unit_size = BST::AV1::leb128(pBuf, cbSize, &temporal_unit_size_len, &bNeedMoreData);
+				if (m_temporal_unit_size == UINT32_MAX)
 				{
-					printf("[AV1Parser] The AV1 byte-stream is NOT compatible.\n");
-					iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
-					cbSize--; pBuf++;
-					continue;
+					if (bNeedMoreData)
+					{
+						iRet2 = RET_CODE_NEEDMOREINPUT;
+						break;
+					}
+					else
+					{
+						printf("[AV1Parser] The AV1 byte-stream is NOT compatible.\n");
+						iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+						cbSize--; pBuf++;
+						continue;
+					}
 				}
 			}
 
-			PushTemporalUnitBytes(pBuf, pBuf + temporal_unit_size_leb128_bytes);
-			AM_LRB_SkipReadPtr(m_rbRawBuf, temporal_unit_size_leb128_bytes);
+			PushTemporalUnitBytes(pBuf, pBuf + temporal_unit_size_len);
+			AM_LRB_SkipReadPtr(m_rbRawBuf, temporal_unit_size_len);
 
-			cbSize -= temporal_unit_size_leb128_bytes;
-			pBuf += temporal_unit_size_leb128_bytes;
+			cbSize -= temporal_unit_size_len;
+			pBuf += temporal_unit_size_len;
 
 			// Update the submit position
 			m_cur_submit_pos = m_cur_scan_pos;
 
 			// Update the scan position
-			m_cur_scan_pos += temporal_unit_size_leb128_bytes;
+			m_cur_scan_pos += temporal_unit_size_len;
 		}
 
 		int nLeftTUBytes = m_temporal_unit_size - m_temporal_unit_parsed_size;
@@ -320,6 +335,7 @@ RET_CODE CAV1Parser::ProcessLowOverheadBitstreamOutput(bool bDrain)
 	int cbSize = 0;
 	uint8_t* pStartBuf = NULL, *pBuf = NULL, *pCurParseStartBuf = NULL;
 
+	uint8_t temporal_unit_size_len = 0;
 	uint8_t temporal_unit_size_leb128_bytes = 0;
 	uint8_t bNeedMoreData = 0;
 	uint8_t last_spatial_id = 0;
@@ -337,8 +353,38 @@ RET_CODE CAV1Parser::ProcessLowOverheadBitstreamOutput(bool bDrain)
 
 	while (cbSize > 0)
 	{
+		if (m_temporal_unit_size == UINT32_MAX && m_bIVF)
+		{
+			if (cbSize < 12)
+			{
+				iRet2 = RET_CODE_NEEDMOREINPUT;
+				break;
+			}
+
+			m_temporal_unit_size = pBuf[0] | ((uint32_t)pBuf[1] << 8) | ((uint32_t)pBuf[2] << 16) | ((uint32_t)pBuf[3] << 24);
+			temporal_unit_size_len = 12;
+
+			PushTemporalUnitBytes(pBuf, pBuf + temporal_unit_size_len);
+			AM_LRB_SkipReadPtr(m_rbRawBuf, temporal_unit_size_len);
+
+			cbSize -= temporal_unit_size_len;
+			pBuf += temporal_unit_size_len;
+
+			// Update the submit position
+			m_cur_submit_pos = m_cur_scan_pos;
+
+			// Update the scan position
+			m_cur_scan_pos += temporal_unit_size_len;
+		}
+
 		if (m_av1_obu_type == -1)
 		{
+			if (cbSize < 1)
+			{
+				iRet2 = RET_CODE_NEEDMOREINPUT;
+				break;
+			}
+
 			uint8_t* pOBUBuf = pBuf, cbOBUSize = 0;
 			uint8_t obu_header_byte = *pOBUBuf;
 
@@ -396,14 +442,14 @@ RET_CODE CAV1Parser::ProcessLowOverheadBitstreamOutput(bool bDrain)
 			else
 			{
 				// If there is no obu_size field, quit the current loop
-				printf("[AV1] For the non-Annex-B AV1 stream, obu_size field is not available, so quit the scanning process.\n");
+				printf("[AV1] For Low-Overhead AV1 stream, obu_size field is not available, so quit the scanning process.\n");
 				iRet = RET_CODE_ERROR_NOTIMPL;
 				goto done;
 			}
 
 			// Finished parsing the OBU header and size completely
 			bool bGotTU = false;
-			if (m_temporal_unit_parsed_size > 0)
+			if (!m_bIVF && m_temporal_unit_parsed_size > 0)
 			{
 				if (obu_type == OBU_TEMPORAL_DELIMITER)
 				{
@@ -463,6 +509,17 @@ RET_CODE CAV1Parser::ProcessLowOverheadBitstreamOutput(bool bDrain)
 
 		// Update the scan position
 		m_cur_scan_pos += nCopyOBUBytes;
+
+		if (m_bIVF && m_temporal_unit_parsed_size >= m_temporal_unit_size)
+		{
+			// Already found a complete temporal_unit, begin to parse it
+			SubmitTU();
+			m_temporal_unit_parsed_size = 0;
+			m_temporal_unit_size = UINT32_MAX;
+
+			// Update the submit position
+			m_cur_submit_pos = m_cur_scan_pos;
+		}
 	}
 
 Drain:
@@ -556,6 +613,16 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 	bool bNewGOP = false;
 	bool bNewVSeq = false;
 	OBU_PARSE_PARAMS parse_params = m_TU_parse_params, next_parse_params = m_TU_parse_params;
+
+	if (m_bIVF)
+	{
+		if (cbSize < 12)
+			return RET_CODE_BUFFER_NOT_COMPATIBLE;
+
+		// Skip the 12-bytes of frame header
+		pBuf += 12;
+		cbSize -= 12;
+	}
 
 	temporal_unit_size = BST::AV1::leb128(pBuf + cbParsed, cbSize - cbParsed, &cbLeb128);
 	if (temporal_unit_size == UINT32_MAX)
@@ -770,7 +837,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 			goto done;
 		}
 
-		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, tu_frame_type)))
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf + (m_bIVF ? 12 : 0), (uint32_t)cbTUBuf, tu_frame_type)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -809,7 +876,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 			}
 		}
 
-		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf + (m_bIVF ? 12 : 0), (uint32_t)cbTUBuf)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -871,6 +938,16 @@ RET_CODE CAV1Parser::SubmitTU()
 
 	uint32_t cbFrameParsed = 0;
 	std::vector<std::tuple<uint32_t, uint8_t*, uint32_t, uint8_t, uint32_t, OBU_PARSE_PARAMS>> fu_obus;
+
+	if (m_bIVF)
+	{
+		if (cbSize < 12)
+			return RET_CODE_BUFFER_NOT_COMPATIBLE;
+
+		// Skip the 12-bytes of frame header
+		pBuf += 12;
+		cbSize -= 12;
+	}
 
 	while (cbParsed < cbSize)
 	{
@@ -1097,7 +1174,7 @@ RET_CODE CAV1Parser::SubmitTU()
 			goto done;
 		}
 
-		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf, (uint32_t)cbTUBuf, tu_frame_type)))
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitStart(m_pCtx, pTUBuf + (m_bIVF ? 12 : 0), (uint32_t)cbTUBuf, tu_frame_type)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;
@@ -1132,7 +1209,7 @@ RET_CODE CAV1Parser::SubmitTU()
 			}
 		}
 
-		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf, (uint32_t)cbTUBuf)))
+		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf + (m_bIVF ? 12 : 0), (uint32_t)cbTUBuf)))
 		{
 			iRet = RET_CODE_ABORT;
 			goto done;

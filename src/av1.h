@@ -425,7 +425,7 @@ namespace BST
 			uint8_t				FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 			int16_t				FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 			uint8_t				GmType[REFS_PER_FRAME] = { IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY };
-			int32_t				PrevGmParams[REFS_PER_FRAME][6] = { 0 };
+			int32_t				PrevGmParams[REFS_PER_FRAME][6] = { {0} };
 			bool				loop_filter_delta_enabled = false;
 			int8_t				loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME];
 			int8_t				loop_filter_mode_deltas[2] = { 0 };

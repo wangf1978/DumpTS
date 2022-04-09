@@ -2265,16 +2265,20 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 	}
 	else if (g_media_scheme_type == MEDIA_SCHEME_AV1)
 	{
-		bool bAnnexBStream = false;
+		bool bAnnexBStream = false, bIVF = false;
 		if (AMP_FAILED(AV1_PreparseStream(g_params["input"].c_str(), bAnnexBStream)))
 		{
 			printf("Failed to detect it is a low-overhead bit-stream or length-delimited AV1 bit-stream.\n");
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		auto iterContainer = g_params.find("container");
+		if (iterContainer != g_params.end())
+			bIVF = _stricmp(iterContainer->second.c_str(), "ivf") == 0 ? true : false;
+
 		printf("%s AV1 bitstream...\n", bAnnexBStream ? "Length-Delimited" : "Low-Overhead");
 
-		CAV1Parser* pAV1Parser = new CAV1Parser(bAnnexBStream, false, nullptr);
+		CAV1Parser* pAV1Parser = new CAV1Parser(bAnnexBStream, false, bIVF, nullptr);
 		if (pAV1Parser != nullptr)
 			iRet = pAV1Parser->QueryInterface(IID_IMSEParser, (void**)ppMSEParser);
 		else
@@ -2397,6 +2401,47 @@ void PrintMSEHeader(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_option
 	}
 }
 
+void LocateMSEParseStartPosition(IUnknown* pCtx, FILE* rfp)
+{
+	bool bIVF = false;
+	uint8_t ivf_hdr[IVF_HDR_SIZE] = { 0 };
+
+	// Update the header information to context?
+	// TODO..
+
+
+	auto iterContainer = g_params.find("container");
+	if (iterContainer != g_params.end())
+		bIVF = _stricmp(iterContainer->second.c_str(), "ivf") == 0 ? true : false;
+
+	if (bIVF)
+	{
+		if (fread(ivf_hdr, 1, IVF_HDR_SIZE, rfp) != IVF_HDR_SIZE ||
+			ivf_hdr[0] != 'D' || ivf_hdr[1] != 'K' || ivf_hdr[2] != 'I' || ivf_hdr[3] != 'F'
+			|| ((ivf_hdr[5] << 8) | ivf_hdr[4]) != 0	// Version should be 0
+			|| ((ivf_hdr[7] << 8) | ivf_hdr[6]) < 0x20	// header length should be NOT less than 32
+			)
+		{
+			printf("[AV1] It is really a .ivf file?!\n");
+			return;
+		}
+
+		uint16_t ivf_hdr_len = (ivf_hdr[7] << 8) | ivf_hdr[6];
+		uint32_t codec_fourcc = ((uint32_t)ivf_hdr[8] << 24) | ((uint32_t)ivf_hdr[9] << 16) | ((uint32_t)ivf_hdr[10] << 8) | ivf_hdr[11];
+
+		if (codec_fourcc != 'AV01')
+		{
+			// TODO...
+		}
+
+		if (_fseeki64(rfp, ivf_hdr_len, SEEK_SET) != 0)
+		{
+			printf("[AV1] Failed to jump to the frame part.\n");
+			return;
+		}
+	}
+}
+
 int	MSEParse(uint32_t enum_options)
 {
 	FILE* rfp = NULL;
@@ -2450,6 +2495,8 @@ int	MSEParse(uint32_t enum_options)
 	file_size = GetFileSizeByFP(rfp);
 
 	PrintMSEHeader(pMediaParser, pCtx, enum_options, mse_nav, rfp);
+
+	LocateMSEParseStartPosition(pCtx, rfp);
 
 	do
 	{

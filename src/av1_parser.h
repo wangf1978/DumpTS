@@ -270,7 +270,7 @@ public:
 class CAV1Parser : public CComUnknown, public IMSEParser
 {
 public:
-	CAV1Parser(bool bAnnexB, bool bSingleOBUParse, RET_CODE* pRetCode);
+	CAV1Parser(bool bAnnexB, bool bSingleOBUParse, bool bIVF, RET_CODE* pRetCode);
 	virtual ~CAV1Parser();
 
 	DECLARE_IUNKNOWN
@@ -329,6 +329,7 @@ protected:
 protected:
 	IAV1Context*			m_pCtx = nullptr;
 	AV1_BYTESTREAM_FORMAT	m_av1_bytestream_format;
+	bool					m_bIVF = false;
 
 	const int				read_unit_size = 2048;
 	AMLinearRingBuffer		m_rbRawBuf = nullptr;

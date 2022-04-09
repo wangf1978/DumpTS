@@ -567,8 +567,43 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 			g_params[param_name] = "av1";
 			media_scheme_fmt = MEDIA_SCHEME_AV1;
 		}
+		else if (_stricmp(file_name_ext.c_str(), ".ivf") == 0)
+		{
+			g_params["container"] = "ivf";
+
+			// check its codec type
+			FILE* rfp = nullptr;
+			uint8_t ivf_header[IVF_HDR_SIZE] = { 0 };
+			errno_t errn_fp = fopen_s(&rfp, filepath.c_str(), "rb");
+			if (errn_fp != 0 || rfp == NULL)
+			{
+				printf("Failed to open the file: %s {errno: %d}.\n", filepath.c_str(), errn_fp);
+				goto done;
+			}
+
+			if (fread(ivf_header, 1, IVF_HDR_SIZE, rfp) != IVF_HDR_SIZE || ivf_header[0] != 'D' || ivf_header[1] != 'K' || ivf_header[2] != 'I' || ivf_header[3] != 'F')
+			{
+				fclose(rfp);
+				goto done;
+			}
+
+			fclose(rfp);
+
+			uint32_t codec_fourcc = ((uint32_t)ivf_header[8] << 24) | ((uint32_t)ivf_header[9] << 16) | ((uint32_t)ivf_header[10] << 8) | ivf_header[11];
+			if (codec_fourcc == 'AV01')
+			{
+				g_params[param_name] = "av1";
+				media_scheme_fmt = MEDIA_SCHEME_AV1;
+			}
+			else
+			{
+				// TODO...
+			}
+			
+		}
 	}
 
+done:
 	return media_scheme_fmt;
 }
 

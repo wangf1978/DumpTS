@@ -403,6 +403,9 @@ SOFTWARE.
 
 #define IS_INVALID_HANDLE(handle)	((handle) == NULL)
 
+#define IVF_HDR_SIZE				32
+#define IVF_PIC_HDR_SIZE			12
+
 enum FLAG_VALUE
 {
 	FLAG_UNSET = 0,

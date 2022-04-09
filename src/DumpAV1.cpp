@@ -424,7 +424,8 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 
 					if (obu_forbidden_bit != 0 || obu_reserved_1bit != 0)
 					{
-						printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_reserved_1bit: %d.\n", obu_forbidden_bit, obu_reserved_1bit);
+						if (g_verbose_level > 0)
+							printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_reserved_1bit: %d.\n", obu_forbidden_bit, obu_reserved_1bit);
 						goto done;
 					}
 
@@ -553,6 +554,300 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 done:
 	AM_LRB_Destroy(rbRawBuf);
 
+	if (rfp != nullptr)
+		fclose(rfp);
+
+	return iRet;
+}
+
+int AV1_ProcessIVFLowOverheadBitstream(const char* szAV1FileName, bool& bAnnexB)
+{
+	int cbSize = 0;
+	int iRet = RET_CODE_ERROR;
+
+	uint8_t ivf_hdr[IVF_HDR_SIZE] = { 0 };
+	uint8_t pic_hdr[IVF_PIC_HDR_SIZE] = { 0 };
+
+	uint8_t Leb128Bytes = 0;
+	uint32_t cb_read_pos = 0;
+	uint32_t sz_ivf_frame = 0, cb_ivf_frame_left = 0;
+	uint32_t sz_tu = 0, cb_tu_left = 0;
+	uint32_t sz_fu = 0, cb_fu_left = 0;
+	uint32_t sz_obu = 0, cb_obu_left = 0;
+
+	size_t i = 0;
+	int64_t unit_size = 0;
+	uint8_t buf[16] = { 0 };
+	uint32_t read_size = 0;
+	uint16_t ivf_hdr_len;
+	uint32_t codec_fourcc;
+
+	// At first, try to open the stream file
+	FILE* rfp = NULL;
+	FOPEN(rfp, szAV1FileName, "rb");
+
+	if (rfp == NULL)
+	{
+		iRet = RET_CODE_ERROR_FILE_NOT_EXIST;
+		goto done;
+	}
+
+	if (fread(ivf_hdr, 1, IVF_HDR_SIZE, rfp) != IVF_HDR_SIZE ||
+		ivf_hdr[0] != 'D' || ivf_hdr[1] != 'K' || ivf_hdr[2] != 'I' || ivf_hdr[3] != 'F' 
+		|| ((ivf_hdr[5] << 8) | ivf_hdr[4]) != 0	// Version should be 0
+		|| ((ivf_hdr[7] << 8) | ivf_hdr[6]) < 0x20	// header length should be NOT less than 32
+		)
+	{
+		iRet = RET_CODE_BOX_INCOMPATIBLE;
+		goto done;
+	}
+
+	ivf_hdr_len = (ivf_hdr[7] << 8) | ivf_hdr[6];
+	codec_fourcc = ((uint32_t)ivf_hdr[8] << 24) | ((uint32_t)ivf_hdr[9] << 16) | ((uint32_t)ivf_hdr[10] << 8) | ivf_hdr[11];
+
+	if (codec_fourcc != 'AV01')
+	{
+		iRet = RET_CODE_ERROR_NOTIMPL;
+		goto done;
+	}
+
+	if (_fseeki64(rfp, ivf_hdr_len, SEEK_SET) != 0)
+	{
+		iRet = RET_CODE_IO_READ_ERROR;
+		goto done;
+	}
+
+	if (fread(pic_hdr, 1, IVF_PIC_HDR_SIZE, rfp) != IVF_PIC_HDR_SIZE)
+	{
+		iRet = RET_CODE_BOX_INCOMPATIBLE;
+		goto done;
+	}
+
+	sz_ivf_frame = ((uint32_t)pic_hdr[3] << 24) | ((uint32_t)pic_hdr[2] << 16) | ((uint32_t)pic_hdr[1] << 8) | pic_hdr[0];
+	cb_ivf_frame_left = sz_ivf_frame;
+	cb_read_pos = ivf_hdr_len + IVF_PIC_HDR_SIZE;
+
+	if (sz_ivf_frame == 0)
+	{
+		iRet = RET_CODE_BOX_INCOMPATIBLE;
+		goto done;
+	}
+
+	// Try to check whether it is an Annex-B AV1 stream or not
+	read_size = AMP_MIN(sz_ivf_frame, 8);
+	if ((read_size = (uint32_t)fread(buf, 1, read_size, rfp)) <= 0)
+	{
+		iRet = RET_CODE_IO_READ_ERROR;
+		goto done;
+	}
+
+	for (i = 0; i < read_size; i++){
+		unit_size |= ((int64_t)(buf[i] & 0x7f) << (i * 7));
+		Leb128Bytes++;
+		if (!(buf[i] & 0x80)) break;
+	}
+
+	if (i>= read_size || unit_size >= UINT32_MAX || (int64_t)sz_ivf_frame != unit_size + Leb128Bytes)
+		goto check_low_overhead;
+
+	cb_read_pos += Leb128Bytes;
+	sz_tu = cb_tu_left = (uint32_t)unit_size;
+
+	while (cb_tu_left > 0)
+	{
+		if (_fseeki64(rfp, cb_read_pos, SEEK_SET) != 0)
+			goto check_low_overhead;
+
+		read_size = AMP_MIN(cb_tu_left, 8);
+		if ((read_size = (uint32_t)fread(buf, 1, read_size, rfp)) <= 0)
+			goto check_low_overhead;
+
+		for (i = 0; i < read_size; i++){
+			unit_size |= ((int64_t)(buf[i] & 0x7f) << (i * 7));
+			Leb128Bytes++;
+			if (!(buf[i] & 0x80)) break;
+		}
+
+		if (i >= read_size || unit_size >= UINT32_MAX || (int64_t)cb_tu_left < unit_size + Leb128Bytes)
+			goto check_low_overhead;
+
+		cb_read_pos += Leb128Bytes;
+		cb_tu_left -= (uint32_t)(unit_size + Leb128Bytes);
+		sz_fu = cb_fu_left = (uint32_t)unit_size;
+
+		while (cb_fu_left > 0)
+		{
+			if (_fseeki64(rfp, cb_read_pos, SEEK_SET) != 0)
+				goto check_low_overhead;
+
+			read_size = AMP_MIN(cb_fu_left, 8);
+			if ((read_size = (uint32_t)fread(buf, 1, read_size, rfp)) <= 0)
+				goto check_low_overhead;
+
+			for (i = 0; i < read_size; i++){
+				unit_size |= ((int64_t)(buf[i] & 0x7f) << (i * 7));
+				Leb128Bytes++;
+				if (!(buf[i] & 0x80)) break;
+			}
+
+			if (i >= read_size || unit_size >= UINT32_MAX || (int64_t)cb_fu_left < unit_size + Leb128Bytes)
+				goto check_low_overhead;
+
+			cb_read_pos += Leb128Bytes;
+			cb_fu_left -= Leb128Bytes;
+
+			sz_obu = cb_obu_left = (uint32_t)unit_size;
+
+			if (sz_obu <= 0)
+				goto check_low_overhead;
+
+			// Try to do the rough check for the OBU
+			if (_fseeki64(rfp, cb_read_pos, SEEK_SET) != 0)
+				goto check_low_overhead;
+
+			if ((read_size = (uint32_t)fread(buf, 1, 1, rfp)) == 1)
+			{
+				uint8_t obu_forbidden_bit = (buf[0] >> 7) & 0x01;
+				uint8_t obu_type = (buf[0] >> 3) & 0xF;
+				uint8_t obu_extension_flag = (buf[0] >> 2) & 0x1;
+				uint8_t obu_has_size_flag = (buf[0] >> 1) & 0x1;
+				uint8_t obu_reserved_1bit = buf[0] & 0x1;
+
+				if (obu_forbidden_bit != 0 || obu_reserved_1bit != 0)
+				{
+					if (g_verbose_level > 0)
+						printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_reserved_1bit: %d.\n", obu_forbidden_bit, obu_reserved_1bit);
+					goto check_low_overhead;
+				}
+
+				if (obu_extension_flag)
+				{
+					if ((read_size = (uint32_t)fread(buf, 1, 1, rfp)) == 1)
+					{
+						uint8_t temporal_id = (buf[0] >> 5) & 0x7;
+						uint8_t spatial_id = (buf[0] >> 3) & 0x03;
+						uint8_t extension_header_reserved_3bits = (buf[0] & 0x07);
+
+						if (extension_header_reserved_3bits == 0)
+						{
+							if (g_verbose_level > 0)
+								printf("[AV1] Hit the invalid obu_extension_header where extension_header_reserved_3bits: %d.\n", extension_header_reserved_3bits);
+							goto check_low_overhead;
+						}
+					}
+					else
+						goto check_low_overhead;
+				}
+			}
+			else
+				goto check_low_overhead;
+
+			cb_fu_left -= sz_obu;
+			cb_read_pos += sz_obu;
+		}
+
+		cb_tu_left -= sz_fu;
+	}
+
+	bAnnexB = true;
+	iRet = RET_CODE_SUCCESS;
+	goto done;
+
+check_low_overhead:
+
+	cb_read_pos = ivf_hdr_len + IVF_PIC_HDR_SIZE;
+
+	while (cb_ivf_frame_left > 0)
+	{
+		if (_fseeki64(rfp, cb_read_pos, SEEK_SET) != 0)
+		{
+			iRet = RET_CODE_IO_READ_ERROR;
+			break;
+		}
+
+		if ((read_size = (uint32_t)fread(buf, 1, 1, rfp)) <= 0)
+		{
+			iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+			break;
+		}
+
+		uint8_t obu_forbidden_bit = (buf[0] >> 7) & 0x01;
+		uint8_t obu_type = (buf[0] >> 3) & 0xF;
+		uint8_t obu_extension_flag = (buf[0] >> 2) & 0x1;
+		uint8_t obu_has_size_flag = (buf[0] >> 1) & 0x1;
+		uint8_t obu_reserved_1bit = buf[0] & 0x1;
+
+		if (obu_forbidden_bit != 0 || obu_reserved_1bit != 0)
+		{
+			printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_reserved_1bit: %d.\n", obu_forbidden_bit, obu_reserved_1bit);
+			iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+			break;
+		}
+
+		cb_ivf_frame_left--;
+		cb_read_pos++;
+
+		if (obu_extension_flag)
+		{
+			if (cb_ivf_frame_left <= 0)
+			{
+				iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+				break;
+			}
+
+			if ((read_size = (uint32_t)fread(buf, 1, 1, rfp)) <= 0)
+			{
+				iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+				break;
+			}
+
+			uint8_t temporal_id = (buf[0] >> 5) & 0x7;
+			uint8_t spatial_id = (buf[0] >> 3) & 0x03;
+			uint8_t extension_header_reserved_3bits = (buf[0] & 0x07);
+
+			cb_ivf_frame_left--;
+			cb_read_pos++;
+
+			if (extension_header_reserved_3bits == 0)
+			{
+				printf("[AV1] Hit the invalid obu_extension_header where extension_header_reserved_3bits: %d.\n", extension_header_reserved_3bits);
+				iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+				break;
+			}
+		}
+
+		if (obu_has_size_flag)
+		{
+			int64_t obu_size = 0;
+			read_size = AMP_MIN(8, cb_ivf_frame_left);
+			if ((read_size = (uint32_t)fread(buf, 1, read_size, rfp)) <= 0)
+			{
+				iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
+				goto done;
+			}
+
+			for (; i < read_size; i++) {
+				obu_size |= ((int64_t)(buf[i] & 0x7f) << (i * 7));
+				Leb128Bytes++;
+				if (!(buf[i] & 0x80))break;
+			}
+
+			if (i >= read_size || obu_size >= UINT32_MAX || cb_ivf_frame_left < Leb128Bytes + obu_size)
+			{
+				printf("[AV1] the value(%" PRId64 ") returned from the leb128 parsing process should be less than or equal to (1<<32)-1 {file offset: %" PRIu32 "}\n",
+					obu_size, cb_read_pos);
+				break;
+			}
+
+			cb_ivf_frame_left -= (uint32_t)(Leb128Bytes + obu_size);
+			cb_read_pos += (uint32_t)(Leb128Bytes + obu_size);
+		}
+	}
+
+	bAnnexB = false;
+	iRet = RET_CODE_SUCCESS;
+
+done:
 	if (rfp != nullptr)
 		fclose(rfp);
 
@@ -736,58 +1031,74 @@ int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB)
 	int temporal_unit_num = 0;
 	int64_t start_pos = 0;
 	int iRet = 0;
+	bool bIVF = false;
 
 	const int MAX_TRIES_OF_SEARCHING_TU = 2;
 
 	bIsAnnexB = false;
 
-	do
-	{
-		if (AMP_FAILED(iRet = AV1_ProcessAnnexBTemporalUnit(szAV1FileName, start_pos, temporal_unit_layout)))
-		{
-			if (iRet == RET_CODE_NO_MORE_DATA)
-			{
-				iRet = RET_CODE_SUCCESS;
-				break;
-			}
+	auto iterContainer = g_params.find("container");
+	if (iterContainer != g_params.end())
+		bIVF = _stricmp(iterContainer->second.c_str(), "ivf") == 0 ? true : false;
 
-			break;
-		}
-		else
-		{
-			start_pos += (int64_t)std::get<0>(temporal_unit_layout) + std::get<1>(temporal_unit_layout);
-			temporal_unit_num++;
-		}
-	} while (temporal_unit_num < MAX_TRIES_OF_SEARCHING_TU);
-
-	if (temporal_unit_num > 0)
+	if (bIVF)
 	{
-		_tprintf(_T("[AV1][temporal_unit#%08d] The current file: %s is an Annex-B length delimited bitstream.\n"), temporal_unit_num, szAV1FileName);
-		bIsAnnexB = true;
+		if (AMP_FAILED(iRet = AV1_ProcessIVFLowOverheadBitstream(szAV1FileName, bIsAnnexB)))
+		{
+			_tprintf(_T("[AV1] Unknown IVF AV1 stream file.\n"));
+			return RET_CODE_ERROR;
+		}
 	}
 	else
 	{
-		_tprintf(_T("[AV1][temporal_unit#%08d] The current file: %s is NOT an Annex-B length delimited bitstream.\n"), temporal_unit_num, szAV1FileName);
-	}
-
-	if (!bIsAnnexB)
-	{
-		// Try to check whether it is a low overhead bitstream format or not
-		uint32_t full_obu_size = 0;
-		if (AMP_FAILED(iRet = AV1_ProcessLowOverheadBitstream(szAV1FileName, 0, full_obu_size)))
+		do
 		{
-			_tprintf(_T("[AV1] Unknown AV1 stream file, no valid OBU.\n"));
-			return RET_CODE_ERROR;
+			if (AMP_FAILED(iRet = AV1_ProcessAnnexBTemporalUnit(szAV1FileName, start_pos, temporal_unit_layout)))
+			{
+				if (iRet == RET_CODE_NO_MORE_DATA)
+				{
+					iRet = RET_CODE_SUCCESS;
+					break;
+				}
+
+				break;
+			}
+			else
+			{
+				start_pos += (int64_t)std::get<0>(temporal_unit_layout) + std::get<1>(temporal_unit_layout);
+				temporal_unit_num++;
+			}
+		} while (temporal_unit_num < MAX_TRIES_OF_SEARCHING_TU);
+
+		if (temporal_unit_num > 0)
+		{
+			_tprintf(_T("[AV1][temporal_unit#%08d] The current file: %s is an Annex-B length delimited bitstream.\n"), temporal_unit_num, szAV1FileName);
+			bIsAnnexB = true;
+		}
+		else
+		{
+			_tprintf(_T("[AV1][temporal_unit#%08d] The current file: %s is NOT an Annex-B length delimited bitstream.\n"), temporal_unit_num, szAV1FileName);
 		}
 
-		// Check whether there are 2 consequent open_bitstream_unit or not
-		if (AMP_FAILED(iRet = AV1_ProcessLowOverheadBitstream(szAV1FileName, full_obu_size, full_obu_size)) && iRet != RET_CODE_NO_MORE_DATA)
+		if (!bIsAnnexB)
 		{
-			_tprintf(_T("[AV1] Unknown AV1 stream file, no consequent OBUs.\n"));
-			return RET_CODE_ERROR;
-		}
+			// Try to check whether it is a low overhead bitstream format or not
+			uint32_t full_obu_size = 0;
+			if (AMP_FAILED(iRet = AV1_ProcessLowOverheadBitstream(szAV1FileName, 0, full_obu_size)))
+			{
+				_tprintf(_T("[AV1] Unknown AV1 stream file, no valid OBU.\n"));
+				return RET_CODE_ERROR;
+			}
 
-		_tprintf(_T("[AV1] The current file: %s is a low overhead bitstream format.\n"), szAV1FileName);
+			// Check whether there are 2 consequent open_bitstream_unit or not
+			if (AMP_FAILED(iRet = AV1_ProcessLowOverheadBitstream(szAV1FileName, full_obu_size, full_obu_size)) && iRet != RET_CODE_NO_MORE_DATA)
+			{
+				_tprintf(_T("[AV1] Unknown AV1 stream file, no consequent OBUs.\n"));
+				return RET_CODE_ERROR;
+			}
+
+			_tprintf(_T("[AV1] The current file: %s is a low overhead bitstream format.\n"), szAV1FileName);
+		}
 	}
 
 	return RET_CODE_SUCCESS;
@@ -971,7 +1282,12 @@ int	AV1InfoCmd(AV1_INFO_CMD cmd)
 	}
 
 	int top = GetTopRecordCount();
-	bool bAnnexBStream = false;
+	bool bAnnexBStream = false, bIVF = false;
+
+	auto iterContainer = g_params.find("container");
+	if (iterContainer != g_params.end())
+		bIVF = _stricmp(iterContainer->second.c_str(), "ivf") == 0 ? true : false;
+
 	if (AMP_FAILED(AV1_PreparseStream(g_params["input"].c_str(), bAnnexBStream)))
 	{
 		printf("Failed to detect it is a low-overhead bit-stream or length-delimited AV1 bit-stream.\n");
@@ -980,7 +1296,7 @@ int	AV1InfoCmd(AV1_INFO_CMD cmd)
 
 	printf("%s AV1 bitstream...\n", bAnnexBStream ? "Length-Delimited" : "Low-Overhead");
 
-	CAV1Parser AV1Parser(bAnnexBStream, false, nullptr);
+	CAV1Parser AV1Parser(bAnnexBStream, false, bIVF, nullptr);
 	IUnknown* pMSECtx = nullptr;
 	if (AMP_FAILED(AV1Parser.GetContext(&pMSECtx)) ||
 		FAILED(pMSECtx->QueryInterface(IID_IAV1Context, (void**)&pAV1Context)))
