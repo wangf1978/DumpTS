@@ -1001,8 +1001,8 @@ int AMURI_Navigate(AMURI hURI, _In_z_ const char* szNewURIRef)
 	}
 
 	if (AMP_FAILED((iRet = AMURI_UpdateURIRefComponents(URINav, URI_BASE, szNewTargetURI)))){
+		printf("[URIParser] Failed to parse URI components of recomposed URI: %s.\n", szNewTargetURI);
 		AMP_SAFEDELA(szNewTargetURI);
-		printf("[URIParser] Failed to parse URI components of recomposited URI: %s.\n", szNewTargetURI);
 		return RET_CODE_ERROR;
 	}
 
