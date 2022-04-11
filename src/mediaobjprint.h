@@ -32,6 +32,7 @@ SOFTWARE.
 #include "DataUtil.h"
 
 extern const char* g_szRule;
+extern bool	g_silent_output;
 
 void PrintMPVSyntaxElement(IUnknown* pCtx, uint8_t* pMPVSE, size_t cbMPVSE, int indent);
 void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALNUBuf, int indent);
@@ -141,10 +142,11 @@ int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)
 							szAlias ? szAlias : element.Name(),
 							szType != nullptr && szType[0] == 'M' && szType[1] == '\0'? "":(szValue ? szValue : ""));
 					
-					printf("%s%.*s%s%s\n", szTmp,
-						max_fixed_part_length > ccWritten ? (max_fixed_part_length - ccWritten) : 0, szLongSpace,
-						szDesc && strcmp(szDesc, "") != 0 ? "// " : "",
-						szDesc ? GetFixedWidthStrWithEllipsis(szDesc, 70).c_str() : "");
+					if (!g_silent_output)
+						printf("%s%.*s%s%s\n", szTmp,
+							max_fixed_part_length > ccWritten ? (max_fixed_part_length - ccWritten) : 0, szLongSpace,
+							szDesc && strcmp(szDesc, "") != 0 ? "// " : "",
+							szDesc ? GetFixedWidthStrWithEllipsis(szDesc, 70).c_str() : "");
 
 					if (szType != nullptr && szType[0] == 'M' && szType[1] == '\0' && szValue != nullptr)
 					{
@@ -160,7 +162,8 @@ int PrintMediaObject(T* pNavFieldProp, bool bIgnoreBin = false, int indent = 0)
 							else
 								value_line_width = (int)(szLineEnd - szLineStart);
 
-							printf("%*.*s\n", m_indent + level*4 + 4 + value_line_width, value_line_width, szLineStart);
+							if (!g_silent_output)
+								printf("%*.*s\n", m_indent + level*4 + 4 + value_line_width, value_line_width, szLineStart);
 
 							szLineStart = szLineEnd + 1;
 						} while (szLineEnd != nullptr);

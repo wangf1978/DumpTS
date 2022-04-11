@@ -1876,7 +1876,8 @@ public:
 
 		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-		printf("%s\n", szItem);
+		if (!g_silent_output)
+			printf("%s\n", szItem);
 
 		return RET_CODE_SUCCESS;
 	}
@@ -1922,7 +1923,8 @@ public:
 
 		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-		printf("%s\n", szItem);
+		if (!g_silent_output)
+			printf("%s\n", szItem);
 
 		return RET_CODE_SUCCESS;
 	}
@@ -1963,7 +1965,8 @@ public:
 
 		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-		printf("%s\n", szItem);
+		if (!g_silent_output)
+			printf("%s\n", szItem);
 
 		return RET_CODE_SUCCESS;
 	}
@@ -1999,7 +2002,8 @@ public:
 
 		szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-		printf("%s\n", szItem);
+		if (!g_silent_output)
+			printf("%s\n", szItem);
 
 		return RET_CODE_SUCCESS;
 	}
@@ -2038,7 +2042,8 @@ public:
 
 				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-				printf("%s\n", szItem);
+				if (!g_silent_output)
+					printf("%s\n", szItem);
 			}
 
 			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
@@ -2048,12 +2053,19 @@ public:
 					int indent = 4 * m_level[AV1_LEVEL_OBU];
 					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
-					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+					if (!g_silent_output)
+						printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+
 					if (m_options&MSE_ENUM_SYNTAX_VIEW)
 						PrintOBUSyntaxElement(pCtx, pOBUBuf, cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
 					else if (m_options&MSE_ENUM_HEX_VIEW)
-						print_mem(pOBUBuf, (int)cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
-					printf("\n");
+					{
+						if (!g_silent_output)
+							print_mem(pOBUBuf, (int)cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
+					}
+
+					if (!g_silent_output)
+						printf("\n");
 				}
 			}
 		}

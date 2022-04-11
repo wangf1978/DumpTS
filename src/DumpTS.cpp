@@ -57,6 +57,8 @@ DUMP_STATUS							g_dump_status;
 
 MEDIA_SCHEME_TYPE					g_media_scheme_type = MEDIA_SCHEME_UNKNOWN;
 
+bool								g_silent_output = false;
+
 
 const char *dump_msg[] = {
 	"Warning: wrong PES_length field value, read:location, read pos[%d], write pos:[%d].\n",
@@ -252,6 +254,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"payload_first_last",
 		"layoutpacket",
 		"cost",
+		"silent",		// Only show the error or verbose information
 	};
 
 	for (; iarg < argc; iarg++)
@@ -614,6 +617,10 @@ int PrepareParams()
 
 	memset(&g_ts_fmtinfo, 0, sizeof(g_ts_fmtinfo));
 	g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_UNKNOWN;
+
+	auto iterSilent = g_params.find("silent");
+	if (iterSilent != g_params.end())
+		g_silent_output = true;
 
 	auto iter = g_params.find("srcfmt");
 
