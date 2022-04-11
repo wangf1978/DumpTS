@@ -760,7 +760,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 				uint8_t obu_type = obu_hdr.obu_type;
 				if (obu_type == OBU_TEMPORAL_DELIMITER)
 				{
-					next_parse_params.SeenFrameHeader = false;
+					next_parse_params.ActiveFrameParams.SeenFrameHeader = false;
 				}
 				else if (obu_type == OBU_SEQUENCE_HEADER)
 				{
@@ -798,7 +798,9 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 					//		  equal to 0, and temporal_id equal to 0.
 					if (!obu_hdr.obu_extension_flag || (obu_hdr.obu_extension_flag && obu_hdr.obu_extension_header.temporal_id == 0))
 					{
-						if (!next_parse_params.show_existing_frame && next_parse_params.show_frame && next_parse_params.frame_type == KEY_FRAME)
+						if (!next_parse_params.ActiveFrameParams.show_existing_frame && 
+							 next_parse_params.ActiveFrameParams.show_frame && 
+							 next_parse_params.ActiveFrameParams.frame_type == KEY_FRAME)
 							bNewGOP = true;
 					}
 				}
@@ -813,10 +815,10 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 			cbParsed += obu_length;
 		}
 
-		std::get<3>(tu_fu_obus.back()) = next_parse_params.frame_type;
+		std::get<3>(tu_fu_obus.back()) = next_parse_params.ActiveFrameParams.frame_type;
 		if (tu_frame_type == INT32_MIN)
-			tu_frame_type = next_parse_params.frame_type;
-		else if (tu_frame_type != next_parse_params.frame_type)
+			tu_frame_type = next_parse_params.ActiveFrameParams.frame_type;
+		else if (tu_frame_type != next_parse_params.ActiveFrameParams.frame_type)
 			tu_frame_type = -1;
 	}
 
@@ -1071,7 +1073,7 @@ RET_CODE CAV1Parser::SubmitTU()
 				// calculate the frame unit size
 				frame_unit_size = (uint32_t)(pOBUBuf - pFrameUnit);
 
-				tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.frame_type, fu_obus);
+				tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.ActiveFrameParams.frame_type, fu_obus);
 				
 				fu_obus.clear();
 
@@ -1085,7 +1087,7 @@ RET_CODE CAV1Parser::SubmitTU()
 
 		if (obu_type == OBU_TEMPORAL_DELIMITER)
 		{
-			next_parse_params.SeenFrameHeader = false;
+			next_parse_params.ActiveFrameParams.SeenFrameHeader = false;
 		}
 		else if (obu_type == OBU_SEQUENCE_HEADER)
 		{
@@ -1123,19 +1125,21 @@ RET_CODE CAV1Parser::SubmitTU()
 			//		  equal to 0, and temporal_id equal to 0.
 			if (!obu_hdr.obu_extension_flag || (obu_hdr.obu_extension_flag && obu_hdr.obu_extension_header.temporal_id == 0))
 			{
-				if (!next_parse_params.show_existing_frame && next_parse_params.show_frame && next_parse_params.frame_type == KEY_FRAME)
+				if (!next_parse_params.ActiveFrameParams.show_existing_frame && 
+					 next_parse_params.ActiveFrameParams.show_frame && 
+					 next_parse_params.ActiveFrameParams.frame_type == KEY_FRAME)
 					bNewGOP = true;
 			}
 
-			if (next_parse_params.SeenFrameHeader == false)
+			if (next_parse_params.ActiveFrameParams.SeenFrameHeader == false)
 			{
 				// a frame is already finished
 				bCompleteFUFound = true;
 
 				// Try to update the frame type of frame-unit
 				if (tu_frame_type == INT32_MIN)
-					tu_frame_type = next_parse_params.frame_type;
-				else if (tu_frame_type != next_parse_params.frame_type)
+					tu_frame_type = next_parse_params.ActiveFrameParams.frame_type;
+				else if (tu_frame_type != next_parse_params.ActiveFrameParams.frame_type)
 					tu_frame_type = -1;
 			}
 		}
@@ -1150,11 +1154,11 @@ RET_CODE CAV1Parser::SubmitTU()
 		frame_unit_size = (uint32_t)(pTUBuf + cbTUBuf - pFrameUnit);
 
 		if (tu_frame_type == INT32_MIN)
-			tu_frame_type = parse_params.frame_type;
-		else if (tu_frame_type != parse_params.frame_type)
+			tu_frame_type = parse_params.ActiveFrameParams.frame_type;
+		else if (tu_frame_type != parse_params.ActiveFrameParams.frame_type)
 			tu_frame_type = -1;
 
-		tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.frame_type, fu_obus);
+		tu_fu_obus.emplace_back((uint32_t)(pFrameUnit - pTUBuf), pFrameUnit, frame_unit_size, parse_params.ActiveFrameParams.frame_type, fu_obus);
 	}
 
 	m_TU_parse_params = parse_params;
@@ -1162,6 +1166,7 @@ RET_CODE CAV1Parser::SubmitTU()
 	// prepare the notification for the current TU
 	if (m_av1_enum != nullptr && AMP_SUCCEEDED(iRet))
 	{
+		int32_t tu_fu_idx = 0;
 		if (bNewVSeq && (m_av1_enum_options&AV1_ENUM_OPTION_VSEQ) && AMP_FAILED(m_av1_enum->EnumNewVSEQ(m_pCtx)))
 		{
 			iRet = RET_CODE_ABORT;
@@ -1184,6 +1189,7 @@ RET_CODE CAV1Parser::SubmitTU()
 		{
 			auto pFrameUnit = std::get<1>(fu);
 			auto frame_unit_size = std::get<2>(fu);
+
 			if ((m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, std::get<3>(fu))))
 			{
 				iRet = RET_CODE_ABORT;
@@ -1194,6 +1200,17 @@ RET_CODE CAV1Parser::SubmitTU()
 			{
 				if ((m_av1_enum_options&AV1_ENUM_OPTION_OBU) && obu_length != UINT32_MAX && obu_length > 0)
 				{
+					auto& obu_params = std::get<5>(obu);
+					AV1ContextSnapshot ctx_snapshot;
+					ctx_snapshot.tu_idx = m_num_temporal_units;
+					ctx_snapshot.tu_fu_idx = tu_fu_idx;
+					
+					ctx_snapshot.pVBISlotParams = obu_params.VBI;
+
+					ctx_snapshot.pActiveFrameParams = &obu_params.ActiveFrameParams;
+
+					//m_pCtx->LoadVBISnapshot(obu_params.VBI, sizeof(obu_params.VBI));
+
 					if (AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, std::get<1>(obu), std::get<2>(obu), std::get<3>(obu), std::get<4>(obu))))
 					{
 						iRet = RET_CODE_ABORT;
@@ -1207,6 +1224,8 @@ RET_CODE CAV1Parser::SubmitTU()
 				iRet = RET_CODE_ABORT;
 				goto done;
 			}
+
+			tu_fu_idx++;
 		}
 
 		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf + (m_bIVF ? 12 : 0), (uint32_t)cbTUBuf)))
@@ -1281,25 +1300,26 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 
 	BITBUF bitbuf(pOBUBodyBuf, cbOBUBodyBuf);
 
-	if (prev_parse_params.SeenFrameHeader)
+	if (prev_parse_params.ActiveFrameParams.SeenFrameHeader)
 	{
-		curr_parse_params.frame_type = prev_parse_params.frame_type;
-		curr_parse_params.refresh_frame_flags = prev_parse_params.refresh_frame_flags;
-		curr_parse_params.SeenFrameHeader = prev_parse_params.SeenFrameHeader;
+		curr_parse_params.ActiveFrameParams.frame_type = prev_parse_params.ActiveFrameParams.frame_type;
+		curr_parse_params.ActiveFrameParams.refresh_frame_flags = prev_parse_params.ActiveFrameParams.refresh_frame_flags;
+		curr_parse_params.ActiveFrameParams.SeenFrameHeader = prev_parse_params.ActiveFrameParams.SeenFrameHeader;
 	}
 	else
 	{
 		// parsing uncompressed_header()
+		curr_parse_params.ActiveFrameParams.SeenFrameHeader = true;
 		if (AMP_FAILED(iRet = ParseUncompressedHeader(bitbuf, obu_hdr, spSeqHdr, prev_parse_params, curr_parse_params)))
 		{
 			printf("[AV1Parse] Failed to parse uncompressed_header() {error code: %d}.\n", iRet);
 			return iRet;
 		}
 
-		if (curr_parse_params.show_existing_frame)
+		if (curr_parse_params.ActiveFrameParams.show_existing_frame)
 		{
 			// decode_frame_wrapup()
-			curr_parse_params.SeenFrameHeader = false;
+			curr_parse_params.ActiveFrameParams.SeenFrameHeader = false;
 
 			curr_parse_params.UpdateRefreshFrame(m_next_frame_seq_id);
 
@@ -1310,8 +1330,8 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 		}
 		else
 		{
-			curr_parse_params.TileNum = 0;
-			curr_parse_params.SeenFrameHeader = true;
+			curr_parse_params.ActiveFrameParams.TileNum = 0;
+			curr_parse_params.ActiveFrameParams.SeenFrameHeader = true;
 		}
 	}
 
@@ -1323,7 +1343,7 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 		{
 			bool tile_start_and_end_present_flag = false;
 			// process a part of tile_group_obu
-			uint32_t NumTiles = curr_parse_params.TileCols*curr_parse_params.TileRows;
+			uint32_t NumTiles = curr_parse_params.ActiveFrameParams.TileCols*curr_parse_params.ActiveFrameParams.TileRows;
 			uint32_t tg_start, tg_end;
 			if (NumTiles > 1 && AMP_FAILED(iRet = bitbuf.GetFlag(tile_start_and_end_present_flag)))goto done;
 
@@ -1333,7 +1353,7 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 			}
 			else
 			{
-				uint8_t tileBits = curr_parse_params.TileColsLog2 + curr_parse_params.TileRowsLog2;
+				uint8_t tileBits = curr_parse_params.ActiveFrameParams.TileColsLog2 + curr_parse_params.ActiveFrameParams.TileRowsLog2;
 				if (AMP_FAILED(iRet = bitbuf.GetValue(tileBits, tg_start)))goto done;
 				if (AMP_FAILED(iRet = bitbuf.GetValue(tileBits, tg_end)))goto done;
 			}
@@ -1348,14 +1368,14 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(
 				}
 				decode_frame_wrapup()
 				*/
-				curr_parse_params.SeenFrameHeader = false;
+				curr_parse_params.ActiveFrameParams.SeenFrameHeader = false;
 
 				curr_parse_params.UpdateRefreshFrame(m_next_frame_seq_id);
 
 				m_next_frame_seq_id = ((uint32_t)m_next_frame_seq_id + 1) % ((uint32_t)UINT16_MAX + 1);
 
 				if (g_verbose_level > 0)
-					printf("Finished decoding a frame after decoding the last tile.\n");
+					printf("[AV1Parser] Finished decoding a frame after decoding the last tile.\n");
 			}
 		}
 		
@@ -1382,7 +1402,6 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 	uint8_t idLen = pSeqHdrOBU->additional_frame_id_length_minus_1 +
 		pSeqHdrOBU->delta_frame_id_length_minus_2 + 3;
 
-	curr_parse_params.SeenFrameHeader = true;
 	uint32_t allFrames = (1 << NUM_REF_FRAMES) - 1;
 	bool disable_cdf_update;
 	bool allow_screen_content_tools;
@@ -1419,16 +1438,16 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 
 	if (pSeqHdrOBU->reduced_still_picture_header)
 	{
-		curr_parse_params.show_existing_frame = false;
-		curr_parse_params.show_frame = true;
-		curr_parse_params.frame_type = KEY_FRAME;
+		curr_parse_params.ActiveFrameParams.show_existing_frame = false;
+		curr_parse_params.ActiveFrameParams.show_frame = true;
+		curr_parse_params.ActiveFrameParams.frame_type = KEY_FRAME;
 		FrameIsIntra = true;
 	}
 	else
 	{
 		if (AMP_FAILED(iRet = bitbuf.GetFlag(show_existing_frame)))goto done;
 
-		curr_parse_params.show_existing_frame = show_existing_frame;
+		curr_parse_params.ActiveFrameParams.show_existing_frame = show_existing_frame;
 
 		if (show_existing_frame == 1)
 		{
@@ -1442,25 +1461,25 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 				bitbuf.SkipFast(frame_presentation_time_length);
 			}
 
-			curr_parse_params.refresh_frame_flags = 0;
+			curr_parse_params.ActiveFrameParams.refresh_frame_flags = 0;
 			// check uncompressed_header partly
 			if (pSeqHdrOBU->frame_id_numbers_present_flag) {
 				bitbuf.SkipFast(idLen);	// skip display_frame_id
 			}
 
-			curr_parse_params.frame_type = prev_parse_params.VBI[frame_to_show_map_idx].RefFrameType;
-			if (curr_parse_params.frame_type == KEY_FRAME)
-				curr_parse_params.refresh_frame_flags = allFrames;
+			curr_parse_params.ActiveFrameParams.frame_type = prev_parse_params.VBI[frame_to_show_map_idx].RefFrameType;
+			if (curr_parse_params.ActiveFrameParams.frame_type == KEY_FRAME)
+				curr_parse_params.ActiveFrameParams.refresh_frame_flags = allFrames;
 
 			return RET_CODE_SUCCESS;
 		}
 		
-		if (AMP_FAILED(iRet = bitbuf.GetValue(2, curr_parse_params.frame_type)))goto done;
-		FrameIsIntra = (curr_parse_params.frame_type == INTRA_ONLY_FRAME ||
-						curr_parse_params.frame_type == KEY_FRAME);
+		if (AMP_FAILED(iRet = bitbuf.GetValue(2, curr_parse_params.ActiveFrameParams.frame_type)))goto done;
+		FrameIsIntra = (curr_parse_params.ActiveFrameParams.frame_type == INTRA_ONLY_FRAME ||
+						curr_parse_params.ActiveFrameParams.frame_type == KEY_FRAME);
 		if (AMP_FAILED(iRet = bitbuf.GetFlag(show_frame)))goto done;
 
-		curr_parse_params.show_frame = show_frame;
+		curr_parse_params.ActiveFrameParams.show_frame = show_frame;
 
 		if (show_frame && pSeqHdrOBU->decoder_model_info_present_flag && !pSeqHdrOBU->ptr_timing_info->equal_picture_interval)
 		{
@@ -1470,18 +1489,21 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 			if (AMP_FAILED(iRet = bitbuf.Skip(frame_presentation_time_length)))goto done;
 		}
 
-		showable_frame = curr_parse_params.frame_type != KEY_FRAME;
+		showable_frame = curr_parse_params.ActiveFrameParams.frame_type != KEY_FRAME;
 		if (!show_frame && AMP_FAILED(iRet = bitbuf.GetFlag(showable_frame)))goto done;
 
-		if (curr_parse_params.frame_type == SWITCH_FRAME || (curr_parse_params.frame_type == KEY_FRAME && show_frame))
+		if (curr_parse_params.ActiveFrameParams.frame_type == SWITCH_FRAME || (curr_parse_params.ActiveFrameParams.frame_type == KEY_FRAME && show_frame))
 			error_resilient_mode = true;
 		else if (AMP_FAILED(iRet = bitbuf.GetFlag(error_resilient_mode)))
 			goto done;
 	}
 
-	if (curr_parse_params.frame_type == KEY_FRAME && show_frame)
+	// Key frame for random access point
+	// Reset the VBI slot parameters
+	if (curr_parse_params.ActiveFrameParams.frame_type == KEY_FRAME && show_frame)
 	{
 		for (uint8_t i = 0; i < NUM_REF_FRAMES; i++) {
+			curr_parse_params.VBI[i].FrameSeqID = -1;
 			curr_parse_params.VBI[i].RefValid = 0;
 			curr_parse_params.VBI[i].RefOrderHint = 0;
 		}
@@ -1517,21 +1539,21 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 		force_integer_mv = true;
 
 	if (pSeqHdrOBU->frame_id_numbers_present_flag) {
-		curr_parse_params.previous_frame_id = prev_parse_params.current_frame_id;
-		if (AMP_FAILED(iRet = bitbuf.GetValue(idLen, curr_parse_params.current_frame_id)))goto done;
+		curr_parse_params.ActiveFrameParams.PrevFrameID = prev_parse_params.ActiveFrameParams.current_frame_id;
+		if (AMP_FAILED(iRet = bitbuf.GetValue(idLen, curr_parse_params.ActiveFrameParams.current_frame_id)))goto done;
 		mark_ref_frames(spSeqHdrOBU, idLen, curr_parse_params);
 	}
 	else
-		curr_parse_params.current_frame_id = 0;
+		curr_parse_params.ActiveFrameParams.current_frame_id = 0;
 
-	if (curr_parse_params.frame_type == SWITCH_FRAME)
+	if (curr_parse_params.ActiveFrameParams.frame_type == SWITCH_FRAME)
 		frame_size_override_flag = 1;
 	else if (pSeqHdrOBU->reduced_still_picture_header)
 		frame_size_override_flag = 0;
 	else if (AMP_FAILED(iRet = bitbuf.GetFlag(frame_size_override_flag)))
 		goto done;
 
-	if (AMP_FAILED(iRet = bitbuf.GetValue(pSeqHdrOBU->OrderHintBits, curr_parse_params.OrderHint)))goto done;
+	if (AMP_FAILED(iRet = bitbuf.GetValue(pSeqHdrOBU->OrderHintBits, curr_parse_params.ActiveFrameParams.OrderHint)))goto done;
 
 	if (FrameIsIntra || error_resilient_mode)
 		primary_ref_frame = PRIMARY_REF_NONE;
@@ -1560,12 +1582,12 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 		}
 	}
 
-	if (curr_parse_params.frame_type == SWITCH_FRAME || (curr_parse_params.frame_type == KEY_FRAME && show_frame))
-		curr_parse_params.refresh_frame_flags = allFrames;
-	else if (AMP_FAILED(iRet = bitbuf.GetByte(curr_parse_params.refresh_frame_flags)))
+	if (curr_parse_params.ActiveFrameParams.frame_type == SWITCH_FRAME || (curr_parse_params.ActiveFrameParams.frame_type == KEY_FRAME && show_frame))
+		curr_parse_params.ActiveFrameParams.refresh_frame_flags = allFrames;
+	else if (AMP_FAILED(iRet = bitbuf.GetByte(curr_parse_params.ActiveFrameParams.refresh_frame_flags)))
 		goto done;
 
-	if (!FrameIsIntra || curr_parse_params.refresh_frame_flags != allFrames)
+	if (!FrameIsIntra || curr_parse_params.ActiveFrameParams.refresh_frame_flags != allFrames)
 	{
 		if (error_resilient_mode && pSeqHdrOBU->enable_order_hint)
 		{
@@ -1587,7 +1609,7 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 		// Skip render_size()
 		if (AMP_FAILED(iRet = render_size(spSeqHdrOBU, bitbuf, curr_parse_params)))goto done; 
 
-		if (allow_screen_content_tools && curr_parse_params.UpscaledWidth == curr_parse_params.FrameWidth) {
+		if (allow_screen_content_tools && curr_parse_params.ActiveFrameParams.UpscaledWidth == curr_parse_params.ActiveFrameParams.FrameWidth) {
 			if (AMP_FAILED(iRet = bitbuf.GetFlag(allow_intrabc)))goto done;
 		}
 	}
@@ -1788,7 +1810,7 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 			CodedLossless = 0;
 	}
 
-	AllLossless = CodedLossless && (curr_parse_params.FrameWidth == curr_parse_params.UpscaledWidth);
+	AllLossless = CodedLossless && (curr_parse_params.ActiveFrameParams.FrameWidth == curr_parse_params.ActiveFrameParams.UpscaledWidth);
 
 	// skip loop_filter_params()
 	if (!(CodedLossless || allow_intrabc)) {
@@ -1899,7 +1921,7 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(
 		int8_t forwardIdx = -1, backwardIdx = -1, forwardHint = -1, backwardHint = -1;
 		for (int8_t i = 0; i < REFS_PER_FRAME; i++) {
 			auto refHint = curr_parse_params.VBI[ref_frame_idx[i]].RefOrderHint;
-			auto diff = spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, curr_parse_params.OrderHint);
+			auto diff = spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, curr_parse_params.ActiveFrameParams.OrderHint);
 			if (diff < 0)
 			{
 				if (forwardIdx < 0 || spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(refHint, forwardHint) > 0) {
@@ -1986,14 +2008,14 @@ RET_CODE CAV1Parser::mark_ref_frames(AV1_OBU spSeqHdrOBU, uint8_t idLen, OBU_PAR
 {
 	uint8_t diffLen = spSeqHdrOBU->ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
 	for (uint8_t i = 0; i < NUM_REF_FRAMES; i++) {
-		if (obu_parse_params.current_frame_id > (1 << diffLen)) {
-			if (obu_parse_params.VBI[i].RefFrameId > obu_parse_params.current_frame_id ||
-				obu_parse_params.VBI[i].RefFrameId < (obu_parse_params.current_frame_id - (1 << diffLen)))
+		if (obu_parse_params.ActiveFrameParams.current_frame_id > (1 << diffLen)) {
+			if (obu_parse_params.VBI[i].RefFrameId > obu_parse_params.ActiveFrameParams.current_frame_id ||
+				obu_parse_params.VBI[i].RefFrameId < (obu_parse_params.ActiveFrameParams.current_frame_id - (1 << diffLen)))
 				obu_parse_params.VBI[i].RefValid = 0;
 		}
 		else {
-			if (obu_parse_params.VBI[i].RefFrameId > obu_parse_params.current_frame_id &&
-				obu_parse_params.VBI[i].RefFrameId < ((1 << idLen) + obu_parse_params.current_frame_id - (1 << diffLen)))
+			if (obu_parse_params.VBI[i].RefFrameId > obu_parse_params.ActiveFrameParams.current_frame_id &&
+				obu_parse_params.VBI[i].RefFrameId < ((1 << idLen) + obu_parse_params.ActiveFrameParams.current_frame_id - (1 << diffLen)))
 				obu_parse_params.VBI[i].RefValid = 0;
 		}
 	}
@@ -2008,13 +2030,13 @@ RET_CODE CAV1Parser::frame_size(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_P
 		uint32_t frame_width_minus_1 = 0, frame_height_minus_1 = 0;
 		if (AMP_FAILED(iRet = bitbuf.GetValue(spSeqHdrOBU->ptr_sequence_header_obu->frame_width_bits_minus_1 + 1, frame_width_minus_1)))return iRet;
 		if (AMP_FAILED(iRet = bitbuf.GetValue(spSeqHdrOBU->ptr_sequence_header_obu->frame_width_bits_minus_1 + 1, frame_width_minus_1)))return iRet;
-		obu_parse_params.FrameWidth = frame_width_minus_1 + 1;
-		obu_parse_params.FrameHeight = frame_height_minus_1 + 1;
+		obu_parse_params.ActiveFrameParams.FrameWidth = frame_width_minus_1 + 1;
+		obu_parse_params.ActiveFrameParams.FrameHeight = frame_height_minus_1 + 1;
 	}
 	else
 	{
-		obu_parse_params.FrameWidth = spSeqHdrOBU->ptr_sequence_header_obu->max_frame_width_minus_1 + 1;
-		obu_parse_params.FrameHeight = spSeqHdrOBU->ptr_sequence_header_obu->max_frame_height_minus_1 + 1;
+		obu_parse_params.ActiveFrameParams.FrameWidth = spSeqHdrOBU->ptr_sequence_header_obu->max_frame_width_minus_1 + 1;
+		obu_parse_params.ActiveFrameParams.FrameHeight = spSeqHdrOBU->ptr_sequence_header_obu->max_frame_height_minus_1 + 1;
 	}
 
 	if (AMP_FAILED(iRet = superres_params(spSeqHdrOBU, bitbuf, obu_parse_params)))return iRet;
@@ -2037,16 +2059,16 @@ RET_CODE CAV1Parser::superres_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PA
 			SuperresDenom = (uint8_t)((uint16_t)coded_denom + SUPERRES_DENOM_MIN);
 		}
 	}
-	obu_parse_params.UpscaledWidth = obu_parse_params.FrameWidth;
-	obu_parse_params.FrameWidth = (obu_parse_params.UpscaledWidth * SUPERRES_NUM + (SuperresDenom / 2)) / SuperresDenom;
+	obu_parse_params.ActiveFrameParams.UpscaledWidth = obu_parse_params.ActiveFrameParams.FrameWidth;
+	obu_parse_params.ActiveFrameParams.FrameWidth = (obu_parse_params.ActiveFrameParams.UpscaledWidth * SUPERRES_NUM + (SuperresDenom / 2)) / SuperresDenom;
 
 	return iRet;
 }
 
 RET_CODE CAV1Parser::compute_image_size(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_parse_params)
 {
-	obu_parse_params.MiCols = 2 * ((obu_parse_params.FrameWidth + 7) >> 3);
-	obu_parse_params.MiRows = 2 * ((obu_parse_params.FrameHeight + 7) >> 3);
+	obu_parse_params.ActiveFrameParams.MiCols = 2 * ((obu_parse_params.ActiveFrameParams.FrameWidth + 7) >> 3);
+	obu_parse_params.ActiveFrameParams.MiRows = 2 * ((obu_parse_params.ActiveFrameParams.FrameHeight + 7) >> 3);
 	return RET_CODE_SUCCESS;
 }
 
@@ -2059,13 +2081,13 @@ RET_CODE CAV1Parser::render_size(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_
 		uint16_t render_width_minus_1, render_height_minus_1;
 		if (AMP_FAILED(iRet = bitbuf.GetValue(16, render_width_minus_1)))return iRet;
 		if (AMP_FAILED(iRet = bitbuf.GetValue(16, render_height_minus_1)))return iRet;
-		obu_parse_params.RenderWidth = render_width_minus_1 + 1;
-		obu_parse_params.RenderHeight = render_height_minus_1 + 1;
+		obu_parse_params.ActiveFrameParams.RenderWidth = render_width_minus_1 + 1;
+		obu_parse_params.ActiveFrameParams.RenderHeight = render_height_minus_1 + 1;
 	}
 	else
 	{
-		obu_parse_params.RenderWidth = obu_parse_params.UpscaledWidth;
-		obu_parse_params.RenderHeight = obu_parse_params.FrameHeight;
+		obu_parse_params.ActiveFrameParams.RenderWidth = obu_parse_params.ActiveFrameParams.UpscaledWidth;
+		obu_parse_params.ActiveFrameParams.RenderHeight = obu_parse_params.ActiveFrameParams.FrameHeight;
 	}
 
 	return iRet;
@@ -2078,11 +2100,11 @@ RET_CODE CAV1Parser::frame_size_with_refs(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, O
 	for (uint8_t i = 0; i < REFS_PER_FRAME; i++) {
 		if (AMP_FAILED(iRet = bitbuf.GetFlag(found_ref)))return iRet;
 		if (found_ref == 1) {
-			obu_parse_params.UpscaledWidth	= obu_parse_params.VBI[ref_frame_idx[i]].RefUpscaledWidth;
-			obu_parse_params.FrameWidth		= obu_parse_params.UpscaledWidth;
-			obu_parse_params.FrameHeight	= obu_parse_params.VBI[ref_frame_idx[i]].RefFrameHeight;
-			obu_parse_params.RenderWidth	= obu_parse_params.VBI[ref_frame_idx[i]].RefRenderWidth;
-			obu_parse_params.RenderHeight	= obu_parse_params.VBI[ref_frame_idx[i]].RefRenderHeight;
+			obu_parse_params.ActiveFrameParams.UpscaledWidth	= obu_parse_params.VBI[ref_frame_idx[i]].RefUpscaledWidth;
+			obu_parse_params.ActiveFrameParams.FrameWidth		= obu_parse_params.ActiveFrameParams.UpscaledWidth;
+			obu_parse_params.ActiveFrameParams.FrameHeight	= obu_parse_params.VBI[ref_frame_idx[i]].RefFrameHeight;
+			obu_parse_params.ActiveFrameParams.RenderWidth	= obu_parse_params.VBI[ref_frame_idx[i]].RefRenderWidth;
+			obu_parse_params.ActiveFrameParams.RenderHeight	= obu_parse_params.VBI[ref_frame_idx[i]].RefRenderHeight;
 			break;
 		}
 	}
@@ -2117,7 +2139,8 @@ RET_CODE CAV1Parser::set_frame_refs(
 
 	uint8_t curFrameHint = (uint8_t)(1 << (spSeqHdrOBU->ptr_sequence_header_obu->OrderHintBits - 1));
 	for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
-		shiftedOrderHints[i] = curFrameHint + spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(obu_parse_params.VBI[i].RefOrderHint, obu_parse_params.OrderHint);
+		shiftedOrderHints[i] = curFrameHint + spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(obu_parse_params.VBI[i].RefOrderHint, 
+																									  obu_parse_params.ActiveFrameParams.OrderHint);
 
 	int16_t lastOrderHint = shiftedOrderHints[last_frame_idx];
 	int16_t goldOrderHint = shiftedOrderHints[gold_frame_idx];
@@ -2174,8 +2197,12 @@ RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PA
 {
 	int iRet = RET_CODE_SUCCESS;
 	auto pSeqHdrOBU = spSeqHdrOBU->ptr_sequence_header_obu;
-	uint32_t sbCols = pSeqHdrOBU->use_128x128_superblock ? ((obu_parse_params.MiCols + 31) >> 5) : ((obu_parse_params.MiCols + 15) >> 4);
-	uint32_t sbRows = pSeqHdrOBU->use_128x128_superblock ? ((obu_parse_params.MiRows + 31) >> 5) : ((obu_parse_params.MiRows + 15) >> 4);
+	uint32_t sbCols = pSeqHdrOBU->use_128x128_superblock 
+		? ((obu_parse_params.ActiveFrameParams.MiCols + 31) >> 5)
+		: ((obu_parse_params.ActiveFrameParams.MiCols + 15) >> 4);
+	uint32_t sbRows = pSeqHdrOBU->use_128x128_superblock 
+		? ((obu_parse_params.ActiveFrameParams.MiRows + 31) >> 5) 
+		: ((obu_parse_params.ActiveFrameParams.MiRows + 15) >> 4);
 	uint32_t sbShift = pSeqHdrOBU->use_128x128_superblock ? 5 : 4;
 	uint32_t sbSize = sbShift + 2;
 	uint32_t maxTileWidthSb = MAX_TILE_WIDTH >> sbSize;
@@ -2193,43 +2220,43 @@ RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PA
 	if (AMP_FAILED(iRet = bitbuf.GetFlag(uniform_tile_spacing_flag)))goto done;
 
 	if (uniform_tile_spacing_flag) {
-		obu_parse_params.TileColsLog2 = minLog2TileCols;
-		while (obu_parse_params.TileColsLog2 < maxLog2TileCols) {
+		obu_parse_params.ActiveFrameParams.TileColsLog2 = minLog2TileCols;
+		while (obu_parse_params.ActiveFrameParams.TileColsLog2 < maxLog2TileCols) {
 			bool increment_tile_cols_log2;
 			if (AMP_FAILED(iRet = bitbuf.GetFlag(increment_tile_cols_log2)))goto done;
 
 			if (increment_tile_cols_log2 == 1)
-				obu_parse_params.TileColsLog2++;
+				obu_parse_params.ActiveFrameParams.TileColsLog2++;
 			else
 				break;
 		}
-		uint32_t tileWidthSb = (sbCols + (1 << obu_parse_params.TileColsLog2) - 1) >> obu_parse_params.TileColsLog2;
+		uint32_t tileWidthSb = (sbCols + (1 << obu_parse_params.ActiveFrameParams.TileColsLog2) - 1) >> obu_parse_params.ActiveFrameParams.TileColsLog2;
 		uint32_t i = 0;
 		for (uint32_t startSb = 0; startSb < sbCols; startSb += tileWidthSb) {
 			MiColStarts.push_back(startSb << sbShift);
 			i += 1;
 		}
-		MiColStarts.push_back(obu_parse_params.MiCols);
-		obu_parse_params.TileCols = i;
+		MiColStarts.push_back(obu_parse_params.ActiveFrameParams.MiCols);
+		obu_parse_params.ActiveFrameParams.TileCols = i;
 
-		uint8_t minLog2TileRows = (uint8_t)AMP_MAX((int)(minLog2Tiles - obu_parse_params.TileColsLog2), 0);
-		obu_parse_params.TileRowsLog2 = minLog2TileRows;
-		while (obu_parse_params.TileRowsLog2 < maxLog2TileRows) {
+		uint8_t minLog2TileRows = (uint8_t)AMP_MAX((int)(minLog2Tiles - obu_parse_params.ActiveFrameParams.TileColsLog2), 0);
+		obu_parse_params.ActiveFrameParams.TileRowsLog2 = minLog2TileRows;
+		while (obu_parse_params.ActiveFrameParams.TileRowsLog2 < maxLog2TileRows) {
 			bool increment_tile_rows_log2;
 			if (AMP_FAILED(iRet = bitbuf.GetFlag(increment_tile_rows_log2))) goto done;
 			if (increment_tile_rows_log2 == 1)
-				obu_parse_params.TileRowsLog2++;
+				obu_parse_params.ActiveFrameParams.TileRowsLog2++;
 			else
 				break;
 		}
-		uint32_t tileHeightSb = (sbRows + (1 << obu_parse_params.TileRowsLog2) - 1) >> obu_parse_params.TileRowsLog2;
+		uint32_t tileHeightSb = (sbRows + (1 << obu_parse_params.ActiveFrameParams.TileRowsLog2) - 1) >> obu_parse_params.ActiveFrameParams.TileRowsLog2;
 		i = 0;
 		for (uint32_t startSb = 0; startSb < sbRows; startSb += tileHeightSb) {
 			MiRowStarts.push_back(startSb << sbShift);
 			i += 1;
 		}
-		MiRowStarts.push_back(obu_parse_params.MiRows);
-		obu_parse_params.TileRows = i;
+		MiRowStarts.push_back(obu_parse_params.ActiveFrameParams.MiRows);
+		obu_parse_params.ActiveFrameParams.TileRows = i;
 	}
 	else {
 		uint32_t widestTileSb = 0;
@@ -2245,9 +2272,9 @@ RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PA
 			startSb += sizeSb;
 		}
 
-		MiColStarts.push_back(obu_parse_params.MiCols);
-		obu_parse_params.TileCols = i;
-		obu_parse_params.TileColsLog2 = BST::AV1::tile_log2(1, obu_parse_params.TileCols);
+		MiColStarts.push_back(obu_parse_params.ActiveFrameParams.MiCols);
+		obu_parse_params.ActiveFrameParams.TileCols = i;
+		obu_parse_params.ActiveFrameParams.TileColsLog2 = BST::AV1::tile_log2(1, obu_parse_params.ActiveFrameParams.TileCols);
 		if (minLog2Tiles > 0)
 			maxTileAreaSb = (sbRows * sbCols) >> (minLog2Tiles + 1);
 		else
@@ -2263,13 +2290,14 @@ RET_CODE CAV1Parser::tile_info(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_PARSE_PA
 			uint32_t sizeSb = height_in_sbs_minus_1 + 1;
 			startSb += sizeSb;
 		}
-		MiRowStarts.push_back(obu_parse_params.MiRows);
-		obu_parse_params.TileRows = i;
-		obu_parse_params.TileRowsLog2 = BST::AV1::tile_log2(1, obu_parse_params.TileRows);
+		MiRowStarts.push_back(obu_parse_params.ActiveFrameParams.MiRows);
+		obu_parse_params.ActiveFrameParams.TileRows = i;
+		obu_parse_params.ActiveFrameParams.TileRowsLog2 = BST::AV1::tile_log2(1, obu_parse_params.ActiveFrameParams.TileRows);
 	}
 
-	if (obu_parse_params.TileColsLog2 > 0 || obu_parse_params.TileRowsLog2 > 0) {
-		if (AMP_FAILED(iRet = bitbuf.GetValue(obu_parse_params.TileRowsLog2 + obu_parse_params.TileColsLog2, context_update_tile_id)))goto done;
+	if (obu_parse_params.ActiveFrameParams.TileColsLog2 > 0 || obu_parse_params.ActiveFrameParams.TileRowsLog2 > 0) {
+		if (AMP_FAILED(iRet = bitbuf.GetValue(obu_parse_params.ActiveFrameParams.TileRowsLog2 + 
+											  obu_parse_params.ActiveFrameParams.TileColsLog2, context_update_tile_id)))goto done;
 
 		uint8_t tile_size_bytes_minus_1;
 		if (AMP_FAILED(iRet = bitbuf.GetValue(2, tile_size_bytes_minus_1)))goto done;
@@ -2285,9 +2313,9 @@ RET_CODE CAV1Parser::global_motion_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, O
 	int iRet = RET_CODE_SUCCESS;
 
 	for (int8_t ref = LAST_FRAME; ref <= ALTREF_FRAME; ref++) {
-		obu_parse_params.GmType[ref-LAST_FRAME] = IDENTITY;
+		obu_parse_params.ActiveFrameParams.GmType[ref-LAST_FRAME] = IDENTITY;
 		for (uint8_t i = 0; i < 6; i++) {
-			obu_parse_params.gm_params[ref-LAST_FRAME][i] = ((i % 3 == 2) ?
+			obu_parse_params.ActiveFrameParams.gm_params[ref-LAST_FRAME][i] = ((i % 3 == 2) ?
 				1 << WARPEDMODEL_PREC_BITS : 0);
 		}
 	}
@@ -2315,7 +2343,7 @@ RET_CODE CAV1Parser::global_motion_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, O
 		else
 			type = IDENTITY;
 
-		obu_parse_params.GmType[ref - LAST_FRAME] = type;
+		obu_parse_params.ActiveFrameParams.GmType[ref - LAST_FRAME] = type;
 
 		if (type >= ROTZOOM) {
 			if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 2, allow_high_precision_mv)))goto done;
@@ -2325,8 +2353,8 @@ RET_CODE CAV1Parser::global_motion_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, O
 				if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 5, allow_high_precision_mv)))goto done;
 			}
 			else {
-				obu_parse_params.gm_params[ref][4] = -obu_parse_params.gm_params[ref][3];
-				obu_parse_params.gm_params[ref][5] =  obu_parse_params.gm_params[ref][2];
+				obu_parse_params.ActiveFrameParams.gm_params[ref][4] = -obu_parse_params.ActiveFrameParams.gm_params[ref][3];
+				obu_parse_params.ActiveFrameParams.gm_params[ref][5] =  obu_parse_params.ActiveFrameParams.gm_params[ref][2];
 			}
 		}
 		if (type >= TRANSLATION) {
@@ -2376,7 +2404,7 @@ RET_CODE CAV1Parser::film_grain_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, OBU_
 	}
 
 	if (AMP_FAILED(iRet = bitbuf.GetValue(16, grain_seed)))goto done;
-	if (obu_parse_params.frame_type == INTER_FRAME)
+	if (obu_parse_params.ActiveFrameParams.frame_type == INTER_FRAME)
 	{
 		if (AMP_FAILED(iRet = bitbuf.GetFlag(update_grain)))goto done;
 	}
@@ -2494,12 +2522,12 @@ RET_CODE CAV1Parser::read_global_param(BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_par
 	int32_t round = (idx % 3) == 2 ? (1 << WARPEDMODEL_PREC_BITS) : 0;
 	int32_t sub = (idx % 3) == 2 ? (1 << precBits) : 0;
 	int32_t mx = (1 << absBits);
-	int32_t r = (obu_parse_params.PrevGmParams[ref - LAST_FRAME][idx] >> precDiff) - sub;
+	int32_t r = (obu_parse_params.ActiveFrameParams.PrevGmParams[ref - LAST_FRAME][idx] >> precDiff) - sub;
 	int32_t val;
 	int iRet = decode_signed_subexp_with_ref(bitbuf, -mx, mx + 1, r, val);
 	if (AMP_FAILED(iRet))return iRet;
 
-	obu_parse_params.gm_params[ref][idx] = (val<< precDiff) + round;
+	obu_parse_params.ActiveFrameParams.gm_params[ref][idx] = (val<< precDiff) + round;
 
 	return RET_CODE_SUCCESS;
 }

@@ -209,12 +209,6 @@ namespace BST
 			AV1_LEVEL_7_3		= 23,
 		};
 
-		struct RefBuffer 
-		{
-			int					idx;		// frame buf idx
-			int					map_idx;	// frame map idx, it mapped into the VBI index, it is the index of ctx_video_bst->VBI
-		};
-
 		struct FILM_GRAIN_PARAMS_DATA
 		{
 			uint8_t				apply_grain : 1;
@@ -268,57 +262,58 @@ namespace BST
 
 		struct RefCntBuffer 
 		{
-			int32_t				ref_count;
+			int32_t				ref_count = 0;
 
 			//
 			// The fields related with 7.20. Reference frame update process
 			//
 
-			bool				valid_for_referencing;
-													// RefValid[i] is set equal to 1
-			int32_t				current_frame_id;	// RefFrameId[i] is set equal to current_frame_id
+			bool				valid_for_referencing = false;
+														// RefValid[i] is set equal to 1
+			int32_t				current_frame_id = 0;	// RefFrameId[i] is set equal to current_frame_id
 			// Width and height give the size of the buffer (before any upscaling, unlike
 			// the sizes that can be derived from the buf structure)
-			int32_t				upscaled_width;		// RefUpscaledWidth[i] is set equal to UpscaledWidth
-			int32_t				width;				// RefFrameWidth[i] is set equal to FrameWidth
-			int32_t				height;				// RefFrameHeight[i] is set equal to FrameHeight
-			int32_t				render_width;		// RefRenderWidth[i] is set equal to RenderWidth
-			int32_t				render_height;		// RefRenderHeight[i] is set equal to RenderHeight
-			int32_t				mi_cols;			// RefMiCols[i] is set equal to MiCols
-			int32_t				mi_rows;			// RefMiRows[i] is set equal to MiRows
-			AV1_FRAME_TYPE		frame_type;			// RefFrameType[i] is set equal to frame_type.
+			int32_t				upscaled_width = -1;	// RefUpscaledWidth[i] is set equal to UpscaledWidth
+			int32_t				width = -1;				// RefFrameWidth[i] is set equal to FrameWidth
+			int32_t				height = -1;			// RefFrameHeight[i] is set equal to FrameHeight
+			int32_t				render_width = -1;		// RefRenderWidth[i] is set equal to RenderWidth
+			int32_t				render_height = -1;		// RefRenderHeight[i] is set equal to RenderHeight
+			uint16_t			mi_cols = 0;			// RefMiCols[i] is set equal to MiCols
+			uint16_t			mi_rows = 0;			// RefMiRows[i] is set equal to MiRows
+			int8_t				frame_type = -1;		// RefFrameType[i] is set equal to frame_type.
 
-													// RefSubsamplingX[i] is set equal to subsampling_x.
-													// RefSubsamplingY[i] is set equal to subsampling_y
-													// RefBitDepth[i] is set equal to BitDepth
+														// RefSubsamplingX[i] is set equal to subsampling_x.
+														// RefSubsamplingY[i] is set equal to subsampling_y
+														// RefBitDepth[i] is set equal to BitDepth
 
-			uint8_t				ref_order_hints[REFS_PER_FRAME];
-													// SavedOrderHints[i][j + LAST_FRAME] is set equal to OrderHints[j + LAST_FRAME] for j = 0..REFS_PER_FRAME-1.
+			uint8_t				ref_order_hints[REFS_PER_FRAME] = { 0 };
+														// SavedOrderHints[i][j + LAST_FRAME] is set equal to OrderHints[j + LAST_FRAME] for j = 0..REFS_PER_FRAME-1.
 
-			uint8_t				current_order_hint;	// RefOrderHint[i] is set equal to OrderHint
+			uint8_t				current_order_hint = 0;	// RefOrderHint[i] is set equal to OrderHint
 
 			// Since no real decoding happen, the below fields are ignored at present
 
-													// FrameStore[i][0][y][x] is set equal to LrFrame[0][y][x] for x = 0..UpscaledWidth-1, for y = 0..FrameHeight-1.
-													// FrameStore[i][plane][y][x] is set equal to LrFrame[plane][y][x] for plane = 1..2, 
-													// for x = 0..((UpscaledWidth + subsampling_x) >> subsampling_x) - 1,
-													// for y = 0..((FrameHeight + subsampling_y) >> subsampling_y) - 1
+														// FrameStore[i][0][y][x] is set equal to LrFrame[0][y][x] for x = 0..UpscaledWidth-1, for y = 0..FrameHeight-1.
+														// FrameStore[i][plane][y][x] is set equal to LrFrame[plane][y][x] for plane = 1..2, 
+														// for x = 0..((UpscaledWidth + subsampling_x) >> subsampling_x) - 1,
+														// for y = 0..((FrameHeight + subsampling_y) >> subsampling_y) - 1
 
-													// SavedRefFrames[i][row][col] is set equal to MfRefFrames[row][col] for row = 0..MiRows-1, for col = 0..MiCols-1.
+														// SavedRefFrames[i][row][col] is set equal to MfRefFrames[row][col] for row = 0..MiRows-1, for col = 0..MiCols-1.
 
-													// SavedMvs[i][row][col][comp] is set equal to MfMvs[row][col][comp] 
-													// for comp = 0..1, for row = 0..MiRows-1, for col = 0..MiCols-1.
+														// SavedMvs[i][row][col][comp] is set equal to MfMvs[row][col][comp] 
+														// for comp = 0..1, for row = 0..MiRows-1, for col = 0..MiCols-1.
 			
-			int32_t				gm_params[REFS_PER_FRAME][6];
-													// SavedGmParams[i][ref][j] is set equal to gm_params[ref][j] for ref = LAST_FRAME..ALTREF_FRAME, for j = 0..5
+			int32_t				gm_params[REFS_PER_FRAME][6] = { {0} };
+														// SavedGmParams[i][ref][j] is set equal to gm_params[ref][j] for ref = LAST_FRAME..ALTREF_FRAME, for j = 0..5
 			
-			int8_t				loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME];
+			bool				loop_filter_delta_enabled = false;
+			int8_t				loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME] = { 0 };
 			int8_t				loop_filter_mode_deltas[2] = { 0 };
 			uint8_t				FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 			int16_t				FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 			
 			WarpedMotionParams	global_motion[NUM_REF_FRAMES];
-			int					showable_frame;		// frame can be used as show existing frame in future
+			uint8_t				showable_frame = 0;		// frame can be used as show existing frame in future
 			FILM_GRAIN_PARAMS_DATA
 								film_grain_params;
 
@@ -326,68 +321,22 @@ namespace BST
 				ref_count = 0;
 				valid_for_referencing = 0;
 			}
+
+			int LoadVBISlotParams(const VBI_SLOT_PARAMS& VBI_slot_params);
 		};
+
+		struct VideoBitstreamCtx;
 
 		struct BufferPool 
 		{
 			RefCntBuffer		frame_bufs[FRAME_BUFFERS];
+			VideoBitstreamCtx*	ctx_video_bst;
 
-			INLINE void ref_cnt_fb(int8_t *idx, int new_idx)
-			{
-				const int ref_index = *idx;
-
-				if (ref_index >= 0 && frame_bufs[ref_index].ref_count > 0)
-				{
-					frame_bufs[ref_index].ref_count--;
-				}
-
-				*idx = new_idx;
-
-				frame_bufs[new_idx].ref_count++;
-			}
-
-			INLINE void decrease_ref_count(int8_t idx)
-			{
-				if (idx >= 0) {
-					--frame_bufs[idx].ref_count;
-					// A worker may only get a free frame-buffer index when calling get_free_fb.
-					// But the private buffer is not set up until finish decoding header.
-					// So any error happens during decoding header, the frame_bufs will not
-					// have valid priv buffer.
-					if (frame_bufs[idx].ref_count == 0) {
-						printf("[AV1] Release the frame buffer #%d.\n", idx);
-					}
-				}
-			}
-
-			/*
-				The allocated frame buffer should NOT lies in the VBI
-			*/
-			INLINE int8_t get_free_fb()
-			{
-				int i;
-
-				for (i = 0; i < FRAME_BUFFERS; ++i)
-					if (frame_bufs[i].ref_count == 0)
-						break;
-
-				if (i != FRAME_BUFFERS) {
-					frame_bufs[i].ref_count = 1;
-				}
-				else {
-					// Reset i to be INVALID_IDX to indicate no free buffer found.
-					printf("[AV1] No available free frame buffer!!\n");
-					i = -1;
-				}
-
-				return i;
-			}
-
-			void Reset() {
-				for (size_t i = 0; i < _countof(frame_bufs); i++) {
-					frame_bufs[i].Reset();
-				}
-			}
+			BufferPool(VideoBitstreamCtx* pCtx);
+			void ref_cnt_fb(int8_t *idx, int new_idx);
+			void decrease_ref_count(int8_t idx);
+			int8_t get_free_fb();
+			void Reset();
 		};
 
 		struct OPEN_BITSTREAM_UNIT;
@@ -418,24 +367,17 @@ namespace BST
 			int8_t				VBI[NUM_REF_FRAMES];			// virtual buffer index,  maps fb_idx to reference slot
 																// an array of indices of the frame areas in the BufferPool. VBI elements which do not point to
 																// any slot in the VBI are set to - 1. VBI array size is equal to 8, with the indices taking values from 0 to 7
-			int8_t				next_VBI[NUM_REF_FRAMES];		/* after the frame is decoded, update it to VBI */
+			int8_t				next_VBI[NUM_REF_FRAMES];		// after the frame is decoded, update it to VBI
 			int8_t				cfbi;							// current frame buffer index
 																// the variable that contains the index to the area in the BufferPool that contains the current frame
 
-			uint8_t				FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
-			int16_t				FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 			uint8_t				GmType[REFS_PER_FRAME] = { IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY };
 			int32_t				PrevGmParams[REFS_PER_FRAME][6] = { {0} };
-			bool				loop_filter_delta_enabled = false;
-			int8_t				loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME];
-			int8_t				loop_filter_mode_deltas[2] = { 0 };
-			FILM_GRAIN_PARAMS_DATA
-								film_grain_params;
 
 			//
 			// The current decoding frame context members
 			//
-			RefBuffer			frame_refs[REFS_PER_FRAME];		// current decoding frame's reference frames
+			int8_t				ref_frame_idx[REFS_PER_FRAME];	// current decoding frame's reference frames
 
 			int32_t				current_frame_id;
 			int32_t				output_frame_index;
@@ -451,7 +393,7 @@ namespace BST
 			int					log2_tile_cols;					// only valid for uniform tiles
 			int					log2_tile_rows;					// only valid for uniform tiles
 			
-			int					tu_fu_idx = -1;					// Indicate the frame-unit index of the current temporal-unit
+			int32_t				tu_fu_idx = -1;					// Indicate the frame-unit index of the current temporal-unit
 			int64_t				tu_idx = -1;					// indicate the index of the current parsed in the current temporal unit
 
 			std::shared_ptr<OPEN_BITSTREAM_UNIT>
@@ -490,7 +432,7 @@ namespace BST
 			AV1_BYTESTREAM_FORMAT 
 						GetByteStreamFormat();
 
-			RET_CODE	LoadVBISnapshot(void* VBIsnapshot, int cbSize);
+			RET_CODE	LoadSnapshot(AV1ContextSnapshot* ptr_ctx_snapshot);
 			void		Reset();
 
 			void		setup_past_independence();
@@ -2783,7 +2725,7 @@ namespace BST
 									bsrbarray(in_bst, found_ref, i);
 									if (found_ref[i])
 									{
-										auto frame_buf = frame_bufs[ctx_video_bst->frame_refs[i].idx];
+										auto frame_buf = frame_bufs[ctx_video_bst->VBI[ctx_video_bst->ref_frame_idx[i]]];
 										UpscaleWidth = frame_buf.upscaled_width;
 										FrameWidth = frame_buf.width;
 										FrameHeight = frame_buf.height;
@@ -3180,8 +3122,10 @@ namespace BST
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(tileWidthSb, "tileWidthSb=(sbCols+(1&lt;&lt;TileColsLog2)-1)&gt;&gt;TileColsLog2");
 
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag0", "for(startSb=0;startSb&lt;sbCols;startSb+=tileWidthSb)", "");
-								for (size_t i = 0; i < MiColStarts.size(); i++) {
-									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag01", "MiColStarts[%zu]", MiColStarts[i], "MiColStarts[i]=startSb&lt;&lt;sbShift", i);
+								i = 0;
+								for (size_t startSb = 0; startSb < sbCols; startSb += tileWidthSb) {
+									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag01", "MiColStarts[%d]", (int)(startSb << sbShift), "MiColStarts[i]=startSb&lt;&lt;sbShift", i);
+									i++;
 								}
 								NAV_WRITE_TAG_END("Tag0");
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(TileCols, "specifies the number of tiles across the frame, not greater than MAX_TILE_COLS");
@@ -3199,8 +3143,10 @@ namespace BST
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(tileHeightSb, "tileHeightSb=(sbRows+(1&lt;&lt;TileRowsLog2)-1)&gt;&gt;TileRowsLog2");
 
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag1", "for(startSb=0;startSb&lt;sbRows;startSb+=tileHeightSb)", "");
-								for (size_t i = 0; i < MiRowStarts.size(); i++) {
-									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag11", "MiRowStarts[%zu]", MiRowStarts[i], "MiRowStarts[i]=startSb&lt;&lt;sbShift", i);
+								i = 0;
+								for (size_t startSb = 0; startSb < sbRows; startSb += tileHeightSb) {
+									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag11", "MiRowStarts[%d]", (int)(startSb << sbShift), "MiRowStarts[i]=startSb&lt;&lt;sbShift", i);
+									i++;
 								}
 								NAV_WRITE_TAG_END("Tag1");
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(TileRows, "specifies the number of tiles down the frame, not greater than MAX_TILE_ROWS");
@@ -4601,7 +4547,7 @@ namespace BST
 									auto OrderHint = cur_frame->current_order_hint;
 									for (int i = 0; i < REFS_PER_FRAME; i++)
 									{
-										const int buf_idx = ctx_video_bst->frame_refs[i].idx;
+										const int buf_idx = ctx_video_bst->VBI[ctx_video_bst->ref_frame_idx[i]];
 										if (buf_idx == -1)
 											continue;
 
@@ -4643,7 +4589,7 @@ namespace BST
 										secondForwardIdx = -1;
 										for (int i = 0; i < REFS_PER_FRAME; i++)
 										{
-											const int buf_idx = ctx_video_bst->frame_refs[i].idx;
+											const int buf_idx = ctx_video_bst->VBI[ctx_video_bst->ref_frame_idx[i]];
 											if (buf_idx == -1)
 												continue;
 
@@ -5337,9 +5283,10 @@ namespace BST
 								if (!film_grain_params_data.update_grain)
 								{
 									bsrb1(in_bst, film_grain_params_data.film_grain_params_ref_idx, 3);
-									tempGrainSeed = ctx_video_bst->film_grain_params.grain_seed;
+									auto& cur_frame = ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi];
+									tempGrainSeed = cur_frame.film_grain_params.grain_seed;
 									ctx_video_bst->load_grain_params(film_grain_params_data.film_grain_params_ref_idx);
-									ctx_video_bst->film_grain_params.grain_seed = tempGrainSeed;
+									cur_frame.film_grain_params.grain_seed = tempGrainSeed;
 									ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].film_grain_params = film_grain_params_data;
 									MAP_BST_END();
 									return RET_CODE_SUCCESS;
@@ -5466,18 +5413,14 @@ namespace BST
 							{
 								BST_FIELD_PROP_2NUMBER("grain_seed", 16, film_grain_params_data.grain_seed, "specifies the starting value for the pseudo-random numbers used during film grain synthesis");
 
-								if (ptr_uncompressed_header->frame_type == INTER_FRAME && (
-									map_status.status == 0 || (map_status.error == 0 && map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields)))
+								if (ptr_uncompressed_header->frame_type == INTER_FRAME)
 								{
-									MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%d", (int)film_grain_params_data.update_grain);
-									NAV_FIELD_PROP_BEGIN("update_grain", 1, szTemp3, 
-										film_grain_params_data.update_grain ? "means that a new set of parameters should be sent" : "means that the previous set of parameters should be used", bit_offset ? *bit_offset : -1LL, "I");
-									if (bit_offset)*bit_offset += 1;
-									field_prop_idx++;
+									BST_FIELD_PROP_BOOL(film_grain_params_data.update_grain, "means that a new set of parameters should be sent"
+																						   , "means that the previous set of parameters should be used");
 								}
-								else if (ptr_uncompressed_header->frame_type == INTER_FRAME)
+								else
 								{
-									NAV_WRITE_TAG_WITH_1NUMBER_VALUE_BEGIN("update_grain", "update_grain", film_grain_params_data.update_grain, "Should be 1, means that a new set of parameters should be sent");
+									NAV_WRITE_TAG_WITH_1NUMBER_VALUE("update_grain", film_grain_params_data.update_grain, "Should be 1, means that a new set of parameters should be sent");
 								}
 
 								if (!film_grain_params_data.update_grain)
@@ -5490,11 +5433,12 @@ namespace BST
 								}
 								else
 								{
+									NAV_WRITE_TAG_BEGIN2("update_grain");
 									BST_FIELD_PROP_2NUMBER("num_y_points", 4, film_grain_params_data.num_y_points, "specifies the number of points for the piece-wise linear scaling function of the luma component");
-									NAV_WRITE_TAG_WITH_ALIAS("Tag0", "for(i=0;i<num_y_points;i++)", "");
+									NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;num_y_points;i++)", "");
 									for (int i = 0; i < film_grain_params_data.num_y_points; i++)
 									{
-										NAV_WRITE_TAG_WITH_ALIAS_F("Tag00", "[point_y#%d]", "", i);
+										NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag00", "[point_y#%d]", "", i);
 										BST_FIELD_PROP_2NUMBER("point_y_value", 8, film_grain_params_data.point_y_value[i], 
 											"represents the x (luma value) coordinate for the i-th point of the piecewise linear scaling function for luma component");
 										BST_FIELD_PROP_2NUMBER("point_y_scaling", 8, film_grain_params_data.point_y_scaling[i], 
@@ -5522,10 +5466,10 @@ namespace BST
 									else
 									{
 										BST_FIELD_PROP_2NUMBER("num_cb_points", 4, film_grain_params_data.num_cb_points, "specifies the number of points for the piece-wise linear scaling function of the cb component");
-										NAV_WRITE_TAG_WITH_ALIAS("Tag1", "for(i=0;i&lt;num_cb_points;i++)", "");
+										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "for(i=0;i&lt;num_cb_points;i++)", "");
 										for (int i = 0; i < film_grain_params_data.num_cb_points; i++)
 										{
-											NAV_WRITE_TAG_WITH_ALIAS_F("Tag10", "[point_cb#%d]", "", i);
+											NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag10", "[point_cb#%d]", "", i);
 											BST_FIELD_PROP_2NUMBER("point_cb_value", 8, film_grain_params_data.point_cb_value[i], 
 												"represents the x coordinate for the i-th point of the piece-wise linear scaling function for cb component");
 											BST_FIELD_PROP_2NUMBER("point_cb_scaling", 8, film_grain_params_data.point_cb_scaling[i], 
@@ -5536,10 +5480,10 @@ namespace BST
 
 										BST_FIELD_PROP_2NUMBER("num_cr_points", 4, film_grain_params_data.num_cr_points, 
 											"specifies represents the number of points for the piece-wise linear scaling function of the cr component");
-										NAV_WRITE_TAG_WITH_ALIAS("Tag2", "for(i=0;i&lt;num_cr_points;i++)", "");
+										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag2", "for(i=0;i&lt;num_cr_points;i++)", "");
 										for (int i = 0; i < film_grain_params_data.num_cr_points; i++)
 										{
-											NAV_WRITE_TAG_WITH_ALIAS_F("Tag20", "[point_cr#%d]", "", i);
+											NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag20", "[point_cr#%d]", "", i);
 											BST_FIELD_PROP_2NUMBER("point_cr_value", 8, film_grain_params_data.point_cr_value[i], 
 												"represents the x coordinate for the i-th point of the piece-wise linear scaling function for cr component");
 											BST_FIELD_PROP_2NUMBER("point_cr_scaling", 8, film_grain_params_data.point_cr_scaling[i], 
@@ -5556,7 +5500,7 @@ namespace BST
 									if (film_grain_params_data.num_y_points)
 									{
 										NAV_WRITE_TAG_WITH_NUMBER_VALUE("numPosChroma", film_grain_params_data.numPosChroma, "numPosChroma = numPosLuma + 1");
-										NAV_WRITE_TAG_WITH_ALIAS("Tag3", "for(i=0;i&lt;numPosLuma;i++)", "");
+										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;numPosLuma;i++)", "");
 										for (int i = 0; i < film_grain_params_data.numPosLuma; i++)
 										{
 											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_y_plus_128", i, 8, film_grain_params_data.ar_coeffs_y_plus_128[i], "auto-regressive coefficients used for the Y plane");
@@ -5569,7 +5513,7 @@ namespace BST
 									}
 
 									if (film_grain_params_data.chroma_scaling_from_luma || film_grain_params_data.num_cb_points) {
-										NAV_WRITE_TAG_WITH_ALIAS("Tag4", "for(i=0;i&lt;numPosChroma;i++)", "");
+										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag4", "for(i=0;i&lt;numPosChroma;i++)", "");
 										for (int i = 0; i < film_grain_params_data.numPosChroma; i++)
 										{
 											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_cb_plus_128", i, 8, film_grain_params_data.ar_coeffs_cb_plus_128[i], "auto-regressive coefficients used for the U plane");
@@ -5577,7 +5521,7 @@ namespace BST
 										NAV_WRITE_TAG_END("Tag4");
 									}
 									if (film_grain_params_data.chroma_scaling_from_luma || film_grain_params_data.num_cr_points) {
-										NAV_WRITE_TAG_WITH_ALIAS("Tag5", "for(i=0;i&lt;numPosChroma;i++)", "");
+										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag5", "for(i=0;i&lt;numPosChroma;i++)", "");
 										for (int i = 0; i < film_grain_params_data.numPosChroma; i++)
 										{
 											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_cr_plus_128", i, 8, film_grain_params_data.ar_coeffs_cr_plus_128[i], "auto-regressive coefficients used for the V plane");
@@ -5612,9 +5556,9 @@ namespace BST
 									BST_FIELD_PROP_BOOL1(film_grain_params_data, clip_to_restricted_range,
 										"indicates that clipping to the restricted (studio) range shall be applied to the sample values after adding the film grain(see the semantics for color_range for an explanation of studio swing)", 
 										"indicates that clipping to the full range shall be applied to the sample values after adding the film grain");
-								}
 
-								NAV_WRITE_TAG_END("update_grain");
+									NAV_WRITE_TAG_END("update_grain");
+								}
 							}
 							BST_FIELD_PROP_BOOL_END("apply_grain");
 						}
@@ -5787,8 +5731,11 @@ namespace BST
 									bsrb1(in_bst, frame_to_show_map_idx, 3);
 									const int frame_to_show = ctx_video_bst->VBI[frame_to_show_map_idx];
 									if (ptr_sequence_header_obu->decoder_model_info_present_flag && !ptr_sequence_header_obu->ptr_timing_info->equal_picture_interval) {
-										bsrb1(in_bst, temporal_point_info.frame_presentation_time, (int)(ptr_sequence_header_obu->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1));
+										int frame_presentation_time_length = (int)(ptr_sequence_header_obu->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1);
+										bsrb1(in_bst, temporal_point_info.frame_presentation_time, frame_presentation_time_length);
 									}
+
+									ctx_video_bst->cfbi = frame_to_show;
 
 									refresh_frame_flags = 0;
 									if (ptr_sequence_header_obu->frame_id_numbers_present_flag) {
@@ -5808,15 +5755,16 @@ namespace BST
 										return ctx_video_bst->SingleOBUParse?RET_CODE_SUCCESS:RET_CODE_BUFFER_NOT_COMPATIBLE;
 									}
 
-									ctx_video_bst->buffer_pool->ref_cnt_fb(&ctx_video_bst->cfbi, frame_to_show);
+									//ctx_video_bst->buffer_pool->ref_cnt_fb(&ctx_video_bst->cfbi, frame_to_show);
 									ctx_video_bst->reset_decoder_state = frame_bufs[frame_to_show].frame_type == KEY_FRAME ? true : false;
+
+									// double reference for frame_to_show
+									frame_bufs[frame_to_show].ref_count++;
 
 									frame_bufs[frame_to_show].showable_frame = 0;
 
 									if (ctx_video_bst->SingleOBUParse)
-									{
 										frame_type = ctx_video_bst->frame_types[ctx_video_bst->tu_fu_idx];
-									}
 									else
 										frame_type = frame_bufs[frame_to_show].frame_type;
 
@@ -5825,7 +5773,7 @@ namespace BST
 										refresh_frame_flags = (uint8_t)allFrames;
 
 										for (int i = 0; i < REFS_PER_FRAME; ++i) {
-											ctx_video_bst->frame_refs[i].idx = -1;
+											ctx_video_bst->ref_frame_idx[i] = -1;
 										}
 
 										if (ctx_video_bst->need_resync)
@@ -5860,7 +5808,7 @@ namespace BST
 											for (int mask = refresh_frame_flags; mask; mask >>= 1) {
 												if (mask & 1) {
 													ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->cfbi;
-													++frame_bufs[ctx_video_bst->cfbi].ref_count;
+													//frame_bufs[ctx_video_bst->cfbi].ref_count++;
 												}
 												else {
 													ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
@@ -5869,10 +5817,11 @@ namespace BST
 												// Current thread holds the reference frame.
 												if (ctx_video_bst->VBI[ref_index] >= 0)
 												{
-													++frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count;
+													//frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
 												}
 												++ref_index;
 											}
+#if 0
 
 											for (; ref_index < NUM_REF_FRAMES; ++ref_index) {
 												ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
@@ -5880,9 +5829,10 @@ namespace BST
 												// Current thread holds the reference frame.
 												if (ctx_video_bst->VBI[ref_index] >= 0)
 												{
-													++frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count;
+													frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
 												}
 											}
+#endif
 										}
 									}
 
@@ -5895,6 +5845,13 @@ namespace BST
 									
 									MAP_BST_END();
 									goto done;
+								}
+
+								// Hit a new frame, allocate the frame buffer for it
+								if ((ctx_video_bst->cfbi = ctx_video_bst->buffer_pool->get_free_fb()) == -1)
+								{
+									printf("[AV1] Failed to get the free frame buffer from BufferPool.\n");
+									return RET_CODE_ERROR;
 								}
 
 								bsrb1(in_bst, frame_type, 2);
@@ -6034,7 +5991,7 @@ namespace BST
 								}
 
 								for (int i = 0; i < REFS_PER_FRAME; ++i) {
-									ctx_video_bst->frame_refs[i].idx = -1;
+									ctx_video_bst->ref_frame_idx[i] = -1;
 								}
 
 								if (ctx_video_bst->need_resync)
@@ -6147,14 +6104,9 @@ namespace BST
 											const int idx = ctx_video_bst->VBI[ref_frame_idx[i]];
 
 											if (idx == -1)
-												printf("[AV1] Inter frame requests nonexistent reference.\n");
-
-											// Finally, it will build a mapping for every kind of RefFrame(LAST_FRAME...ALTREF_FRAME) of current frame
-											// index of buffer pool <-----> index in the VBI
-											// i means the reference frame type, its value is LAST_FRAME + i
-											RefBuffer *const ref_frame = &ctx_video_bst->frame_refs[i];
-											ref_frame->idx = idx;
-											ref_frame->map_idx = ref_frame_idx[i];
+												printf("[AV1] Inter frame requests nonexistent reference at VBI#%d.\n", ref_frame_idx[i]);
+											
+											ctx_video_bst->ref_frame_idx[i] = ref_frame_idx[i];
 										}
 
 										if (ptr_sequence_header_obu->frame_id_numbers_present_flag) {
@@ -6164,10 +6116,12 @@ namespace BST
 											expectedFrameId[i] = ((current_frame_id + (1 << idLen) - DeltaFrameId) % (1 << idLen));
 
 											// Compare values derived from delta_frame_id_minus_1 and refresh_frame_flags. Also, check valid for referencing
-											int ref = ctx_video_bst->frame_refs[i].map_idx;
-											auto buf_idx = ctx_video_bst->VBI[ref];
-											if (buf_idx >= 0 && ((int64_t)expectedFrameId[i] != (int64_t)frame_bufs[buf_idx].current_frame_id || !frame_bufs[buf_idx].valid_for_referencing))
-												printf("[AV1] Reference buffer frame ID mismatch.\n");
+											if (ctx_video_bst->ref_frame_idx[i] >= 0)
+											{
+												auto buf_idx = ctx_video_bst->VBI[ctx_video_bst->ref_frame_idx[i]];
+												if (buf_idx >= 0 && ((int64_t)expectedFrameId[i] != (int64_t)frame_bufs[buf_idx].current_frame_id || !frame_bufs[buf_idx].valid_for_referencing))
+													printf("[AV1] Reference buffer frame ID mismatch.\n");
+											}
 										}
 									}
 
@@ -6201,7 +6155,9 @@ namespace BST
 									}
 								}
 
-								if (primary_ref_frame != PRIMARY_REF_NONE && ctx_video_bst->frame_refs[primary_ref_frame].idx < 0) 
+								if (primary_ref_frame != PRIMARY_REF_NONE && (
+									ctx_video_bst->ref_frame_idx[primary_ref_frame] < 0 ||
+									ctx_video_bst->VBI[ctx_video_bst->ref_frame_idx[primary_ref_frame]] < 0))
 								{
 									printf("[AV1] Reference frame containing this frame's initial frame context is unavailable.\n");
 								}
@@ -6223,7 +6179,7 @@ namespace BST
 									}
 									else
 									{
-										const int buf_idx = ctx_video_bst->frame_refs[ref_frame - LAST_FRAME].idx;
+										const int buf_idx = ctx_video_bst->VBI[ctx_video_bst->ref_frame_idx[ref_frame - LAST_FRAME]];
 										if (!ptr_sequence_header_obu->enable_order_hint || buf_idx == -1)
 										{
 											RefFrameSignBias &= ~(1<< (ref_frame - LAST_FRAME));
@@ -6316,7 +6272,7 @@ namespace BST
 							for (int mask = refresh_frame_flags; mask; mask >>= 1) {
 								if (mask & 1) {
 									ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->cfbi;
-									++frame_bufs[ctx_video_bst->cfbi].ref_count;
+									//frame_bufs[ctx_video_bst->cfbi].ref_count++;
 								}
 								else {
 									ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
@@ -6324,20 +6280,21 @@ namespace BST
 								// Current thread holds the reference frame.
 								if (ctx_video_bst->VBI[ref_index] >= 0)
 								{
-									++frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count;
+									//frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
 								}
 								++ref_index;
 							}
-
+#if 0
 							for (; ref_index < NUM_REF_FRAMES; ++ref_index) {
 								ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
 
 								// Current thread holds the reference frame.
 								if (ctx_video_bst->VBI[ref_index] >= 0)
 								{
-									++frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count;
+									frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
 								}
 							}
+#endif
 
 							av1_read_ref(in_bst, ptr_tile_info, TILE_INFO, this);
 							av1_read_ref(in_bst, ptr_quantization_params, QUANTIZATION_PARAMS, this);
@@ -6413,8 +6370,6 @@ namespace BST
 						}
 
 					done:
-
-
 						return RET_CODE_SUCCESS;
 					}
 
@@ -6655,16 +6610,6 @@ namespace BST
 							field_prop_idx++;
 						}
 
-
-						//if (ptr_sequence_header_obu->seq_force_screen_content_tools == SELECT_SCREEN_CONTENT_TOOLS)
-						//{
-						//	BST_FIELD_PROP_BOOL(allow_screen_content_tools, "indicates that intra blocks may use palette encoding", "indicates that palette encoding is never used");
-						//}
-						//else
-						//{
-						//	NAV_WRITE_TAG_WITH_NUMBER_VALUE1(allow_screen_content_tools, "allow_screen_content_tools = seq_force_screen_content_tools");
-						//}
-
 						if (allow_screen_content_tools)
 						{
 							if (ptr_sequence_header_obu->seq_force_integer_mv == SELECT_INTEGER_MV) {
@@ -6777,8 +6722,7 @@ namespace BST
 					NAV_WRITE_TAG_WITH_ALIAS("use_ref_frame_mvs", "use_ref_frame_mvs = 0", "initialize its value to 0, specifies that this information will not be used");
 					NAV_WRITE_TAG_WITH_ALIAS("allow_intrabc", "allow_intrabc = 0", "initialize its value to 0, indicates that intra block copy is not allowed in this frame");
 
-					if (frame_type == SWITCH_FRAME || (frame_type == KEY_FRAME && show_frame))
-					{
+					if (frame_type == SWITCH_FRAME || (frame_type == KEY_FRAME && show_frame)){
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, "contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
 					}
 					else
@@ -6849,19 +6793,20 @@ namespace BST
 								}
 							}
 
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "ref_frame_idx and expectedFrameId");
-							for (int i = 0; i < REFS_PER_FRAME; i++)
+							if (!frame_refs_short_signaling)
 							{
-								if (!frame_refs_short_signaling)
-								{
-									BST_ARRAY_FIELD_PROP_NUMBER("ref_frame_idx", i, 3, ref_frame_idx[i], 
-										"specifies which reference frames are used by inter frames."
-										"It is a requirement of bitstream conformance"
-										"that RefValid[ref_frame_idx[i]] is equal to 1, and that the selected reference frames match the current frame in bit depth,"
-										"profile, chroma subsampling, and color space");
-								}
+								BST_FIELD_PROP_NUMBER_ARRAY_F("ref_frame_idx", 21, "%d,%d,%d,%d,%d,%d,%d",
+									"specifies which reference frames are used by inter frames."
+									"It is a requirement of bitstream conformance"
+									"that RefValid[ref_frame_idx[i]] is equal to 1, and that the selected reference frames match the current frame in bit depth,"
+									"profile, chroma subsampling, and color space", 
+									ref_frame_idx[0], ref_frame_idx[1], ref_frame_idx[2], ref_frame_idx[3], ref_frame_idx[4], ref_frame_idx[5], ref_frame_idx[6]);
+							}
 
-								if (ptr_sequence_header_obu->frame_id_numbers_present_flag) {
+							if (ptr_sequence_header_obu->frame_id_numbers_present_flag) {
+								NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "ref_frame_idx and expectedFrameId");
+								for (int i = 0; i < REFS_PER_FRAME; i++)
+								{
 									uint8_t n = ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
 									BST_ARRAY_FIELD_PROP_NUMBER1(delta_frame_id_minus_1, i, n, "plus 1 specifies the distance to the frame id for the reference frame");
 									NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("expectedFrameId", "expectedFrameId[%d]", "%" PRIu32 "(0X%" PRIX32 ")", expectedFrameId[i],
@@ -6869,8 +6814,8 @@ namespace BST
 										"conformance that whenever expectedFrameId[i] is calculated, the value matches RefFrameId[ref_frame_idx[i]]"
 										"(this contains the value of current_frame_id at the time that the frame indexed by ref_frame_idx was stored)", i);
 								}
+								NAV_WRITE_TAG_END("Tag3");
 							}
-							NAV_WRITE_TAG_END("Tag3");
 
 							if (frame_size_override_flag && !error_resilient_mode)
 							{
@@ -6910,16 +6855,14 @@ namespace BST
 
 					if (!FrameIsIntra)
 					{
-						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag4", "for(i=0;i&lt;REFS_PER_FRAME;i++)", "RefFrameSignBiases, specifies the intended direction of the motion vector in time for each reference frame");
-						for (int i = 0; i < REFS_PER_FRAME; i++)
-						{
-							uint8_t refFrame = LAST_FRAME + i;
-							if (!ctx_video_bst->SingleOBUParse && ptr_frame != nullptr) {
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("OrderHint", "OrderHint[%s]", ptr_frame->ref_order_hints[i], "", AV1_REF_FRAME_NAMEA(refFrame));
-							}
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("RefFrameSignBias", "RefFrameSignBias[%s]", (RefFrameSignBias&(1 << i)) ? 1 : 0, "", AV1_REF_FRAME_NAMEA(refFrame));
+						if (!ctx_video_bst->SingleOBUParse && ptr_frame != nullptr) {
+							NAV_WRITE_TAG_WITH_VALUEFMTSTR("OrderHints", "%d,%d,%d,%d,%d,%d,%d", "The order hints of ref frame of current frame",
+								ptr_frame->ref_order_hints[0], ptr_frame->ref_order_hints[1], ptr_frame->ref_order_hints[2],
+								ptr_frame->ref_order_hints[3], ptr_frame->ref_order_hints[4], ptr_frame->ref_order_hints[5], ptr_frame->ref_order_hints[6]);
 						}
-						NAV_WRITE_TAG_END("Tag4");
+						NAV_WRITE_TAG_WITH_VALUEFMTSTR("RefFrameSignBias", "%d,%d,%d,%d,%d,%d,%d", "0, forward reference, 1: backward reference",
+							(RefFrameSignBias&(1 << 0)) ? 1 : 0, (RefFrameSignBias&(1 << 1)) ? 1 : 0, (RefFrameSignBias&(1 << 2)) ? 1 : 0,
+							(RefFrameSignBias&(1 << 3)) ? 1 : 0, (RefFrameSignBias&(1 << 4)) ? 1 : 0, (RefFrameSignBias&(1 << 5)) ? 1 : 0, (RefFrameSignBias&(1 << 6)) ? 1 : 0);
 					}
 
 					if (ptr_sequence_header_obu->reduced_still_picture_header || disable_cdf_update)
@@ -6935,18 +6878,23 @@ namespace BST
 
 					if (primary_ref_frame == PRIMARY_REF_NONE)
 					{
-						// init_non_coeff_cdfs( )
-						// setup_past_independence( )
+						NAV_WRITE_TAG_WITH_ALIAS("init_non_coeff_cdfs", "init_non_coeff_cdfs()", 
+							"a function call that indicates that the CDF tables which are not used in the coeff() syntax structure should be initialized");
+						NAV_WRITE_TAG_WITH_ALIAS("setup_past_independence", "setup_past_independence()",
+							"a function call that indicates that this frame can be decoded without dependence on previous coded frames");
 					}
 					else
 					{
-						// load_cdfs( ref_frame_idx[primary_ref_frame] )
-						// load_previous( )
+						NAV_WRITE_TAG_WITH_ALIAS_F("load_cdfs", "load_cdfs(frame context number: %d)",
+							"a function call that indicates that the CDF tables are loaded from frame context number ctx", ref_frame_idx[primary_ref_frame]);
+						NAV_WRITE_TAG_WITH_ALIAS("load_previous", "load_previous()",
+							"a function call that indicates that information from a previous frame may be loaded for use in decoding the current frame");
 					}
 
 					if (use_ref_frame_mvs == 1)
 					{
-						// motion_field_estimation( )
+						NAV_WRITE_TAG_WITH_ALIAS("motion_field_estimation", "motion_field_estimation()",
+							"a function call which indicates that the motion field estimation process should be invoked");
 					}
 
 					BST_FIELD_PROP_REF2_1(ptr_tile_info, "tile_info", "");
@@ -6957,11 +6905,13 @@ namespace BST
 
 					if (primary_ref_frame == PRIMARY_REF_NONE)
 					{
-						// init_coeff_cdfs()
+						NAV_WRITE_TAG_WITH_ALIAS("init_coeff_cdfs", "init_coeff_cdfs()",
+							"a function call that indicates that the CDF tables used in the coeff() syntax structure should be initialized");
 					}
 					else
 					{
-						// load_previous_segment_ids()
+						NAV_WRITE_TAG_WITH_ALIAS("load_previous_segment_ids", "load_previous_segment_ids()",
+							"a function call that indicates that a segment map from a previous frame may be loaded for use in decoding the current frame");
 					}
 
 					if (!ptr_quantization_params->using_qmatrix)
@@ -7056,11 +7006,9 @@ namespace BST
 						{
 							ptr_OBU->ctx_video_bst->tu_fu_idx++;
 
-							// Hit a new frame, allocate the frame buffer for it
-							if ((ptr_OBU->ctx_video_bst->cfbi = ptr_OBU->ctx_video_bst->buffer_pool->get_free_fb()) == -1)
-							{
-								return RET_CODE_ERROR;
-							}
+							if (g_verbose_level > 99)
+								printf("[AV1] Start processing temporal-unit#%" PRId64 "/frame-unit#%" PRId32 ".\n"
+									, ptr_OBU->ctx_video_bst->tu_idx, ptr_OBU->ctx_video_bst->tu_fu_idx);
 
 							ptr_OBU->ctx_video_bst->SeenFrameHeader = true;
 

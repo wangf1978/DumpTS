@@ -53,18 +53,6 @@ namespace BST {
 	}
 }
 
-#ifdef _WIN32
-#pragma warning(push)
-#pragma warning(disable:4100)
-#pragma warning(disable:4127)
-#pragma warning(disable:4200)
-#pragma warning(disable:4201)
-#pragma pack(push,1)
-#define PACKED
-#else
-#define PACKED __attribute__ ((__packed__))
-#endif
-
 /*
                                ___ Player Ref Count[1]/Decoder Ref Count[1]/PhysicalBuffer[1]
                               /
@@ -90,7 +78,7 @@ struct HRD_FRAME_BUF	// The physical buffer in HRD concept
 //
 // Virtual Buffer Slot params which can be used for restoring the right context to do syntax processing 
 //
-struct VBISlotParams
+struct VBI_SLOT_PARAMS
 {
 	// If 2 VBI Slot parameters has the same frame sequence id, it means that they pointed to the same frame buffer
 	int32_t					FrameSeqID			= -1;
@@ -102,6 +90,7 @@ struct VBISlotParams
 	uint8_t					RefSubsamplingY : 1;
 	uint8_t					RefBitDepth : 5;
 	int8_t					RefFrameType		= -1;
+
 	int32_t					RefFrameId			= -1;	// Maximum 25 bit
 	int32_t					RefUpscaledWidth	= -1;
 	int32_t					RefFrameWidth		= -1;
@@ -110,6 +99,7 @@ struct VBISlotParams
 	int32_t					RefRenderHeight		= -1;
 	uint16_t				RefMiCols			=  0;
 	uint16_t				RefMiRows			=  0;
+	uint8_t					SavedOrderHints[REFS_PER_FRAME] = { 0 };
 	uint8_t					RefOrderHint		=  0;
 	int32_t					SavedGmParams[REFS_PER_FRAME][6] = { {0} };
 	int8_t					loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME];
@@ -117,24 +107,52 @@ struct VBISlotParams
 	uint8_t					FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 	int16_t					FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
 
-	VBISlotParams() : RefValid(0), RefSubsamplingX(0), RefSubsamplingY(0), RefBitDepth(0) {}
-} PACKED;
+	VBI_SLOT_PARAMS() : RefValid(0), RefSubsamplingX(0), RefSubsamplingY(0), RefBitDepth(0) {}
+};
 
-#ifdef _WIN32
-#pragma pack(pop)
-#pragma warning(pop)
-#endif
-#undef PACKED
-
-struct OBU_PARSE_PARAMS
+//
+// The active frame parameters defined in AV1 specification, which may not be complete.
+// Most of them are from the uncompressed header or inherit from the previous reference frames
+// Finally all information across frame will be updated into VBISlotParams after a frame is decoded
+struct ACTIVE_FRAME_PARAMS
 {
-	bool					SeenFrameHeader = false;
-	bool					show_existing_frame = false;
-	bool					show_frame = false;
+	int32_t					FrameSeqID = -1;
+
+	uint8_t					SeenFrameHeader : 1;
+	uint8_t					show_existing_frame : 1;
+	uint8_t					frame_to_show_map_idx : 3;
+	uint8_t					show_frame : 1;
+	uint8_t					disable_cdf_update : 1;
+	uint8_t					allow_screen_content_tools : 1;
+
+	uint8_t					force_integer_mv : 1;
+	uint8_t					allow_high_precision_mv : 1;
+	uint8_t					use_ref_frame_mvs : 1;
+	uint8_t					allow_intrabc : 1;
+	uint8_t					is_motion_mode_switchable : 1;
+	uint8_t					disable_frame_end_update_cdf : 1;
+	uint8_t					allow_warped_motion : 1;
+	uint8_t					reduced_tx_set : 1;
+	
+	int8_t					frame_type;
+	uint8_t					OrderHint;
+
+	uint8_t					reserved_for_future_use_0 : 1;
+	uint8_t					subsampling_x : 1;
+	uint8_t					subsampling_y : 1;
+	uint8_t					BitDepth : 5;
+
+	uint8_t					OrderHints[REFS_PER_FRAME] = { 0 };
+
+	int32_t					PrevFrameID;
+	int32_t					current_frame_id;
+
 	uint8_t					refresh_frame_flags = 0;
-	int8_t					frame_type = -1;			// current frame type
-	int32_t					previous_frame_id = -1;
-	int32_t					current_frame_id = -1;
+	int8_t					ref_frame_idx[REFS_PER_FRAME] = { -1, -1, -1, -1, -1, -1, -1 };
+	uint8_t					RefValids;	// bit0:VBI#0....bit7: VBI#7
+	uint8_t					RefOrderHint[NUM_REF_FRAMES] = { 0 };
+	uint8_t					RefFrameSignBias = 0;	// bit0: LAST_FRAME,...bit6: 
+
 	int32_t					UpscaledWidth = -1;
 	int32_t					FrameWidth = -1;
 	int32_t					FrameHeight = -1;
@@ -142,52 +160,65 @@ struct OBU_PARSE_PARAMS
 	int32_t					RenderHeight = -1;
 	uint16_t				MiCols = 0;
 	uint16_t				MiRows = 0;
-	int8_t					subsampling_x = -1;
-	int8_t					subsampling_y = -1;
-	int8_t					BitDepth = -1;
-	uint8_t					OrderHint = 0;
-	uint32_t				TileCols = 0;
-	uint32_t				TileRows = 0;
-	uint32_t				TileNum = 0;
-	uint8_t					TileColsLog2;
-	uint8_t					TileRowsLog2;
-	int32_t					gm_params[NUM_REF_FRAMES][6] = { {0} };
-	VBISlotParams			VBI[NUM_REF_FRAMES];
-	HRD_FRAME_BUF			BufferPool[BUFFER_POOL_MAX_SIZE];
 
-	uint8_t					FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
-	int16_t					FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
-	// PrevSegmentIds[ row ][ col ] is set equal to 0 for row = 0..MiRows-1 and col = 0..MiCols-1.
-	uint8_t					GmType[REFS_PER_FRAME] = { IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY };
 	int32_t					PrevGmParams[REFS_PER_FRAME][6] = { {0} };
+	int32_t					gm_params[REFS_PER_FRAME][6] = { {0} };
 	bool					loop_filter_delta_enabled = false;
 	int8_t					loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME];
-	int8_t					loop_filter_mode_deltas[2] = { 0 };
+	int8_t					loop_filter_mode_deltas[2];
+	uint8_t					FeatureEnabled[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
+	int16_t					FeatureData[MAX_SEGMENTS][SEG_LVL_MAX] = { {0} };
+	uint8_t					GmType[REFS_PER_FRAME] = { IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY };
+
+	uint8_t					TileCols = 0;		// The maximum value is 64(MAX_TILE_COLS)
+	uint8_t					TileRows = 0;		// The maximum value is 64(MAX_TILE_ROWS)
+	uint16_t				TileNum = 0;
+	uint8_t					TileColsLog2;
+	uint8_t					TileRowsLog2;
+};
+
+struct AV1ContextSnapshot
+{
+	int64_t					tu_idx;
+	int32_t					tu_fu_idx;
+
+	VBI_SLOT_PARAMS*		pVBISlotParams;
+
+	ACTIVE_FRAME_PARAMS*	pActiveFrameParams;
+};
+
+struct OBU_PARSE_PARAMS
+{
+	ACTIVE_FRAME_PARAMS		ActiveFrameParams;
+
+	VBI_SLOT_PARAMS			VBI[NUM_REF_FRAMES];
+	HRD_FRAME_BUF			BufferPool[BUFFER_POOL_MAX_SIZE];
+
 
 	// This process is invoked as the final step in decoding a frame
 	RET_CODE UpdateRefreshFrame(uint16_t frame_seq_id)
 	{
-		if (refresh_frame_flags == 0)
+		if (ActiveFrameParams.refresh_frame_flags == 0)
 			return RET_CODE_NOTHING_TODO;
 
 		// Follow spec "7.20. Reference frame update process"
 		for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
 		{
-			if ((refresh_frame_flags >> i) & 0x1) {
+			if ((ActiveFrameParams.refresh_frame_flags >> i) & 0x1) {
 				VBI[i].FrameSeqID = frame_seq_id;
 				VBI[i].RefValid = 1;
-				VBI[i].RefFrameType = frame_type;
-				VBI[i].RefUpscaledWidth = UpscaledWidth;
-				VBI[i].RefFrameWidth = FrameWidth;
-				VBI[i].RefFrameHeight = FrameHeight;
-				VBI[i].RefRenderWidth = RenderWidth;
-				VBI[i].RefRenderHeight = RenderHeight;
-				VBI[i].RefMiCols = MiCols;
-				VBI[i].RefMiRows = MiRows;
-				VBI[i].RefSubsamplingX = subsampling_x;
-				VBI[i].RefSubsamplingY = subsampling_y;
-				VBI[i].RefBitDepth = BitDepth;
-				VBI[i].RefOrderHint = OrderHint;
+				VBI[i].RefFrameType = ActiveFrameParams.frame_type;
+				VBI[i].RefUpscaledWidth = ActiveFrameParams.UpscaledWidth;
+				VBI[i].RefFrameWidth = ActiveFrameParams.FrameWidth;
+				VBI[i].RefFrameHeight = ActiveFrameParams.FrameHeight;
+				VBI[i].RefRenderWidth = ActiveFrameParams.RenderWidth;
+				VBI[i].RefRenderHeight = ActiveFrameParams.RenderHeight;
+				VBI[i].RefMiCols = ActiveFrameParams.MiCols;
+				VBI[i].RefMiRows = ActiveFrameParams.MiRows;
+				VBI[i].RefSubsamplingX = ActiveFrameParams.subsampling_x;
+				VBI[i].RefSubsamplingY = ActiveFrameParams.subsampling_y;
+				VBI[i].RefBitDepth = ActiveFrameParams.BitDepth;
+				VBI[i].RefOrderHint = ActiveFrameParams.OrderHint;
 			}
 		}
 
@@ -197,36 +228,36 @@ struct OBU_PARSE_PARAMS
 	void setup_past_independence(){
 		for (uint8_t i = 0; i < MAX_SEGMENTS; i++) {
 			for (uint8_t j = 0; j < SEG_LVL_MAX; j++) {
-				FeatureData[i][j] = 0;
-				FeatureEnabled[i][j] = 0;
+				ActiveFrameParams.FeatureData[i][j] = 0;
+				ActiveFrameParams.FeatureEnabled[i][j] = 0;
 			}
 		}
 
 		for (uint8_t ref = LAST_FRAME; ref <= ALTREF_FRAME; ref++) {
-			GmType[ref - LAST_FRAME] = IDENTITY;
+			ActiveFrameParams.GmType[ref - LAST_FRAME] = IDENTITY;
 			for (uint8_t i = 0; i < 6; i++) {
-				PrevGmParams[ref - LAST_FRAME][i] = (i % 3 == 2) ? 1 << WARPEDMODEL_PREC_BITS : 0;
+				ActiveFrameParams.PrevGmParams[ref - LAST_FRAME][i] = (i % 3 == 2) ? 1 << WARPEDMODEL_PREC_BITS : 0;
 			}
 		}
 
-		loop_filter_delta_enabled = true;
-		loop_filter_ref_deltas[INTRA_FRAME] = 1;
-		loop_filter_ref_deltas[LAST_FRAME] = 0;
-		loop_filter_ref_deltas[LAST2_FRAME] = 0;
-		loop_filter_ref_deltas[LAST3_FRAME] = 0;
-		loop_filter_ref_deltas[BWDREF_FRAME] = 0;
-		loop_filter_ref_deltas[GOLDEN_FRAME] = -1;
-		loop_filter_ref_deltas[ALTREF_FRAME] = -1;
-		loop_filter_ref_deltas[ALTREF2_FRAME] = -1;
+		ActiveFrameParams.loop_filter_delta_enabled = true;
+		ActiveFrameParams.loop_filter_ref_deltas[INTRA_FRAME] = 1;
+		ActiveFrameParams.loop_filter_ref_deltas[LAST_FRAME] = 0;
+		ActiveFrameParams.loop_filter_ref_deltas[LAST2_FRAME] = 0;
+		ActiveFrameParams.loop_filter_ref_deltas[LAST3_FRAME] = 0;
+		ActiveFrameParams.loop_filter_ref_deltas[BWDREF_FRAME] = 0;
+		ActiveFrameParams.loop_filter_ref_deltas[GOLDEN_FRAME] = -1;
+		ActiveFrameParams.loop_filter_ref_deltas[ALTREF_FRAME] = -1;
+		ActiveFrameParams.loop_filter_ref_deltas[ALTREF2_FRAME] = -1;
 
-		loop_filter_mode_deltas[0] = loop_filter_mode_deltas[1] = 0;
+		ActiveFrameParams.loop_filter_mode_deltas[0] = ActiveFrameParams.loop_filter_mode_deltas[1] = 0;
 	}
 
 	void load_previous(int8_t prevFrame)
 	{
-		memcpy(PrevGmParams, VBI[prevFrame].SavedGmParams, sizeof(PrevGmParams));
-		memcpy(FeatureData, VBI[prevFrame].FeatureData, sizeof(FeatureData));
-		memcpy(FeatureEnabled, VBI[prevFrame].FeatureEnabled, sizeof(FeatureEnabled));
+		memcpy(ActiveFrameParams.PrevGmParams, VBI[prevFrame].SavedGmParams, sizeof(ActiveFrameParams.PrevGmParams));
+		memcpy(ActiveFrameParams.FeatureData, VBI[prevFrame].FeatureData, sizeof(ActiveFrameParams.FeatureData));
+		memcpy(ActiveFrameParams.FeatureEnabled, VBI[prevFrame].FeatureEnabled, sizeof(ActiveFrameParams.FeatureEnabled));
 	}
 };
 
@@ -259,7 +290,7 @@ public:
 	virtual RET_CODE		UpdateSeqHdrOBU(AV1_OBU seq_hdr_obu) = 0;
 	virtual AV1_BYTESTREAM_FORMAT
 							GetByteStreamFormat() = 0;
-	virtual RET_CODE		LoadVBISnapshot(void* VBIsnapshot, int cbSize) = 0;
+	virtual RET_CODE		LoadSnapshot(AV1ContextSnapshot* ptr_ctx_snapshot) = 0;
 	virtual void			Reset() = 0;
 
 public:
@@ -360,5 +391,37 @@ protected:
 	OBU_PARSE_PARAMS		m_TU_parse_params;			// The TU intermediate parse parameters, and it will be updated after one TU has been processed completely
 	uint16_t				m_next_frame_seq_id = 0;	// The next unique frame sequence id
 };
+
+//
+// 7.20. Reference frame update process
+//
+INLINE int FillVBISlotParamsWithActiveFrameParams(const ACTIVE_FRAME_PARAMS* frame_params, VBI_SLOT_PARAMS& vbi_slot_params)
+{
+	if (frame_params == nullptr)
+		return RET_CODE_INVALID_PARAMETER;
+
+	vbi_slot_params.RefValid = 1;
+	vbi_slot_params.RefSubsamplingX = frame_params->subsampling_x;
+	vbi_slot_params.RefSubsamplingY = frame_params->subsampling_y;
+	vbi_slot_params.RefBitDepth = frame_params->BitDepth;
+	vbi_slot_params.RefFrameType = frame_params->frame_type;
+	vbi_slot_params.RefFrameId = frame_params->current_frame_id;
+	vbi_slot_params.RefUpscaledWidth = frame_params->UpscaledWidth;
+	vbi_slot_params.RefFrameWidth = frame_params->FrameWidth;
+	vbi_slot_params.RefFrameHeight = frame_params->FrameHeight;
+	vbi_slot_params.RefRenderWidth = frame_params->RenderWidth;
+	vbi_slot_params.RefRenderHeight = frame_params->RenderHeight;
+	vbi_slot_params.RefMiCols = frame_params->MiCols;
+	vbi_slot_params.RefMiRows = frame_params->MiRows;
+	memcpy(vbi_slot_params.SavedOrderHints, frame_params->OrderHints, sizeof(vbi_slot_params.SavedOrderHints));
+	vbi_slot_params.RefOrderHint = frame_params->OrderHint;
+	memcpy(vbi_slot_params.SavedGmParams, frame_params->gm_params, sizeof(vbi_slot_params.SavedGmParams));
+	memcpy(vbi_slot_params.loop_filter_ref_deltas, frame_params->loop_filter_ref_deltas, sizeof(vbi_slot_params.loop_filter_ref_deltas));
+	memcpy(vbi_slot_params.loop_filter_mode_deltas, frame_params->loop_filter_mode_deltas, sizeof(vbi_slot_params.loop_filter_mode_deltas));
+	memcpy(vbi_slot_params.FeatureEnabled, frame_params->FeatureEnabled, sizeof(vbi_slot_params.FeatureEnabled));
+	memcpy(vbi_slot_params.FeatureData, frame_params->FeatureData, sizeof(vbi_slot_params.FeatureData));
+
+	return RET_CODE_SUCCESS;
+}
 
 #endif

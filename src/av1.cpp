@@ -238,7 +238,7 @@ namespace BST
 		VideoBitstreamCtx::VideoBitstreamCtx(bool bAnnexB, bool bSingleOBUParse) : AnnexB(bAnnexB), SingleOBUParse(bSingleOBUParse) {
 			camera_frame_header_ready = false;
 
-			buffer_pool = new BufferPool();
+			buffer_pool = new BufferPool(this);
 
 			cfbi = -1;
 
@@ -248,10 +248,6 @@ namespace BST
 			memset(next_VBI, -1, sizeof(next_VBI));
 
 			need_resync = true;
-
-			tu_fu_idx = -1;
-
-			memset(&film_grain_params, 0, sizeof(film_grain_params));
 		}
 
 		VideoBitstreamCtx::~VideoBitstreamCtx() {
@@ -323,10 +319,11 @@ namespace BST
 
 		void VideoBitstreamCtx::setup_past_independence()
 		{
+			auto& cur_frame = buffer_pool->frame_bufs[cfbi];
 			for (uint8_t i = 0; i < MAX_SEGMENTS; i++) {
 				for (uint8_t j = 0; j < SEG_LVL_MAX; j++) {
-					FeatureData[i][j] = 0;
-					FeatureEnabled[i][j] = 0;
+					cur_frame.FeatureData[i][j] = 0;
+					cur_frame.FeatureEnabled[i][j] = 0;
 				}
 			}
 
@@ -337,29 +334,29 @@ namespace BST
 				}
 			}
 
-			loop_filter_delta_enabled = true;
-			loop_filter_ref_deltas[INTRA_FRAME] = 1;
-			loop_filter_ref_deltas[LAST_FRAME] = 0;
-			loop_filter_ref_deltas[LAST2_FRAME] = 0;
-			loop_filter_ref_deltas[LAST3_FRAME] = 0;
-			loop_filter_ref_deltas[BWDREF_FRAME] = 0;
-			loop_filter_ref_deltas[GOLDEN_FRAME] = -1;
-			loop_filter_ref_deltas[ALTREF_FRAME] = -1;
-			loop_filter_ref_deltas[ALTREF2_FRAME] = -1;
+			cur_frame.loop_filter_delta_enabled = true;
+			cur_frame.loop_filter_ref_deltas[INTRA_FRAME] = 1;
+			cur_frame.loop_filter_ref_deltas[LAST_FRAME] = 0;
+			cur_frame.loop_filter_ref_deltas[LAST2_FRAME] = 0;
+			cur_frame.loop_filter_ref_deltas[LAST3_FRAME] = 0;
+			cur_frame.loop_filter_ref_deltas[BWDREF_FRAME] = 0;
+			cur_frame.loop_filter_ref_deltas[GOLDEN_FRAME] = -1;
+			cur_frame.loop_filter_ref_deltas[ALTREF_FRAME] = -1;
+			cur_frame.loop_filter_ref_deltas[ALTREF2_FRAME] = -1;
 
-			loop_filter_mode_deltas[0] = loop_filter_mode_deltas[1] = 0;
+			cur_frame.loop_filter_mode_deltas[0] = cur_frame.loop_filter_mode_deltas[1] = 0;
 		}
 
 		void VideoBitstreamCtx::load_previous(uint8_t primary_ref_frame)
 		{
-			if (frame_refs[primary_ref_frame].map_idx < 0 || 
-				frame_refs[primary_ref_frame].map_idx >= NUM_REF_FRAMES)
+			if (ref_frame_idx[primary_ref_frame] < 0 || 
+				ref_frame_idx[primary_ref_frame] >= NUM_REF_FRAMES)
 			{
 				printf("Do nothing in call 'load_previous()'\n");
 				return;
 			}
 
-			int buf_idx = VBI[frame_refs[primary_ref_frame].map_idx];
+			int buf_idx = VBI[ref_frame_idx[primary_ref_frame]];
 			if (buf_idx < 0 || buf_idx >= FRAME_BUFFERS)
 			{
 				printf("No available VBI slot for the primary_ref_frame: %s.\n", AV1_REF_FRAME_NAMEA(primary_ref_frame));
@@ -368,30 +365,38 @@ namespace BST
 
 			// The variable prevFrame is set equal to ref_frame_idx[ primary_ref_frame ]
 			auto prevFrame = &buffer_pool->frame_bufs[buf_idx];
+			auto currFrame = &buffer_pool->frame_bufs[cfbi];
 
 			// PrevGmParams is set equal to SavedGmParams[ prevFrame ]
 			memcpy(PrevGmParams, prevFrame->gm_params, sizeof(PrevGmParams));
 
 			// The function load_loop_filter_params( prevFrame ) specified in section 7.21 is invoked
-			memcpy(loop_filter_ref_deltas, prevFrame->loop_filter_ref_deltas, sizeof(loop_filter_ref_deltas));
-			memcpy(loop_filter_mode_deltas, prevFrame->loop_filter_mode_deltas, sizeof(loop_filter_mode_deltas));
+			currFrame->loop_filter_delta_enabled = prevFrame->loop_filter_delta_enabled;
+			memcpy(currFrame->loop_filter_ref_deltas, prevFrame->loop_filter_ref_deltas, sizeof(currFrame->loop_filter_ref_deltas));
+			memcpy(currFrame->loop_filter_mode_deltas, prevFrame->loop_filter_mode_deltas, sizeof(currFrame->loop_filter_mode_deltas));
 
 			// The function load_segmentation_params( prevFrame ) specified in section 7.21 is invoked
-			memcpy(FeatureEnabled, prevFrame->FeatureEnabled, sizeof(FeatureEnabled));
-			memcpy(FeatureData, prevFrame->FeatureData, sizeof(FeatureData));
+			memcpy(currFrame->FeatureEnabled, prevFrame->FeatureEnabled, sizeof(currFrame->FeatureEnabled));
+			memcpy(currFrame->FeatureData, prevFrame->FeatureData, sizeof(currFrame->FeatureData));
 		}
 
 		void VideoBitstreamCtx::reset_grain_params()
 		{
-			memset(&film_grain_params, 0, sizeof(film_grain_params));
+			assert(cfbi >= 0 && cfbi < FRAME_BUFFERS);
+			auto& curr_frame = buffer_pool->frame_bufs[cfbi];
+			memset(&curr_frame.film_grain_params, 0, sizeof(curr_frame.film_grain_params));
 		}
 
 		int VideoBitstreamCtx::load_grain_params(uint8_t ref_idx)
 		{
-			if (buffer_pool == nullptr || ref_idx < 0)
-				return RET_CODE_ERROR;
+			assert(cfbi >= 0 && cfbi < FRAME_BUFFERS);
+			assert(ref_idx >= 0 && ref_idx < NUM_REF_FRAMES);
 
-			film_grain_params = buffer_pool->frame_bufs[ref_idx].film_grain_params;
+			if (ref_idx != cfbi)
+			{
+				auto& curr_frame = buffer_pool->frame_bufs[cfbi];
+				curr_frame.film_grain_params = buffer_pool->frame_bufs[ref_idx].film_grain_params;
+			}
 
 			return RET_CODE_SUCCESS;
 		}
@@ -403,13 +408,11 @@ namespace BST
 			int16_t shiftedOrderHints[NUM_REF_FRAMES] = { 0 };
 
 			for (uint8_t i = 0; i < REFS_PER_FRAME; i++){
-				frame_refs[i].idx = frame_refs[i].map_idx = -1;
+				ref_frame_idx[i] = -1;
 			}
 
-			frame_refs[LAST_FRAME - LAST_FRAME].map_idx = last_frame_idx;
-			frame_refs[LAST_FRAME - LAST_FRAME].idx = VBI[last_frame_idx];
-			frame_refs[GOLDEN_FRAME - LAST_FRAME].map_idx = gold_frame_idx;
-			frame_refs[GOLDEN_FRAME - LAST_FRAME].idx = VBI[gold_frame_idx];
+			ref_frame_idx[LAST_FRAME - LAST_FRAME] = last_frame_idx;
+			ref_frame_idx[GOLDEN_FRAME - LAST_FRAME] = gold_frame_idx;
 
 			usedFrame[last_frame_idx] = true;
 			usedFrame[gold_frame_idx] = true;
@@ -429,32 +432,28 @@ namespace BST
 			int16_t ref = find_latest_backward(shiftedOrderHints, usedFrame, curFrameHint);
 
 			if (ref >= 0) {
-				frame_refs[ALTREF_FRAME - LAST_FRAME].map_idx = (int8_t)ref;
-				frame_refs[ALTREF_FRAME - LAST_FRAME].idx = VBI[ref];
+				ref_frame_idx[ALTREF_FRAME - LAST_FRAME] = (int8_t)ref;
 				usedFrame[ref] = true;
 			}
 
 			ref = find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
 			if (ref >= 0) {
-				frame_refs[BWDREF_FRAME - LAST_FRAME].map_idx = (int8_t)ref;
-				frame_refs[BWDREF_FRAME - LAST_FRAME].idx = VBI[ref];
+				ref_frame_idx[BWDREF_FRAME - LAST_FRAME] = (int8_t)ref;
 				usedFrame[ref] = true;
 			}
 
 			ref = find_earliest_backward(shiftedOrderHints, usedFrame, curFrameHint);
 			if (ref >= 0) {
-				frame_refs[ALTREF2_FRAME - LAST_FRAME].map_idx = (int8_t)ref;
-				frame_refs[ALTREF2_FRAME - LAST_FRAME].idx = VBI[ref];
+				ref_frame_idx[ALTREF2_FRAME - LAST_FRAME] = (int8_t)ref;
 				usedFrame[ref] = true;
 			}
 
 			for (uint8_t i = 0; i < REFS_PER_FRAME - 2; i++) {
 				auto refFrame = Ref_Frame_List[i];
-				if (frame_refs[refFrame - LAST_FRAME].map_idx < 0) {
+				if (ref_frame_idx[refFrame - LAST_FRAME] < 0) {
 					auto ref = find_latest_forward(shiftedOrderHints, usedFrame, curFrameHint);
 					if (ref >= 0) {
-						frame_refs[refFrame - LAST_FRAME].map_idx = (int8_t)ref;
-						frame_refs[refFrame - LAST_FRAME].idx = VBI[ref];
+						ref_frame_idx[refFrame - LAST_FRAME] = (int8_t)ref;
 						usedFrame[ref] = true;
 					}
 				}
@@ -470,9 +469,8 @@ namespace BST
 				}
 			}
 			for (int8_t i = 0; i < REFS_PER_FRAME; i++) {
-				if (frame_refs[i].map_idx < 0) {
-					frame_refs[i].map_idx = (int8_t)ref;
-					frame_refs[i].idx = VBI[ref];
+				if (ref_frame_idx[i] < 0) {
+					ref_frame_idx[i] = (int8_t)ref;
 				}
 			}
 
@@ -496,23 +494,25 @@ namespace BST
 			need_resync = true;
 		}
 
-		RET_CODE VideoBitstreamCtx::LoadVBISnapshot(void* VBIsnapshot, int cbSize)
+		RET_CODE VideoBitstreamCtx::LoadSnapshot(AV1ContextSnapshot* ptr_ctx_snapshot)
 		{
 			int iRet = RET_CODE_SUCCESS;
-			VBISlotParams* pVBISlotParams = (VBISlotParams*)VBIsnapshot;
-			if (cbSize / sizeof(VBISlotParams) < NUM_REF_FRAMES)
-			{
-				printf("[AV1] The VBI snapshot size is too small.\n");
+
+			if (ptr_ctx_snapshot == nullptr || 
+				ptr_ctx_snapshot->pVBISlotParams == nullptr ||
+				ptr_ctx_snapshot->pActiveFrameParams == nullptr)
 				return RET_CODE_INVALID_PARAMETER;
-			}
+
+			tu_idx = ptr_ctx_snapshot->tu_idx;
+			tu_fu_idx = ptr_ctx_snapshot->tu_fu_idx;
+
+			VBI_SLOT_PARAMS* pVBISlotParams = (VBI_SLOT_PARAMS*)ptr_ctx_snapshot->pVBISlotParams;
 
 			// At first, reset the current buffer pool
 			if (buffer_pool == nullptr)
-				buffer_pool = new BufferPool();
+				buffer_pool = new BufferPool(this);
 			else
 				buffer_pool->Reset();
-
-			cfbi = -1;
 
 			// Reset the VBI and next_VBI
 			for (uint8_t i = 0; i < NUM_REF_FRAMES; i++) {
@@ -543,53 +543,79 @@ namespace BST
 						goto done;
 					}
 
-					cur_frame.frame_type		= (AV1_FRAME_TYPE)pVBISlotParams[i].RefFrameType;
-					cur_frame.current_frame_id	= pVBISlotParams[i].RefFrameId;
-					cur_frame.upscaled_width	= pVBISlotParams[i].RefUpscaledWidth;
-					cur_frame.width				= pVBISlotParams[i].RefFrameWidth;
-					cur_frame.height			= pVBISlotParams[i].RefFrameHeight;
-					cur_frame.render_width		= pVBISlotParams[i].RefRenderWidth;
-					cur_frame.render_height		= pVBISlotParams[i].RefRenderHeight;
-					cur_frame.mi_cols			= pVBISlotParams[i].RefMiCols;
-					cur_frame.mi_rows			= pVBISlotParams[i].RefMiRows;
-					cur_frame.current_order_hint= pVBISlotParams[i].RefOrderHint;
-					memcpy(cur_frame.gm_params, pVBISlotParams[i].SavedGmParams, sizeof(cur_frame.gm_params));
-					memcpy(cur_frame.loop_filter_ref_deltas, pVBISlotParams[i].loop_filter_ref_deltas, sizeof(cur_frame.loop_filter_ref_deltas));
-					memcpy(cur_frame.loop_filter_mode_deltas, pVBISlotParams[i].loop_filter_mode_deltas, sizeof(cur_frame.loop_filter_mode_deltas));
-					memcpy(cur_frame.FeatureEnabled, pVBISlotParams[i].FeatureEnabled, sizeof(cur_frame.FeatureEnabled));
-					memcpy(cur_frame.FeatureData, pVBISlotParams[i].FeatureData, sizeof(cur_frame.FeatureData));
+					cur_frame.LoadVBISlotParams(pVBISlotParams[i]);
 				}
 				else
 					RestoredVBI[i] = iter->second;
 			}
 
+			// Second, apply the active frame parameters
+			if (ptr_ctx_snapshot->pActiveFrameParams->FrameSeqID == -1)
+			{
+				cfbi = -1;
+			}
+			else
+			{
+				auto iter_cfbi = FrameSeqBufIdx.find(ptr_ctx_snapshot->pActiveFrameParams->FrameSeqID);
+				if (iter_cfbi != FrameSeqBufIdx.end()){
+					cfbi = iter_cfbi->second;
+				}
+				else
+				{
+					// Allocate a new frame buffer from buffer pool
+					int8_t buf_idx = buffer_pool->get_free_fb();
+					assert(buf_idx >= 0);
+
+					cfbi = buf_idx;
+					auto cur_frame = buffer_pool->frame_bufs[buf_idx];
+					VBI_SLOT_PARAMS VBI_slot_params;
+					FillVBISlotParamsWithActiveFrameParams(ptr_ctx_snapshot->pActiveFrameParams, VBI_slot_params);
+					cur_frame.LoadVBISlotParams(VBI_slot_params);
+				}
+			}
+
+			SeenFrameHeader = ptr_ctx_snapshot->pActiveFrameParams->SeenFrameHeader;
+			show_existing_frame = ptr_ctx_snapshot->pActiveFrameParams->show_existing_frame;
+			show_frame = ptr_ctx_snapshot->pActiveFrameParams->show_frame;
+			TileNum = ptr_ctx_snapshot->pActiveFrameParams->TileNum;
+
+			iRet = RET_CODE_SUCCESS;
 		done:
 			return iRet;
 		}
 
 		int VideoBitstreamCtx::reference_frame_update()
 		{
-			int ref_index = 0, mask;
+			int ref_index = 0;
 			auto pool = buffer_pool;
 			auto frame_bufs = pool->frame_bufs;
+			bool bVBISlotChanged[NUM_REF_FRAMES] = { false, false, false, false, false, false, false, false };
 
 			// In ext-tile decoding, the camera frame header is only decoded once. So,
 			// we don't release the references here.
 			if (!camera_frame_header_ready)
 			{
-				for (mask = refresh_frame_flags; mask; mask >>= 1)
+				//for (mask = refresh_frame_flags; mask; mask >>= 1)
+				for(uint8_t ref_index =0; ref_index <NUM_REF_FRAMES; ref_index++)
 				{
 					const int old_idx = VBI[ref_index];
-					// Current thread releases the holding of reference frame.
-					buffer_pool->decrease_ref_count(old_idx);
+					if (old_idx != next_VBI[ref_index])
+					{
+						// Current thread releases the holding of reference frame.
+						if (old_idx >= 0)
+							buffer_pool->decrease_ref_count(old_idx);
 
-					// Release the reference frame holding in the reference map for the
-					// decoding of the next frame.
-					if (mask & 1) buffer_pool->decrease_ref_count(old_idx);
-					VBI[ref_index] = next_VBI[ref_index];
-					++ref_index;
+						// Release the reference frame holding in the reference map for the
+						// decoding of the next frame.
+						//if (mask & 1) buffer_pool->decrease_ref_count(old_idx);
+						VBI[ref_index] = next_VBI[ref_index];
+						buffer_pool->frame_bufs[VBI[ref_index]].ref_count++;
+						bVBISlotChanged[ref_index] = true;
+					}
+					//++ref_index;
 				}
 
+#if 0
 				// Current thread releases the holding of reference frame.
 				const int check_on_show_existing_frame = !show_existing_frame || reset_decoder_state;
 				for (; ref_index < NUM_REF_FRAMES && check_on_show_existing_frame; ++ref_index) {
@@ -597,8 +623,10 @@ namespace BST
 					buffer_pool->decrease_ref_count(old_idx);
 					VBI[ref_index] = next_VBI[ref_index];
 				}
+#endif
 			}
 
+#if 0
 			if (show_existing_frame || show_frame)
 			{
 				if (output_frame_index >= 0)
@@ -610,14 +638,31 @@ namespace BST
 			{
 				buffer_pool->decrease_ref_count(cfbi);
 			}
+#endif
 
 			if (!camera_frame_header_ready) {
 				hold_ref_buf = false;
 
 				// Invalidate these references until the next frame starts.
 				for (ref_index = 0; ref_index < REFS_PER_FRAME; ref_index++) {
-					frame_refs[ref_index].idx = -1;
+					ref_frame_idx[ref_index] = -1;
 				}
+			}
+
+			if (cfbi >= 0)
+				buffer_pool->decrease_ref_count(cfbi);
+
+			if (g_verbose_level > 99)
+			{
+				printf("VBI: [%s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d)]\n",
+					bVBISlotChanged[0] ? "*" : " ", VBI[0], VBI[0] >= 0 && VBI[0] < NUM_REF_FRAMES ? frame_bufs[VBI[0]].ref_count : 0,
+					bVBISlotChanged[1] ? "*" : " ", VBI[1], VBI[1] >= 0 && VBI[1] < NUM_REF_FRAMES ? frame_bufs[VBI[1]].ref_count : 0,
+					bVBISlotChanged[2] ? "*" : " ", VBI[2], VBI[2] >= 0 && VBI[2] < NUM_REF_FRAMES ? frame_bufs[VBI[2]].ref_count : 0,
+					bVBISlotChanged[3] ? "*" : " ", VBI[3], VBI[3] >= 0 && VBI[3] < NUM_REF_FRAMES ? frame_bufs[VBI[3]].ref_count : 0,
+					bVBISlotChanged[4] ? "*" : " ", VBI[4], VBI[4] >= 0 && VBI[4] < NUM_REF_FRAMES ? frame_bufs[VBI[4]].ref_count : 0,
+					bVBISlotChanged[5] ? "*" : " ", VBI[5], VBI[5] >= 0 && VBI[5] < NUM_REF_FRAMES ? frame_bufs[VBI[5]].ref_count : 0,
+					bVBISlotChanged[6] ? "*" : " ", VBI[6], VBI[6] >= 0 && VBI[6] < NUM_REF_FRAMES ? frame_bufs[VBI[6]].ref_count : 0,
+					bVBISlotChanged[7] ? "*" : " ", VBI[7], VBI[7] >= 0 && VBI[7] < NUM_REF_FRAMES ? frame_bufs[VBI[7]].ref_count : 0);
 			}
 
 			return RET_CODE_SUCCESS;
@@ -632,10 +677,98 @@ namespace BST
 
 			// Update the order hint of the frames which current frame depends on to do prediction
 			for (int ref_frame = LAST_FRAME; ref_frame <= ALTREF_FRAME; ++ref_frame) {
-				const int buf_idx = frame_refs[ref_frame - LAST_FRAME].idx;
+				const int buf_idx = VBI[ref_frame_idx[ref_frame - LAST_FRAME]];
 				if (buf_idx >= 0)
 					cur_frame->ref_order_hints[ref_frame - LAST_FRAME] =
 					buffer_pool->frame_bufs[buf_idx].current_order_hint;
+			}
+		}
+
+		int RefCntBuffer::LoadVBISlotParams(const VBI_SLOT_PARAMS& VBI_slot_params)
+		{
+			frame_type = (AV1_FRAME_TYPE)VBI_slot_params.RefFrameType;
+			current_frame_id = VBI_slot_params.RefFrameId;
+			upscaled_width = VBI_slot_params.RefUpscaledWidth;
+			width = VBI_slot_params.RefFrameWidth;
+			height = VBI_slot_params.RefFrameHeight;
+			render_width = VBI_slot_params.RefRenderWidth;
+			render_height = VBI_slot_params.RefRenderHeight;
+			mi_cols = VBI_slot_params.RefMiCols;
+			mi_rows = VBI_slot_params.RefMiRows;
+			current_order_hint = VBI_slot_params.RefOrderHint;
+			memcpy(ref_order_hints, VBI_slot_params.SavedOrderHints, sizeof(ref_order_hints));
+			memcpy(gm_params, VBI_slot_params.SavedGmParams, sizeof(gm_params));
+			memcpy(loop_filter_ref_deltas, VBI_slot_params.loop_filter_ref_deltas, sizeof(loop_filter_ref_deltas));
+			memcpy(loop_filter_mode_deltas, VBI_slot_params.loop_filter_mode_deltas, sizeof(loop_filter_mode_deltas));
+			memcpy(FeatureEnabled, VBI_slot_params.FeatureEnabled, sizeof(FeatureEnabled));
+			memcpy(FeatureData, VBI_slot_params.FeatureData, sizeof(FeatureData));
+
+			return RET_CODE_SUCCESS;
+		}
+
+		BufferPool::BufferPool(VideoBitstreamCtx* pCtx) : ctx_video_bst(pCtx) {
+		}
+
+		void BufferPool::ref_cnt_fb(int8_t *idx, int new_idx)
+		{
+			const int ref_index = *idx;
+
+			if (ref_index >= 0 && frame_bufs[ref_index].ref_count > 0)
+			{
+				frame_bufs[ref_index].ref_count--;
+			}
+
+			*idx = new_idx;
+
+			frame_bufs[new_idx].ref_count++;
+		}
+
+		void BufferPool::decrease_ref_count(int8_t idx)
+		{
+			if (idx >= 0) {
+				--frame_bufs[idx].ref_count;
+				// A worker may only get a free frame-buffer index when calling get_free_fb.
+				// But the private buffer is not set up until finish decoding header.
+				// So any error happens during decoding header, the frame_bufs will not
+				// have valid priv buffer.
+				if (frame_bufs[idx].ref_count == 0) {
+					if (g_verbose_level > 0)
+					{
+						printf("[AV1] Release the frame buffer #%d.\n", idx);
+						for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
+							if (ctx_video_bst->VBI[i] == idx)
+								ctx_video_bst->VBI[i] = -1;
+					}
+				}
+			}
+		}
+
+		/*
+			The allocated frame buffer should NOT lies in the VBI
+		*/
+		int8_t BufferPool::get_free_fb()
+		{
+			int i;
+
+			for (i = 0; i < FRAME_BUFFERS; ++i)
+				if (frame_bufs[i].ref_count == 0)
+					break;
+
+			if (i != FRAME_BUFFERS) {
+				frame_bufs[i].ref_count = 1;
+			}
+			else {
+				// Reset i to be INVALID_IDX to indicate no free buffer found.
+				printf("[AV1] No available free frame buffer!!\n");
+				i = -1;
+			}
+
+			return i;
+		}
+
+		void BufferPool::Reset() {
+			for (size_t i = 0; i < _countof(frame_bufs); i++) {
+				frame_bufs[i].Reset();
 			}
 		}
 	}
