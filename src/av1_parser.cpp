@@ -1204,12 +1204,10 @@ RET_CODE CAV1Parser::SubmitTU()
 					AV1ContextSnapshot ctx_snapshot;
 					ctx_snapshot.tu_idx = m_num_temporal_units;
 					ctx_snapshot.tu_fu_idx = tu_fu_idx;
-					
 					ctx_snapshot.pVBISlotParams = obu_params.VBI;
-
 					ctx_snapshot.pActiveFrameParams = &obu_params.ActiveFrameParams;
 
-					//m_pCtx->LoadVBISnapshot(obu_params.VBI, sizeof(obu_params.VBI));
+					//m_pCtx->LoadSnapshot(&ctx_snapshot);
 
 					if (AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, std::get<1>(obu), std::get<2>(obu), std::get<3>(obu), std::get<4>(obu))))
 					{

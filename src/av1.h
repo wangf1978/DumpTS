@@ -385,7 +385,6 @@ namespace BST
 			bool				need_resync;
 			bool				show_existing_frame;
 			bool				show_frame;
-			bool				reset_decoder_state;
 			int					tile_rows;
 			int					tile_cols;
 			int					log2_tile_cols;					// only valid for uniform tiles
@@ -5697,8 +5696,7 @@ namespace BST
 								ptr_frame_header_OBU->ptr_OBU->ctx_video_bst->sp_sequence_header == nullptr)
 								return RET_CODE_NOTHING_TODO;
 
-							ptr_sequence_header_obu = ptr_frame_header_OBU->ptr_OBU->ctx_video_bst->sp_sequence_header->ptr_sequence_header_obu;
-							if (ptr_sequence_header_obu == nullptr)
+							if((ptr_sequence_header_obu = ptr_frame_header_OBU->ptr_OBU->ctx_video_bst->sp_sequence_header->ptr_sequence_header_obu) == nullptr)
 								return RET_CODE_NOTHING_TODO;
 
 							auto ctx_video_bst = ptr_frame_header_OBU->ptr_OBU->ctx_video_bst;
@@ -5727,7 +5725,6 @@ namespace BST
 							{
 								bsrb1(in_bst, show_existing_frame, 1);
 								ctx_video_bst->show_existing_frame = show_existing_frame;
-								ctx_video_bst->reset_decoder_state = false;
 								if (show_existing_frame == 1)
 								{
 									bsrb1(in_bst, frame_to_show_map_idx, 3);
@@ -5758,7 +5755,6 @@ namespace BST
 									}
 
 									//ctx_video_bst->buffer_pool->ref_cnt_fb(&ctx_video_bst->cfbi, frame_to_show);
-									ctx_video_bst->reset_decoder_state = frame_bufs[frame_to_show].frame_type == KEY_FRAME ? true : false;
 
 									// double reference for frame_to_show
 									frame_bufs[frame_to_show].ref_count++;
