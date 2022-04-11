@@ -710,6 +710,14 @@ SOFTWARE.
 	if(bPrint)\
 		printf("%s\n", szTemp);\
 
+#define NAV_FIELD_PROP_F(Field_Name, Field_Bits, Field_Value_FmtStr, Field_Desc, Field_Bit_Offset, Type, ...)\
+	if(szOutXml != 0 && cbLen > 0)\
+		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\" Value=\"" Field_Value_FmtStr "\"/>", Field_Name, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type, ##__VA_ARGS__);\
+	else\
+		cbRequired += MBCSPRINTF_S(szTemp, TEMP_SIZE, "<%s Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\" Value=\"" Field_Value_FmtStr "\"/>", Field_Name, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type, ##__VA_ARGS__);\
+	if(bPrint)\
+		printf("%s\n", szTemp);\
+
 #define NAV_FIELD_PROP_BEGIN(Field_Name, Field_Bits, Field_Value, Field_Desc, Field_Bit_Offset, Type)\
 	if(szOutXml != 0 && cbLen > 0)\
 		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s Value=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\">", Field_Name, Field_Value, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type);\
@@ -744,6 +752,10 @@ SOFTWARE.
 	NAV_FIELD_PROP(Field_Name, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
 	if (bit_offset)*bit_offset += Field_Bits;\
 
+#define NAV_FIELD_PROP_NUMBER_ARRAY_F(Field_Name, Field_Bits, FormatStr, Field_Desc, ...)\
+	NAV_FIELD_PROP_F(Field_Name, Field_Bits, FormatStr, Field_Desc, bit_offset?*bit_offset:-1LL, "IA", ##__VA_ARGS__);\
+	if (bit_offset)*bit_offset += Field_Bits;\
+
 #define NAV_FIELD_PROP_NUMBER_BEGIN(Field_Name, Field_Bits, Field_Value, Field_Desc)\
 	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%lu", (unsigned long)(Field_Value));\
 	NAV_FIELD_PROP_BEGIN(Field_Name, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
@@ -755,6 +767,11 @@ SOFTWARE.
 #define NAV_FIELD_PROP_NUMBER_END(Field_Name)	NAV_FIELD_PROP_END(Field_Name)
 
 #define NAV_FIELD_PROP_NUMBER1(Field_Name, Field_Bits, Field_Desc)		NAV_FIELD_PROP_NUMBER(#Field_Name, Field_Bits, Field_Name, Field_Desc)
+
+#define BST_FIELD_PROP_NUMBER_ARRAY_F(Field_Name, Field_Bits, FormatStr, Field_Desc, ...)\
+	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		NAV_FIELD_PROP_NUMBER_ARRAY_F(Field_Name, Field_Bits, FormatStr, Field_Desc, ##__VA_ARGS__)\
+		field_prop_idx++;}\
 
 #define BST_FIELD_PROP_NUMBER(Field_Name, Field_Bits, Field_Value, Field_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
