@@ -29,6 +29,7 @@ SOFTWARE.
 #include "AMRingBuffer.h"
 #include <algorithm>
 #include "systemdef.h"
+#include "system_13818_1.h"
 
 extern map<std::string, std::string, CaseInsensitiveComparator> 
 											g_params;

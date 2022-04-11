@@ -27,6 +27,7 @@ SOFTWARE.
 #include "PayloadBuf.h"
 #include "crc.h"
 #include "DataUtil.h"
+#include "system_13818_1.h"
 #include <algorithm>
 
 std::unordered_map<unsigned char, std::string> g_SIT_descriptors= {

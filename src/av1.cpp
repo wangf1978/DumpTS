@@ -189,24 +189,6 @@ namespace BST
 	{
 		OPEN_BITSTREAM_UNIT::FRAME_HEADER_OBU::UNCOMPRESSED_HEADER* OPEN_BITSTREAM_UNIT::FRAME_HEADER_OBU::ptr_last_uncompressed_header = nullptr;
 
-		OPEN_BITSTREAM_UNIT::SEQUENCE_HEADER_OBU* OPEN_BITSTREAM_UNIT::get_sequence_header_obu()
-		{
-			BST::AV1::OPEN_BITSTREAM_UNIT* ptr_active_obu =
-#if 0
-				(BST::AV1::OPEN_BITSTREAM_UNIT*)AMTLS_GetEnvPointer(_T("BST_CONTAINER_AV1_ACTIVE_SEQHDR"), nullptr);
-#else
-				nullptr;
-#endif
-
-			if (ptr_active_obu == nullptr)
-				ptr_active_obu = ctx_video_bst->sp_sequence_header.get();
-
-			if (ptr_active_obu != nullptr && ptr_active_obu->obu_header.obu_type == OBU_SEQUENCE_HEADER)
-				return ptr_active_obu->ptr_sequence_header_obu;
-
-			return nullptr;
-		}
-
 		int OPEN_BITSTREAM_UNIT::FRAME_OBU::Map(AMBst in_bst)
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -236,8 +218,6 @@ namespace BST
 		}
 
 		VideoBitstreamCtx::VideoBitstreamCtx(bool bAnnexB, bool bSingleOBUParse) : AnnexB(bAnnexB), SingleOBUParse(bSingleOBUParse) {
-			camera_frame_header_ready = false;
-
 			buffer_pool = new BufferPool(this);
 
 			cfbi = -1;
@@ -591,62 +571,25 @@ namespace BST
 			auto frame_bufs = pool->frame_bufs;
 			bool bVBISlotChanged[NUM_REF_FRAMES] = { false, false, false, false, false, false, false, false };
 
-			// In ext-tile decoding, the camera frame header is only decoded once. So,
-			// we don't release the references here.
-			if (!camera_frame_header_ready)
+			for(uint8_t ref_index =0; ref_index <NUM_REF_FRAMES; ref_index++)
 			{
-				//for (mask = refresh_frame_flags; mask; mask >>= 1)
-				for(uint8_t ref_index =0; ref_index <NUM_REF_FRAMES; ref_index++)
+				const int old_idx = VBI[ref_index];
+				if (old_idx != next_VBI[ref_index])
 				{
-					const int old_idx = VBI[ref_index];
-					if (old_idx != next_VBI[ref_index])
-					{
-						// Current thread releases the holding of reference frame.
-						if (old_idx >= 0)
-							buffer_pool->decrease_ref_count(old_idx);
+					// Current thread releases the holding of reference frame.
+					if (old_idx >= 0)
+						buffer_pool->decrease_ref_count(old_idx);
 
-						// Release the reference frame holding in the reference map for the
-						// decoding of the next frame.
-						//if (mask & 1) buffer_pool->decrease_ref_count(old_idx);
-						VBI[ref_index] = next_VBI[ref_index];
-						buffer_pool->frame_bufs[VBI[ref_index]].ref_count++;
-						bVBISlotChanged[ref_index] = true;
-					}
-					//++ref_index;
-				}
-
-#if 0
-				// Current thread releases the holding of reference frame.
-				const int check_on_show_existing_frame = !show_existing_frame || reset_decoder_state;
-				for (; ref_index < NUM_REF_FRAMES && check_on_show_existing_frame; ++ref_index) {
-					const int old_idx = VBI[ref_index];
-					buffer_pool->decrease_ref_count(old_idx);
 					VBI[ref_index] = next_VBI[ref_index];
+					buffer_pool->frame_bufs[VBI[ref_index]].ref_count++;
+
+					bVBISlotChanged[ref_index] = true;
 				}
-#endif
 			}
 
-#if 0
-			if (show_existing_frame || show_frame)
-			{
-				if (output_frame_index >= 0)
-					buffer_pool->decrease_ref_count(output_frame_index);
-
-				output_frame_index = cfbi;
-			}
-			else
-			{
-				buffer_pool->decrease_ref_count(cfbi);
-			}
-#endif
-
-			if (!camera_frame_header_ready) {
-				hold_ref_buf = false;
-
-				// Invalidate these references until the next frame starts.
-				for (ref_index = 0; ref_index < REFS_PER_FRAME; ref_index++) {
-					ref_frame_idx[ref_index] = -1;
-				}
+			// Invalidate these references until the next frame starts.
+			for (ref_index = 0; ref_index < REFS_PER_FRAME; ref_index++) {
+				ref_frame_idx[ref_index] = -1;
 			}
 
 			if (cfbi >= 0)
@@ -654,6 +597,7 @@ namespace BST
 
 			if (g_verbose_level > 99)
 			{
+				// drc: decoder reference count
 				printf("VBI: [%s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d), %s%d(drc: %d)]\n",
 					bVBISlotChanged[0] ? "*" : " ", VBI[0], VBI[0] >= 0 && VBI[0] < NUM_REF_FRAMES ? frame_bufs[VBI[0]].ref_count : 0,
 					bVBISlotChanged[1] ? "*" : " ", VBI[1], VBI[1] >= 0 && VBI[1] < NUM_REF_FRAMES ? frame_bufs[VBI[1]].ref_count : 0,
@@ -727,10 +671,6 @@ namespace BST
 		{
 			if (idx >= 0) {
 				--frame_bufs[idx].ref_count;
-				// A worker may only get a free frame-buffer index when calling get_free_fb.
-				// But the private buffer is not set up until finish decoding header.
-				// So any error happens during decoding header, the frame_bufs will not
-				// have valid priv buffer.
 				if (frame_bufs[idx].ref_count == 0) {
 					if (g_verbose_level > 0)
 					{

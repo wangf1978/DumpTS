@@ -26,6 +26,38 @@ SOFTWARE.
 #ifndef _MPEG_SYSTEM_DEF_H_
 #define _MPEG_SYSTEM_DEF_H_
 
+#define DUMP_RAW_OUTPUT									(1<<0)
+#define DUMP_BD_M2TS									(1<<1)
+#define DUMP_PES_OUTPUT									(1<<2)
+#define DUMP_PTS_VIEW									(1<<3)
+#define DUMP_PCM										(1<<4)		// Raw LPCM data
+#define DUMP_WAV										(1<<5)		// MSFT wave file
+#define DUMP_MEDIA_INFO_VIEW							(1<<6)
+
+// For TS
+#define DUMP_DTV_SIT									(1<<7)
+#define DUMP_PMT										(1<<8)
+#define DUMP_PAT										(1<<9)
+#define DUMP_CAT										(1<<10)
+#define DUMP_EIT										(1<<11)
+
+// For all
+#define DUMP_STREAM_INFO_VIEW							(1<<16)
+
+// For NAL
+#define DUMP_NAL_VPS									(1<<17)
+#define DUMP_NAL_SPS									(1<<18)
+#define DUMP_NAL_PPS									(1<<19)
+
+// For Program Stream
+#define DUMP_VOB										(1<<7)
+#define DUMP_MPG										(1<<8)
+
+// For MMT/TLV
+#define DUMP_MPT										DUMP_PMT
+#define DUMP_PLT										DUMP_PAT
+#define DUMP_MH_EIT										DUMP_EIT
+
 enum TS_FORMAT
 {
 	TSF_GENERIC				= 0x0,

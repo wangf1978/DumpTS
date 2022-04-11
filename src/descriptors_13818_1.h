@@ -917,7 +917,7 @@ namespace BST {
 
 			CSubStructure**		substructures;
 
-			CMuxCodeTableEntry(): length(0), substructureCount(0), substructures(NULL){}
+			CMuxCodeTableEntry(): length(0), version(0), MuxCode(0), substructureCount(0), substructures(NULL){}
 
 			virtual ~CMuxCodeTableEntry(){Unmap();}
 
@@ -1710,7 +1710,8 @@ namespace BST {
 		unsigned char*				private_data_byte;
 		unsigned char				private_data_len;
 
-		CMetadataDescriptor(): decoder_config_flags(0), service_identification_record(NULL), reserved_data(NULL), private_data_byte(NULL){}
+		CMetadataDescriptor()
+			: decoder_config_flags(0), service_identification_record(NULL), reserved_data(NULL), private_data_byte(NULL), private_data_len(0){}
 		virtual ~CMetadataDescriptor(){Unmap();}
 
 		DECLARE_ENDIAN_BEGIN()
@@ -2224,12 +2225,15 @@ namespace BST {
 			unsigned char		reserved_0:3;
 			unsigned char		contains_associated_video_information:1;
 #endif
-			CVideoInformation*	video_information;
+			CVideoInformation*	video_information = nullptr;
 
-			unsigned char		remaining_config_length;
-			unsigned char*		remaining_config_data;
+			unsigned char		remaining_config_length = 0;
+			unsigned char*		remaining_config_data = nullptr;
 
-			CTextConfig(){video_information = NULL;}
+			CTextConfig()
+				: reserved_1(0), duration_flag(0), reserved_0(0), contains_associated_video_information(0){
+			}
+
 			virtual ~CTextConfig(){Unmap();}
 			
 			int Map(unsigned char *pBuf, unsigned long cbSize, unsigned long *desired_size=0, unsigned long *stuffing_size=0){
@@ -2344,8 +2348,8 @@ namespace BST {
 	}PACKED;
 
 	struct CMPEG4AudioExtensionDescriptor: public ADVANCE_ENDIAN_MAP{
-		unsigned char		descriptor_tag;
-		unsigned char		descriptor_length;
+		unsigned char		descriptor_tag = 0;
+		unsigned char		descriptor_length = 0;
 
 #ifdef _BIG_ENDIAN_
 		unsigned char		ASC_flag:1;
@@ -2362,7 +2366,8 @@ namespace BST {
 		AACAudio::CAudioSpecificConfig*
 							audioSpecificConfig;
 
-		CMPEG4AudioExtensionDescriptor(): audioProfileLevelIndications(NULL), audioSpecificConfig(NULL){}
+		CMPEG4AudioExtensionDescriptor()
+			: num_of_loops(0), reserved(0), ASC_flag(0), audioProfileLevelIndications(NULL), audioSpecificConfig(NULL){}
 		virtual ~CMPEG4AudioExtensionDescriptor(){Unmap();}
 
 		int Map(unsigned char *pBuf, unsigned long cbSize, unsigned long *desired_size=0, unsigned long *stuffing_size=0){
@@ -2716,9 +2721,9 @@ namespace BST {
 
 		}PACKED;
 
-		unsigned char		descriptor_tag;
-		unsigned char		descriptor_length;
-		unsigned char		profile_idc;
+		unsigned char		descriptor_tag = 0;
+		unsigned char		descriptor_length = 0;
+		unsigned char		profile_idc = 0;
 #ifdef _BIG_ENDIAN_
 		unsigned char		constraint_set0_flag:1;
 		unsigned char		constraint_set1_flag:1;
@@ -2740,7 +2745,10 @@ namespace BST {
 
 		CLevel**			levels;
 
-		CMVCOperationPointDescriptor():levels(NULL){}
+		CMVCOperationPointDescriptor()
+			: AVC_compatible_flags(0), constraint_set5_flag(0), constraint_set4_flag(0), constraint_set3_flag(0)
+			, constraint_set2_flag(0), constraint_set1_flag(0), constraint_set0_flag(0), levels(NULL){
+		}
 
 		virtual ~CMVCOperationPointDescriptor(){Unmap();}
 

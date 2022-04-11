@@ -354,7 +354,6 @@ namespace BST
 			
 			bool				SingleOBUParse;
 			bool				SeenFrameHeader;
-			bool				camera_frame_header_ready;
 			int64_t				num_payload_bits = 0LL;
 			int64_t				num_trailing_bits = 0LL;
 			uint16_t			TileNum = 0;
@@ -387,7 +386,6 @@ namespace BST
 			bool				show_existing_frame;
 			bool				show_frame;
 			bool				reset_decoder_state;
-			bool				hold_ref_buf;					// hold the reference buffer or not.
 			int					tile_rows;
 			int					tile_cols;
 			int					log2_tile_cols;					// only valid for uniform tiles
@@ -5657,6 +5655,8 @@ namespace BST
 
 					FRAME_HEADER_OBU*
 									ptr_frame_header_OBU = nullptr;
+
+					AV1_OBU			sp_sequence_header;
 					SEQUENCE_HEADER_OBU*
 									ptr_sequence_header_obu = nullptr;
 					RefCntBuffer*	ptr_frame = nullptr;
@@ -5692,10 +5692,12 @@ namespace BST
 						try
 						{
 							if (ptr_frame_header_OBU == nullptr ||
-								ptr_frame_header_OBU->ptr_OBU == nullptr)
+								ptr_frame_header_OBU->ptr_OBU == nullptr ||
+								ptr_frame_header_OBU->ptr_OBU->ctx_video_bst == nullptr ||
+								ptr_frame_header_OBU->ptr_OBU->ctx_video_bst->sp_sequence_header == nullptr)
 								return RET_CODE_NOTHING_TODO;
 
-							ptr_sequence_header_obu = ptr_frame_header_OBU->ptr_OBU->get_sequence_header_obu();
+							ptr_sequence_header_obu = ptr_frame_header_OBU->ptr_OBU->ctx_video_bst->sp_sequence_header->ptr_sequence_header_obu;
 							if (ptr_sequence_header_obu == nullptr)
 								return RET_CODE_NOTHING_TODO;
 
@@ -5804,35 +5806,8 @@ namespace BST
 												}
 											}
 
-											int ref_index = 0;
-											for (int mask = refresh_frame_flags; mask; mask >>= 1) {
-												if (mask & 1) {
-													ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->cfbi;
-													//frame_bufs[ctx_video_bst->cfbi].ref_count++;
-												}
-												else {
-													ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
-												}
-
-												// Current thread holds the reference frame.
-												if (ctx_video_bst->VBI[ref_index] >= 0)
-												{
-													//frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
-												}
-												++ref_index;
-											}
-#if 0
-
-											for (; ref_index < NUM_REF_FRAMES; ++ref_index) {
-												ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
-
-												// Current thread holds the reference frame.
-												if (ctx_video_bst->VBI[ref_index] >= 0)
-												{
-													frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
-												}
-											}
-#endif
+											for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
+												ctx_video_bst->next_VBI[i] = (refresh_frame_flags & (1 << i)) ? ctx_video_bst->cfbi : ctx_video_bst->VBI[i];
 										}
 									}
 
@@ -6179,7 +6154,8 @@ namespace BST
 									}
 									else
 									{
-										const int buf_idx = ctx_video_bst->VBI[ctx_video_bst->ref_frame_idx[ref_frame - LAST_FRAME]];
+										int8_t cur_ref_frame_idx = ctx_video_bst->ref_frame_idx[ref_frame - LAST_FRAME];
+										const int buf_idx = cur_ref_frame_idx >= 0 ? ctx_video_bst->VBI[cur_ref_frame_idx] : -1;
 										if (!ptr_sequence_header_obu->enable_order_hint || buf_idx == -1)
 										{
 											RefFrameSignBias &= ~(1<< (ref_frame - LAST_FRAME));
@@ -6268,33 +6244,8 @@ namespace BST
 								// motion_field_estimation( )
 							}
 
-							int ref_index = 0;
-							for (int mask = refresh_frame_flags; mask; mask >>= 1) {
-								if (mask & 1) {
-									ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->cfbi;
-									//frame_bufs[ctx_video_bst->cfbi].ref_count++;
-								}
-								else {
-									ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
-								}
-								// Current thread holds the reference frame.
-								if (ctx_video_bst->VBI[ref_index] >= 0)
-								{
-									//frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
-								}
-								++ref_index;
-							}
-#if 0
-							for (; ref_index < NUM_REF_FRAMES; ++ref_index) {
-								ctx_video_bst->next_VBI[ref_index] = ctx_video_bst->VBI[ref_index];
-
-								// Current thread holds the reference frame.
-								if (ctx_video_bst->VBI[ref_index] >= 0)
-								{
-									frame_bufs[ctx_video_bst->VBI[ref_index]].ref_count++;
-								}
-							}
-#endif
+							for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
+								ctx_video_bst->next_VBI[i] = (refresh_frame_flags & (1 << i)) ? ctx_video_bst->cfbi : ctx_video_bst->VBI[i];
 
 							av1_read_ref(in_bst, ptr_tile_info, TILE_INFO, this);
 							av1_read_ref(in_bst, ptr_quantization_params, QUANTIZATION_PARAMS, this);
@@ -6529,7 +6480,7 @@ namespace BST
 							}
 							/*
 							if (film_grain_params_present) {
-							load_grain_params(frame_to_show_map_idx)
+								load_grain_params(frame_to_show_map_idx)
 							}
 							return
 							*/
@@ -7249,9 +7200,6 @@ namespace BST
 
 			uint32_t			m_full_obu_size;
 			uint16_t			m_OperatingPointIdc = 0;
-
-			SEQUENCE_HEADER_OBU*
-								get_sequence_header_obu();
 
 			OPEN_BITSTREAM_UNIT(VideoBitstreamCtx* ctxVideoBst, uint32_t sz=0) 
 				: ctx_video_bst(ctxVideoBst)
