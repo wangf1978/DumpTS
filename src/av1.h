@@ -382,7 +382,6 @@ namespace BST
 			int32_t				output_frame_index;
 			uint8_t				refresh_frame_flags;
 
-			bool				need_resync;
 			bool				show_existing_frame;
 			bool				show_frame;
 			int					tile_rows;
@@ -5702,8 +5701,6 @@ namespace BST
 							auto ctx_video_bst = ptr_frame_header_OBU->ptr_OBU->ctx_video_bst;
 							auto frame_bufs = ctx_video_bst->buffer_pool->frame_bufs;
 
-							ptr_frame = &ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi];
-
 							MAP_BST_BEGIN(0);
 
 							uint8_t idLen = 0;
@@ -5735,6 +5732,7 @@ namespace BST
 									}
 
 									ctx_video_bst->cfbi = frame_to_show;
+									ptr_frame = &ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi];
 
 									refresh_frame_flags = 0;
 									if (ptr_sequence_header_obu->frame_id_numbers_present_flag) {
@@ -5772,12 +5770,6 @@ namespace BST
 
 										for (int i = 0; i < REFS_PER_FRAME; ++i) {
 											ctx_video_bst->ref_frame_idx[i] = -1;
-										}
-
-										if (ctx_video_bst->need_resync)
-										{
-											memset(ctx_video_bst->VBI, -1, sizeof(ctx_video_bst->VBI));
-											ctx_video_bst->need_resync = false;
 										}
 
 										if (ctx_video_bst->SingleOBUParse == false)
@@ -5824,6 +5816,8 @@ namespace BST
 									printf("[AV1] Failed to get the free frame buffer from BufferPool.\n");
 									return RET_CODE_ERROR;
 								}
+
+								ptr_frame = &ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi];
 
 								bsrb1(in_bst, frame_type, 2);
 								FrameIsIntra = (frame_type == INTRA_ONLY_FRAME || frame_type == KEY_FRAME) ? TRUE : FALSE;
@@ -5964,12 +5958,6 @@ namespace BST
 								for (int i = 0; i < REFS_PER_FRAME; ++i) {
 									ctx_video_bst->ref_frame_idx[i] = -1;
 								}
-
-								if (ctx_video_bst->need_resync)
-								{
-									memset(&ctx_video_bst->VBI, -1, sizeof(ctx_video_bst->VBI));
-									ctx_video_bst->need_resync = 0;
-								}
 							}
 							else
 							{
@@ -5978,14 +5966,8 @@ namespace BST
 									bsrb1(in_bst, refresh_frame_flags, 8);
 									if (refresh_frame_flags == 0xFF)
 										printf("[AV1] Intra only frames cannot have refresh flags 0xFF.\n");
-
-									if (ctx_video_bst->need_resync)
-									{
-										memset(&ctx_video_bst->VBI, -1, sizeof(ctx_video_bst->VBI));
-										ctx_video_bst->need_resync = 0;
-									}
 								}
-								else if (ctx_video_bst->need_resync != 1 || ctx_video_bst->SingleOBUParse)
+								else
 								{
 									if (frame_type == SWITCH_FRAME)
 										refresh_frame_flags = (uint8_t)allFrames;

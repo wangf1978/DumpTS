@@ -89,6 +89,7 @@ struct VBI_SLOT_PARAMS
 	uint8_t					RefSubsamplingX : 1;
 	uint8_t					RefSubsamplingY : 1;
 	uint8_t					RefBitDepth : 5;
+
 	int8_t					RefFrameType		= -1;
 
 	int32_t					RefFrameId			= -1;	// Maximum 25 bit
@@ -207,18 +208,29 @@ struct OBU_PARSE_PARAMS
 			if ((ActiveFrameParams.refresh_frame_flags >> i) & 0x1) {
 				VBI[i].FrameSeqID = frame_seq_id;
 				VBI[i].RefValid = 1;
+				VBI[i].RefSubsamplingX = ActiveFrameParams.subsampling_x;
+				VBI[i].RefSubsamplingY = ActiveFrameParams.subsampling_y;
+				VBI[i].RefBitDepth = ActiveFrameParams.BitDepth;
+
 				VBI[i].RefFrameType = ActiveFrameParams.frame_type;
+
+				VBI[i].RefFrameId = ActiveFrameParams.current_frame_id;
+
 				VBI[i].RefUpscaledWidth = ActiveFrameParams.UpscaledWidth;
 				VBI[i].RefFrameWidth = ActiveFrameParams.FrameWidth;
 				VBI[i].RefFrameHeight = ActiveFrameParams.FrameHeight;
 				VBI[i].RefRenderWidth = ActiveFrameParams.RenderWidth;
 				VBI[i].RefRenderHeight = ActiveFrameParams.RenderHeight;
+
 				VBI[i].RefMiCols = ActiveFrameParams.MiCols;
 				VBI[i].RefMiRows = ActiveFrameParams.MiRows;
-				VBI[i].RefSubsamplingX = ActiveFrameParams.subsampling_x;
-				VBI[i].RefSubsamplingY = ActiveFrameParams.subsampling_y;
-				VBI[i].RefBitDepth = ActiveFrameParams.BitDepth;
+
 				VBI[i].RefOrderHint = ActiveFrameParams.OrderHint;
+				memcpy(VBI[i].SavedGmParams, ActiveFrameParams.gm_params, sizeof(VBI[i].SavedGmParams));
+				memcpy(VBI[i].loop_filter_ref_deltas, ActiveFrameParams.loop_filter_ref_deltas, sizeof(VBI[i].loop_filter_ref_deltas));
+				memcpy(VBI[i].loop_filter_mode_deltas, ActiveFrameParams.loop_filter_mode_deltas, sizeof(VBI[i].loop_filter_mode_deltas));
+				memcpy(VBI[i].FeatureEnabled, ActiveFrameParams.FeatureEnabled, sizeof(VBI[i].FeatureEnabled));
+				memcpy(VBI[i].FeatureData, ActiveFrameParams.FeatureData, sizeof(VBI[i].FeatureData));
 			}
 		}
 
@@ -332,12 +344,8 @@ protected:
 	RET_CODE				SubmitAnnexBTU();
 	RET_CODE				SubmitTU();
 	RET_CODE				UpdateSeqHdrToContext(const uint8_t* pOBUBuf, uint32_t cbOBUBuf);
-	RET_CODE				UpdateOBUParsePreconditionParams(
-								const uint8_t* pOBUBodyBuf, size_t cbOBUBodyBuf, BST::AV1::OBU_HEADER& obu_hdr, 
-								OBU_PARSE_PARAMS& prev_parse_params, OBU_PARSE_PARAMS& curr_parse_params);
-	RET_CODE				ParseUncompressedHeader(
-								BITBUF& bitbuf, BST::AV1::OBU_HEADER& obu_hdr, AV1_OBU spSeqHdrOBU,
-								OBU_PARSE_PARAMS& prev_parse_params, OBU_PARSE_PARAMS& curr_parse_params);
+	RET_CODE				UpdateOBUParsePreconditionParams(const uint8_t* pOBUBodyBuf, size_t cbOBUBodyBuf, BST::AV1::OBU_HEADER& obu_hdr);
+	RET_CODE				ParseUncompressedHeader(BITBUF& bitbuf, BST::AV1::OBU_HEADER& obu_hdr, AV1_OBU spSeqHdrOBU);
 
 	//
 	// The methods defined in the AV1 specification
@@ -388,7 +396,7 @@ protected:
 
 	int64_t					m_num_temporal_units = 0LL;
 
-	OBU_PARSE_PARAMS		m_TU_parse_params;			// The TU intermediate parse parameters, and it will be updated after one TU has been processed completely
+	OBU_PARSE_PARAMS		m_obu_parse_params;			// The TU intermediate parse parameters, and it will be updated after one TU has been processed completely
 	uint16_t				m_next_frame_seq_id = 0;	// The next unique frame sequence id
 };
 

@@ -226,8 +226,6 @@ namespace BST
 
 			memset(VBI, -1, sizeof(VBI));
 			memset(next_VBI, -1, sizeof(next_VBI));
-
-			need_resync = true;
 		}
 
 		VideoBitstreamCtx::~VideoBitstreamCtx() {
@@ -470,8 +468,6 @@ namespace BST
 
 			if (buffer_pool)
 				buffer_pool->Reset();
-
-			need_resync = true;
 		}
 
 		RET_CODE VideoBitstreamCtx::LoadSnapshot(AV1ContextSnapshot* ptr_ctx_snapshot)
@@ -529,6 +525,8 @@ namespace BST
 					RestoredVBI[i] = iter->second;
 			}
 
+			memcpy(VBI, RestoredVBI, sizeof(VBI));
+
 			// Second, apply the active frame parameters
 			if (ptr_ctx_snapshot->pActiveFrameParams->FrameSeqID == -1)
 			{
@@ -558,6 +556,7 @@ namespace BST
 			show_existing_frame = ptr_ctx_snapshot->pActiveFrameParams->show_existing_frame;
 			show_frame = ptr_ctx_snapshot->pActiveFrameParams->show_frame;
 			TileNum = ptr_ctx_snapshot->pActiveFrameParams->TileNum;
+			memcpy(PrevGmParams, ptr_ctx_snapshot->pActiveFrameParams->PrevGmParams, sizeof(PrevGmParams));
 
 			iRet = RET_CODE_SUCCESS;
 		done:
