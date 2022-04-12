@@ -125,10 +125,10 @@ SOFTWARE.
 #define IS_OBU_FRAME(obu_type)		(obu_type == OBU_FRAME || obu_type == OBU_FRAME_HEADER || obu_type == OBU_REDUNDANT_FRAME_HEADER)
 
 auto constexpr GetFrameRestorationTypeName(uint8_t type) {
-	return (type == 0 ? "RESTORE_NONE" : 
-		   (type == 1 ? "RESTORE_WIENER" : 
-		   (type == 2 ? "RESTORE_SGRPROJ" : 
-		   (type == 3 ? "RESTORE_SWITCHABLE" : "Unknown"))));
+	return (type == 0 ? "NONE" : 
+		   (type == 1 ? "WIENER" : 
+		   (type == 2 ? "SGRPROJ" : 
+		   (type == 3 ? "SWITCHABLE" : "Unknown"))));
 }
 
 #define TX_MODE_DESC(x)	(\
@@ -4011,16 +4011,15 @@ namespace BST
 						}
 						else
 						{
-							BST_ARRAY_FIELD_PROP_NUMBER1(loop_filter_level, 0, 6, "loop filter strength value");
-							BST_ARRAY_FIELD_PROP_NUMBER1(loop_filter_level, 1, 6, "loop filter strength value");
-
-							if (!ptr_uncompressed_header->ptr_sequence_header_obu->color_config->mono_chrome)
+							if (!ptr_uncompressed_header->ptr_sequence_header_obu->color_config->mono_chrome && (loop_filter_level[0] || loop_filter_level[1]))
 							{
-								if (loop_filter_level[0] || loop_filter_level[1])
-								{
-									BST_ARRAY_FIELD_PROP_NUMBER1(loop_filter_level, 2, 6, "loop filter strength value");
-									BST_ARRAY_FIELD_PROP_NUMBER1(loop_filter_level, 3, 6, "loop filter strength value");
-								}
+								BST_FIELD_PROP_NUMBER_ARRAY_F("loop_filter_level", 24, "%d, %d, %d, %d", "loop filter strength value",
+									loop_filter_level[0], loop_filter_level[1], loop_filter_level[2], loop_filter_level[3]);
+							}
+							else
+							{
+								BST_FIELD_PROP_NUMBER_ARRAY_F("loop_filter_level", 12, "%d, %d", "loop filter strength value",
+									loop_filter_level[0], loop_filter_level[1]);
 							}
 
 							BST_FIELD_PROP_2NUMBER1(loop_filter_sharpness, 3, 
@@ -4321,20 +4320,23 @@ namespace BST
 						DECLARE_FIELDPROP_BEGIN()
 						if (ptr_uncompressed_header->AllLossless || ptr_uncompressed_header->allow_intrabc || !ptr_uncompressed_header->ptr_sequence_header_obu->enable_restoration)
 						{
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("FrameRestorationType", "FrameRestorationType[0]", FrameRestorationType[0], "Should be RESTORE_NONE(0)");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("FrameRestorationType", "FrameRestorationType[1]", FrameRestorationType[1], "Should be RESTORE_NONE(0)");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("FrameRestorationType", "FrameRestorationType[2]", FrameRestorationType[2], "Should be RESTORE_NONE(0)");
+							NAV_WRITE_TAG_WITH_VALUEFMTSTR("FrameRestorationType", "%s,%s,%s", "All should be RESTORE_NONE(0)",
+								GetFrameRestorationTypeName(FrameRestorationType[0]), GetFrameRestorationTypeName(FrameRestorationType[1]), GetFrameRestorationTypeName(FrameRestorationType[2]));
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(usesLr, "");
 						}
 						else
 						{
-							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;NumPlanes;i++)", "");
-							for (int i = 0; i < (ptr_uncompressed_header->ptr_sequence_header_obu->color_config->mono_chrome ? 1 : 3); i++)
+							if (ptr_uncompressed_header->ptr_sequence_header_obu->color_config->mono_chrome)
 							{
-								BST_ARRAY_FIELD_PROP_NUMBER1(lr_type, i, 2, "is used to compute FrameRestorationType");
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("FrameRestorationType", "FrameRestorationType[%d]", FrameRestorationType[i], GetFrameRestorationTypeName(FrameRestorationType[i]), i);
+								BST_FIELD_PROP_NUMBER_ARRAY_F("lr_type", 2, "%d", "is used to compute FrameRestorationType", lr_type[0]);
+								NAV_WRITE_TAG_WITH_VALUEFMTSTR("FrameRestorationType", "%s", "", GetFrameRestorationTypeName(FrameRestorationType[0]));
 							}
-							NAV_WRITE_TAG_END("Tag0");
+							else
+							{
+								BST_FIELD_PROP_NUMBER_ARRAY_F("lr_type", 6, "%d,%d,%d", "is used to compute FrameRestorationType", lr_type[0], lr_type[1], lr_type[2]);
+								NAV_WRITE_TAG_WITH_VALUEFMTSTR("FrameRestorationType", "%s,%s,%s", "", 
+									GetFrameRestorationTypeName(FrameRestorationType[0]), GetFrameRestorationTypeName(FrameRestorationType[1]), GetFrameRestorationTypeName(FrameRestorationType[2]));
+							}
 
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(usesLr, "indicates if any plane uses loop restoration");
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(usesChromaLr, "indicates if any plane uses chroma loop restoration");
@@ -4363,10 +4365,6 @@ namespace BST
 								{
 									NAV_WRITE_TAG_WITH_1NUMBER_VALUE1(lr_uv_shift, "Should be 0, the chroma size should NOT be half the luma size");
 								}
-
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("FrameRestorationType", "FrameRestorationType[0]", FrameRestorationType[0], GetFrameRestorationTypeName(FrameRestorationType[0]));
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("FrameRestorationType", "FrameRestorationType[1]", FrameRestorationType[1], GetFrameRestorationTypeName(FrameRestorationType[1]));
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("FrameRestorationType", "FrameRestorationType[2]", FrameRestorationType[2], GetFrameRestorationTypeName(FrameRestorationType[2]));
 							}
 						}
 						DECLARE_FIELDPROP_END()
