@@ -2349,8 +2349,8 @@ RET_CODE CAV1Parser::global_motion_params(AV1_OBU spSeqHdrOBU, BITBUF& bitbuf, O
 				if (AMP_FAILED(iRet = read_global_param(bitbuf, obu_parse_params, type, ref, 5, allow_high_precision_mv)))goto done;
 			}
 			else {
-				obu_parse_params.ActiveFrameParams.gm_params[ref][4] = -obu_parse_params.ActiveFrameParams.gm_params[ref][3];
-				obu_parse_params.ActiveFrameParams.gm_params[ref][5] =  obu_parse_params.ActiveFrameParams.gm_params[ref][2];
+				obu_parse_params.ActiveFrameParams.gm_params[ref -  LAST_FRAME][4] = -obu_parse_params.ActiveFrameParams.gm_params[ref - LAST_FRAME][3];
+				obu_parse_params.ActiveFrameParams.gm_params[ref - LAST_FRAME][5] =  obu_parse_params.ActiveFrameParams.gm_params[ref - LAST_FRAME][2];
 			}
 		}
 		if (type >= TRANSLATION) {
@@ -2523,7 +2523,7 @@ RET_CODE CAV1Parser::read_global_param(BITBUF& bitbuf, OBU_PARSE_PARAMS& obu_par
 	int iRet = decode_signed_subexp_with_ref(bitbuf, -mx, mx + 1, r, val);
 	if (AMP_FAILED(iRet))return iRet;
 
-	obu_parse_params.ActiveFrameParams.gm_params[ref][idx] = (val<< precDiff) + round;
+	obu_parse_params.ActiveFrameParams.gm_params[ref - LAST_FRAME][idx] = (val << precDiff) + round;
 
 	return RET_CODE_SUCCESS;
 }
