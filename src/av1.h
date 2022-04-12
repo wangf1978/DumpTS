@@ -366,7 +366,6 @@ namespace BST
 			int8_t				VBI[NUM_REF_FRAMES];			// virtual buffer index,  maps fb_idx to reference slot
 																// an array of indices of the frame areas in the BufferPool. VBI elements which do not point to
 																// any slot in the VBI are set to - 1. VBI array size is equal to 8, with the indices taking values from 0 to 7
-			int8_t				next_VBI[NUM_REF_FRAMES];		// after the frame is decoded, update it to VBI
 			int8_t				cfbi;							// current frame buffer index
 																// the variable that contains the index to the area in the BufferPool that contains the current frame
 
@@ -1515,7 +1514,10 @@ namespace BST
 					{
 						MAP_BST_BEGIN(0);
 						if (ptr_OBU != nullptr && ptr_OBU->ctx_video_bst)
+						{
 							ptr_OBU->ctx_video_bst->SeenFrameHeader = false;
+							ptr_OBU->ctx_video_bst->tu_fu_idx = 0;
+						}
 						MAP_BST_END();
 					}
 					catch (AMException e)
@@ -5791,9 +5793,6 @@ namespace BST
 													}
 												}
 											}
-
-											for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
-												ctx_video_bst->next_VBI[i] = (refresh_frame_flags & (1 << i)) ? ctx_video_bst->cfbi : ctx_video_bst->VBI[i];
 										}
 									}
 
@@ -6132,13 +6131,15 @@ namespace BST
 									{
 										int8_t cur_ref_frame_idx = ctx_video_bst->ref_frame_idx[ref_frame - LAST_FRAME];
 										const int buf_idx = cur_ref_frame_idx >= 0 ? ctx_video_bst->VBI[cur_ref_frame_idx] : -1;
+
 										if (!ptr_sequence_header_obu->enable_order_hint || buf_idx == -1)
 										{
 											RefFrameSignBias &= ~(1<< (ref_frame - LAST_FRAME));
 										}
 										else
 										{
-											const int ref_frame_order_hint = ctx_video_bst->buffer_pool->frame_bufs[buf_idx].current_order_hint;
+											auto ref_frame_order_hint = ctx_video_bst->buffer_pool->frame_bufs[buf_idx].current_order_hint;
+
 											ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[ref_frame - LAST_FRAME] = ref_frame_order_hint;
 											bool bBackward = ptr_sequence_header_obu->get_relative_dist(ref_frame_order_hint, order_hint) > 0;
 											if (bBackward)
@@ -6147,6 +6148,22 @@ namespace BST
 												RefFrameSignBias &= ~(1 << (ref_frame - LAST_FRAME));
 										}
 									}
+								}
+
+								if (g_verbose_level > 200)
+								{
+									printf("ref_frame_idx: [%d,%d,%d,%d,%d,%d,%d]\n",
+										ctx_video_bst->ref_frame_idx[0], ctx_video_bst->ref_frame_idx[1], ctx_video_bst->ref_frame_idx[2],
+										ctx_video_bst->ref_frame_idx[3], ctx_video_bst->ref_frame_idx[4], ctx_video_bst->ref_frame_idx[5], ctx_video_bst->ref_frame_idx[6]);
+
+									printf("OrderHints: [%d,%d,%d,%d,%d,%d,%d]\n",
+										ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[0],
+										ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[1],
+										ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[2],
+										ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[3],
+										ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[4],
+										ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[5],
+										ctx_video_bst->buffer_pool->frame_bufs[ctx_video_bst->cfbi].ref_order_hints[6]);
 								}
 							}
 
@@ -6219,9 +6236,6 @@ namespace BST
 							{
 								// motion_field_estimation( )
 							}
-
-							for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
-								ctx_video_bst->next_VBI[i] = (refresh_frame_flags & (1 << i)) ? ctx_video_bst->cfbi : ctx_video_bst->VBI[i];
 
 							av1_read_ref(in_bst, ptr_tile_info, TILE_INFO, this);
 							av1_read_ref(in_bst, ptr_quantization_params, QUANTIZATION_PARAMS, this);
@@ -6952,7 +6966,6 @@ namespace BST
 							{
 								// decode_frame_wrapup()
 								ptr_OBU->ctx_video_bst->SeenFrameHeader = false;
-
 								ptr_OBU->ctx_video_bst->reference_frame_update();
 							}
 							else

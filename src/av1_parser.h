@@ -102,6 +102,7 @@ struct VBI_SLOT_PARAMS
 	uint16_t				RefMiRows			=  0;
 	uint8_t					SavedOrderHints[REFS_PER_FRAME] = { 0 };
 	uint8_t					RefOrderHint		=  0;
+	uint8_t					RefFrameSignBias	=  0;		// bit0: LAST_FRAME,...bit6: 
 	int32_t					SavedGmParams[REFS_PER_FRAME][6] = { {0} };
 	int8_t					loop_filter_ref_deltas[TOTAL_REFS_PER_FRAME];
 	int8_t					loop_filter_mode_deltas[2];
@@ -150,9 +151,6 @@ struct ACTIVE_FRAME_PARAMS
 
 	uint8_t					refresh_frame_flags = 0;
 	int8_t					ref_frame_idx[REFS_PER_FRAME] = { -1, -1, -1, -1, -1, -1, -1 };
-	uint8_t					RefValids;	// bit0:VBI#0....bit7: VBI#7
-	uint8_t					RefOrderHint[NUM_REF_FRAMES] = { 0 };
-	uint8_t					RefFrameSignBias = 0;	// bit0: LAST_FRAME,...bit6: 
 
 	int32_t					UpscaledWidth = -1;
 	int32_t					FrameWidth = -1;
@@ -214,6 +212,8 @@ struct OBU_PARSE_PARAMS
 
 				VBI[i].RefFrameType = ActiveFrameParams.frame_type;
 
+				memcpy(VBI[i].SavedOrderHints, ActiveFrameParams.OrderHints, sizeof(VBI[i].SavedOrderHints));
+
 				VBI[i].RefFrameId = ActiveFrameParams.current_frame_id;
 
 				VBI[i].RefUpscaledWidth = ActiveFrameParams.UpscaledWidth;
@@ -232,6 +232,13 @@ struct OBU_PARSE_PARAMS
 				memcpy(VBI[i].FeatureEnabled, ActiveFrameParams.FeatureEnabled, sizeof(VBI[i].FeatureEnabled));
 				memcpy(VBI[i].FeatureData, ActiveFrameParams.FeatureData, sizeof(VBI[i].FeatureData));
 			}
+		}
+
+		if (g_verbose_level > 200)
+		{
+			printf("[AV1Parser] VBI with FrameSeqID: [%d,%d,%d,%d,%d,%d,%d,%d]\n",
+				VBI[0].FrameSeqID, VBI[1].FrameSeqID, VBI[2].FrameSeqID, VBI[3].FrameSeqID,
+				VBI[4].FrameSeqID, VBI[5].FrameSeqID, VBI[6].FrameSeqID, VBI[7].FrameSeqID);
 		}
 
 		return RET_CODE_SUCCESS;

@@ -27,6 +27,8 @@ SOFTWARE.
 #include "av1.h"
 #include "av1_parser.h"
 
+//#define ENABLE_LOAD_CONTEXT_SNAPSHOT
+
 INLINE RET_CODE decode_subexp(BITBUF& bitbuf, int32_t numSyms, int32_t& val)
 {
 	int iRet = RET_CODE_SUCCESS;
@@ -311,7 +313,11 @@ RET_CODE CAV1Parser::ProcessLengthDelimitedBitstreamOutput(bool bDrain)
 		if (nLeftTUBytes <= cbSize)
 		{
 			// Already found a complete temporal_unit, begin to parse it
-			SubmitAnnexBTU();
+			if (SubmitAnnexBTU() == RET_CODE_ABORT)
+			{
+				iRet = RET_CODE_ABORT;
+				break;
+			}
 
 			AM_LRB_Reset(m_rbTemporalUnit);
 			m_temporal_unit_size = UINT32_MAX;
@@ -467,7 +473,12 @@ RET_CODE CAV1Parser::ProcessLowOverheadBitstreamOutput(bool bDrain)
 				if (bGotTU)
 				{
 					// Already found a complete temporal_unit, begin to parse it
-					SubmitTU();
+					if (SubmitTU() == RET_CODE_ABORT)
+					{
+						iRet = RET_CODE_ABORT;
+						goto done;
+					}
+
 					m_temporal_unit_parsed_size = 0;
 
 					// Update the submit position
@@ -513,7 +524,12 @@ RET_CODE CAV1Parser::ProcessLowOverheadBitstreamOutput(bool bDrain)
 		if (m_bIVF && m_temporal_unit_parsed_size >= m_temporal_unit_size)
 		{
 			// Already found a complete temporal_unit, begin to parse it
-			SubmitTU();
+			if (SubmitTU() == RET_CODE_ABORT) 
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+
 			m_temporal_unit_parsed_size = 0;
 			m_temporal_unit_size = UINT32_MAX;
 
@@ -528,7 +544,12 @@ Drain:
 		// Flush the data the final temporal unit, if it exists
 		if (m_temporal_unit_parsed_size > 0)
 		{
-			SubmitTU();
+			if (SubmitTU() == RET_CODE_ABORT)
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+
 			m_temporal_unit_parsed_size = 0;
 		}
 
@@ -757,6 +778,9 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 					obu_size = obu_length >= (1UL + obu_hdr.obu_extension_flag) ? (obu_length - 1 - obu_hdr.obu_extension_flag) : 0;
 
 				uint8_t obu_type = obu_hdr.obu_type;
+
+				std::get<4>(tu_fu_obus.back()).emplace_back((uint32_t)(pBuf + cbParsed - pTUBuf), pBuf + cbParsed, obu_length, obu_type, obu_size, m_obu_parse_params);
+
 				if (obu_type == OBU_TEMPORAL_DELIMITER)
 				{
 					m_obu_parse_params.ActiveFrameParams.SeenFrameHeader = false;
@@ -804,8 +828,6 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 					}
 				}
 
-				std::get<4>(tu_fu_obus.back()).emplace_back((uint32_t)(pBuf + cbParsed - pTUBuf), pBuf + cbParsed, obu_length, obu_type, obu_size, m_obu_parse_params);
-
 			} while (0);
 
 			cbFrameParsed += obu_length;
@@ -842,6 +864,7 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 
 		for (auto& fu : tu_fu_obus)
 		{
+			int32_t tu_fu_idx = 0;
 			auto pFrameUnit = std::get<1>(fu);
 			auto frame_unit_size = std::get<2>(fu);
 			if ((m_av1_enum_options&AV1_ENUM_OPTION_FU) && AMP_FAILED(m_av1_enum->EnumFrameUnitStart(m_pCtx, pFrameUnit, frame_unit_size, std::get<3>(fu))))
@@ -858,6 +881,27 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 				auto obu_size = std::get<4>(obu);
 				if ((m_av1_enum_options&AV1_ENUM_OPTION_OBU) && obu_length != UINT32_MAX && obu_length > 0)
 				{
+#ifdef ENABLE_LOAD_CONTEXT_SNAPSHOT
+					auto& obu_params = std::get<5>(obu);
+					AV1ContextSnapshot ctx_snapshot;
+					ctx_snapshot.tu_idx = m_num_temporal_units;
+					ctx_snapshot.tu_fu_idx = tu_fu_idx;
+					ctx_snapshot.pVBISlotParams = obu_params.VBI;
+					ctx_snapshot.pActiveFrameParams = &obu_params.ActiveFrameParams;
+
+					if (g_verbose_level > 200)
+					{
+						printf("[AV1Parser] SeenFrameHeader: %d.\n", obu_params.ActiveFrameParams.SeenFrameHeader);
+						printf("[AV1Parser] VBI [%" PRId32 ",%" PRId32 ",%" PRId32 ",%" PRId32 ",%" PRId32 ",%" PRId32 ",%" PRId32 ",%" PRId32 "]\n",
+							obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID,
+							obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID);
+					}
+
+					if (AMP_FAILED(m_pCtx->LoadSnapshot(&ctx_snapshot)))
+					{
+						printf("[AV1Parser] Failed to load context snapshot for OBU parsing.\n");
+					}
+#endif
 					if (AMP_FAILED(m_av1_enum->EnumOBU(m_pCtx, pOBUBuf, obu_length, obu_type, obu_size)))
 					{
 						iRet = RET_CODE_ABORT;
@@ -871,6 +915,8 @@ RET_CODE CAV1Parser::SubmitAnnexBTU()
 				iRet = RET_CODE_ABORT;
 				goto done;
 			}
+
+			tu_fu_idx++;
 		}
 
 		if ((m_av1_enum_options&AV1_ENUM_OPTION_TU) && AMP_FAILED(m_av1_enum->EnumTemporalUnitEnd(m_pCtx, pTUBuf + (m_bIVF ? 12 : 0), (uint32_t)cbTUBuf)))
@@ -1189,6 +1235,7 @@ RET_CODE CAV1Parser::SubmitTU()
 			{
 				if ((m_av1_enum_options&AV1_ENUM_OPTION_OBU) && obu_length != UINT32_MAX && obu_length > 0)
 				{
+#ifdef ENABLE_LOAD_CONTEXT_SNAPSHOT
 					auto& obu_params = std::get<5>(obu);
 					AV1ContextSnapshot ctx_snapshot;
 					ctx_snapshot.tu_idx = m_num_temporal_units;
@@ -1204,7 +1251,6 @@ RET_CODE CAV1Parser::SubmitTU()
 							obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID, obu_params.VBI[0].FrameSeqID);
 					}
 
-#if 0
 					if (AMP_FAILED(m_pCtx->LoadSnapshot(&ctx_snapshot)))
 					{
 						printf("[AV1Parser] Failed to load context snapshot for OBU parsing.\n");
@@ -1317,9 +1363,7 @@ RET_CODE CAV1Parser::UpdateOBUParsePreconditionParams(const uint8_t* pOBUBodyBuf
 			// decode_frame_wrapup()
 			m_obu_parse_params.ActiveFrameParams.SeenFrameHeader = false;
 
-			m_obu_parse_params.UpdateRefreshFrame(m_next_frame_seq_id);
-
-			m_next_frame_seq_id = ((uint32_t)m_next_frame_seq_id + 1) % ((uint32_t)UINT16_MAX + 1);
+			m_obu_parse_params.UpdateRefreshFrame(m_obu_parse_params.VBI[m_obu_parse_params.ActiveFrameParams.frame_to_show_map_idx].FrameSeqID);
 
 			if (g_verbose_level > 0)
 				printf("Finished decoding a frame by re-using the previous frame.\n");
@@ -1447,6 +1491,9 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(BITBUF& bitbuf, BST::AV1::OBU_HEADE
 		{
 			uint8_t frame_to_show_map_idx;
 			if (AMP_FAILED(iRet = bitbuf.GetValue(3, frame_to_show_map_idx)))goto done;
+
+			m_obu_parse_params.ActiveFrameParams.frame_to_show_map_idx = frame_to_show_map_idx;
+
 			if (pSeqHdrOBU->decoder_model_info_present_flag &&
 				!pSeqHdrOBU->ptr_timing_info->equal_picture_interval)
 			{
@@ -1504,12 +1551,9 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(BITBUF& bitbuf, BST::AV1::OBU_HEADE
 			m_obu_parse_params.VBI[i].RefOrderHint = 0;
 		}
 
-		//
-		// Wait for the advance check...
-		//
-		//for (i = 0; i < REFS_PER_FRAME; i++) {
-		//	OrderHints[LAST_FRAME + i] = 0
-		//}
+		for (uint8_t i = 0; i < REFS_PER_FRAME; i++) {
+			m_obu_parse_params.ActiveFrameParams.OrderHints[i] = 0;
+		}
 	}
 
 	if (AMP_FAILED(iRet = bitbuf.GetFlag(disable_cdf_update)))goto done;
@@ -1668,14 +1712,17 @@ RET_CODE CAV1Parser::ParseUncompressedHeader(BITBUF& bitbuf, BST::AV1::OBU_HEADE
 		for (uint8_t i = 0; i < REFS_PER_FRAME; i++) {
 			uint8_t refFrame = LAST_FRAME + i;
 			auto hint = m_obu_parse_params.VBI[ref_frame_idx[i]].RefOrderHint;
-			/*
-				OrderHints[ refFrame ] = hint;
-				if ( !enable_order_hint ) {
-					RefFrameSignBias[ refFrame ] = 0;
-				} else {
-					RefFrameSignBias[ refFrame ] = get_relative_dist( hint, OrderHint) > 0;
-				}
-			*/
+			m_obu_parse_params.ActiveFrameParams.OrderHints[i] = hint;
+
+			if ( !spSeqHdrOBU->ptr_sequence_header_obu->enable_order_hint ) {
+				m_obu_parse_params.VBI[ref_frame_idx[i]].RefFrameSignBias &= ~(1 << i);
+			} else {
+				bool bBackward = spSeqHdrOBU->ptr_sequence_header_obu->get_relative_dist(hint, m_obu_parse_params.ActiveFrameParams.OrderHint) > 0;
+				if (bBackward)
+					m_obu_parse_params.VBI[ref_frame_idx[i]].RefFrameSignBias |= 1 << i;
+				else
+					m_obu_parse_params.VBI[ref_frame_idx[i]].RefFrameSignBias &= ~(1 << i);
+			}
 		}
 	}	// end if (FrameIsIntra)
 

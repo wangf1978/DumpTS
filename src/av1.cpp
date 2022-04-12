@@ -225,7 +225,6 @@ namespace BST
 			current_frame_id = output_frame_index = -1;
 
 			memset(VBI, -1, sizeof(VBI));
-			memset(next_VBI, -1, sizeof(next_VBI));
 		}
 
 		VideoBitstreamCtx::~VideoBitstreamCtx() {
@@ -464,7 +463,6 @@ namespace BST
 			current_frame_id = output_frame_index = -1;
 
 			memset(VBI, -1, sizeof(VBI));
-			memset(next_VBI, -1, sizeof(next_VBI));
 
 			if (buffer_pool)
 				buffer_pool->Reset();
@@ -492,7 +490,16 @@ namespace BST
 
 			// Reset the VBI and next_VBI
 			for (uint8_t i = 0; i < NUM_REF_FRAMES; i++) {
-				VBI[i] = next_VBI[i] = -1;
+				VBI[i] = -1;
+			}
+
+			if (g_verbose_level > 200)
+			{
+				printf("VBI FrameSeqId: [%d,%d,%d,%d,%d,%d,%d,%d]\n",
+					pVBISlotParams[0].FrameSeqID, pVBISlotParams[1].FrameSeqID,
+					pVBISlotParams[2].FrameSeqID, pVBISlotParams[3].FrameSeqID,
+					pVBISlotParams[4].FrameSeqID, pVBISlotParams[5].FrameSeqID,
+					pVBISlotParams[6].FrameSeqID, pVBISlotParams[7].FrameSeqID);
 			}
 
 			std::map<uint16_t, int8_t> FrameSeqBufIdx;
@@ -509,7 +516,7 @@ namespace BST
 					FrameSeqBufIdx[pVBISlotParams[i].FrameSeqID] = buf_idx;
 					RestoredVBI[i] = buf_idx;
 
-					auto cur_frame = buffer_pool->frame_bufs[buf_idx];
+					auto& cur_frame = buffer_pool->frame_bufs[buf_idx];
 					cur_frame.valid_for_referencing = pVBISlotParams[i].RefValid;
 
 					if (pVBISlotParams[i].RefFrameType < KEY_FRAME || pVBISlotParams[i].RefFrameType > SWITCHABLE)
@@ -527,16 +534,27 @@ namespace BST
 
 			memcpy(VBI, RestoredVBI, sizeof(VBI));
 
+			if (g_verbose_level > 200)
+			{
+				printf("refresh_frame_flags: 0x%X\n", ptr_ctx_snapshot->pActiveFrameParams->refresh_frame_flags);
+				printf("VBI: [%d, %d, %d, %d, %d, %d, %d, %d]\n", VBI[0], VBI[1], VBI[2], VBI[3], VBI[4], VBI[5], VBI[6], VBI[7]);
+				printf("RefOrderHint: [%d, %d, %d, %d, %d, %d, %d, %d]\n", pVBISlotParams[0].RefOrderHint, pVBISlotParams[1].RefOrderHint
+					, pVBISlotParams[2].RefOrderHint, pVBISlotParams[3].RefOrderHint, pVBISlotParams[4].RefOrderHint
+					, pVBISlotParams[5].RefOrderHint, pVBISlotParams[6].RefOrderHint, pVBISlotParams[7].RefOrderHint);
+			}
+
 			// Second, apply the active frame parameters
 			if (ptr_ctx_snapshot->pActiveFrameParams->FrameSeqID == -1)
 			{
 				cfbi = -1;
+				//printf("cfbi: %d.\n", cfbi);
 			}
 			else
 			{
 				auto iter_cfbi = FrameSeqBufIdx.find(ptr_ctx_snapshot->pActiveFrameParams->FrameSeqID);
 				if (iter_cfbi != FrameSeqBufIdx.end()){
 					cfbi = iter_cfbi->second;
+					//printf("cfbi: %d.\n", cfbi);
 				}
 				else
 				{
@@ -548,6 +566,7 @@ namespace BST
 					auto cur_frame = buffer_pool->frame_bufs[buf_idx];
 					VBI_SLOT_PARAMS VBI_slot_params;
 					FillVBISlotParamsWithActiveFrameParams(ptr_ctx_snapshot->pActiveFrameParams, VBI_slot_params);
+					//printf("Load cfbi[buf_idx: %d] slot params.\n", buf_idx);
 					cur_frame.LoadVBISlotParams(VBI_slot_params);
 				}
 			}
@@ -555,6 +574,7 @@ namespace BST
 			SeenFrameHeader = ptr_ctx_snapshot->pActiveFrameParams->SeenFrameHeader;
 			show_existing_frame = ptr_ctx_snapshot->pActiveFrameParams->show_existing_frame;
 			show_frame = ptr_ctx_snapshot->pActiveFrameParams->show_frame;
+			refresh_frame_flags = ptr_ctx_snapshot->pActiveFrameParams->refresh_frame_flags;
 			TileNum = ptr_ctx_snapshot->pActiveFrameParams->TileNum;
 			memcpy(PrevGmParams, ptr_ctx_snapshot->pActiveFrameParams->PrevGmParams, sizeof(PrevGmParams));
 
@@ -570,19 +590,17 @@ namespace BST
 			auto frame_bufs = pool->frame_bufs;
 			bool bVBISlotChanged[NUM_REF_FRAMES] = { false, false, false, false, false, false, false, false };
 
-			for(uint8_t ref_index =0; ref_index <NUM_REF_FRAMES; ref_index++)
+			for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
 			{
-				const int old_idx = VBI[ref_index];
-				if (old_idx != next_VBI[ref_index])
+				if (refresh_frame_flags & (1 << i) && VBI[i] != cfbi)
 				{
-					// Current thread releases the holding of reference frame.
-					if (old_idx >= 0)
-						buffer_pool->decrease_ref_count(old_idx);
+					if (VBI[i] != -1)
+						buffer_pool->decrease_ref_count(VBI[i]);
 
-					VBI[ref_index] = next_VBI[ref_index];
-					buffer_pool->frame_bufs[VBI[ref_index]].ref_count++;
+					VBI[i] = cfbi;
+					buffer_pool->frame_bufs[VBI[i]].ref_count++;
 
-					bVBISlotChanged[ref_index] = true;
+					bVBISlotChanged[i] = true;
 				}
 			}
 
@@ -623,7 +641,7 @@ namespace BST
 				const int buf_idx = VBI[ref_frame_idx[ref_frame - LAST_FRAME]];
 				if (buf_idx >= 0)
 					cur_frame->ref_order_hints[ref_frame - LAST_FRAME] =
-					buffer_pool->frame_bufs[buf_idx].current_order_hint;
+						buffer_pool->frame_bufs[buf_idx].current_order_hint;
 			}
 		}
 

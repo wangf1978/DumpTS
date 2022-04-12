@@ -2075,7 +2075,7 @@ public:
 		if (IS_OBU_FRAME(obu_type))
 			m_curr_frameobu_count++;
 
-		return RET_CODE_SUCCESS;
+		return iRet;
 	}
 
 	RET_CODE EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf)
