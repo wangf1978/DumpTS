@@ -32,6 +32,7 @@
 			* [9. List all access units in a specified GOP](#list-all-access-units-in-a-specified-gop)
 			* [10. List the first access unit of the specified GOP in a specified video sequence](#list-the-first-access-unit-of-the-specified-gop-in-a-specified-video-sequence)
 			* [11. List SEI payloads in a specified access unit of a specified GOP](#list-sei-payloads-in-a-specified-access-unit-of-a-specified-gop)
+			* [12. Other complex cases](#Other-complex-cases)
 		* [AV1 Video](#av1-video)
 			* [1. List all Video Sequences](#List-all-Video-Sequences)
 			* [2.-List-all GOPs(CVSes)](#List-all-GOPsCVSes)
@@ -43,16 +44,21 @@
 			* [8. List the first Temporal Unit of some specified CVS in a specified Video Sequence](#List-the-first-Temporal-Unit-of-some-specified-CVS-in-a-specified-Video-Sequence)
 			* [9. List all OBUs in a specified Temporal Unit](#List-all-OBUs-in-a-specified-Temporal-Unit)
 			* [10. List all OBUs in some specified Temporal Units of a specified CVS](#List-all-OBUs-in-some-specified-Temporal-Units-of-a-specified-CVS)
+		* [ISOBMFF](#ISOBMFF)
 	* [`showMSE` command](#showmse-command)
-		* [MPEG2 Video](#mpeg2-video)
+		* [MPEG2 Video Syntax View](#mpeg2-video-syntax-view)
 			* [1. Show Sequence Header](#show-sequence-header)
 			* [2. Show sequence header and extension together](#show-sequence-header-and-extension-together)
 			* [3. Show all syntactic elements with full hierarchical layout](#show-all-syntactic-elements-with-full-hierarchical-layout)
 			* [4. Show syntax view of the first access-unit of the 3rd and 4th GOP](#show-syntax-view-of-the-first-access-unit-of-the-3rd-and-4th-gop)
-		* [NAL Video](#nal-video)
+		* [NAL Video Syntax View](#nal-video-syntax-view)
 			* [1. Show syntax view of VPS](#show-syntax-view-of-vps)
 			* [2. Show the syntax view of all NAL units](#show-the-syntax-view-of-all-nal-units)
 			* [3. Show all SEI payloads syntax view](#show-all-sei-payloads-syntax-view)
+		* [AV1 Video Syntax View](#av1-video-syntax-view)
+			* [1. Show syntax view of Sequence Header](#Show-syntax-view-of-Sequence-Header)
+			* [2. Show the syntax view of all syntax elements](#Show-the-syntax-view-of-all-syntax-elements)
+			* [3. Show syntax view of the specified OBU](#Show-syntax-view-of-the-specified-OBU)
 	* [`showMSEHex` command](#showmse-command)
 
 [Return to Main](../README.md)
@@ -205,7 +211,7 @@ GOP#120 (closed)                               |             |                  
     AU#0 (I)                                   |   117,313 B |                 AU0.GOP120
 ```
 ### NAL bitstream media syntax element locator
-*[MSE://][[`~`]**SEIPL**[`sp₀`][`-`][`spₙ`]][.][[`~`]**SEIMSG**[`sm₀`][`-`][`smₙ`]][.]\([[`~`]**NU**[`n₀`][`-`][`nₙ`]] | [[`~`]**VCL**[`v₀`][`-`][`vₙ`]])[.][[`~`]**AU**[`a₀`][`-`][`aₙ`]][.][[`~`]**CVS**[`c₀`][`-`][`cₙ`]][.][[`~`]**VSEQ**[`v₀`][`-`][`vₙ`]][/part/part/...][#field]*
+*[MSE://][[`~`]**SEIPL**[`sp₀`][`-`][`spₙ`]][.][[`~`]**SEIMSG**[`sm₀`][`-`][`smₙ`]][.]\([[`~`]**NU**[`n₀`][`-`][`nₙ`]] | [[`~`]**VCL**[`v₀`][`-`][`vₙ`]] | [[`~`]**SEINU**[`su₀`][`-`][`suₙ`]] | [[`~`]**AUD**[`aud₀`][`-`][`audₙ`]] | [[`~`]**VPS**[`vps₀`][`-`][`vpsₙ`]] | [[`~`]**SPS**[`sps₀`][`-`][`spsₙ`]] | [[`~`]**PPS**[`pps₀`][`-`][`ppsₙ`]] | [[`~`]**IDR**[`idr₀`][`-`][`idrₙ`]] | [[`~`]**FIL**[`fil₀`][`-`][`filₙ`]])[.][[`~`]**AU**[`a₀`][`-`][`aₙ`]][.][[`~`]**CVS**[`c₀`][`-`][`cₙ`]][.][[`~`]**VSEQ**[`v₀`][`-`][`vₙ`]][/part/part/...][#field]*
 
 | URI | comment |
 | --- | --- |
@@ -786,6 +792,42 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	            #0 recovery_point                  |         1 B |             SEIPL0.SEIMSG2.AU0.CVS1
 	```
 
+12. ##### Other complex cases
+	```
+	DumpTS 00005.h264 --listmse=~seinu.~au0-14.cvs0-1.vseq0
+	```
+	And then non SEI NAL units in access unit except access-unit 0~17 in the first and second CVS of the first video sequence
+	```
+	------------Name-------------------------------|-----len-----|------------URI----------------------
+	Video Sequence#0                               |             |                               VSEQ0
+	    CVS#0 (IDR, closed GOP)                    |             |                          CVS0.VSEQ0
+	        AU#18 (B)                              |    49,600 B |                     AU18.CVS0.VSEQ0
+	            NU#0 non-VCL::AUD                  |         2 B |                 NU0.AU18.CVS0.VSEQ0
+	            NU#0 VCL::non-IDR                  |    16,164 B |                 NU0.AU18.CVS0.VSEQ0
+	            NU#0 VCL::non-IDR                  |    10,511 B |                 NU0.AU18.CVS0.VSEQ0
+	            NU#0 VCL::non-IDR                  |    13,670 B |                 NU0.AU18.CVS0.VSEQ0
+	            NU#0 VCL::non-IDR                  |     9,220 B |                 NU0.AU18.CVS0.VSEQ0
+	    CVS#1 (I, open GOP)                        |             |                          CVS1.VSEQ0
+	        AU#18 (P)                              |   150,957 B |                     AU18.CVS1.VSEQ0
+	            NU#0 non-VCL::AUD                  |         2 B |                 NU0.AU18.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    50,155 B |                 NU0.AU18.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    34,815 B |                 NU0.AU18.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    41,016 B |                 NU0.AU18.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    24,936 B |                 NU0.AU18.CVS1.VSEQ0
+	        AU#19 (B)                              |    74,616 B |                     AU19.CVS1.VSEQ0
+	            NU#0 non-VCL::AUD                  |         2 B |                 NU0.AU19.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    24,092 B |                 NU0.AU19.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    16,915 B |                 NU0.AU19.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    21,086 B |                 NU0.AU19.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    12,488 B |                 NU0.AU19.CVS1.VSEQ0
+	        AU#20 (B)                              |    74,694 B |                     AU20.CVS1.VSEQ0
+	            NU#0 non-VCL::AUD                  |         2 B |                 NU0.AU20.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    24,157 B |                 NU0.AU20.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    17,118 B |                 NU0.AU20.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    21,032 B |                 NU0.AU20.CVS1.VSEQ0
+	            NU#0 VCL::non-IDR                  |    12,352 B |                 NU0.AU20.CVS1.VSEQ0
+	```
+
 [Top](#contents)
 #### AV1 Video
 
@@ -1074,7 +1116,7 @@ moov.trak[0].mdia.minf
 
 [Top](#contents)
 ### `showMSE` command
-#### MPEG2 Video
+#### MPEG2 Video Syntax View
 1. ##### Show Sequence Header
 	List non-slice syntactic of first access-unit,
 	```
@@ -1374,7 +1416,7 @@ moov.trak[0].mdia.minf
 	```
 
 [Top](#contents)
-#### NAL Video
+#### NAL Video Syntax View
 1. ##### Show syntax view of VPS
 	At first, list all non-VCL NAL units of the first GOP
 	```
@@ -1546,6 +1588,206 @@ moov.trak[0].mdia.minf
 	            duplicate_flag: 0                    // the current picture is not indicated to be a duplicate of a previou...
 	            au_cpb_removal_delay_minus1: 3(0X3)  // plus 1 is used to calculate the number of clock ticks between the n...
 	            pic_dpb_output_delay: 4(0X4)         // how many clock ticks to wait after removal of the last decoding uni...
+	```
+[Top](#contents)
+#### AV1 Video Syntax View
+1. ##### Show syntax view of Sequence Header
+   	At first, list the hierarchy layout of AV1 stream as,
+	```
+	DumpTS Stream3_AV1_720p_3.9mbps.av1 --listmse=~frame.tu | more
+	```
+	And then some non-frame OBU may be displayed as,
+	```
+	Low-Overhead AV1 bitstream...
+	------------Name-------------------------------|-----len-----|------------URI-----------------
+	TU#0 (Key frame)                               |    84,891 B |                            TU0
+		OBU#0 Temporal delimiter                   |         2 B |                       OBU0.TU0
+		OBU#1 Sequence header                      |        13 B |                       OBU1.TU0
+	TU#1 (Inter frame)                             |   143,543 B |                            TU1
+		OBU#0 Temporal delimiter                   |         2 B |                       OBU0.TU1
+	TU#2 (Inter frame)                             |         5 B |                            TU2
+		OBU#0 Temporal delimiter                   |         2 B |                       OBU0.TU2
+	TU#3 (Inter frame)                             |    11,076 B |                            TU3
+		OBU#0 Temporal delimiter                   |         2 B |                       OBU0.TU3
+	...
+	```
+	Finally select the sequence header to show with the below command,
+	```
+	DumpTS Stream3_AV1_720p_3.9mbps.av1 --showmse=OBU1.TU0
+	```
+	And then,
+	```
+	Low-Overhead AV1 bitstream...
+	------------Name-------------------------------|-----len-----|------------URI-----------------
+	TU#0 (Key frame)                               |    84,891 B |                            TU0
+		OBU#1 Sequence header                      |        13 B |                       OBU1.TU0
+		------------------------------------------------------------------------------------------
+		obu_header():
+			obu_forbidden_bit: 0                            // must be set to 0
+			obu_type: 1(0X1)                                // Sequence header OBU
+			obu_extension_flag: 0                           // indicates if the optional obu_extension_header is present
+			obu_has_size_field: 1                           // indicates that the obu_size syntax element will be present
+			obu_reserved_1bit: 0                            // must be set to 0
+		obu_size: 11(0XB)                                   // contains the size in bytes of the OBU not including the bytes withi...
+		sequence_header_obu():
+			seq_profile: 0(0X0)                             // Main Profile
+			still_picture: 0                                // the coded video sequence contains one or more coded frames
+			reduced_still_picture_header: 0                 // specifies that the syntax elements not needed by a still picture ar...
+			timing_info_present_flag: 0                     // timing info is NOT present in the coded video sequence
+			initial_display_delay_present_flag: 0           // specifies whether initial display delay information is present in t...
+			operating_points_cnt_minus_1: 0(0X0)            // plus 1 indicates the number of operating points present in the code...
+			for(i=0;i<=operating_points_cnt_minus_1;i++):
+				operating_point[0]:
+					operating_point_idc: 0(0X0)             // contains a bitmask that indicates which spatial and temporal layers...
+					seq_level_idx: 5(0X5)                   // 3.1
+					decoder_model_present_for_this_op: 0
+			frame_width_bits_minus_1: 10(0XA)               // the number of bits minus 1 used for transmitting the frame width sy...
+			frame_height_bits_minus_1: 9(0X9)               // the number of bits minus 1 used for transmitting the frame height s...
+			max_frame_width_minus_1: 1279(0X4FF)            // the maximum frame width minus 1 for the frames represented by this ...
+			max_frame_height_minus_1: 719(0X2CF)            // the maximum frame height minus 1 for the frames represented by this...
+			frame_id_numbers_present_flag: 0                // frame id numbers are NOT present in the coded video sequence
+				delta_frame_id_length_minus_2: 6(0X6)       // plus 2 used to encode delta_frame_id syntax elements
+				additional_frame_id_length_minus_1: 6(0X6)  // is used to calculate the number of bits used to encode the frame_id...
+			use_128x128_superblock: 1                       // superblocks contain 128x128 luma samples
+			enable_filter_intra: 1                          // the use_filter_intra syntax element may be present
+			enable_intra_edge_filter: 1                     // the intra edge filtering process should be enabled
+			enable_interintra_compound: 1                   // the mode info for inter blocks may contain the syntax element inter...
+			enable_masked_compound: 1                       // the mode info for inter blocks may contain the syntax element compo...
+			enable_warped_motion: 1                         // the allow_warped_motion syntax element may be present
+			enable_dual_filter: 1                           // the inter prediction filter type may be specified independently in ...
+			enable_order_hint: 1                            // tools based on the values of order hints may be used
+			enable_jnt_comp: 1                              // the distance weights process may be used for inter prediction
+			enable_ref_frame_mvs: 1                         // the use_ref_frame_mvs syntax element may be present
+			seq_choose_screen_content_tools: 1              // seq_force_screen_content_tools should be set equal to SELECT_SCREEN...
+			seq_force_screen_content_tools: 2(0X2)          // the allow_screen_content_tools syntax element will be present in th...
+			seq_choose_integer_mv: 1                        // seq_force_integer_mv should be set equal to SELECT_INTEGER_MV
+			seq_force_integer_mv: 2(0X2)                    // Should be SELECT_INTEGER_MV
+			order_hint_bits_minus_1: 6(0X6)                 // plus 1 specifies the number of bits used for the order_hint syntax ...
+			OrderHintBits: 7                                // the number of bits used for the order_hint syntax element
+			enable_superres: 0                              // the use_superres syntax element will not be present
+			enable_cdef: 1                                  // cdef filtering may be enabled
+			enable_restoration: 1                           // loop restoration filtering may be enabled
+			color_config():
+				high_bitdepth: 0                            // together with seq_profile, determine the bit depth
+				BitDepth: 8(0X8)                            // BitDepth = high_bitdepth ? 10 : 8
+				mono_chrome: 0                              // indicates that the video contains Y, U, and V color planes
+				NumPlanes: 3(0X3)                           // NumPlanes = mono_chrome ? 1 : 3
+				color_description_present_flag: 0           // specifies that color_primaries, transfer_characteristics and matrix...
+					color_primaries: 2(0X2)                 // Unspecified
+					transfer_characteristics: 2(0X2)        // Unspecified
+					matrix_coefficients: 2(0X2)             // Unspecified
+				color_range: 0                              // shall be referred to as the studio swing representation
+				subsampling_x: 1(0X1)
+				subsampling_y: 1(0X1)
+				YUV Color-space:                            // YUV 4:2:0
+				chroma_sample_position: 0(0X0)              // Unknown(in this case the source video transfer function must be sig...
+			film_gain_params_present: 0                     // film grain parameters are NOT present in the coded video sequence
+		trailing_bits():
+			trailing_one_bit: 1                             // shall be equal to 1
+			trailing_zero_bit[0]: 0
+			trailing_zero_bit[1]: 0	
+	```
+
+2. ##### Show the syntax view of all syntax elements
+	Of course, you can show all syntax elements by the below command
+	```
+	DumpTS FILEZ058_enable_restoration.ivf --showmse=OBU.FU.TU.CVS.VSEQ
+	```
+	All syntax elements will be shown according to corresponding hierarchy layout
+	```
+	DumpTS FILEZ058_enable_restoration.ivf --showmse=obu
+	```
+	All OBU syntax view will be shown.
+
+3. ##### Show syntax view of the specified OBU
+   	At first, list the hierarchy layout of temporal unit#1
+	```
+	DumpTS FILEZ058_enable_restoration.ivf --listmse=obu.fu.tu1
+	Low-Overhead AV1 bitstream...
+	------------Name-------------------------------|-----len-----|------------URI-----------------
+	TU#1 (Inter frame)                             |       172 B |                            TU1
+	    FU#0 (Inter frame)                         |        55 B |                        FU0.TU1
+	        OBU#0 Temporal delimiter               |         2 B |                   OBU0.FU0.TU1
+	        OBU#1 Frame                            |        41 B |                   OBU1.FU0.TU1
+	    FU#1 (Inter frame)                         |        33 B |                        FU1.TU1
+	        OBU#0 Frame                            |        33 B |                   OBU0.FU1.TU1
+	    FU#2 (Inter frame)                         |        28 B |                        FU2.TU1
+	        OBU#0 Frame                            |        28 B |                   OBU0.FU2.TU1
+	    FU#3 (Inter frame)                         |        28 B |                        FU3.TU1
+	        OBU#0 Frame                            |        28 B |                   OBU0.FU3.TU1
+	    FU#4 (Inter frame)                         |        28 B |                        FU4.TU1
+	        OBU#0 Frame                            |        28 B |                   OBU0.FU4.TU1
+	```
+	Second, select the syntax element you want to show, for example,
+	```
+	DumpTS FILEZ058_enable_restoration.ivf --showmse=OBU0.FU1.TU1
+	```
+	And then the first OBU of the second frame-unit of the first temporal unit will be shown as,
+	```
+	------------Name-------------------------------|-----len-----|------------URI-----------------
+	TU#1 (Inter frame)                             |       172 B |                            TU1
+	    FU#1 (Inter frame)                         |        33 B |                        FU1.TU1
+	        OBU#0 Frame                            |        33 B |                   OBU0.FU1.TU1
+	        --------------------------------------------------------------------------------------
+	        obu_header():
+	            obu_forbidden_bit: 0                              // must be set to 0
+	            obu_type: 6(0X6)                                  // Frame OBU
+	            obu_extension_flag: 0                             // indicates if the optional obu_extension_header is	present
+	            obu_has_size_field: 1                             // indicates that the obu_size syntax element will be		present
+	            obu_reserved_1bit: 0                              // must be set to 0
+	        obu_size: 31(0X1F)                                    // contains the size in bytes of the OBU not including the	 bytes withi...
+	        frame_obu():
+	            frame_header_obu():
+	                uncompressed_header():
+	                    allFrames: 255(0XFF)                      // allFrames = (1<<NUM_REF_FRAMES)-1
+	                    show_existing_frame: 0                    // indicates that further processing is required
+	                    frame_type: 1(0X1)                        // Inter frame
+	                    FrameIsIntra: 0                           // FrameIsIntra=(frame_type==INTRA_ONLY_FRAME ||	frame_type==KEY_FRAME...
+	                    show_frame: 0                             // specifies that this frame should not be immediately	output
+	                    showable_frame: 1                         // specifies that the frame may be output using the	show_existing_fram...
+	                    error_resilient_mode: 0                   // indicates that error resilient mode is disabled
+	                    disable_cdf_update: 0                     // specifies whether the CDF update in the symbol decoding	 process sho...
+	                    allow_screen_content_tools: 0             // indicates that palette encoding is never used
+	                        force_integer_mv: 0(0X0)
+	                    current_frame_id: 0(0X0)                  // Should be 0
+	                    frame_size_override_flag: 0               // specifies that the frame size is equal to the size in	the sequence ...
+	                    order_hint: 8(0X8)                        // is used to compute OrderHint
+	                    OrderHint: 8(0X8)                         // specifies OrderHintBits least significant bits of the	expected outp...
+	                    primary_ref_frame: 0(0X0)                 // specifies which reference frame contains the CDF values	 and other s...
+	                    allow_high_precision_mv = 0:              // initialize its value to 0, specifies that motion	vectors are specif...
+	                    use_ref_frame_mvs = 0:                    // initialize its value to 0, specifies that this		information will not...
+	                    allow_intrabc = 0:                        // initialize its value to 0, indicates that intra block	copy is not a...
+	                    refresh_frame_flags: 8(0X8)               // contains a bitmask that specifies which reference frame	 slots will ...
+	                    frame_refs_short_signaling: 0             // indicates that all reference frames are explicitly		signaled
+	                    ref_frame_idx: 2,2,2,2,0,0,0              // specifies which reference frames are used by inter		frames.It is a r...
+	                    frame_size():
+	                        FrameWidth: 1280(0X500)               // FrameWidth = max_frame_width_minus_1 + 1
+	                        FrameHeight: 720(0X2D0)               // FrameHeight = max_frame_height_minus_1 + 1
+	                        superres_params():
+	                            use_superres: 0
+	                            SuperresDenom: 8(0X8)             // SuperresDenom = SUPERRES_NUM
+	                            UpscaledWidth: 1280(0X500)        // UpscaledWidth = FrameWidth
+	                            FrameWidth: 1280(0X500)           // (UpscaledWidth*SUPERRES_NUM+(SuperresDenom/2))/	SuperresDenom
+	                        compute_image_size():
+	                            MiCols: 320(0X140)
+	                            MiRows: 180(0XB4)
+	                    render_size():                            // The render size is provided as a hint to the	application about the ...
+	                        render_and_frame_size_different: 0    // the render width and height are inferred from the frame	 width and h...
+	                            RenderWidth: 1280(0X500)          // RenderWidth = UpscaledWidth
+	                            RenderHeight: 720(0X2D0)          // RenderHeight = FrameHeight
+	                    allow_high_precision_mv: 0                // specifies that motion vectors are specified to quarter		pel precisio...
+	                    read_interpolation_filter():
+	                        is_filter_switchable: 1
+	                        interpolation_filter: 4(0X4)
+	                    is_motion_mode_switchable: 1
+	                    use_ref_frame_mvs: 1                      // specifies that motion vector information from a	previous frame can ...
+	                    OrderHints: 0,0,0,0,16,16,16              // The order hints of ref frame of current frame
+	                    RefFrameSignBias: 0,0,0,0,1,1,1           // 0, forward reference, 1: backward reference
+	                    disable_frame_end_update_cdf: 0           // indicates that the end of frame CDF update is enabled
+	                    load_cdfs(frame context number: 2):       // a function call that indicates that the CDF tables are		loaded from ...
+	                    load_previous():                          // a function call that indicates that information from a		previous fra...
+	                    motion_field_estimation():                // a function call which indicates that the motion field estimation pr...
+	...
 	```
 
 [Top](#contents)
