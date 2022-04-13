@@ -119,6 +119,13 @@ struct MSENav
 			MSEID_RANGE		sei_msg;					// SEI message index
 			MSEID_RANGE		nu;							// NAL unit index
 			MSEID_RANGE		vcl_nu;						// VCL NAL unit index
+			MSEID_RANGE		sei_nu;						// SEI NAL unit index
+			MSEID_RANGE		aud_nu;						// AUD NAL unit index
+			MSEID_RANGE		vps_nu;						// VPS NAL unit index
+			MSEID_RANGE		sps_nu;						// SPS NAL unit index
+			MSEID_RANGE		pps_nu;						// PPS NAL unit index
+			MSEID_RANGE		IDR_nu;						// IDR NAL unit index
+			MSEID_RANGE		FIL_nu;						// FIL NAL unit index
 			MSEID_RANGE		au;							// Access unit index
 			MSEID_RANGE		cvs;						// Codec video sequence index
 			MSEID_RANGE		vseq;
@@ -177,6 +184,7 @@ protected:
 	int				CheckAV1AuthorityComponent(size_t idxComponent);
 	int				CheckMPVAuthorityComponent(size_t idxComponent);
 	int				NormalizeAuthorityPart();
+	bool			CheckNUFilterCoexist(size_t idxComponent);
 
 	static std::vector<std::string>
 					nal_supported_authority_components;
@@ -189,13 +197,46 @@ protected:
 };
 
 std::vector<std::string> MSENav::nal_supported_authority_components 
-					= { "vseq", "cvs", "au", "nu", "vcl", "seimsg", "seipl" };
+					= { "vseq", "cvs", "au", "nu", "vcl", "seinu", "aud", "vps", "sps", "pps", "IDR", "FIL", "seimsg", "seipl" };
 std::vector<std::string> MSENav::audio_supported_authority_components 
 					= { "au" };
 std::vector<std::string> MSENav::av1_supported_authority_components 
 					= { "vseq", "cvs", "tu", "fu", "obu", "frame" };
 std::vector<std::string> MSENav::mpv_supported_authority_components 
 					= { "vseq", "gop", "au", "se", "slice", "mb"};
+
+enum NU_FILTER_TYPE
+{
+	NU_FILTER_VCL	= 0,
+	NU_FILTER_SEI,
+	NU_FILTER_AUD,
+	NU_FILTER_VPS,
+	NU_FILTER_SPS,
+	NU_FILTER_PPS,
+	NU_FILTER_IDR,
+	NU_FILTER_FIL,
+	NU_FILTER_MAX
+};
+
+#define NU_FILTER_NAME(ft)	(\
+	(ft) == NU_FILTER_VCL?"VCL-NU":(\
+	(ft) == NU_FILTER_SEI?"SEI-NU":(\
+	(ft) == NU_FILTER_AUD?"AUD-NU":(\
+	(ft) == NU_FILTER_VPS?"VPS-NU":(\
+	(ft) == NU_FILTER_SPS?"SPS-NU":(\
+	(ft) == NU_FILTER_PPS?"PPS-NU":(\
+	(ft) == NU_FILTER_IDR?"IDR-NU":(\
+	(ft) == NU_FILTER_FIL?"FIL-NU":"NU"))))))))
+
+#define NU_FILTER_URI_NAME(ft)	(\
+	(ft) == NU_FILTER_VCL?"VCL":(\
+	(ft) == NU_FILTER_SEI?"SEINU":(\
+	(ft) == NU_FILTER_AUD?"AUD":(\
+	(ft) == NU_FILTER_VPS?"VPS":(\
+	(ft) == NU_FILTER_SPS?"SPS":(\
+	(ft) == NU_FILTER_PPS?"PPS":(\
+	(ft) == NU_FILTER_IDR?"IDR":(\
+	(ft) == NU_FILTER_FIL?"FIL":"NU"))))))))
 
 void MSENav::InitAs(MSEID mseid)
 {
@@ -205,6 +246,13 @@ void MSENav::InitAs(MSEID mseid)
 		NAL.sei_msg.Reset(mseid);
 		NAL.nu.Reset(mseid);
 		NAL.vcl_nu.Reset(mseid);
+		NAL.sei_nu.Reset(mseid);
+		NAL.aud_nu.Reset(mseid);
+		NAL.vps_nu.Reset(mseid);
+		NAL.sps_nu.Reset(mseid);
+		NAL.pps_nu.Reset(mseid);
+		NAL.IDR_nu.Reset(mseid);
+		NAL.FIL_nu.Reset(mseid);
 		NAL.au.Reset(mseid);
 		NAL.cvs.Reset(mseid);
 		NAL.vseq.Reset(mseid);
@@ -329,7 +377,16 @@ int MSENav::Load(uint32_t enum_options)
 			if (scheme_type == MEDIA_SCHEME_MPV)
 				MPV.slice.Reset(MSE_UNSELECTED);
 			else if (scheme_type == MEDIA_SCHEME_NAL)
+			{
 				NAL.vcl_nu.Reset(MSE_UNSELECTED);
+				NAL.sei_nu.Reset(MSE_UNSELECTED);
+				NAL.aud_nu.Reset(MSE_UNSELECTED);
+				NAL.vps_nu.Reset(MSE_UNSELECTED);
+				NAL.sps_nu.Reset(MSE_UNSELECTED);
+				NAL.pps_nu.Reset(MSE_UNSELECTED);
+				NAL.IDR_nu.Reset(MSE_UNSELECTED);
+				NAL.FIL_nu.Reset(MSE_UNSELECTED);
+			}
 			else if (scheme_type == MEDIA_SCHEME_AV1)
 				AV1.obu_frame.Reset(MSE_UNSELECTED);
 			return RET_CODE_SUCCESS;
@@ -460,8 +517,8 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 			return RET_CODE_ERROR;
 		}
 
-		size_t idx = 0;
-		for (; idx < supported_authority_components.size(); idx++)
+		int idx = (int)(supported_authority_components.size() - 1);
+		for (; idx >= 0; idx--)
 		{
 			// Parse the '~'exclusion prefix part of syntax-element filter
 			bool bExclude = false;
@@ -535,7 +592,7 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 			}
 		}
 
-		if (idx >= supported_authority_components.size())
+		if (idx < 0)
 		{
 			printf("Found the unrecognized component(s) in the authority part of URI.\n");
 			return RET_CODE_ERROR_NOTIMPL;
@@ -564,7 +621,8 @@ int MSENav::NormalizeAuthorityPart()
 	{
 		if (NAL.nu.IsNull())
 		{
-			if (!NAL.vcl_nu.IsNull())
+			if (!NAL.vcl_nu.IsNull() || !NAL.sei_nu.IsNull() || !NAL.aud_nu.IsNull() || !NAL.vps_nu.IsNull() ||
+				!NAL.sps_nu.IsNull() || !NAL.pps_nu.IsNull() || !NAL.IDR_nu.IsNull() || !NAL.FIL_nu.IsNull())
 				NAL.nu.Reset(MSE_UNSPECIFIED);
 		}
 	}
@@ -580,24 +638,49 @@ int MSENav::NormalizeAuthorityPart()
 	return RET_CODE_SUCCESS;
 }
 
+bool MSENav::CheckNUFilterCoexist(size_t idxComponent)
+{
+	size_t subset_filter_count = 0;
+	if (!NAL.nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 3)
+		subset_filter_count++;
+	if (!NAL.vcl_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 4)
+		subset_filter_count++;
+	if (!NAL.sei_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 5)
+		subset_filter_count++;
+	if (!NAL.aud_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 6)
+		subset_filter_count++;
+	if (!NAL.vps_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 7)
+		subset_filter_count++;
+	if (!NAL.sps_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 8)
+		subset_filter_count++;
+	if (!NAL.pps_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 9)
+		subset_filter_count++;
+	if (!NAL.IDR_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 10)
+		subset_filter_count++;
+	if (!NAL.FIL_nu.IsNull() && !NAL.nu.IsNaR() && idxComponent != 11)
+		subset_filter_count++;
+
+	return subset_filter_count > 0 ? true : false;
+}
+
 int MSENav::CheckNALAuthorityComponent(size_t idxComponent)
 {
-	// Check the occur sequence, "vseq", "cvs", "au", "nu", "vcl", "seimsg", "seipl"
-	if ((idxComponent > 0 && !NAL.vseq.IsNull()		&& !NAL.vseq.IsNaR()) ||// cvs or deeper
-		(idxComponent > 1 && !NAL.cvs.IsNull()		&& !NAL.cvs.IsNaR()) ||	// au or deeper
-		(idxComponent > 2 && !NAL.au.IsNull()		&& !NAL.au.IsNaR()) ||	// nu or deeper
-		(idxComponent > 4 && !NAL.nu.IsNull()		&& !NAL.nu.IsNaR()) ||	// sei-message or sei_payload
-		(idxComponent > 5 && !NAL.sei_msg.IsNull()	&& !NAL.sei_msg.IsNaR()))	// sei-payload
+	//                              0      1     2     3      4       5       6      7      8      9     10     11      12         13
+	// Check the occur sequence, "vseq", "cvs", "au", "nu", "vcl", "seinu", "aud", "vps", "sps", "pps", "IDR", "FIL", "seimsg", "seipl"
+	if ((idxComponent > 0  && !NAL.vseq.IsNull()	&& !NAL.vseq.IsNaR()) ||// cvs or deeper
+		(idxComponent > 1  && !NAL.cvs.IsNull()		&& !NAL.cvs.IsNaR()) ||	// au or deeper
+		(idxComponent > 2  && !NAL.au.IsNull()		&& !NAL.au.IsNaR()) ||	// nu or deeper
+		(idxComponent > 11 && !NAL.nu.IsNull()		&& !NAL.nu.IsNaR()) ||	// sei-message or sei_payload
+		(idxComponent > 12 && !NAL.sei_msg.IsNull()	&& !NAL.sei_msg.IsNaR()))	// sei-payload
 	{
 		printf("Please specify the MSE URI from lower to higher.\n");
 		return RET_CODE_ERROR;
 	}
-	else if (idxComponent == 3 || idxComponent == 4)
+	else if (idxComponent >= 3 && idxComponent <= 11)
 	{
-		if ((idxComponent == 3 && !NAL.vcl_nu.IsNull() && !NAL.vcl_nu.IsNaR()) ||
-			(idxComponent == 4 && !NAL.nu.IsNull() && !NAL.nu.IsNaR()))
+		if (CheckNUFilterCoexist(idxComponent))
 		{
-			printf("'nu' should NOT occur at the same time with 'vcl'.\n");
+			printf("'nu', 'vcl', 'seinu', 'aud', 'vps', 'sps', 'pps', 'IDR' or 'FIL' should NOT occur at the same time.\n");
 			return RET_CODE_ERROR;
 		}
 	}
@@ -683,7 +766,9 @@ int	MSENav::LoadAuthorityPart(const char* szURI, std::vector<URI_Segment>& uri_a
 		break;
 	case MEDIA_SCHEME_NAL:
 	{
-		MSEID_RANGE* ranges[] = {&NAL.vseq, &NAL.cvs, &NAL.au, &NAL.nu, &NAL.vcl_nu, &NAL.sei_msg, &NAL.sei_pl};
+		MSEID_RANGE* ranges[] = {&NAL.vseq, &NAL.cvs, &NAL.au, 
+			&NAL.nu, &NAL.vcl_nu, &NAL.sei_nu, &NAL.aud_nu, &NAL.vps_nu, &NAL.sps_nu, &NAL.pps_nu, &NAL.IDR_nu, &NAL.FIL_nu,
+			&NAL.sei_msg, &NAL.sei_pl};
 		iRet = LoadAuthorityPart(szURI, uri_authority_segments, nal_supported_authority_components, ranges);
 		break;
 	}
@@ -1216,7 +1301,7 @@ public:
 			m_unit_index[m_level[NAL_LEVEL_AU]] = 0;
 		if (m_level[NAL_LEVEL_NU] > 0)
 			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
-		m_curr_vcl_count = 0;
+		memset(m_filtered_nu_count, 0, sizeof(m_filtered_nu_count));
 		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
 			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
 		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
@@ -1265,7 +1350,7 @@ public:
 			m_unit_index[m_level[NAL_LEVEL_AU]] = 0;
 		if (m_level[NAL_LEVEL_NU] > 0)
 			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
-		m_curr_vcl_count = 0;
+		memset(m_filtered_nu_count, 0, sizeof(m_filtered_nu_count));
 		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
 			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
 		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
@@ -1360,13 +1445,19 @@ public:
 			m_curr_nu_type = nal_unit_type;
 			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 			{
-				bool onlyShowVCLNU = OnlyVCLNU();
-				if (onlyShowVCLNU)
+				bool bSpecifiedNUFilter = false;
+				for (int i = 0; i < NU_FILTER_MAX; i++)
 				{
-					ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
-						(m_level[NAL_LEVEL_NU]) * 4, g_szRule, "VCL-NU", m_curr_vcl_count, GetNUName(nal_unit_type));
+					if (OnlyFilterNU((NU_FILTER_TYPE)i))
+					{
+						bSpecifiedNUFilter = true;
+						ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
+							(m_level[NAL_LEVEL_NU]) * 4, g_szRule, NU_FILTER_NAME(i), m_filtered_nu_count[i], GetNUName(nal_unit_type));
+						break;
+					}
 				}
-				else
+
+				if (!bSpecifiedNUFilter)
 				{
 					ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s::%s",
 						(m_level[NAL_LEVEL_NU]) * 4, g_szRule, "NU", m_unit_index[m_level[NAL_LEVEL_NU]],
@@ -1544,9 +1635,42 @@ public:
 
 	RET_CODE EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 	{
-		if ((m_curr_nal_coding == NAL_CODING_AVC  && IS_AVC_VCL_NAL(m_curr_nu_type)) ||
+		if (m_curr_nal_coding == NAL_CODING_AVC)
+		{
+			if (IS_AVC_VCL_NAL(m_curr_nu_type)){
+				if (m_curr_nu_type == AVC_CS_IDR_PIC)
+					m_filtered_nu_count[NU_FILTER_IDR]++;
+				m_filtered_nu_count[NU_FILTER_VCL]++;
+			}
+			else if (m_curr_nu_type == AVC_SEI_NUT) m_filtered_nu_count[NU_FILTER_SEI]++;
+			else if (m_curr_nu_type == AVC_AUD_NUT) m_filtered_nu_count[NU_FILTER_AUD]++;
+			else if (m_curr_nu_type == AVC_SPS_NUT) m_filtered_nu_count[NU_FILTER_SPS]++;
+			else if (m_curr_nu_type == AVC_PPS_NUT) m_filtered_nu_count[NU_FILTER_PPS]++;
+			else if (m_curr_nu_type == AVC_FD_NUT)  m_filtered_nu_count[NU_FILTER_FIL]++;
+		}
+		else if (m_curr_nal_coding == NAL_CODING_HEVC)
+		{
+			if (IS_HEVC_VCL_NAL(m_curr_nu_type)){
+				if (IS_IDR(m_curr_nu_type))
+					m_filtered_nu_count[NU_FILTER_IDR]++;
+				m_filtered_nu_count[NU_FILTER_VCL]++;
+			}
+			else if (m_curr_nu_type == HEVC_PREFIX_SEI_NUT || m_curr_nu_type == HEVC_SUFFIX_SEI_NUT)
+				m_filtered_nu_count[NU_FILTER_SEI]++;
+			else if (m_curr_nu_type == HEVC_AUD_NUT) m_filtered_nu_count[NU_FILTER_AUD]++;
+			else if (m_curr_nu_type == HEVC_VPS_NUT) m_filtered_nu_count[NU_FILTER_VPS]++;
+			else if (m_curr_nu_type == HEVC_SPS_NUT) m_filtered_nu_count[NU_FILTER_SPS]++;
+			else if (m_curr_nu_type == HEVC_PPS_NUT) m_filtered_nu_count[NU_FILTER_PPS]++;
+			else if (m_curr_nu_type == HEVC_FD_NUT)  m_filtered_nu_count[NU_FILTER_FIL]++;
+		}
+
+		if ((m_curr_nal_coding == NAL_CODING_AVC && IS_AVC_VCL_NAL(m_curr_nu_type)) ||
 			(m_curr_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(m_curr_nu_type)))
-				m_curr_vcl_count++;
+			m_filtered_nu_count[NU_FILTER_VCL]++;
+		
+		if ((m_curr_nal_coding == NAL_CODING_AVC && (m_curr_nu_type == AVC_SEI_NUT)) ||
+			(m_curr_nal_coding == NAL_CODING_HEVC &&(m_curr_nu_type == HEVC_PREFIX_SEI_NUT || m_curr_nu_type == HEVC_SUFFIX_SEI_NUT)))
+
 
 		m_unit_index[m_level[NAL_LEVEL_NU]]++;
 		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
@@ -1564,7 +1688,7 @@ public:
 		m_unit_index[m_level[NAL_LEVEL_AU]]++;
 		if (m_level[NAL_LEVEL_NU] > 0)
 			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
-		m_curr_vcl_count = 0;
+		memset(m_filtered_nu_count, 0, sizeof(m_filtered_nu_count));
 		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
 			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
 		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
@@ -1578,18 +1702,22 @@ public:
 protected:
 	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 	int64_t					m_unit_index[16] = { 0 };
-	int64_t					m_curr_vcl_count = 0;
+	int64_t					m_filtered_nu_count[NU_FILTER_MAX] = { 0 };
 	int8_t					m_curr_nu_type = -1;
 	NAL_CODING				m_curr_nal_coding = NAL_CODING_UNKNOWN;
 
-	inline bool OnlyVCLNU()
+	inline bool OnlyFilterNU(NU_FILTER_TYPE nu_filter_type)
 	{
 		if (m_pMSENav == nullptr)
 			return false;
 
+		MSEID_RANGE* subset_nu[] = {
+			&m_pMSENav->NAL.vcl_nu, &m_pMSENav->NAL.sei_nu, &m_pMSENav->NAL.aud_nu, &m_pMSENav->NAL.vps_nu,
+			&m_pMSENav->NAL.sps_nu, &m_pMSENav->NAL.pps_nu, &m_pMSENav->NAL.IDR_nu, &m_pMSENav->NAL.FIL_nu };
+
 		return (m_pMSENav->NAL.nu.IsAllUnspecfied()) && 
-			   (m_pMSENav->NAL.vcl_nu.IsAllUnspecfied() || (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.IsNaR())) &&
-			  !(m_pMSENav->NAL.vcl_nu.IsAllExcluded());
+			   (subset_nu[nu_filter_type]->IsAllUnspecfied() || (!subset_nu[nu_filter_type]->IsNull() && !subset_nu[nu_filter_type]->IsNaR())) &&
+			  !(subset_nu[nu_filter_type]->IsAllExcluded());
 	}
 
 	std::string	GetURI(int level_id)
@@ -1602,11 +1730,21 @@ protected:
 			{
 				if (strURI.length() > 0)
 					strURI += ".";
-				if (i == NAL_LEVEL_NU && OnlyVCLNU())
+		
+				bool bSpecifiedNUFilter = false;
+				if (i == NAL_LEVEL_NU)
 				{
-					strURI += "VCL" + std::to_string(m_curr_vcl_count);
+					for (int i = 0; i < NU_FILTER_MAX; i++)
+					{
+						if (OnlyFilterNU((NU_FILTER_TYPE)i))
+						{
+							bSpecifiedNUFilter = true;
+							strURI += NU_FILTER_URI_NAME(i) + std::to_string(m_filtered_nu_count[i]);
+							break;
+						}
+					}
 				}
-				else
+				if (!bSpecifiedNUFilter)
 				{
 					strURI += NAL_LEVEL_NAME(i);
 					strURI += std::to_string(m_unit_index[m_level[i]]);
@@ -1660,29 +1798,128 @@ protected:
 				return RET_CODE_NOTHING_TODO;
 
 			if (!filter[i].IsNull() && !filter[i].IsNaR())
+			{
+				if (i == NAL_LEVEL_NU)
+				{
+					if ((m_nLastLevel == NAL_LEVEL_SEI_MSG || m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD) && m_pMSENav->NAL.sei_nu.IsAllExcluded())
+					{
+
+					}
+					else
+						bNullParent = false;
+				}
+				else
 				bNullParent = false;
+			}
 		}
 
-		// Do some special processing since SLICE is a subset of SE
+		// Do some special processing since VCL_NU or SEI_NU is a subset of NU
 		if (level_id == NAL_LEVEL_NU && m_pMSENav->NAL.nu.IsAllUnspecfied())
 		{
-			if ((m_curr_nal_coding == NAL_CODING_AVC && IS_AVC_VCL_NAL(nal_unit_type)) ||
-				(m_curr_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(nal_unit_type)))
+			// Since NU has sub-set, and if it is all unspecified, it means one of sub-set is applied
+			uint8_t bExcludeAllFilter[NU_FILTER_MAX] = { 0 };
+			MSEID_RANGE* subset_nu[] = {
+				&m_pMSENav->NAL.vcl_nu, &m_pMSENav->NAL.sei_nu, &m_pMSENav->NAL.aud_nu, &m_pMSENav->NAL.vps_nu,
+				&m_pMSENav->NAL.sps_nu, &m_pMSENav->NAL.pps_nu, &m_pMSENav->NAL.IDR_nu, &m_pMSENav->NAL.FIL_nu };
+			bool bExcludeAllFilters = true;
+			bool bExcludeAllFiltersExcept[NU_FILTER_MAX];
+			for (int ft = 0; ft < NU_FILTER_MAX; ft++)
+				bExcludeAllFiltersExcept[ft] = true;
+
+			for (int ft = 0; ft < NU_FILTER_MAX; ft++)
 			{
-				if (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.Contain(m_curr_vcl_count))
+				bExcludeAllFilter[ft] = subset_nu[ft]->IsAllExcluded() || subset_nu[ft]->IsNull() || subset_nu[ft]->IsNaR();
+				if (!bExcludeAllFilter[ft])
 				{
-					if (m_pMSENav->NAL.vcl_nu.Behind(m_curr_vcl_count))
+					bExcludeAllFilters = false;
+					for (int other = 0; other < NU_FILTER_MAX; other++) {
+						if (other != ft)
+							bExcludeAllFiltersExcept[other] = false;
+					}
+				}
+			}
+
+			for (int ft = 0; ft < NU_FILTER_MAX; ft++)
+			{
+				bool bHit = false;
+				if (subset_nu[ft]->IsNull() || subset_nu[ft]->IsNaR())
+					continue;
+				if (m_curr_nal_coding == NAL_CODING_AVC)
+				{
+					if (IS_AVC_VCL_NAL(nal_unit_type) && ft == NU_FILTER_VCL) bHit = true;
+					else if (nal_unit_type == AVC_CS_IDR_PIC && ft == NU_FILTER_IDR) bHit = true;
+					else if (nal_unit_type == AVC_SEI_NUT && ft == NU_FILTER_SEI) bHit = true;
+					else if (nal_unit_type == AVC_AUD_NUT && ft == NU_FILTER_AUD) bHit = true;
+					else if (nal_unit_type == AVC_SPS_NUT && ft == NU_FILTER_SPS) bHit = true;
+					else if (nal_unit_type == AVC_PPS_NUT && ft == NU_FILTER_PPS) bHit = true;
+					else if (nal_unit_type == AVC_FD_NUT  && ft == NU_FILTER_FIL) bHit = true;
+				}
+				else if (m_curr_nal_coding == NAL_CODING_HEVC)
+				{
+					if (IS_HEVC_VCL_NAL(nal_unit_type) && ft == NU_FILTER_VCL) bHit = true;
+					else if (IS_IDR(nal_unit_type) && ft == NU_FILTER_IDR) bHit = true;
+					else if ((nal_unit_type == HEVC_PREFIX_SEI_NUT || nal_unit_type == HEVC_SUFFIX_SEI_NUT) && ft == NU_FILTER_IDR) bHit = true;
+					else if (nal_unit_type == HEVC_AUD_NUT && ft == NU_FILTER_AUD) bHit = true;
+					else if (nal_unit_type == HEVC_VPS_NUT && ft == NU_FILTER_VPS) bHit = true;
+					else if (nal_unit_type == HEVC_SPS_NUT && ft == NU_FILTER_SPS) bHit = true;
+					else if (nal_unit_type == HEVC_PPS_NUT && ft == NU_FILTER_PPS) bHit = true;
+					else if (nal_unit_type == HEVC_FD_NUT  && ft == NU_FILTER_FIL) bHit = true;
+				}
+
+				if (!bHit)
+					continue;
+
+				if (!subset_nu[ft]->IsNull() && !subset_nu[ft]->Contain(m_filtered_nu_count[ft]))
+				{
+					if (subset_nu[ft]->Behind(m_filtered_nu_count[NU_FILTER_VCL]))
 						return RET_CODE_ABORT;
 					return RET_CODE_NOTHING_TODO;
 				}
-			}
-			else
-			{
-				if (!m_pMSENav->NAL.vcl_nu.IsAllExcluded() && !m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.IsNaR())
+				else if (subset_nu[ft]->IsNull() && !bExcludeAllFiltersExcept[ft])	// Other filter(s) is(are) available
 					return RET_CODE_NOTHING_TODO;
+				else
+					return RET_CODE_SUCCESS;
 			}
+
+#if  0
+			if ((m_curr_nal_coding == NAL_CODING_AVC && IS_AVC_VCL_NAL(nal_unit_type)) ||
+				(m_curr_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(nal_unit_type)))
+			{
+				if (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.Contain(m_filtered_nu_count[NU_FILTER_VCL]))
+				{
+					if (m_pMSENav->NAL.vcl_nu.Behind(m_filtered_nu_count[NU_FILTER_VCL]))
+						return RET_CODE_ABORT;
+					return RET_CODE_NOTHING_TODO;
+				}
+				else if(m_pMSENav->NAL.vcl_nu.IsNull() && (!bExcludeAllSEINU))
+					return RET_CODE_NOTHING_TODO;
+				else
+					return RET_CODE_SUCCESS;
+			}
+			
+			if ((m_curr_nal_coding == NAL_CODING_AVC && AVC_SEI_NUT == nal_unit_type) ||
+				(m_curr_nal_coding == NAL_CODING_HEVC && (HEVC_PREFIX_SEI_NUT == nal_unit_type || HEVC_SUFFIX_SEI_NUT == nal_unit_type)))
+			{
+				if (!m_pMSENav->NAL.sei_nu.IsNull() && !m_pMSENav->NAL.sei_nu.Contain(m_filtered_nu_count[NU_FILTER_SEI]))
+				{
+					if (m_pMSENav->NAL.sei_nu.Behind(m_filtered_nu_count[NU_FILTER_SEI]))
+						return RET_CODE_ABORT;
+					return RET_CODE_NOTHING_TODO;
+				}
+				else if (m_pMSENav->NAL.sei_nu.IsNull() && (!bExcludeAllVCLNU))
+					return RET_CODE_NOTHING_TODO;
+				else
+					return RET_CODE_SUCCESS;
+			}
+#endif
+
+			// If VCL or SEI filter is active, other NAL unit will be skipped
+			if (!bExcludeAllFilters)
+				return RET_CODE_NOTHING_TODO;
 		}
-		else if (level_id > NAL_LEVEL_NU && OnlyVCLNU())
+		else if (level_id > NAL_LEVEL_NU && (OnlyFilterNU(NU_FILTER_VCL) || OnlyFilterNU(NU_FILTER_AUD) 
+			|| OnlyFilterNU(NU_FILTER_VPS) || OnlyFilterNU(NU_FILTER_SPS) || OnlyFilterNU(NU_FILTER_VCL) 
+			|| OnlyFilterNU(NU_FILTER_IDR) || OnlyFilterNU(NU_FILTER_FIL) || m_pMSENav->NAL.sei_nu.IsAllExcluded()))
 			return RET_CODE_NOTHING_TODO;
 
 		return RET_CODE_SUCCESS;
