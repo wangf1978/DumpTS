@@ -1413,7 +1413,7 @@ public:
 			}
 		}
 
-		return RET_CODE_SUCCESS;
+		return iRet;
 	}
 
 	RET_CODE EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
@@ -1469,7 +1469,7 @@ public:
 			}
 		}
 
-		return RET_CODE_SUCCESS;
+		return iRet;
 	}
 
 	RET_CODE EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
@@ -1525,7 +1525,7 @@ public:
 			}
 		}
 
-		return RET_CODE_SUCCESS;
+		return iRet;
 	}
 
 	RET_CODE EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
@@ -1622,7 +1622,7 @@ protected:
 		if (m_pMSENav == nullptr)
 			return RET_CODE_SUCCESS;
 
-		if ((m_nLastLevel == NAL_LEVEL_SEI_MSG || m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD) && level_id == NAL_LEVEL_NU)
+		if ((m_nLastLevel == NAL_LEVEL_SEI_MSG || m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD) && level_id == NAL_LEVEL_NU && m_level[level_id] < 0)
 		{
 			if (nal_unit_type != 0xFF && !(
 				(m_curr_nal_coding == NAL_CODING_AVC  && (nal_unit_type == BST::H264Video::SEI_NUT)) ||
