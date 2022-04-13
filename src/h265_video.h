@@ -258,7 +258,7 @@ namespace BST {
 				uint16_t	forbidden_zero_bit:1;
 				uint16_t	nal_unit_type:6;
 				uint16_t	nuh_layer_id:6;
-				uint16_t	nuh_temporal_id_plus1:1;
+				uint16_t	nuh_temporal_id_plus1:3;
 
 				NAL_UNIT_HEADER()
 					: forbidden_zero_bit(0), nal_unit_type(0), nuh_layer_id(0), nuh_temporal_id_plus1(0){
