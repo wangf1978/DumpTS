@@ -292,7 +292,7 @@ struct NAL_UNIT_ENTRY
 	int16_t		slice_pic_parameter_set_id;
 
 	NAL_UNIT_ENTRY() 
-		: file_offset(0), NU_offset(0), NU_length(0), leading_bytes(0), reserved_for_use{ 0 }
+		: file_offset(UINT64_MAX), NU_offset(0), NU_length(0), leading_bytes(0), reserved_for_use{ 0 }
 		, bytes_reserved{ 0 }, first_slice_segment_in_pic_flag(0), byte_align_1(0), slice_type(0), slice_pic_parameter_set_id(0){
 	}
 
