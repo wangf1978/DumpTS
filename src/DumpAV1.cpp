@@ -367,8 +367,9 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 				scan_phase_info[scan_phase - 1].left_size -= Leb128Bytes;
 				if (scan_phase_info[scan_phase - 1].left_size < 0)
 				{
-					printf("[AV1][%s] The sub unit costs too many bytes(%" PRId64 ") which exceed the upper unit size(%" PRId64 ").\n",
-						szScanPhase[scan_phase], scan_phase_info[scan_phase - 1].unit_size - scan_phase_info[scan_phase - 1].left_size, scan_phase_info[scan_phase - 1].unit_size);
+					if (g_verbose_level > 0)
+						printf("[AV1][%s] The sub unit costs too many bytes(%" PRId64 ") which exceed the upper unit size(%" PRId64 ").\n",
+							szScanPhase[scan_phase], scan_phase_info[scan_phase - 1].unit_size - scan_phase_info[scan_phase - 1].left_size, scan_phase_info[scan_phase - 1].unit_size);
 					goto done;
 				}
 
@@ -524,8 +525,9 @@ int AV1_ProcessAnnexBTemporalUnit(const char* szAV1FileName, int64_t start_pos, 
 
 					if (scan_phase_info[scan_phase - 1].left_size < 0)
 					{
-						printf("[AV1][%s] The sub unit costs too many bytes(%" PRId64 ") which exceed the upper unit size(%" PRId64 ").\n",
-							szScanPhase[scan_phase], scan_phase_info[scan_phase - 1].unit_size - scan_phase_info[scan_phase - 1].left_size, scan_phase_info[scan_phase - 1].unit_size);
+						if (g_verbose_level > 0)
+							printf("[AV1][%s] The sub unit costs too many bytes(%" PRId64 ") which exceed the upper unit size(%" PRId64 ").\n",
+								szScanPhase[scan_phase], scan_phase_info[scan_phase - 1].unit_size - scan_phase_info[scan_phase - 1].left_size, scan_phase_info[scan_phase - 1].unit_size);
 						goto done;
 					}
 
@@ -779,7 +781,8 @@ check_low_overhead:
 
 		if (obu_forbidden_bit != 0 || obu_reserved_1bit != 0)
 		{
-			printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_reserved_1bit: %d.\n", obu_forbidden_bit, obu_reserved_1bit);
+			if (g_verbose_level > 0)
+				printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_reserved_1bit: %d.\n", obu_forbidden_bit, obu_reserved_1bit);
 			iRet = RET_CODE_BUFFER_NOT_COMPATIBLE;
 			break;
 		}
@@ -937,8 +940,9 @@ int AV1_ProcessLowOverheadBitstream(const char* szAV1FileName, int64_t start_pos
 
 		if (obu_forbidden_bit != 0 || obu_reserved_1bit != 0 || obu_has_size_flag == 0)
 		{
-			printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_has_size_flag: %d, obu_reserved_1bit: %d.\n",
-				obu_forbidden_bit, obu_has_size_flag, obu_reserved_1bit);
+			if (g_verbose_level > 0)
+				printf("[AV1] Hit the invalid obu_header where obu_forbidden_bit: %d, obu_has_size_flag: %d, obu_reserved_1bit: %d.\n",
+					obu_forbidden_bit, obu_has_size_flag, obu_reserved_1bit);
 			goto done;
 		}
 
@@ -961,7 +965,8 @@ int AV1_ProcessLowOverheadBitstream(const char* szAV1FileName, int64_t start_pos
 
 			if (extension_header_reserved_3bits == 0)
 			{
-				printf("[AV1] Hit the invalid obu_extension_header where extension_header_reserved_3bits: %d.\n", extension_header_reserved_3bits);
+				if (g_verbose_level > 0)
+					printf("[AV1] Hit the invalid obu_extension_header where extension_header_reserved_3bits: %d.\n", extension_header_reserved_3bits);
 				goto done;
 			}
 
@@ -1072,12 +1077,14 @@ int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB)
 
 		if (temporal_unit_num > 0)
 		{
-			_tprintf(_T("[AV1][temporal_unit#%08d] The current file: %s is an Annex-B length delimited bitstream.\n"), temporal_unit_num, szAV1FileName);
+			if (g_verbose_level > 0)
+				printf("[AV1][temporal_unit#%08d] The current file: %s is an Annex-B length delimited bitstream.\n", temporal_unit_num, szAV1FileName);
 			bIsAnnexB = true;
 		}
 		else
 		{
-			_tprintf(_T("[AV1][temporal_unit#%08d] The current file: %s is NOT an Annex-B length delimited bitstream.\n"), temporal_unit_num, szAV1FileName);
+			if (g_verbose_level > 0)
+				printf("[AV1][temporal_unit#%08d] The current file: %s is NOT an Annex-B length delimited bitstream.\n", temporal_unit_num, szAV1FileName);
 		}
 
 		if (!bIsAnnexB)
