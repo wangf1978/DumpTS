@@ -27,7 +27,7 @@ SOFTWARE.
 #include "av1.h"
 #include "av1_parser.h"
 
-//#define ENABLE_LOAD_CONTEXT_SNAPSHOT
+#define ENABLE_LOAD_CONTEXT_SNAPSHOT
 
 INLINE RET_CODE decode_subexp(BITBUF& bitbuf, int32_t numSyms, int32_t& val)
 {
