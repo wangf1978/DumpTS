@@ -812,6 +812,8 @@ void PrintHelp()
 	printf("\t--showPCR\t\tPrint the PCR clock information in TS stream\n");
 	printf("\t--showPCRDiagram\tPrint the PCR and its related PTS, DTS diagram, export PCR, ATC, PTS/DTS into csv file\n");
 	printf("\t--showNTP\t\tPrint the NTP information in MMT/TLV stream\n");
+	printf("\t--showMSE\t\tPrint the syntax-view of media syntax element in the raw encoded stream or media file\n");
+	printf("\t--showMSEHex\t\tPrint the hex-view of media syntax element(s) in the raw encoded stream or media file\n");
 	printf("\t--diffATC\t\tShow the ATC diff which is greater than the specified threshold\n");
 	printf("\t--diffATCDTS\t\tShow the ATC and DTS diff at the payload unit start point between 2 specified PIDs\n");
 	printf("\t--showNU\t\tShow the access-unit, nal-unit, sei-message and sei_payload tree of AVC/HEVC/VVC stream\n");
@@ -819,6 +821,7 @@ void PrintHelp()
 	printf("\t--listMMTPpacket\tList the specified MMTP packets\n");
 	printf("\t--listMMTPpayload\tList the specified MMTP payloads\n");
 	printf("\t--listMPUtime\t\tList MPU presentation time and its pts/dts offset\n");
+	printf("\t--listMSE\t\tList the media syntax element hierarchy layout in the raw encoded stream or media file\n");
 	printf("\t--showVPS\t\tShow the VPS syntax of HEVC/VVC stream\n");
 	printf("\t--showSPS\t\tShow the SPS syntax of AVC/HEVC/VVC stream\n");
 	printf("\t--showPPS\t\tShow the PPS syntax of AVC/HEVC/VVC stream\n");
