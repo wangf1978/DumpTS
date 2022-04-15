@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -107,6 +107,42 @@ enum HEVC_NAL_UNIT_TYPE
 	HEVC_UNSPEC63		= 63,
 };
 
+enum VVC_NAL_UNIT_TYPE
+{
+	VVC_TRAIL_NUT		= 0,
+	VVC_STSA_NUT		= 1,
+	VVC_RADL_NUT		= 2,
+	VVC_RASL_NUT		= 3,
+	VVC_RSV_VCL_4		= 4,
+	VVC_RSV_VCL_5		= 5,
+	VVC_RSV_VCL_6		= 6,
+	VVC_IDR_W_RADL		= 7,
+	VVC_IDR_N_LP		= 8,
+	VVC_CRA_NUT			= 9,
+	VVC_GDR_NUT			= 10,
+	VVC_RSV_IRAP_11		= 11,
+	VVC_OPI_NUT			= 12,
+	VVC_DCI_NUT			= 13,
+	VVC_VPS_NUT			= 14,
+	VVC_SPS_NUT			= 15,
+	VVC_PPS_NUT			= 16,
+	VVC_PREFIX_APS_NUT	= 17,
+	VVC_SUFFIX_APS_NUT	= 18,
+	VVC_PH_NUT			= 19,
+	VVC_AUD_NUT			= 20,
+	VVC_EOS_NUT			= 21,
+	VVC_EOB_NUT			= 22,
+	VVC_PREFIX_SEI_NUT	= 23,
+	VVC_SUFFIX_SEI_NUT	= 24,
+	VVC_FD_NUT			= 25,
+	VVC_RSV_NVCL_26		= 26,
+	VVC_RSV_NVCL_27		= 27,
+	VVC_UNSPEC_28		= 28,
+	VVC_UNSPEC_29		= 29,
+	VVC_UNSPEC_30		= 30,
+	VVC_UNSPEC_31		= 31,
+};
+
 enum HEVC_PICTURE_TYPE
 {
 	PIC_TYPE_UNKNOWN = 0,	// None of the below picture type
@@ -189,6 +225,20 @@ enum AVC_PICTURE_SLICE_TYPE
 	(st) == HEVC_P_SLICE?L"P":(\
 	(st) == HEVC_I_SLICE?L"I":L"")))
 
+#define VVC_B_SLICE						0
+#define VVC_P_SLICE						1
+#define VVC_I_SLICE						2
+
+#define VVC_PIC_SLICE_TYPE_NAMEA(st)	(\
+	(st) == VVC_B_SLICE?"B":(\
+	(st) == VVC_P_SLICE?"P":(\
+	(st) == VVC_I_SLICE?"I":"")))
+
+#define VVC_PIC_SLICE_TYPE_NAMEW(st)	(\
+	(st) == VVC_B_SLICE?L"B":(\
+	(st) == VVC_P_SLICE?L"P":(\
+	(st) == VVC_I_SLICE?L"I":L"")))
+
 #define IS_HEVC_PARAMETERSET_NAL(nal_unit_type)	(\
 	(nal_unit_type) == HEVC_VPS_NUT ||\
 	(nal_unit_type) == HEVC_SPS_NUT ||\
@@ -198,12 +248,22 @@ enum AVC_PICTURE_SLICE_TYPE
 	(nal_unit_type) == AVC_SPS_NUT ||\
 	(nal_unit_type) == AVC_PPS_NUT)
 
+#define IS_VVC_PARAMETERSET_NAL(nal_unit_type)	(\
+	(nal_unit_type) == VVC_OPI_NUT ||\
+	(nal_unit_type) == VVC_DCI_NUT ||\
+	(nal_unit_type) == VVC_VPS_NUT ||\
+	(nal_unit_type) == VVC_SPS_NUT ||\
+	(nal_unit_type) == VVC_PPS_NUT)
+
 #define IS_HEVC_VCL_NAL(nal_unit_type)	(\
 	((nal_unit_type) >= HEVC_TRAIL_N  && (nal_unit_type) <= HEVC_RASL_R) ||\
 	((nal_unit_type) >= HEVC_BLA_W_LP && (nal_unit_type) <= HEVC_CRA_NUT))
 
 #define IS_AVC_VCL_NAL(nal_unit_type)	(\
 	(nal_unit_type) >= AVC_CS_NON_IDR_PIC && (nal_unit_type) <= AVC_CS_IDR_PIC)
+
+#define IS_VVC_VCL_NAL(nal_unit_type)	(\
+	(nal_unit_type) >= VVC_TRAIL_NUT && (nal_unit_type) <= VVC_RSV_IRAP_11)
 
 #define IS_PARSABLE_HEVC_NAL(nal_unit_type)	\
 										(IS_HEVC_PARAMETERSET_NAL(nal_unit_type) || IS_HEVC_VCL_NAL(nal_unit_type))
@@ -250,9 +310,23 @@ struct NAL_UNIT_ENTRY
 		uint8_t		bytes_reserved[24];
 		struct
 		{
+			uint16_t	forbidden_zero_bit_vvc : 1;
+			uint16_t	nuh_reserved_zero_bit : 1;
+			uint16_t	nuh_layer_id_vvc : 6;
+			uint16_t	nal_unit_type_vvc : 5;
+			uint16_t	nuh_temporal_id_plus1_vvc : 3;
+
+			// Only valid for VVC VCL unit
+			uint32_t	ph_pic_order_cnt_lsb : 19;
+			uint32_t	dword_align_0 : 13;
+
+			int32_t		PicOrderCntVal;
+		}PACKED;
+		struct
+		{
 			uint16_t	forbidden_zero_bit : 1;
-			uint16_t	nal_unit_type : 6;
-			uint16_t	nuh_layer_id : 6;
+			uint16_t	nal_unit_type_hevc : 6;
+			uint16_t	nuh_layer_id_hevc : 6;
 			uint16_t	nuh_temporal_id_plus1 : 3;
 
 			uint16_t	no_output_of_prior_pics_flag : 1;
@@ -296,20 +370,37 @@ struct NAL_UNIT_ENTRY
 		, bytes_reserved{ 0 }, first_slice_segment_in_pic_flag(0), byte_align_1(0), slice_type(0), slice_pic_parameter_set_id(0){
 	}
 
+	// VVC
+	NAL_UNIT_ENTRY(uint64_t pos, uint8_t nLeadingBytes, uint16_t zero_bit, uint16_t nuhReservedZeroBit, uint16_t nuType, uint16_t nuhLayerID, uint16_t nuhTemporalIDPlus1) :
+		file_offset(pos), NU_offset(0), NU_length(UINT32_MAX), leading_bytes(nLeadingBytes),
+		forbidden_zero_bit_vvc(zero_bit), nuh_reserved_zero_bit(nuhReservedZeroBit), nuh_layer_id_vvc(nuhLayerID), nal_unit_type_vvc(nuType), nuh_temporal_id_plus1_vvc(nuhTemporalIDPlus1),
+		ph_pic_order_cnt_lsb(0), PicOrderCntVal(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
+
+	NAL_UNIT_ENTRY(uint64_t pos, uint32_t offset, uint32_t len, uint8_t nLeadingBytes, uint16_t zero_bit, uint16_t nuhReservedZeroBit, uint16_t nuType, uint16_t nuhLayerID, uint16_t nuhTemporalIDPlus1) :
+		file_offset(pos), NU_offset(offset), NU_length(len), leading_bytes(nLeadingBytes),
+		forbidden_zero_bit_vvc(zero_bit), nuh_reserved_zero_bit(nuhReservedZeroBit), nuh_layer_id_vvc(nuhLayerID), nal_unit_type_vvc(nuType), nuh_temporal_id_plus1_vvc(nuhTemporalIDPlus1),
+		ph_pic_order_cnt_lsb(0), PicOrderCntVal(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
+
+	// HEVC
 	NAL_UNIT_ENTRY(uint64_t pos, uint8_t nLeadingBytes, uint16_t zero_bit, uint16_t nuType, uint16_t nuhLayerID, uint16_t nuhTemporalIDPlus1) :
-		file_offset(pos), NU_offset(0), NU_length(UINT32_MAX), leading_bytes(nLeadingBytes), forbidden_zero_bit(zero_bit), nal_unit_type(nuType), nuh_layer_id(nuhLayerID), nuh_temporal_id_plus1(nuhTemporalIDPlus1),
+		file_offset(pos), NU_offset(0), NU_length(UINT32_MAX), leading_bytes(nLeadingBytes), 
+		forbidden_zero_bit(zero_bit), nal_unit_type_hevc(nuType), nuh_layer_id_hevc(nuhLayerID), nuh_temporal_id_plus1(nuhTemporalIDPlus1),
 		no_output_of_prior_pics_flag(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
 
 	NAL_UNIT_ENTRY(uint64_t pos, uint32_t offset, uint32_t len, uint8_t nLeadingBytes, uint16_t zero_bit, uint16_t nuType, uint16_t nuhLayerID, uint16_t nuhTemporalIDPlus1) :
-		file_offset(pos), NU_offset(offset), NU_length(len), leading_bytes(nLeadingBytes), forbidden_zero_bit(zero_bit), nal_unit_type(nuType), nuh_layer_id(nuhLayerID), nuh_temporal_id_plus1(nuhTemporalIDPlus1),
+		file_offset(pos), NU_offset(offset), NU_length(len), leading_bytes(nLeadingBytes), 
+		forbidden_zero_bit(zero_bit), nal_unit_type_hevc(nuType), nuh_layer_id_hevc(nuhLayerID), nuh_temporal_id_plus1(nuhTemporalIDPlus1),
 		no_output_of_prior_pics_flag(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
 
+	// AVC
 	NAL_UNIT_ENTRY(uint64_t pos, uint8_t nLeadingBytes, uint8_t zero_bit, uint8_t nalRefIdc, uint8_t nuType) :
-		file_offset(pos), NU_offset(0), NU_length(UINT32_MAX), leading_bytes(nLeadingBytes), forbidden_zero_bit_avc(zero_bit), nal_unit_type_avc(nuType), nal_ref_idc(nalRefIdc),
+		file_offset(pos), NU_offset(0), NU_length(UINT32_MAX), leading_bytes(nLeadingBytes), 
+		forbidden_zero_bit_avc(zero_bit), nal_unit_type_avc(nuType), nal_ref_idc(nalRefIdc),
 		frame_num(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
 
 	NAL_UNIT_ENTRY(uint64_t pos, uint32_t offset, uint32_t len, uint8_t nLeadingBytes, uint8_t zero_bit, uint8_t nalRefIdc, uint8_t nuType) :
-		file_offset(pos), NU_offset(offset), NU_length(len), leading_bytes(nLeadingBytes), forbidden_zero_bit_avc(zero_bit), nal_unit_type_avc(nuType), nal_ref_idc(nalRefIdc),
+		file_offset(pos), NU_offset(offset), NU_length(len), leading_bytes(nLeadingBytes), 
+		forbidden_zero_bit_avc(zero_bit), nal_unit_type_avc(nuType), nal_ref_idc(nalRefIdc),
 		frame_num(0), first_slice_segment_in_pic_flag(0), slice_type(-1), slice_pic_parameter_set_id(0) {}
 
 	bool Is_The_First_AVC_VCL_NU(NAL_UNIT_ENTRY& last_nu) {
@@ -318,14 +409,14 @@ struct NAL_UNIT_ENTRY
 		if (last_nu.file_offset == UINT64_MAX)
 			return true;
 
-		if (nal_unit_type != AVC_CS_NON_IDR_PIC &&
-			nal_unit_type != AVC_CSD_PARTITION_A &&
-			nal_unit_type != AVC_CS_IDR_PIC)
+		if (nal_unit_type_avc != AVC_CS_NON_IDR_PIC &&
+			nal_unit_type_avc != AVC_CSD_PARTITION_A &&
+			nal_unit_type_avc != AVC_CS_IDR_PIC)
 			return false;
 
-		assert(last_nu.nal_unit_type == AVC_CS_NON_IDR_PIC ||
-			   last_nu.nal_unit_type == AVC_CSD_PARTITION_A ||
-			   last_nu.nal_unit_type == AVC_CS_IDR_PIC);
+		assert(last_nu.nal_unit_type_avc == AVC_CS_NON_IDR_PIC ||
+			   last_nu.nal_unit_type_avc == AVC_CSD_PARTITION_A ||
+			   last_nu.nal_unit_type_avc == AVC_CS_IDR_PIC);
 
 		/*
 			frame_num differs in value. The value of frame_num used to test this condition is the value of frame_num that appears
@@ -373,12 +464,12 @@ struct NAL_UNIT_ENTRY
 		}
 
 		/* IdrPicFlag differs in value. */
-		if ((nal_unit_type == 5 && last_nu.nal_unit_type != 5) ||
-			(nal_unit_type != 5 && last_nu.nal_unit_type == 5))
+		if ((nal_unit_type_avc == 5 && last_nu.nal_unit_type_avc != 5) ||
+			(nal_unit_type_avc != 5 && last_nu.nal_unit_type_avc == 5))
 			return true;
 
 		/* IdrPicFlag is equal to 1 for both and idr_pic_id differs in value. */
-		if (nal_unit_type == 5 && last_nu.nal_unit_type == 5 &&
+		if (nal_unit_type_avc == 5 && last_nu.nal_unit_type_avc == 5 &&
 			idr_pic_id != last_nu.idr_pic_id)
 			return true;
 

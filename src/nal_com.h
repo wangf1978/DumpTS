@@ -137,8 +137,15 @@ public:
 	virtual RET_CODE		DetactivateSPS() = 0;
 };
 
+class INALVVCContext : public INALContext
+{
+public:
+
+};
+
 extern RET_CODE CreateAVCNALContext(INALAVCContext** ppNALCtx);
 extern RET_CODE CreateHEVCNALContext(INALHEVCContext** ppNALCtx);
+extern RET_CODE CreateVVCNALContext(INALVVCContext** ppNALCtx);
 
 inline uint8_t* FindNALStartCodePrefixOne3Bytes(uint8_t* pBuf, unsigned long cbSize)
 {

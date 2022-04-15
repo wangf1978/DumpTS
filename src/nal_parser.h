@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -129,6 +129,8 @@ public:
 
 protected:
 	int						PushESBP(uint8_t* pStart, uint8_t* pEnd);
+	int						LoadPictureHeaderRBSP(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
+	int						LoadVVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						LoadHEVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						LoadAVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						PickupLastSliceHeaderInfo(uint8_t* pNUBuf, int cbNUBuf);
@@ -136,6 +138,7 @@ protected:
 	//
 	// slice_type: -1, used the previous slice
 	// slice_type: -2, pps is missed, can't detect its slice type
+	int						PickupVVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUBuf, int cbNUBuf);
 	int						PickupHEVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUBuf, int cbNUBuf);
 	int						PickupAVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUBuf, int cbNUBuf);
 
@@ -145,6 +148,8 @@ protected:
 	*/
 	int						CommitNALUnit(uint8_t number_of_leading_bytes = 0);
 	int						CommitSliceInfo(bool bDrain);
+	int						CommitVVCPicture(std::vector<NAL_UNIT_ENTRY>::const_iterator pic_start,
+											  std::vector<NAL_UNIT_ENTRY>::const_iterator pic_end);
 	int						CommitHEVCPicture(std::vector<NAL_UNIT_ENTRY>::const_iterator pic_start,
 											  std::vector<NAL_UNIT_ENTRY>::const_iterator pic_end);
 	int						CommitAVCPicture(std::vector<NAL_UNIT_ENTRY>::const_iterator pic_start,
@@ -165,6 +170,7 @@ protected:
 	{
 		INALAVCContext*		m_pNALAVCCtx;
 		INALHEVCContext*	m_pNALHEVCCtx;
+		INALVVCContext*		m_pNALVVCCtx;
 	};
 	INALEnumerator*			m_nal_enum = nullptr;
 	uint32_t				m_nal_enum_options = NAL_ENUM_OPTION_ALL;

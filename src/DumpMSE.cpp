@@ -2500,6 +2500,8 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 			nal_coding = NAL_CODING_AVC;
 		else if (_stricmp(iterSrcFmt->second.c_str(), "h265") == 0)
 			nal_coding = NAL_CODING_HEVC;
+		else if (_stricmp(iterSrcFmt->second.c_str(), "h266") == 0)
+			nal_coding = NAL_CODING_VVC;
 		else
 			printf("Oops! Don't support this kind of NAL bitstream at present!\n");
 

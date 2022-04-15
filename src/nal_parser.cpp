@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -94,6 +94,10 @@ CNALParser::~CNALParser()
 	else if (m_nal_coding == NAL_CODING_HEVC)
 	{
 		AMP_SAFERELEASE(m_pNALHEVCCtx);
+	}
+	else if (m_nal_coding == NAL_CODING_VVC)
+	{
+		AMP_SAFERELEASE(m_pNALVVCCtx);
 	}
 
 	AMP_SAFERELEASE(m_pCtx);
@@ -271,9 +275,23 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 
 		m_cur_submit_nal_unit_len = 0;
 		if (m_nal_coding == NAL_CODING_AVC)
+		{
+			nal_ref_idc = (pBuf[nal_unit_prefix_start_code_length] >> 5) & 0x3;
 			nal_unit_type = pBuf[nal_unit_prefix_start_code_length] & 0x1F;
-		else if(m_nal_coding == NAL_CODING_HEVC)
+		}
+		else if (m_nal_coding == NAL_CODING_HEVC)
+		{
 			nal_unit_type = (pBuf[nal_unit_prefix_start_code_length] >> 1) & 0x3F;
+			nuh_layer_id = (int8_t)(((pBuf[nal_unit_prefix_start_code_length] & 0x1) << 5) |
+				((pBuf[nal_unit_prefix_start_code_length + 1] >> 3) & 0x1F));
+			nuh_temporal_id_plus1 = pBuf[nal_unit_prefix_start_code_length + 1] & 0x7;
+		}
+		else if (m_nal_coding == NAL_CODING_VVC)
+		{
+			nuh_layer_id = pBuf[nal_unit_prefix_start_code_length] & 0x3F;
+			nal_unit_type = (pBuf[nal_unit_prefix_start_code_length + 1] >> 3) & 0x1F;
+			nuh_temporal_id_plus1 = pBuf[nal_unit_prefix_start_code_length + 1] & 0x7;
+		}
 
 		// Skip "prefix start code", it may be 00 00 01 or 00 00 00 01
 		pBuf += nal_unit_prefix_start_code_length; cbSize -= nal_unit_prefix_start_code_length;
@@ -289,8 +307,10 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 		m_cur_nal_unit_type = nal_unit_type;
 
 		if (m_nal_coding == NAL_CODING_AVC)
+		{
 			cur_nal_ref_idc = nal_ref_idc;
-		else if (m_nal_coding == NAL_CODING_HEVC)
+		}
+		else if (m_nal_coding == NAL_CODING_HEVC || m_nal_coding == NAL_CODING_VVC)
 		{
 			cur_nuh_layer_id = nuh_layer_id;
 			cur_nuh_temporal_id_plus1 = nuh_temporal_id_plus1;
@@ -419,6 +439,16 @@ int CNALParser::PushESBP(uint8_t* pStart, uint8_t* pEnd)
 	return RET_CODE_SUCCESS;
 }
 
+int CNALParser::LoadPictureHeaderRBSP(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
+int CNALParser::LoadVVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
 int CNALParser::LoadHEVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
 {
 	int iRet = RET_CODE_SUCCESS;
@@ -519,7 +549,9 @@ done:
 
 int CNALParser::PickupLastSliceHeaderInfo(uint8_t* pNUBuf, int cbNUBuf)
 {
-	if (m_nal_coding == NAL_CODING_HEVC)
+	if (m_nal_coding == NAL_CODING_VVC)
+		return PickupVVCSliceHeaderInfo(m_nu_entries.back(), pNUBuf, cbNUBuf);
+	else if (m_nal_coding == NAL_CODING_HEVC)
 		return PickupHEVCSliceHeaderInfo(m_nu_entries.back(), pNUBuf, cbNUBuf);
 	else if (m_nal_coding == NAL_CODING_AVC)
 	{
@@ -541,6 +573,85 @@ int CNALParser::PickupLastSliceHeaderInfo(uint8_t* pNUBuf, int cbNUBuf)
 	}
 
 	return RET_CODE_ERROR_NOTIMPL;
+}
+
+int CNALParser::PickupVVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUBuf, int cbNUBuf)
+{
+	int iRet = RET_CODE_SUCCESS;
+	int read_buf_len = 0;
+	//uint8_t* pEBSPBuf = AM_LRB_GetReadPtr(m_rbNALUnitEBSP, &read_buf_len);
+
+	uint8_t* pEBSPBuf = pNUBuf;
+	read_buf_len = cbNUBuf;
+
+	if (pEBSPBuf == NULL || read_buf_len < 3)
+		return RET_CODE_NEEDMOREINPUT;
+
+	int8_t forbidden_zero_bit = (pEBSPBuf[0] >> 7) & 0x01;
+	int8_t nuh_reserved_zero_bit = (pEBSPBuf[0] >> 6) & 0x01;
+	int8_t nuh_layer_id = pEBSPBuf[0] & 0x3F;
+	int8_t nuh_temporal_id_plus1 = pEBSPBuf[1] & 0x07;
+	int8_t nal_unit_type = (pEBSPBuf[1] >> 3) & 0x1F;
+
+	AMBst bs = AMBst_CreateFromBuffer(pEBSPBuf + 2, read_buf_len - 2);
+	AMBst_SetRBSPType(bs, BST_RBSP_NAL_UNIT);
+
+	int dependent_slice_segment_flag = 0;
+
+	try
+	{
+		uint8_t sh_picture_header_in_slice_header_flag = (uint8_t)AMBst_GetBits(bs, 1);
+		if (sh_picture_header_in_slice_header_flag)
+		{
+
+		}
+
+		nu_entry.first_slice_segment_in_pic_flag = (int8_t)AMBst_GetBits(bs, 1);
+		if (nal_unit_type >= BST::H265Video::BLA_W_LP && nal_unit_type <= BST::H265Video::RSV_IRAP_VCL23)
+			nu_entry.no_output_of_prior_pics_flag = (int8_t)AMBst_GetBits(bs, 1);
+
+		nu_entry.slice_pic_parameter_set_id = (uint8_t)AMBst_Get_ue(bs);
+
+		H265_NU pps, sps;
+		if (nu_entry.slice_pic_parameter_set_id < 0 ||
+			nu_entry.slice_pic_parameter_set_id > UINT8_MAX || !(pps = m_pNALHEVCCtx->GetHEVCPPS((uint8_t)nu_entry.slice_pic_parameter_set_id)) ||
+			pps->ptr_pic_parameter_set_rbsp == nullptr)
+		{
+			nu_entry.slice_type = -2;
+			goto done;
+		}
+
+		if (!nu_entry.first_slice_segment_in_pic_flag)
+		{
+			if (pps->ptr_pic_parameter_set_rbsp->dependent_slice_segments_enabled_flag)
+				dependent_slice_segment_flag = (int8_t)AMBst_GetBits(bs, 1);
+
+			sps = m_pNALHEVCCtx->GetHEVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id);
+			if (!sps || sps->ptr_seq_parameter_set_rbsp == nullptr)
+			{
+				nu_entry.slice_type = -2;
+				goto done;
+			}
+
+			uint32_t slice_segment_address = (uint32_t)AMBst_GetBits(bs, quick_ceil_log2(sps->ptr_seq_parameter_set_rbsp->PicSizeInCtbsY));
+		}
+
+		if (!dependent_slice_segment_flag)
+		{
+			AMBst_SkipBits(bs, pps->ptr_pic_parameter_set_rbsp->num_extra_slice_header_bits);
+			nu_entry.slice_type = (int8_t)AMBst_Get_ue(bs);
+		}
+		else
+			nu_entry.slice_type = -1;
+	}
+	catch (...)
+	{
+		iRet = RET_CODE_ERROR;
+	}
+
+done:
+	AMBst_Destroy(bs);
+	return iRet;
 }
 
 int CNALParser::PickupHEVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUBuf, int cbNUBuf)
@@ -884,6 +995,37 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 			}
 		}
 	}
+	else if (m_nal_coding == NAL_CODING_VVC)
+	{
+		int8_t forbidden_zero_bit = (p[0] >> 7) & 0x01;
+		int8_t nuh_reserved_zero_bit = (p[0] >> 6) & 0x01;
+		int8_t nuh_layer_id = p[0] & 0x3F;
+		int8_t nuh_temporal_id_plus1 = p[1] & 0x07;
+
+		nal_unit_type = (p[1] >> 3) & 0x1F;
+
+		// Record the current nal_unit_header information and file offset
+		m_nu_entries.emplace_back(m_cur_submit_pos, offset, NAL_Unit_Len, count_of_leading_bytes, forbidden_zero_bit, nuh_reserved_zero_bit, nal_unit_type, nuh_layer_id, nuh_temporal_id_plus1);
+
+		if (IS_VVC_PARAMETERSET_NAL(nal_unit_type))
+		{
+			// Parsing the ebsp parameter set, and store it
+			iRet = LoadVVCParameterSet(p, NAL_Unit_Len - count_of_leading_bytes, m_cur_submit_pos);
+		}
+		else if (nal_unit_type == VVC_PH_NUT)
+		{
+			iRet = LoadPictureHeaderRBSP(p, NAL_Unit_Len - count_of_leading_bytes, m_cur_submit_pos);
+		}
+		else if (IS_VVC_VCL_NAL(nal_unit_type))
+		{
+			// Parsing a part of slice header
+			if (AMP_SUCCEEDED(PickupLastSliceHeaderInfo(p, NAL_Unit_Len - count_of_leading_bytes)))
+			{
+				// Commit the slice information, during committing, picture information may be generated
+				iRet = CommitSliceInfo(false);
+			}
+		}
+	}
 	else
 	{
 		goto done;
@@ -918,8 +1060,9 @@ int CNALParser::CommitSliceInfo(bool bDrain)
 				break;
 			}
 
-			if ((m_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(iter->nal_unit_type)) ||
-				(m_nal_coding == NAL_CODING_AVC && IS_AVC_VCL_NAL(iter->nal_unit_type)))
+			if ((m_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(iter->nal_unit_type_hevc)) ||
+				(m_nal_coding == NAL_CODING_AVC  && IS_AVC_VCL_NAL(iter->nal_unit_type_avc)) ||
+				(m_nal_coding == NAL_CODING_VVC  && IS_VVC_VCL_NAL(iter->nal_unit_type_vvc)))
 				iter_last_VCL_NAL_unit = iter;
 		}
 
@@ -931,21 +1074,35 @@ int CNALParser::CommitSliceInfo(bool bDrain)
 		{
 			// find the access unit boundary according H.264 spec: 7.4.1.2.3 Order of NAL units and coded pictures and association to access units
 			if (m_nal_coding == NAL_CODING_AVC && (
-				iter->nal_unit_type == BST::H264Video::AUD_NUT ||
-				iter->nal_unit_type == BST::H264Video::SPS_NUT ||
-				iter->nal_unit_type == BST::H264Video::PPS_NUT ||
-				iter->nal_unit_type == BST::H264Video::SEI_NUT || (
-				iter->nal_unit_type >= BST::H264Video::PREFIX_NUT && iter->nal_unit_type <= 18)))
+				iter->nal_unit_type_avc == BST::H264Video::AUD_NUT ||
+				iter->nal_unit_type_avc == BST::H264Video::SPS_NUT ||
+				iter->nal_unit_type_avc == BST::H264Video::PPS_NUT ||
+				iter->nal_unit_type_avc == BST::H264Video::SEI_NUT || (
+				iter->nal_unit_type_avc >= BST::H264Video::PREFIX_NUT && iter->nal_unit_type_avc <= 18)))
 				break;
 			// find the access unit boundary according to 7.4.2.4.4 Order of NAL units and coded pictures and their association to access units
-			else if (m_nal_coding == NAL_CODING_HEVC && iter->nuh_layer_id == 0 && (
-				iter->nal_unit_type == BST::H265Video::AUD_NUT ||
-				iter->nal_unit_type == BST::H265Video::VPS_NUT ||
-				iter->nal_unit_type == BST::H265Video::SPS_NUT ||
-				iter->nal_unit_type == BST::H265Video::PPS_NUT ||
-				iter->nal_unit_type == BST::H265Video::PREFIX_SEI_NUT ||
-				(iter->nal_unit_type >= BST::H265Video::RSV_NVCL41 && iter->nal_unit_type <= BST::H265Video::RSV_NVCL41 + 3) ||
-				(iter->nal_unit_type >= BST::H265Video::UNSPEC48 && iter->nal_unit_type <= BST::H265Video::UNSPEC48 + 7)))
+			else if (m_nal_coding == NAL_CODING_HEVC && iter->nuh_layer_id_hevc == 0 && (
+				iter->nal_unit_type_hevc == BST::H265Video::AUD_NUT ||
+				iter->nal_unit_type_hevc == BST::H265Video::VPS_NUT ||
+				iter->nal_unit_type_hevc == BST::H265Video::SPS_NUT ||
+				iter->nal_unit_type_hevc == BST::H265Video::PPS_NUT ||
+				iter->nal_unit_type_hevc == BST::H265Video::PREFIX_SEI_NUT || (
+				iter->nal_unit_type_hevc >= BST::H265Video::RSV_NVCL41 && iter->nal_unit_type_hevc <= BST::H265Video::RSV_NVCL41 + 3) || (
+				iter->nal_unit_type_hevc >= BST::H265Video::UNSPEC48   && iter->nal_unit_type_hevc <= BST::H265Video::UNSPEC48 + 7)))
+				break;
+			// 7.4.2.4.4 Order of NAL units and coded pictures and their association to PUs
+			else if (m_nal_coding == NAL_CODING_VVC && (
+				iter->nal_unit_type_vvc == BST::H266Video::AUD_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::OPI_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::DCI_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::VPS_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::SPS_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::PPS_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::PREFIX_APS_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::PH_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::PREFIX_SEI_NUT ||
+				iter->nal_unit_type_vvc == BST::H266Video::RSV_NVCL_26 ||
+				iter->nal_unit_type_vvc == BST::H266Video::UNSPEC_28 || iter->nal_unit_type_vvc == BST::H266Video::UNSPEC_29))
 				break;
 		}
 
@@ -955,6 +1112,8 @@ int CNALParser::CommitSliceInfo(bool bDrain)
 				iRet = CommitAVCPicture(iter_begin, iter);
 			else if (m_nal_coding == NAL_CODING_HEVC)
 				iRet = CommitHEVCPicture(iter_begin, iter);
+			else if (m_nal_coding == NAL_CODING_VVC)
+				iRet = CommitVVCPicture(iter_begin, iter);
 
 			if (iRet == RET_CODE_ABORT)
 				goto done;
@@ -990,6 +1149,13 @@ done:
 	return iRet;
 }
 
+int CNALParser::CommitVVCPicture(
+	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_start,
+	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_end)
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
 int CNALParser::CommitHEVCPicture(
 	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_start,
 	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_end)
@@ -1015,18 +1181,18 @@ int CNALParser::CommitHEVCPicture(
 
 	for (auto iter = pic_start; iter != pic_end; iter++)
 	{
-		if (iter->nal_unit_type == BST::H265Video::VPS_NUT)
+		if (iter->nal_unit_type_hevc == BST::H265Video::VPS_NUT)
 			bHasVPS = true;
-		else if (iter->nal_unit_type == BST::H265Video::SPS_NUT)
+		else if (iter->nal_unit_type_hevc == BST::H265Video::SPS_NUT)
 			bHasSPS = true;
 
 		// At present, only parsing base-layer NAL unit in advance
-		if (!IS_HEVC_VCL_NAL(iter->nal_unit_type) || iter->nuh_layer_id != 0)
+		if (!IS_HEVC_VCL_NAL(iter->nal_unit_type_hevc) || iter->nuh_layer_id_hevc != 0)
 			continue;
 
-		if (represent_nal_unit_type == -1 && (IS_BLA(iter->nal_unit_type) || IS_IDR(iter->nal_unit_type) || IS_CRA(iter->nal_unit_type)))
+		if (represent_nal_unit_type == -1 && (IS_BLA(iter->nal_unit_type_hevc) || IS_IDR(iter->nal_unit_type_hevc) || IS_CRA(iter->nal_unit_type_hevc)))
 		{
-			represent_nal_unit_type = (int8_t)iter->nal_unit_type;
+			represent_nal_unit_type = (int8_t)iter->nal_unit_type_hevc;
 			bCVSChange = true;
 		}
 
@@ -1045,8 +1211,8 @@ int CNALParser::CommitHEVCPicture(
 		}
 
 		if (nal_unit_type == 0xFF)
-			nal_unit_type = iter->nal_unit_type;
-		else if (nal_unit_type != iter->nal_unit_type)
+			nal_unit_type = iter->nal_unit_type_hevc;
+		else if (nal_unit_type != iter->nal_unit_type_hevc)
 		{
 			// Break the spec, record it to error table
 			printf("[HEVCScanner] nal_unit_type of all VCL NAL Units shall be the same in a coded picture.\n");
@@ -1060,7 +1226,7 @@ int CNALParser::CommitHEVCPicture(
 			picture_slice_type = 1;
 		else if (iter->slice_type == BST::H265Video::I_SLICE && picture_slice_type == 3)
 		{
-			first_I_nal_unit_type = iter->nal_unit_type;
+			first_I_nal_unit_type = iter->nal_unit_type_hevc;
 			picture_slice_type = 2;
 		}
 	}
@@ -1336,16 +1502,16 @@ int CNALParser::CommitAVCPicture(
 	int8_t represent_nal_unit_type = -1, first_I_nal_unit_type = -1;
 	for (auto iter = pic_start; iter != pic_end; iter++)
 	{
-		if (iter->nal_unit_type == BST::H264Video::SPS_NUT)
+		if (iter->nal_unit_type_hevc == BST::H264Video::SPS_NUT)
 			bHasSPS = true;
 
 		// At present, only parsing base-layer NAL unit in advance
-		if (!IS_AVC_VCL_NAL(iter->nal_unit_type))
+		if (!IS_AVC_VCL_NAL(iter->nal_unit_type_hevc))
 			continue;
 
-		if (represent_nal_unit_type == -1 && iter->nal_unit_type == BST::H264Video::CS_IDR_PIC)
+		if (represent_nal_unit_type == -1 && iter->nal_unit_type_hevc == BST::H264Video::CS_IDR_PIC)
 		{
-			represent_nal_unit_type = iter->nal_unit_type;
+			represent_nal_unit_type = iter->nal_unit_type_hevc;
 			bCVSChange = true;
 		}
 
@@ -1364,8 +1530,8 @@ int CNALParser::CommitAVCPicture(
 		}
 
 		if (nal_unit_type == 0xFF)
-			nal_unit_type = iter->nal_unit_type;
-		else if (nal_unit_type != iter->nal_unit_type)
+			nal_unit_type = iter->nal_unit_type_hevc;
+		else if (nal_unit_type != iter->nal_unit_type_hevc)
 		{
 			// Break the spec, record it to error table
 			printf("[AVCScanner] nal_unit_type of all VCL NAL Units shall be the same in a coded picture.\n");
@@ -1396,7 +1562,7 @@ int CNALParser::CommitAVCPicture(
 		case 7:
 			if (picture_slice_type == 0xFF)
 			{
-				first_I_nal_unit_type = iter->nal_unit_type;
+				first_I_nal_unit_type = iter->nal_unit_type_hevc;
 				picture_slice_type = AVC_PIC_SLICE_I;
 			}
 			else if (picture_slice_type == AVC_PIC_SLICE_SI)
@@ -1651,6 +1817,8 @@ int CNALParser::ParseNALUnit(uint8_t* pNUBuf, int cbNUBuf)
 		nal_unit_type = pNUBuf[0] & 0x1F;
 	else if (m_nal_coding == NAL_CODING_HEVC)
 		nal_unit_type = (pNUBuf[0] >> 1) & 0x3F;
+	else if (m_nal_coding == NAL_CODING_VVC)
+		nal_unit_type = (pNUBuf[1] >> 3) & 0x1F;
 
 	if (m_nal_enum)
 	{
@@ -1730,10 +1898,15 @@ int CNALParser::ParseSEINU(uint8_t* pNUBuf, int cbNUBuf)
 			}
 		}
 	}
-	else if (m_nal_coding == NAL_CODING_HEVC || m_nal_coding == NAL_CODING_VVC)
+	else if (m_nal_coding == NAL_CODING_HEVC)
 	{
 		nalUnitHeaderBytes = 2;
 		nal_unit_type = (pNUBuf[0] >> 1) & 0x3F;
+	}
+	else if (m_nal_coding == NAL_CODING_VVC)
+	{
+		nalUnitHeaderBytes = 2;
+		nal_unit_type = (pNUBuf[1] >> 3) & 0x1F;
 	}
 	else
 		return RET_CODE_ERROR_NOTIMPL;
