@@ -827,6 +827,178 @@ namespace BST {
 
 			};
 
+			struct VUI_PARAMETERS : public SYNTAX_BITSTREAM_MAP
+			{
+				uint8_t			vui_progressive_source_flag : 1;
+				uint8_t			vui_interlaced_source_flag : 1;
+				uint8_t			vui_non_packed_constraint_flag : 1;
+				uint8_t			vui_non_projected_constraint_flag : 1;
+				uint8_t			vui_aspect_ratio_info_present_flag : 1;
+				uint8_t			vui_aspect_ratio_constant_flag : 1;
+				uint8_t			vui_overscan_info_present_flag : 1;
+				uint8_t			vui_overscan_appropriate_flag : 1;
+
+				uint8_t			vui_aspect_ratio_idc;
+				uint16_t		vui_sar_width;
+				uint16_t		vui_sar_height;
+
+
+				uint8_t			vui_colour_description_present_flag : 1;
+				uint8_t			vui_full_range_flag : 1;
+				uint8_t			vui_chroma_loc_info_present_flag : 1;
+				uint8_t			byte_align0 : 5;
+
+
+				uint8_t			vui_colour_primaries;
+				uint8_t			vui_transfer_characteristics;
+				uint8_t			vui_matrix_coeffs;
+
+				uint8_t			vui_chroma_sample_loc_type_frame;
+				uint8_t			vui_chroma_sample_loc_type_top_field;
+				uint8_t			vui_chroma_sample_loc_type_bottom_field;
+
+				uint16_t		m_payloadSize;
+
+				VUI_PARAMETERS(uint16_t payloadSize)
+					: vui_aspect_ratio_info_present_flag(0), m_payloadSize(payloadSize) {
+				}
+
+				int Map(AMBst in_bst)
+				{
+					int iRet = RET_CODE_SUCCESS;
+					SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+					try
+					{
+						int idx = 0;
+						MAP_BST_BEGIN(0);
+						bsrb1(in_bst, vui_progressive_source_flag, 1);
+						bsrb1(in_bst, vui_interlaced_source_flag, 1);
+						bsrb1(in_bst, vui_non_packed_constraint_flag, 1);
+						bsrb1(in_bst, vui_non_projected_constraint_flag, 1);
+						bsrb1(in_bst, vui_aspect_ratio_info_present_flag, 1);
+
+						if (vui_aspect_ratio_info_present_flag) {
+							bsrb1(in_bst, vui_aspect_ratio_constant_flag, 1);
+
+							bsrb1(in_bst, vui_aspect_ratio_idc, 8);
+							if (vui_aspect_ratio_idc == 255)
+							{
+								bsrb1(in_bst, vui_sar_width, 16);
+								bsrb1(in_bst, vui_sar_height, 16);
+							}
+						}
+
+						bsrb1(in_bst, vui_overscan_info_present_flag, 1);
+						if (vui_overscan_info_present_flag) {
+							bsrb1(in_bst, vui_overscan_appropriate_flag, 1);
+						}
+						bsrb1(in_bst, vui_colour_description_present_flag, 1);
+						if (vui_colour_description_present_flag)
+						{
+							bsrb1(in_bst, vui_colour_primaries, 8);
+							bsrb1(in_bst, vui_transfer_characteristics, 8);
+							bsrb1(in_bst, vui_matrix_coeffs, 8);
+							bsrb1(in_bst, vui_full_range_flag, 1);
+						}
+
+						bsrb1(in_bst, vui_chroma_loc_info_present_flag, 1);
+						if (vui_chroma_loc_info_present_flag) {
+							if (vui_progressive_source_flag && !vui_interlaced_source_flag)
+							{
+								nal_read_ue(in_bst, vui_chroma_sample_loc_type_frame, uint8_t);
+							}
+							else
+							{
+								nal_read_ue(in_bst, vui_chroma_sample_loc_type_top_field, uint8_t);
+								nal_read_ue(in_bst, vui_chroma_sample_loc_type_bottom_field, uint8_t);
+							}
+						}
+
+						MAP_BST_END();
+					}
+					catch (AMException e)
+					{
+						return e.RetCode();
+					}
+
+					return RET_CODE_SUCCESS;
+				}
+
+				int Unmap(AMBst out_bst)
+				{
+					UNREFERENCED_PARAMETER(out_bst);
+					return RET_CODE_ERROR_NOTIMPL;
+				}
+
+				DECLARE_FIELDPROP_BEGIN()
+
+				DECLARE_FIELDPROP_END()
+			};
+
+			struct VUI_PAYLOAD : public SYNTAX_BITSTREAM_MAP
+			{
+				VUI_PARAMETERS	vui_parameters;
+
+				uint8_t			vui_payload_bit_equal_to_one : 1;
+				uint8_t			byte_align0 : 7;
+				CAMBitArray		vui_reserved_payload_extension_data;
+				CAMBitArray		vui_payload_bit_equal_to_zero;
+
+				VUI_PAYLOAD(uint16_t payloadSize) : vui_parameters(payloadSize) {}
+
+				int Map(uint8_t* pVUIPayloadBuf, uint16_t cbVUIPayloadBuf)
+				{
+					if (pVUIPayloadBuf == nullptr || cbVUIPayloadBuf <= 0)
+						return RET_CODE_INVALID_PARAMETER;
+
+					// Check the last byte to find the stop bit
+					uint8_t pLastByte = *(pVUIPayloadBuf + cbVUIPayloadBuf - 1);
+					if (pLastByte == 0)
+						return RET_CODE_BUFFER_NOT_COMPATIBLE;
+
+					uint8_t nPayloadZeroBits = 0;
+					for (uint8_t i = 0; i < 8; i++) {
+						if (pLastByte&(1 << i))
+							break;
+
+						nPayloadZeroBits++;
+					}
+
+					AMBst bst = AMBst_CreateFromBuffer(pVUIPayloadBuf, cbVUIPayloadBuf);
+					if (bst == nullptr)
+						return RET_CODE_OUTOFMEMORY;
+
+					nal_read_obj(bst, vui_parameters);
+
+					int left_bits_in_bst = 0;
+					int nEarlierBits = AMBst_Tell(bst, &left_bits_in_bst);
+
+					if (left_bits_in_bst > nPayloadZeroBits + 1) {
+						for (int i = 0; i < left_bits_in_bst - (nPayloadZeroBits + 1); i++) {
+							bsrbarray(bst, vui_reserved_payload_extension_data, i);
+						}
+					}
+
+					bsrb1(bst, vui_payload_bit_equal_to_one, 1);
+					for (int i = 0; i < nPayloadZeroBits; i++) {
+						bsrbarray(bst, vui_payload_bit_equal_to_zero, i);
+					}
+
+					return RET_CODE_SUCCESS;
+				}
+
+				int Unmap(AMBst out_bst)
+				{
+					UNREFERENCED_PARAMETER(out_bst);
+					return RET_CODE_ERROR_NOTIMPL;
+				}
+
+				DECLARE_FIELDPROP_BEGIN()
+
+				DECLARE_FIELDPROP_END()
+			};
+
 			struct VIDEO_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
 			{
 				struct VPS_OLS_DPB_PARAMS
@@ -962,214 +1134,10 @@ namespace BST {
 
 				int UpdateReferenceLayers();
 				int UpdateOLSInfo();
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
 
-				int Map(AMBst in_bst)
-				{
-					int iRet = RET_CODE_SUCCESS;
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-
-					try
-					{
-						int idx = 0;
-						MAP_BST_BEGIN(0);
-						bsrb1(in_bst, vps_video_parameter_set_id, 4);
-						bsrb1(in_bst, vps_max_layers_minus1, 6);
-						bsrb1(in_bst, vps_max_sublayers_minus1, 3);
-
-						if (vps_max_layers_minus1 > 0 && vps_max_sublayers_minus1 > 0) {
-							bsrb1(in_bst, vps_default_ptl_dpb_hrd_max_tid_flag, 1);
-						}
-						
-						if (vps_max_layers_minus1 > 0) {
-							bsrb1(in_bst, vps_all_independent_layers_flag, 1);
-						}
-
-						memset(vps_max_tid_il_ref_pics_plus1, (uint8_t)((uint32_t)vps_max_sublayers_minus1 + 1), sizeof(vps_max_tid_il_ref_pics_plus1));
-						for (int i = 0; i <= vps_max_layers_minus1; i++) {
-							bsrb1(in_bst, vps_layer_id[i], 6);
-							// When not present, the value of vps_independent_layer_flag[ i ] is inferred to be equal to 1
-							vps_independent_layer_flag.BitSet(i);
-							if (i > 0 && !vps_all_independent_layers_flag) {
-								bsrbarray(in_bst, vps_independent_layer_flag, i);
-								if (!vps_independent_layer_flag[i]) {
-									bsrbarray(in_bst, vps_max_tid_ref_present_flag, i);
-									for (int j = 0; j < i; j++) {
-										bsrbarray(in_bst, vps_direct_ref_layer_flag[i], j);
-										if (vps_max_tid_ref_present_flag[i] && vps_direct_ref_layer_flag[i][j]) {
-											bsrb1(in_bst, vps_max_tid_il_ref_pics_plus1[i][j], 3);
-										}
-									}
-								}
-							}
-						}
-
-						UpdateReferenceLayers();
-
-						if (vps_max_layers_minus1 > 0) {
-							if (vps_all_independent_layers_flag) {
-								bsrb1(in_bst, vps_each_layer_is_an_ols_flag, 1);
-							}
-
-							if (!vps_each_layer_is_an_ols_flag) {
-								if (!vps_all_independent_layers_flag) {
-									bsrb1(in_bst, vps_ols_mode_idc, 2);
-								}
-								else
-									vps_ols_mode_idc = 2;
-
-								if (vps_ols_mode_idc == 2) {
-									bsrb1(in_bst, vps_num_output_layer_sets_minus2, 8);
-									vps_ols_output_layer_flag.resize(vps_num_output_layer_sets_minus2 + 2);
-									for (int i = 1; i <= (int)vps_num_output_layer_sets_minus2 + 1; i++){
-										for (int j = 0; j <= (int)vps_max_layers_minus1; j++){
-											bsrbarray(in_bst, vps_ols_output_layer_flag[i], j);
-										}
-									}
-								}
-							}
-
-							bsrb1(in_bst, vps_num_ptls_minus1, 8);
-						}
-
-						vps_ptl_max_tid.resize(vps_num_ptls_minus1 + 1);
-						for (int i = 0; i <= vps_num_ptls_minus1; i++) {
-							if (i > 0) {
-								bsrbarray(in_bst, vps_pt_present_flag, i);
-							}
-							else
-								vps_pt_present_flag.BitClear(0);
-
-							if (!vps_default_ptl_dpb_hrd_max_tid_flag) {
-								bsrb1(in_bst, vps_ptl_max_tid[i], 3);
-							}
-							else
-								vps_ptl_max_tid[i] = vps_max_sublayers_minus1;
-						}
-
-						UpdateOLSInfo();
-
-						while (!AMBst_IsAligned(in_bst)) {
-							bsrbarray(in_bst, vps_ptl_alignment_zero_bit, idx);
-							idx++;
-						}
-
-						profile_tier_level.resize((size_t)vps_num_ptls_minus1 + 1);
-						for (int i = 0; i <= (int)vps_num_ptls_minus1; i++) {
-							bsrbreadref(in_bst, profile_tier_level[i], PROFILE_TIER_LEVEL, vps_pt_present_flag[i], vps_ptl_max_tid[i]);
-						}
-
-						vps_ols_ptl_idx.resize(TotalNumOlss);
-						for (int i = 0; i < TotalNumOlss; i++) {
-							if (vps_num_ptls_minus1 > 0 && vps_num_ptls_minus1 + 1 != TotalNumOlss) {
-								bsrb1(in_bst, vps_ols_ptl_idx[i], 8);
-							}
-							else if (vps_num_ptls_minus1 == 0)
-								vps_ols_ptl_idx[i] = 0;
-							else
-								vps_ols_ptl_idx[i] = i;
-						}
-
-						if (!vps_each_layer_is_an_ols_flag) {
-							nal_read_ue(in_bst, vps_num_dpb_params_minus1, uint32_t);
-							if (vps_max_sublayers_minus1 > 0) {
-								bsrb1(in_bst, vps_sublayer_dpb_params_present_flag, 1);
-							}
-
-							int nVpsNumDpbParams = VpsNumDpbParams();
-							if (nVpsNumDpbParams > 0)
-							{
-								vps_dpb_max_tid.resize((size_t)nVpsNumDpbParams);
-								dpb_parameters.resize((size_t)nVpsNumDpbParams);
-								for (int i = 0; i < nVpsNumDpbParams; i++) {
-									if (!vps_default_ptl_dpb_hrd_max_tid_flag) {
-										bsrb1(in_bst, vps_dpb_max_tid[i], 3);
-									}
-									else
-										vps_dpb_max_tid[i] = vps_max_sublayers_minus1;
-									bsrbreadref(in_bst, dpb_parameters[i], DPB_PARAMETERS, vps_dpb_max_tid[i], vps_sublayer_dpb_params_present_flag);
-								}
-							}
-							
-							if (NumMultiLayerOlss > 0)
-							{
-								vps_ols_dpb.resize(NumMultiLayerOlss);
-								for (uint32_t i = 0; i < NumMultiLayerOlss; i++)
-								{
-									nal_read_ue(in_bst, vps_ols_dpb[i].pic_width, uint32_t);
-									nal_read_ue(in_bst, vps_ols_dpb[i].pic_height, uint32_t);
-									bsrb1(in_bst, vps_ols_dpb[i].chroma_format, 2);
-									nal_read_ue(in_bst, vps_ols_dpb[i].bitdepth_minus8, uint32_t);
-									if (nVpsNumDpbParams > 1 && nVpsNumDpbParams != NumMultiLayerOlss) {
-										nal_read_ue(in_bst, vps_ols_dpb[i].params_idx, uint32_t);
-									}
-									else if (nVpsNumDpbParams == 1)
-										vps_ols_dpb[i].params_idx = 0;
-									else
-										vps_ols_dpb[i].params_idx = i;
-								}
-							}
-
-							bsrb1(in_bst, vps_timing_hrd_params_present_flag, 1);
-							if (vps_timing_hrd_params_present_flag) {
-								bsrbreadref(in_bst, general_timing_hrd_parameters, GENERAL_TIMING_HRD_PARAMETERS);
-								if (vps_max_sublayers_minus1 > 0) {
-									bsrb1(in_bst, vps_sublayer_cpb_params_present_flag, 1);
-								}
-								else
-									vps_sublayer_cpb_params_present_flag = 0;
-								nal_read_ue(in_bst, vps_num_ols_timing_hrd_params_minus1, uint16_t);
-
-								vps_hrd_max_tid.resize((size_t)vps_num_ols_timing_hrd_params_minus1 + 1);
-								ols_timing_hrd_parameters.resize((size_t)vps_num_ols_timing_hrd_params_minus1 + 1);
-								for (uint32_t i = 0; i <= vps_num_ols_timing_hrd_params_minus1; i++)
-								{
-									if (!vps_default_ptl_dpb_hrd_max_tid_flag) {
-										bsrb1(in_bst, vps_hrd_max_tid[i], 3);
-									}
-
-									uint8_t firstSubLayer = vps_sublayer_cpb_params_present_flag ? 0 : vps_hrd_max_tid[i];
-									bsrbreadref(in_bst, ols_timing_hrd_parameters[i], OLS_TIMING_HRD_PARAMETERS, 
-										firstSubLayer, vps_hrd_max_tid[i], general_timing_hrd_parameters);
-								}
-
-								if (vps_num_ols_timing_hrd_params_minus1 > 0 && vps_num_ols_timing_hrd_params_minus1 + 1 != NumMultiLayerOlss){
-									vps_ols_timing_hrd_idx.resize(NumMultiLayerOlss);
-									for (uint32_t i = 0; i < NumMultiLayerOlss; i++) {
-										nal_read_ue(in_bst, vps_ols_timing_hrd_idx[i], uint32_t);
-									}
-								}
-							}
-
-							bsrb1(in_bst, vps_extension_flag, 1);
-							if (vps_extension_flag) {
-								idx = 0;
-								while (AMBst_more_data(in_bst)) {
-									bsrbarray(in_bst, vps_extension_data_flag, idx);
-									idx++;
-								}
-							}
-							nal_read_obj(in_bst, rbsp_trailing_bits);
-						}
-							
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-
-				DECLARE_FIELDPROP_END()
+				size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL);
 			};
 
 			struct SEQ_PARAMETER_SET_RBSP;
@@ -1191,11 +1159,26 @@ namespace BST {
 
 				uint8_t			m_listIdx;	// 0,1
 				uint8_t			m_rplsIdx;	// 0~64
+				// Variables inherited from the current SPS
+				uint8_t			current_sps_num_ref_pic_list;
+				uint8_t			sps_long_term_ref_pics_flag:1;
+				uint8_t			sps_inter_layer_prediction_enabled_flag:1;
+				uint8_t			sps_weighted_pred_flag:1;
+				uint8_t			sps_weighted_bipred_flag:1;
+				uint8_t			sps_log2_max_pic_order_cnt_lsb_minus4:4;
+
 				SEQ_PARAMETER_SET_RBSP* 
 								m_seq_parameter_set_rbsp;
 
 				REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, SEQ_PARAMETER_SET_RBSP* seq_parameter_set_rbsp)
 					: ltrp_in_header_flag(1), m_listIdx(listIdx), m_rplsIdx(rplsIdx), m_seq_parameter_set_rbsp(seq_parameter_set_rbsp){
+
+					current_sps_num_ref_pic_list = seq_parameter_set_rbsp->sps_num_ref_pic_lists[m_listIdx];
+					sps_long_term_ref_pics_flag = seq_parameter_set_rbsp->sps_long_term_ref_pics_flag;
+					sps_inter_layer_prediction_enabled_flag = seq_parameter_set_rbsp->sps_inter_layer_prediction_enabled_flag;
+					sps_weighted_pred_flag = seq_parameter_set_rbsp->sps_weighted_pred_flag;
+					sps_weighted_bipred_flag = seq_parameter_set_rbsp->sps_weighted_bipred_flag;
+					sps_log2_max_pic_order_cnt_lsb_minus4 = seq_parameter_set_rbsp->sps_log2_max_pic_order_cnt_lsb_minus4;
 				}
 
 				int Map(AMBst in_bst);
@@ -1242,10 +1225,8 @@ namespace BST {
 								sps_subpic_width_minus1;
 				std::vector<uint32_t>
 								sps_subpic_height_minus1;
-				std::vector<bool>
-								sps_subpic_treated_as_pic_flag;
-				std::vector<bool>
-								sps_loop_filter_across_subpic_enabled_flag;
+				CAMBitArray		sps_subpic_treated_as_pic_flag;
+				CAMBitArray		sps_loop_filter_across_subpic_enabled_flag;
 
 				uint8_t			sps_subpic_id_len_minus1;
 
@@ -1270,6 +1251,13 @@ namespace BST {
 				uint32_t		sps_partition_constraints_override_enabled_flag : 1;
 				uint32_t		sps_qtbtt_dual_tree_intra_flag : 1;
 
+				DPB_PARAMETERS*	dpb_parameters = nullptr;
+
+				uint16_t		sps_log2_diff_min_qt_min_cb_intra_slice_chroma : 3;
+				uint16_t		sps_max_mtt_hierarchy_depth_intra_slice_chroma : 4;
+				uint16_t		sps_log2_diff_max_bt_min_qt_intra_slice_chroma : 3;
+				uint16_t		sps_log2_diff_max_tt_min_qt_intra_slice_chroma : 3;
+
 				uint32_t		sps_log2_diff_max_bt_min_qt_intra_slice_luma : 3;
 				uint32_t		sps_log2_diff_max_tt_min_qt_intra_slice_luma : 3;
 				uint32_t		sps_log2_diff_min_qt_min_cb_inter_slice : 3;
@@ -1288,10 +1276,11 @@ namespace BST {
 				uint32_t		sps_same_qp_table_for_chroma_flag : 1;
 				uint32_t		dword_align_0 : 3;
 
-				std::vector<bool>
-								sps_extra_ph_bit_present_flag;
-				std::vector<bool>
-								sps_extra_sh_bit_present_flag;
+				CAMBitArray		sps_extra_ph_bit_present_flag;
+				CAMBitArray		sps_extra_sh_bit_present_flag;
+
+				uint8_t			NumExtraPhBits = 0;
+				uint8_t			NumExtraShBits = 0;
 
 				int8_t			sps_qp_table_start_minus26[3];
 				uint8_t			sps_num_points_in_qp_table_minus1[3];
@@ -1324,14 +1313,17 @@ namespace BST {
 				uint8_t			sps_six_minus_max_num_merge_cand : 3;
 
 				uint8_t			sps_sbt_enabled_flag : 1;
-				uint8_t			sps_affine_enabled_flag : 3;
+				uint8_t			sps_affine_enabled_flag : 1;
+				uint8_t			sps_five_minus_max_num_subblock_merge_cand : 3;
 				uint8_t			sps_6param_affine_enabled_flag : 1;
 				uint8_t			sps_affine_amvr_enabled_flag : 1;
 				uint8_t			sps_affine_prof_enabled_flag : 1;
-				uint8_t			sps_prof_control_present_in_ph_flag : 1;
 
 				uint8_t			sps_num_ref_pic_lists[2];
+				REF_PIC_LIST_STRUCT*
+								ref_pic_list_struct[2][65] = { {nullptr} };
 
+				uint32_t		sps_prof_control_present_in_ph_flag : 1;
 				uint32_t		sps_bcw_enabled_flag : 1;
 				uint32_t		sps_ciip_enabled_flag : 1;
 				uint32_t		sps_gpm_enabled_flag : 1;
@@ -1350,10 +1342,74 @@ namespace BST {
 				uint32_t		sps_six_minus_max_num_ibc_merge_cand : 3;
 				uint32_t		sps_ladf_enabled_flag : 1;
 				uint32_t		sps_num_ladf_intervals_minus2 : 2;
-				uint32_t		dword_align1 : 4;
+				uint32_t		dword_align1 : 3;
 
 				int8_t			sps_ladf_lowest_interval_qp_offset;
+				int8_t			sps_ladf_qp_offset[4];
+				uint32_t		sps_ladf_delta_threshold_minus1[4];
 
+				uint8_t			sps_explicit_scaling_list_enabled_flag : 1;
+				uint8_t			sps_scaling_matrix_for_lfnst_disabled_flag : 1;
+				uint8_t			sps_scaling_matrix_for_alternative_colour_space_disabled_flag : 1;
+				uint8_t			sps_scaling_matrix_designated_colour_space_flag : 1;
+				uint8_t			sps_dep_quant_enabled_flag : 1;
+				uint8_t			sps_sign_data_hiding_enabled_flag : 1;
+				uint8_t			sps_virtual_boundaries_enabled_flag : 1;
+				uint8_t			sps_virtual_boundaries_present_flag : 1;
+
+				uint8_t			sps_num_ver_virtual_boundaries : 2;
+				uint8_t			sps_num_hor_virtual_boundaries : 2;
+				uint8_t			sps_timing_hrd_params_present_flag : 1;
+				uint8_t			sps_sublayer_cpb_params_present_flag: 1;
+				uint8_t			sps_field_seq_flag : 1;
+				uint8_t			sps_vui_parameters_present_flag : 1;
+
+				uint32_t		sps_virtual_boundary_pos_x_minus1[3];
+				uint32_t		sps_virtual_boundary_pos_y_minus1[3];
+
+				GENERAL_TIMING_HRD_PARAMETERS*
+								general_timing_hrd_parameters = nullptr;
+				OLS_TIMING_HRD_PARAMETERS*
+								ols_timing_hrd_parameters = nullptr;
+
+				uint16_t		sps_vui_payload_size_minus1 : 10;
+				uint16_t		sps_extension_flag : 1;
+				uint16_t		word_align0 : 5;
+
+				CAMBitArray		sps_vui_alignment_zero_bit;
+
+				VUI_PAYLOAD*	vui_payload = nullptr;
+
+				CAMBitArray		sps_extension_data_flag;
+
+				RBSP_TRAILING_BITS
+								rbsp_trailing_bits;
+
+				SEQ_PARAMETER_SET_RBSP();
+				~SEQ_PARAMETER_SET_RBSP() {
+					AMP_SAFEDEL2(profile_tier_level);
+					AMP_SAFEDEL2(dpb_parameters);
+					for (int i = 0; i < 2; i++)
+					{
+						for (int j = 0; j < 65; j++) {
+							AMP_SAFEDEL2(ref_pic_list_struct[i][j]);
+						}
+					}
+					AMP_SAFEDEL2(general_timing_hrd_parameters);
+					AMP_SAFEDEL2(ols_timing_hrd_parameters);
+					AMP_SAFEDEL2(vui_payload);
+				}
+
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst)
+				{
+					UNREFERENCED_PARAMETER(out_bst);
+					return RET_CODE_ERROR_NOTIMPL;
+				}
+
+				DECLARE_FIELDPROP_BEGIN()
+
+				DECLARE_FIELDPROP_END()
 			};
 		};
 	}

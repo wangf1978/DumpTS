@@ -1521,9 +1521,11 @@ SOFTWARE.
 #define nal_read_i32(bst, field, n)			{field = AMBst_GetTCLong(bst, n); map_status.number_of_fields++;}AMP_NOP1(0)
 #define nal_read_i64(bst, field, n)			{field = AMBst_GetTCLongLong(bst, n); map_status.number_of_fields++;}AMP_NOP1(0)
 #define nal_read_se(bst, field, type)		{field = (type)AMBst_Get_se(bst); map_status.number_of_fields++;}AMP_NOP1(0)
+#define nal_read_se1(bst, field)			{field = (std::remove_reference<decltype(field)>::type)AMBst_Get_se(bst); map_status.number_of_fields++;}AMP_NOP1(0)
 #define nal_read_st(bst, field)				{field = AMBst_Get_String(bst, false); map_status.number_of_fields++;}AMP_NOP1(0)
 #define nal_read_u(bst, field, n, type)		{field = (type)AMBst_GetBits(bst, n); map_status.number_of_fields++;}AMP_NOP1(0)
 #define nal_read_ue(bst, field, type)		{field = (type)AMBst_Get_ue(bst); map_status.number_of_fields++;}AMP_NOP1(0)
+#define nal_read_ue1(bst, field)			{field = (std::remove_reference<decltype(field)>::type)AMBst_Get_ue(bst); map_status.number_of_fields++;}AMP_NOP1(0)
 #define nal_read_obj(bst, obj)				{obj.Map(bst); map_status.number_of_fields++;}AMP_NOP1(0)
 #define nal_read_ref1(bst, flag, ptr, type, ...)	\
 											{MAP_MEM_TO_STRUCT_POINTER5_1(bst, flag, ptr, type, ##__VA_ARGS__); map_status.number_of_fields++;}AMP_NOP1(0)

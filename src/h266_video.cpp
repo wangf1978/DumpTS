@@ -152,7 +152,7 @@ namespace BST
 	{
 		int NAL_UNIT::VIDEO_PARAMETER_SET_RBSP::UpdateReferenceLayers()
 		{
-			uint8_t dependencyFlag[64][64] = { 0 };
+			uint8_t dependencyFlag[64][64] = { {0} };
 			for (uint16_t i = 0; i <= vps_max_layers_minus1; i++) {
 				for (uint16_t j = 0; j <= vps_max_layers_minus1; j++) {
 					dependencyFlag[i][j] = vps_direct_ref_layer_flag[i][j];
@@ -316,21 +316,21 @@ namespace BST
 				int idx = 0;
 				MAP_BST_BEGIN(0);
 				nal_read_ue(in_bst, num_ref_entries, uint8_t);
-				if (m_seq_parameter_set_rbsp->sps_long_term_ref_pics_flag &&
-					m_rplsIdx < m_seq_parameter_set_rbsp->sps_num_ref_pic_lists[m_listIdx] && num_ref_entries > 0)
+				if (sps_long_term_ref_pics_flag &&
+					m_rplsIdx < current_sps_num_ref_pic_list && num_ref_entries > 0)
 					bsrb1(in_bst, ltrp_in_header_flag, 1);
 				abs_delta_poc_st.resize(num_ref_entries);
 				ilrp_idx.resize(num_ref_entries);
 				for (uint16_t i = 0, j = 0; i < num_ref_entries; i++)
 				{
-					if (m_seq_parameter_set_rbsp->sps_inter_layer_prediction_enabled_flag) {
+					if (sps_inter_layer_prediction_enabled_flag) {
 						bsrbarray(in_bst, inter_layer_ref_pic_flag, i);
 					}
 					else
 						inter_layer_ref_pic_flag.BitClear(i);
 
 					if (!inter_layer_ref_pic_flag[i]) {
-						if (m_seq_parameter_set_rbsp->sps_long_term_ref_pics_flag) {
+						if (sps_long_term_ref_pics_flag) {
 							bsrbarray(in_bst, st_ref_pic_flag, i);
 						}
 						else
@@ -339,7 +339,7 @@ namespace BST
 						if (st_ref_pic_flag[i]) {
 							nal_read_ue(in_bst, abs_delta_poc_st[i], uint16_t);
 							uint32_t AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i] + 1;
-							if ((m_seq_parameter_set_rbsp->sps_weighted_pred_flag || m_seq_parameter_set_rbsp->sps_weighted_bipred_flag) && i != 0)
+							if ((sps_weighted_pred_flag || sps_weighted_bipred_flag) && i != 0)
 								AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i];
 
 							if (AbsDeltaPocSt > 0) {
@@ -351,7 +351,7 @@ namespace BST
 						else if(!ltrp_in_header_flag)
 						{
 							uint16_t rpls_poc_lsb_lt_value;
-							bsrb1(in_bst, rpls_poc_lsb_lt_value, m_seq_parameter_set_rbsp->sps_log2_max_pic_order_cnt_lsb_minus4 + 4);
+							bsrb1(in_bst, rpls_poc_lsb_lt_value, sps_log2_max_pic_order_cnt_lsb_minus4 + 4);
 							rpls_poc_lsb_lt[j++] = rpls_poc_lsb_lt_value;
 						}
 						else
@@ -371,6 +371,214 @@ namespace BST
 			return RET_CODE_SUCCESS;
 		}
 
+		int NAL_UNIT::VIDEO_PARAMETER_SET_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				int idx = 0;
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, vps_video_parameter_set_id, 4);
+				bsrb1(in_bst, vps_max_layers_minus1, 6);
+				bsrb1(in_bst, vps_max_sublayers_minus1, 3);
+
+				if (vps_max_layers_minus1 > 0 && vps_max_sublayers_minus1 > 0) {
+					bsrb1(in_bst, vps_default_ptl_dpb_hrd_max_tid_flag, 1);
+				}
+						
+				if (vps_max_layers_minus1 > 0) {
+					bsrb1(in_bst, vps_all_independent_layers_flag, 1);
+				}
+
+				memset(vps_max_tid_il_ref_pics_plus1, (uint8_t)((uint32_t)vps_max_sublayers_minus1 + 1), sizeof(vps_max_tid_il_ref_pics_plus1));
+				for (int i = 0; i <= vps_max_layers_minus1; i++) {
+					bsrb1(in_bst, vps_layer_id[i], 6);
+					// When not present, the value of vps_independent_layer_flag[ i ] is inferred to be equal to 1
+					vps_independent_layer_flag.BitSet(i);
+					if (i > 0 && !vps_all_independent_layers_flag) {
+						bsrbarray(in_bst, vps_independent_layer_flag, i);
+						if (!vps_independent_layer_flag[i]) {
+							bsrbarray(in_bst, vps_max_tid_ref_present_flag, i);
+							for (int j = 0; j < i; j++) {
+								bsrbarray(in_bst, vps_direct_ref_layer_flag[i], j);
+								if (vps_max_tid_ref_present_flag[i] && vps_direct_ref_layer_flag[i][j]) {
+									bsrb1(in_bst, vps_max_tid_il_ref_pics_plus1[i][j], 3);
+								}
+							}
+						}
+					}
+				}
+
+				UpdateReferenceLayers();
+
+				if (vps_max_layers_minus1 > 0) {
+					if (vps_all_independent_layers_flag) {
+						bsrb1(in_bst, vps_each_layer_is_an_ols_flag, 1);
+					}
+
+					if (!vps_each_layer_is_an_ols_flag) {
+						if (!vps_all_independent_layers_flag) {
+							bsrb1(in_bst, vps_ols_mode_idc, 2);
+						}
+						else
+							vps_ols_mode_idc = 2;
+
+						if (vps_ols_mode_idc == 2) {
+							bsrb1(in_bst, vps_num_output_layer_sets_minus2, 8);
+							vps_ols_output_layer_flag.resize(vps_num_output_layer_sets_minus2 + 2);
+							for (int i = 1; i <= (int)vps_num_output_layer_sets_minus2 + 1; i++){
+								for (int j = 0; j <= (int)vps_max_layers_minus1; j++){
+									bsrbarray(in_bst, vps_ols_output_layer_flag[i], j);
+								}
+							}
+						}
+					}
+
+					bsrb1(in_bst, vps_num_ptls_minus1, 8);
+				}
+
+				vps_ptl_max_tid.resize(vps_num_ptls_minus1 + 1);
+				for (int i = 0; i <= vps_num_ptls_minus1; i++) {
+					if (i > 0) {
+						bsrbarray(in_bst, vps_pt_present_flag, i);
+					}
+					else
+						vps_pt_present_flag.BitClear(0);
+
+					if (!vps_default_ptl_dpb_hrd_max_tid_flag) {
+						bsrb1(in_bst, vps_ptl_max_tid[i], 3);
+					}
+					else
+						vps_ptl_max_tid[i] = vps_max_sublayers_minus1;
+				}
+
+				UpdateOLSInfo();
+
+				while (!AMBst_IsAligned(in_bst)) {
+					bsrbarray(in_bst, vps_ptl_alignment_zero_bit, idx);
+					idx++;
+				}
+
+				profile_tier_level.resize((size_t)vps_num_ptls_minus1 + 1);
+				for (int i = 0; i <= (int)vps_num_ptls_minus1; i++) {
+					bsrbreadref(in_bst, profile_tier_level[i], PROFILE_TIER_LEVEL, vps_pt_present_flag[i], vps_ptl_max_tid[i]);
+				}
+
+				vps_ols_ptl_idx.resize(TotalNumOlss);
+				for (int i = 0; i < TotalNumOlss; i++) {
+					if (vps_num_ptls_minus1 > 0 && vps_num_ptls_minus1 + 1 != TotalNumOlss) {
+						bsrb1(in_bst, vps_ols_ptl_idx[i], 8);
+					}
+					else if (vps_num_ptls_minus1 == 0)
+						vps_ols_ptl_idx[i] = 0;
+					else
+						vps_ols_ptl_idx[i] = i;
+				}
+
+				if (!vps_each_layer_is_an_ols_flag) {
+					nal_read_ue(in_bst, vps_num_dpb_params_minus1, uint32_t);
+					if (vps_max_sublayers_minus1 > 0) {
+						bsrb1(in_bst, vps_sublayer_dpb_params_present_flag, 1);
+					}
+
+					int nVpsNumDpbParams = VpsNumDpbParams();
+					if (nVpsNumDpbParams > 0)
+					{
+						vps_dpb_max_tid.resize((size_t)nVpsNumDpbParams);
+						dpb_parameters.resize((size_t)nVpsNumDpbParams);
+						for (int i = 0; i < nVpsNumDpbParams; i++) {
+							if (!vps_default_ptl_dpb_hrd_max_tid_flag) {
+								bsrb1(in_bst, vps_dpb_max_tid[i], 3);
+							}
+							else
+								vps_dpb_max_tid[i] = vps_max_sublayers_minus1;
+							bsrbreadref(in_bst, dpb_parameters[i], DPB_PARAMETERS, vps_dpb_max_tid[i], vps_sublayer_dpb_params_present_flag);
+						}
+					}
+							
+					if (NumMultiLayerOlss > 0)
+					{
+						vps_ols_dpb.resize(NumMultiLayerOlss);
+						for (uint32_t i = 0; i < NumMultiLayerOlss; i++)
+						{
+							nal_read_ue(in_bst, vps_ols_dpb[i].pic_width, uint32_t);
+							nal_read_ue(in_bst, vps_ols_dpb[i].pic_height, uint32_t);
+							bsrb1(in_bst, vps_ols_dpb[i].chroma_format, 2);
+							nal_read_ue(in_bst, vps_ols_dpb[i].bitdepth_minus8, uint32_t);
+							if (nVpsNumDpbParams > 1 && nVpsNumDpbParams != NumMultiLayerOlss) {
+								nal_read_ue(in_bst, vps_ols_dpb[i].params_idx, uint32_t);
+							}
+							else if (nVpsNumDpbParams == 1)
+								vps_ols_dpb[i].params_idx = 0;
+							else
+								vps_ols_dpb[i].params_idx = i;
+						}
+					}
+
+					bsrb1(in_bst, vps_timing_hrd_params_present_flag, 1);
+					if (vps_timing_hrd_params_present_flag) {
+						bsrbreadref(in_bst, general_timing_hrd_parameters, GENERAL_TIMING_HRD_PARAMETERS);
+						if (vps_max_sublayers_minus1 > 0) {
+							bsrb1(in_bst, vps_sublayer_cpb_params_present_flag, 1);
+						}
+						else
+							vps_sublayer_cpb_params_present_flag = 0;
+						nal_read_ue(in_bst, vps_num_ols_timing_hrd_params_minus1, uint16_t);
+
+						vps_hrd_max_tid.resize((size_t)vps_num_ols_timing_hrd_params_minus1 + 1);
+						ols_timing_hrd_parameters.resize((size_t)vps_num_ols_timing_hrd_params_minus1 + 1);
+						for (uint32_t i = 0; i <= vps_num_ols_timing_hrd_params_minus1; i++)
+						{
+							if (!vps_default_ptl_dpb_hrd_max_tid_flag) {
+								bsrb1(in_bst, vps_hrd_max_tid[i], 3);
+							}
+
+							uint8_t firstSubLayer = vps_sublayer_cpb_params_present_flag ? 0 : vps_hrd_max_tid[i];
+							bsrbreadref(in_bst, ols_timing_hrd_parameters[i], OLS_TIMING_HRD_PARAMETERS, 
+								firstSubLayer, vps_hrd_max_tid[i], general_timing_hrd_parameters);
+						}
+
+						if (vps_num_ols_timing_hrd_params_minus1 > 0 && vps_num_ols_timing_hrd_params_minus1 + 1 != NumMultiLayerOlss){
+							vps_ols_timing_hrd_idx.resize(NumMultiLayerOlss);
+							for (uint32_t i = 0; i < NumMultiLayerOlss; i++) {
+								nal_read_ue(in_bst, vps_ols_timing_hrd_idx[i], uint32_t);
+							}
+						}
+					}
+
+					bsrb1(in_bst, vps_extension_flag, 1);
+					if (vps_extension_flag) {
+						idx = 0;
+						while (AMBst_NAL_more_rbsp_data(in_bst)) {
+							bsrbarray(in_bst, vps_extension_data_flag, idx);
+							idx++;
+						}
+					}
+					nal_read_obj(in_bst, rbsp_trailing_bits);
+				}
+							
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::VIDEO_PARAMETER_SET_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::VIDEO_PARAMETER_SET_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
 		int NAL_UNIT::REF_PIC_LIST_STRUCT::Unmap(AMBst out_bst)
 		{
 			UNREFERENCED_PARAMETER(out_bst);
@@ -380,6 +588,471 @@ namespace BST
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::REF_PIC_LIST_STRUCT)
 
 		DECLARE_FIELDPROP_END()
+
+		NAL_UNIT::SEQ_PARAMETER_SET_RBSP::SEQ_PARAMETER_SET_RBSP()
+			: sps_res_change_in_clvs_allowed_flag(0)
+			, sps_independent_subpics_flag(1)
+			, sps_subpic_same_size_flag(0)
+			, sps_subpic_id_mapping_explicitly_signalled_flag(0)
+			, sps_conf_win_left_offset(0)
+			, sps_conf_win_right_offset(0)
+			, sps_conf_win_top_offset(0)
+			, sps_conf_win_bottom_offset(0)
+			, sps_num_subpics_minus1(0)
+			, sps_sublayer_dpb_params_flag(0)
+			, sps_qtbtt_dual_tree_intra_flag(0)
+			, sps_log2_diff_max_bt_min_qt_intra_slice_chroma(0)
+			, sps_log2_diff_max_tt_min_qt_intra_slice_chroma(0)
+			, sps_log2_diff_max_bt_min_qt_intra_slice_luma(0)
+			, sps_log2_diff_max_tt_min_qt_intra_slice_luma(0)
+			, sps_log2_diff_max_bt_min_qt_inter_slice(0)
+			, sps_log2_diff_max_tt_min_qt_inter_slice(0)
+			, sps_max_luma_transform_size_64_flag(0)
+			, sps_bdpcm_enabled_flag(0)
+			, sps_explicit_mts_intra_enabled_flag(0)
+			, sps_explicit_mts_inter_enabled_flag(0)
+			, sps_joint_cbcr_enabled_flag(0)
+			, sps_same_qp_table_for_chroma_flag(1)
+			, sps_qp_table_start_minus26{ 0 }
+			, sps_num_points_in_qp_table_minus1{ 0 }
+			, sps_delta_qp_in_val_minus1{ {0} }
+			, sps_ccalf_enabled_flag(0)
+			, sps_inter_layer_prediction_enabled_flag(0)
+			, sps_sbtmvp_enabled_flag(0)
+			, sps_bdof_control_present_in_ph_flag(0)
+			, sps_dmvr_control_present_in_ph_flag(0)
+			, sps_mmvd_fullpel_only_enabled_flag(0)
+			, sps_6param_affine_enabled_flag(0)
+			, sps_affine_amvr_enabled_flag(0)
+			, sps_affine_prof_enabled_flag(0)
+			, sps_prof_control_present_in_ph_flag(0)
+			, sps_gpm_enabled_flag(0)
+			, sps_cclm_enabled_flag(0)
+			, sps_chroma_horizontal_collocated_flag(1)
+			, sps_chroma_vertical_collocated_flag(1)
+			, sps_act_enabled_flag(0)
+			, sps_ibc_enabled_flag(0)
+			, sps_scaling_matrix_for_alternative_colour_space_disabled_flag(0)
+			, sps_virtual_boundaries_present_flag(0)
+			, sps_num_ver_virtual_boundaries(0)
+			, sps_num_hor_virtual_boundaries(0)
+			, sps_sublayer_cpb_params_present_flag(0)
+		{
+		}
+
+		int NAL_UNIT::SEQ_PARAMETER_SET_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				int idx = 0;
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, sps_seq_parameter_set_id, 4);
+				bsrb1(in_bst, sps_video_parameter_set_id, 4);
+				bsrb1(in_bst, sps_max_sublayers_minus1, 3);
+				bsrb1(in_bst, sps_chroma_format_idc, 2);
+				bsrb1(in_bst, sps_log2_ctu_size_minus5, 2);
+				bsrb1(in_bst, sps_ptl_dpb_hrd_params_present_flag, 1);
+
+				uint8_t CtbLog2SizeY = sps_log2_ctu_size_minus5 + 5;
+				uint8_t CtbSizeY = (uint8_t)(1 << CtbLog2SizeY);
+
+				if (sps_ptl_dpb_hrd_params_present_flag) {
+					bsrbreadref(in_bst, profile_tier_level, PROFILE_TIER_LEVEL, 1, sps_max_sublayers_minus1);
+				}
+
+				bsrb1(in_bst, sps_gdr_enabled_flag, 1);
+				bsrb1(in_bst, sps_ref_pic_resampling_enabled_flag, 1);
+
+				if (sps_ref_pic_resampling_enabled_flag) {
+					bsrb1(in_bst, sps_res_change_in_clvs_allowed_flag, 1);
+				}
+
+				nal_read_ue1(in_bst, sps_pic_width_max_in_luma_samples);
+				nal_read_ue1(in_bst, sps_pic_height_max_in_luma_samples);
+				bsrb1(in_bst, sps_conformance_window_flag, 1);
+				if (sps_conformance_window_flag) {
+					nal_read_ue1(in_bst, sps_conf_win_left_offset);
+					nal_read_ue1(in_bst, sps_conf_win_right_offset);
+					nal_read_ue1(in_bst, sps_conf_win_top_offset);
+					nal_read_ue1(in_bst, sps_conf_win_bottom_offset);
+				}
+
+				bsrb1(in_bst, sps_subpic_info_present_flag, 1);
+				if (sps_subpic_info_present_flag) {
+					nal_read_ue1(in_bst, sps_num_subpics_minus1);
+					if (sps_num_subpics_minus1 > 0) {
+						bsrb1(in_bst, sps_independent_subpics_flag, 1);
+						bsrb1(in_bst, sps_subpic_same_size_flag, 1);
+					}
+
+					uint32_t tmpWidthVal = sps_pic_width_max_in_luma_samples + CtbSizeY - 1;
+					uint32_t tmpHeightVal = (sps_pic_height_max_in_luma_samples + CtbSizeY - 1) / CtbSizeY;
+					uint32_t numSubpicCols = tmpWidthVal / (sps_subpic_width_minus1[0] + 1);
+					sps_subpic_ctu_top_left_x.resize(sps_num_subpics_minus1 + 1);
+					sps_subpic_ctu_top_left_y.resize(sps_num_subpics_minus1 + 1);
+					sps_subpic_width_minus1.resize(sps_num_subpics_minus1 + 1);
+					sps_subpic_height_minus1.resize(sps_num_subpics_minus1 + 1);
+					for (int i = 0; sps_num_subpics_minus1 > 0 && i <= sps_num_subpics_minus1; i++) {
+						if (!sps_subpic_same_size_flag || i == 0) {
+							if (i > 0 && sps_pic_width_max_in_luma_samples > CtbSizeY) {
+								bsrb1(in_bst, sps_subpic_ctu_top_left_x[i], quick_ceil_log2(tmpWidthVal));
+							}
+							else
+								sps_subpic_ctu_top_left_x[i] = 0;
+
+							if (i > 0 && sps_pic_height_max_in_luma_samples > CtbSizeY) {
+								bsrb1(in_bst, sps_subpic_ctu_top_left_y[i], quick_ceil_log2(tmpWidthVal));
+							}
+							else
+								sps_subpic_ctu_top_left_y[i] = 0;
+
+							if (i < sps_num_subpics_minus1 && sps_pic_width_max_in_luma_samples > CtbSizeY) {
+								bsrb1(in_bst, sps_subpic_width_minus1[i], quick_ceil_log2(tmpWidthVal));
+							}
+							else
+								sps_subpic_width_minus1[i] = tmpWidthVal - sps_subpic_ctu_top_left_x[i] - 1;
+
+							if (i < sps_num_subpics_minus1 && sps_pic_height_max_in_luma_samples > CtbSizeY) {
+								bsrb1(in_bst, sps_subpic_height_minus1[i], quick_ceil_log2(tmpWidthVal));
+							}
+							else
+								sps_subpic_height_minus1[i] = tmpHeightVal - sps_subpic_ctu_top_left_y[i] - 1;
+						}
+						else
+						{
+							sps_subpic_ctu_top_left_x[i] = (i%numSubpicCols)*(sps_subpic_width_minus1[0] + 1);
+							sps_subpic_ctu_top_left_y[i] = (i / numSubpicCols)* (sps_subpic_height_minus1[0] + 1);
+							  sps_subpic_width_minus1[i] = sps_subpic_width_minus1[0];
+							 sps_subpic_height_minus1[i] = sps_subpic_height_minus1[0];
+						}
+
+						if (!sps_independent_subpics_flag) {
+							bsrbarray(in_bst, sps_subpic_treated_as_pic_flag, i);
+							bsrbarray(in_bst, sps_loop_filter_across_subpic_enabled_flag, 1);
+						}
+						else
+						{
+							sps_subpic_treated_as_pic_flag.BitSet(i);
+							sps_loop_filter_across_subpic_enabled_flag.BitClear(i);
+						}
+					}
+
+					nal_read_ue1(in_bst, sps_subpic_id_len_minus1);
+					bsrb1(in_bst, sps_subpic_id_mapping_explicitly_signalled_flag, 1);
+
+					if (sps_subpic_id_mapping_explicitly_signalled_flag) {
+						bsrb1(in_bst, sps_subpic_id_mapping_present_flag, 1);
+						if (sps_subpic_id_mapping_present_flag){
+							sps_subpic_id.resize(sps_num_subpics_minus1 + 1);
+							for (size_t i = 0; i <= sps_num_subpics_minus1; i++) {
+								bsrb1(in_bst, sps_subpic_id[i], sps_subpic_id_len_minus1 + 1);
+							}
+						}
+					}
+				}
+
+				nal_read_ue1(in_bst, sps_bitdepth_minus8);
+				bsrb1(in_bst, sps_entropy_coding_sync_enabled_flag, 1);
+				bsrb1(in_bst, sps_entry_point_offsets_present_flag, 1);
+				bsrb1(in_bst, sps_log2_max_pic_order_cnt_lsb_minus4, 4);
+				bsrb1(in_bst, sps_poc_msb_cycle_flag, 1);
+
+				if (sps_poc_msb_cycle_flag) {
+					nal_read_ue1(in_bst, sps_poc_msb_cycle_len_minus1);
+				}
+
+				bsrb1(in_bst, sps_num_extra_ph_bytes, 2);
+
+				NumExtraPhBits = 0;
+				for (size_t i = 0; i < (size_t)(sps_num_extra_ph_bytes * 8); i++) {
+					bsrbarray(in_bst, sps_extra_ph_bit_present_flag, i);
+					if (sps_extra_ph_bit_present_flag[i])
+						NumExtraPhBits++;
+				}
+				
+				bsrb1(in_bst, sps_num_extra_sh_bytes, 2);
+
+				NumExtraShBits = 0;
+				for (size_t i = 0; i < (sps_num_extra_sh_bytes * 8); i++) {
+					bsrbarray(in_bst, sps_extra_sh_bit_present_flag, i);
+					if (sps_extra_sh_bit_present_flag[i])
+						NumExtraShBits++;
+				}
+
+				if (sps_ptl_dpb_hrd_params_present_flag) {
+					if (sps_max_sublayers_minus1 > 0) {
+						bsrb1(in_bst, sps_sublayer_dpb_params_flag, 1);
+					}
+					bsrbreadref(in_bst, dpb_parameters, DPB_PARAMETERS, sps_max_sublayers_minus1, sps_sublayer_dpb_params_flag);
+				}
+
+				nal_read_ue1(in_bst, sps_log2_min_luma_coding_block_size_minus2);
+				bsrb1(in_bst, sps_partition_constraints_override_enabled_flag, 1);
+
+				nal_read_ue1(in_bst, sps_log2_diff_min_qt_min_cb_intra_slice_luma);
+				nal_read_ue1(in_bst, sps_max_mtt_hierarchy_depth_intra_slice_luma);
+
+				if (sps_max_mtt_hierarchy_depth_intra_slice_luma != 0) {
+					nal_read_ue1(in_bst, sps_log2_diff_max_bt_min_qt_intra_slice_luma);
+					nal_read_ue1(in_bst, sps_log2_diff_max_tt_min_qt_intra_slice_luma);
+				}
+
+				if (sps_chroma_format_idc != 0) {
+					bsrb1(in_bst, sps_qtbtt_dual_tree_intra_flag, 1);	
+				}
+
+				if (sps_qtbtt_dual_tree_intra_flag) {
+					nal_read_ue1(in_bst, sps_log2_diff_min_qt_min_cb_intra_slice_chroma);
+					nal_read_ue1(in_bst, sps_max_mtt_hierarchy_depth_intra_slice_chroma);
+					if (sps_max_mtt_hierarchy_depth_intra_slice_chroma != 0) {
+						nal_read_ue1(in_bst, sps_log2_diff_max_bt_min_qt_intra_slice_chroma);
+						nal_read_ue1(in_bst, sps_log2_diff_max_tt_min_qt_intra_slice_chroma);
+					}
+				}
+
+				nal_read_ue1(in_bst, sps_log2_diff_min_qt_min_cb_inter_slice);
+				nal_read_ue1(in_bst, sps_max_mtt_hierarchy_depth_inter_slice);
+				if (sps_max_mtt_hierarchy_depth_inter_slice != 0) {
+					nal_read_ue1(in_bst, sps_log2_diff_max_bt_min_qt_inter_slice);
+					nal_read_ue1(in_bst, sps_log2_diff_max_tt_min_qt_inter_slice);
+				}
+
+				if (CtbSizeY > 32) {
+					bsrb1(in_bst, sps_max_luma_transform_size_64_flag, 1);
+				}
+				bsrb1(in_bst, sps_transform_skip_enabled_flag, 1);
+				if (sps_transform_skip_enabled_flag) {
+					nal_read_ue1(in_bst, sps_log2_transform_skip_max_size_minus2);
+					bsrb1(in_bst, sps_bdpcm_enabled_flag, 1);
+				}
+				bsrb1(in_bst, sps_mts_enabled_flag, 1);
+				if (sps_mts_enabled_flag) {
+					bsrb1(in_bst, sps_explicit_mts_intra_enabled_flag, 1);
+					bsrb1(in_bst, sps_explicit_mts_inter_enabled_flag, 1);
+				}
+				bsrb1(in_bst, sps_lfnst_enabled_flag, 1);
+
+				if (sps_chroma_format_idc != 0) {
+					bsrb1(in_bst, sps_joint_cbcr_enabled_flag, 1);
+					bsrb1(in_bst, sps_same_qp_table_for_chroma_flag, 1);
+
+					uint8_t numQpTables = sps_same_qp_table_for_chroma_flag ? 1 : (sps_joint_cbcr_enabled_flag ? 3 : 2);
+					for (uint8_t i = 0; i < numQpTables; i++) {
+						nal_read_se1(in_bst, sps_qp_table_start_minus26[i]);
+						nal_read_ue1(in_bst, sps_num_points_in_qp_table_minus1[i]);
+						for (uint16_t j = 0; j <= sps_num_points_in_qp_table_minus1[i]; j++) {
+							nal_read_ue1(in_bst, sps_delta_qp_in_val_minus1[i][j]);
+							nal_read_ue1(in_bst, sps_delta_qp_diff_val[i][j]);
+						}
+					}
+				}
+
+				bsrb1(in_bst, sps_sao_enabled_flag, 1);
+				bsrb1(in_bst, sps_alf_enabled_flag, 1);
+				if (sps_alf_enabled_flag && sps_chroma_format_idc != 0) {
+					bsrb1(in_bst, sps_ccalf_enabled_flag, 1);
+				}
+
+				bsrb1(in_bst, sps_lmcs_enabled_flag, 1);
+				bsrb1(in_bst, sps_weighted_pred_flag, 1);
+				bsrb1(in_bst, sps_weighted_bipred_flag, 1);
+				bsrb1(in_bst, sps_long_term_ref_pics_flag, 1);
+
+				if (sps_video_parameter_set_id > 0) {
+					bsrb1(in_bst, sps_inter_layer_prediction_enabled_flag, 1);
+				}
+
+				bsrb1(in_bst, sps_idr_rpl_present_flag, 1);
+				bsrb1(in_bst, sps_rpl1_same_as_rpl0_flag, 1);
+
+				for (uint8_t i = 0; i < (sps_rpl1_same_as_rpl0_flag ? 1 : 2); i++) {
+					nal_read_ue1(in_bst, sps_num_ref_pic_lists[i]);
+					for (uint16_t j = 0; j < sps_num_ref_pic_lists[i]; j++) {
+						bsrbreadref(in_bst, ref_pic_list_struct[i][j], REF_PIC_LIST_STRUCT, i, j, this);
+					}
+				}
+
+				bsrb1(in_bst, sps_ref_wraparound_enabled_flag, 1);
+				bsrb1(in_bst, sps_temporal_mvp_enabled_flag, 1);
+
+				if (sps_temporal_mvp_enabled_flag) {
+					bsrb1(in_bst, sps_sbtmvp_enabled_flag, 1);
+				}
+
+				bsrb1(in_bst, sps_amvr_enabled_flag, 1);
+				bsrb1(in_bst, sps_bdof_enabled_flag, 1);
+				if (sps_bdof_enabled_flag) {
+					bsrb1(in_bst, sps_bdof_control_present_in_ph_flag, 1);
+				}
+				bsrb1(in_bst, sps_smvd_enabled_flag, 1);
+				bsrb1(in_bst, sps_dmvr_enabled_flag, 1);
+				if (sps_dmvr_enabled_flag) {
+					bsrb1(in_bst, sps_dmvr_control_present_in_ph_flag, 1);
+				}
+				bsrb1(in_bst, sps_mmvd_enabled_flag, 1);
+				if (sps_mmvd_enabled_flag) {
+					bsrb1(in_bst, sps_mmvd_fullpel_only_enabled_flag, 1);
+				}
+				nal_read_ue1(in_bst, sps_six_minus_max_num_merge_cand);
+				bsrb1(in_bst, sps_sbt_enabled_flag, 1);
+				bsrb1(in_bst, sps_affine_enabled_flag, 1);
+
+				uint8_t MaxNumMergeCand = (uint8_t)(6 - sps_six_minus_max_num_merge_cand);
+
+				if (sps_affine_enabled_flag) {
+					nal_read_ue1(in_bst, sps_five_minus_max_num_subblock_merge_cand);
+					bsrb1(in_bst, sps_6param_affine_enabled_flag, 1);
+					if (sps_amvr_enabled_flag) {
+						bsrb1(in_bst, sps_affine_amvr_enabled_flag, 1);
+					}
+					bsrb1(in_bst, sps_affine_prof_enabled_flag, 1);
+					if (sps_affine_prof_enabled_flag) {
+						bsrb1(in_bst, sps_prof_control_present_in_ph_flag, 1);
+					}
+				}
+
+				bsrb1(in_bst, sps_bcw_enabled_flag, 1);
+				bsrb1(in_bst, sps_ciip_enabled_flag, 1);
+
+				if (MaxNumMergeCand >= 2) {
+					bsrb1(in_bst, sps_gpm_enabled_flag, 1);
+					if (sps_gpm_enabled_flag && MaxNumMergeCand >= 3) {
+						nal_read_ue1(in_bst, sps_max_num_merge_cand_minus_max_num_gpm_cand);
+					}
+				}
+
+				nal_read_ue1(in_bst, sps_log2_parallel_merge_level_minus2);
+
+				bsrb1(in_bst, sps_isp_enabled_flag, 1);
+				bsrb1(in_bst, sps_mrl_enabled_flag, 1);
+				bsrb1(in_bst, sps_mip_enabled_flag, 1);
+
+				if (sps_chroma_format_idc != 0) {
+					bsrb1(in_bst, sps_cclm_enabled_flag, 1);
+				}
+
+				if (sps_chroma_format_idc == 1) {
+					bsrb1(in_bst, sps_chroma_horizontal_collocated_flag, 1);
+					bsrb1(in_bst, sps_chroma_vertical_collocated_flag, 1);
+				}
+
+				bsrb1(in_bst, sps_palette_enabled_flag, 1);
+				if (sps_chroma_format_idc == 3 && !sps_max_luma_transform_size_64_flag) {
+					bsrb1(in_bst, sps_act_enabled_flag, 1);
+				}
+
+				if (sps_transform_skip_enabled_flag || sps_palette_enabled_flag) {
+					nal_read_ue1(in_bst, sps_min_qp_prime_ts);
+				}
+
+				bsrb1(in_bst, sps_ibc_enabled_flag, 1);
+				uint8_t MaxNumIbcMergeCand = 0;
+				if (sps_ibc_enabled_flag) {
+					nal_read_ue1(in_bst, sps_six_minus_max_num_ibc_merge_cand);
+					MaxNumIbcMergeCand = 6 - sps_six_minus_max_num_ibc_merge_cand;
+				}
+
+				bsrb1(in_bst, sps_ladf_enabled_flag, 1);
+
+				if (sps_ladf_enabled_flag) {
+					bsrb1(in_bst, sps_num_ladf_intervals_minus2, 2);
+					nal_read_se1(in_bst, sps_ladf_lowest_interval_qp_offset);
+
+					for (uint32_t i = 0; i < ((uint32_t)sps_num_ladf_intervals_minus2 + 1); i++) {
+						nal_read_se1(in_bst, sps_ladf_qp_offset[i]);
+						nal_read_ue1(in_bst, sps_ladf_delta_threshold_minus1[i]);
+					}
+				}
+
+				bsrb1(in_bst, sps_explicit_scaling_list_enabled_flag, 1);
+				if (sps_lfnst_enabled_flag && sps_explicit_scaling_list_enabled_flag) {
+					bsrb1(in_bst, sps_scaling_matrix_for_lfnst_disabled_flag, 1);
+				}
+
+				if (sps_act_enabled_flag && sps_explicit_scaling_list_enabled_flag) {
+					bsrb1(in_bst, sps_scaling_matrix_for_alternative_colour_space_disabled_flag, 1);
+				}
+
+				if (sps_scaling_matrix_for_alternative_colour_space_disabled_flag) {
+					bsrb1(in_bst, sps_scaling_matrix_designated_colour_space_flag, 1);
+				}
+
+				bsrb1(in_bst, sps_dep_quant_enabled_flag, 1);
+				bsrb1(in_bst, sps_sign_data_hiding_enabled_flag, 1);
+				bsrb1(in_bst, sps_virtual_boundaries_enabled_flag, 1);
+
+				if (sps_virtual_boundaries_enabled_flag) {
+					bsrb1(in_bst, sps_virtual_boundaries_present_flag, 1);
+					if (sps_virtual_boundaries_present_flag) {
+						nal_read_ue1(in_bst, sps_num_ver_virtual_boundaries);
+						for (int i = 0; i < sps_num_ver_virtual_boundaries; i++) {
+							nal_read_ue1(in_bst, sps_virtual_boundary_pos_x_minus1[i]);
+						}
+						nal_read_ue1(in_bst, sps_num_hor_virtual_boundaries);
+						for (int i = 0; i < sps_num_hor_virtual_boundaries; i++) {
+							nal_read_ue1(in_bst, sps_virtual_boundary_pos_y_minus1[i]);
+						}
+					}
+				}
+
+				if (sps_ptl_dpb_hrd_params_present_flag) {
+					bsrb1(in_bst, sps_timing_hrd_params_present_flag, 1);
+					if (sps_timing_hrd_params_present_flag) {
+						bsrbreadref(in_bst, general_timing_hrd_parameters, GENERAL_TIMING_HRD_PARAMETERS);
+						if (sps_max_sublayers_minus1 > 0) {
+							bsrb1(in_bst, sps_sublayer_cpb_params_present_flag, 1);
+							uint8_t firstSubLayer = sps_sublayer_cpb_params_present_flag ? 0 : sps_max_sublayers_minus1;
+							bsrbreadref(in_bst, ols_timing_hrd_parameters, OLS_TIMING_HRD_PARAMETERS, 
+								firstSubLayer, sps_max_sublayers_minus1, general_timing_hrd_parameters);
+						}
+					}
+				}
+
+				bsrb1(in_bst, sps_field_seq_flag, 1);
+				bsrb1(in_bst, sps_vui_parameters_present_flag, 1);
+
+				if (sps_vui_parameters_present_flag) {
+					nal_read_ue1(in_bst, sps_vui_payload_size_minus1);
+					idx = 0;
+					while (AMBst_IsAligned(in_bst)) {
+						bsrbarray(in_bst, sps_vui_alignment_zero_bit, idx);
+						idx++;
+					}
+
+					// Convert EBSP into RBSP
+					uint8_t vui_payload_buf[1024] = { 0 };
+					AMBst_GetBytes(in_bst, vui_payload_buf, sps_vui_payload_size_minus1 + 1);
+
+					vui_payload = new VUI_PAYLOAD(sps_vui_payload_size_minus1 + 1);
+					vui_payload->Map(vui_payload_buf, sps_vui_payload_size_minus1 + 1);
+				}
+
+				bsrb1(in_bst, sps_extension_flag, 1);
+
+				if (sps_extension_flag)
+				{
+					idx = 0;
+					while (AMBst_NAL_more_rbsp_data(in_bst)) {
+						bsrbarray(in_bst, sps_extension_data_flag, idx);
+						idx++;
+					}
+				}
+
+				nal_read_obj(in_bst, rbsp_trailing_bits);
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
 	}
 }
 
