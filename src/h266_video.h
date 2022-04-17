@@ -42,6 +42,10 @@ SOFTWARE.
 #define PACKED __attribute__ ((__packed__))
 #endif
 
+#define ALF_APS			0
+#define LMCS_APS		1
+#define SCALING_APS		2
+
 extern const char* vvc_profile_name[6];
 extern const char* vvc_nal_unit_type_names[64];
 extern const char* vvc_nal_unit_type_short_names[32];
@@ -123,10 +127,65 @@ namespace BST {
 			UNSPEC_31 = 31,
 		};
 
-		class VideoBitstreamCtx 
+		int read_extension_and_trailing_bits(AMBst in_bst, SYNTAX_MAP_STATUS& map_status, 
+											 CAMBitArray& extension_data_flag, RBSP_TRAILING_BITS& rbsp_trailing_bits);
+
+		class VideoBitstreamCtx : public CComUnknown, public INALVVCContext
 		{
 		public:
+			DECLARE_IUNKNOWN
+
+			HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+			{
+				if (ppvObj == NULL)
+					return E_POINTER;
+
+				if (uuid == IID_INALContext)
+					return GetCOMInterface((INALContext*)this, ppvObj);
+				else if (uuid == IID_INALVVCContext)
+					return GetCOMInterface((INALVVCContext*)this, ppvObj);
+
+				return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+			}
+
+			NAL_CODING					GetNALCoding() { return NAL_CODING_VVC; }
+			RET_CODE					SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
+			RET_CODE					GetNUFilters(std::vector<uint8_t>& NU_type_filters);
+			bool						IsNUFiltered(uint8_t nal_unit_type);
+			RET_CODE					SetActiveNUType(int8_t nu_type) { m_active_nu_type = nu_type; return RET_CODE_SUCCESS; }
+			int8_t						GetActiveNUType() { return m_active_nu_type; }
+			void						Reset();
+
+			//
+			// Interface INALVVCContext
+			//
+			H266_NU						GetVVCDCI();
+			H266_NU						GetVVCOPI();
+			H266_NU						GetVVCVPS(uint8_t vps_id);
+			H266_NU						GetVVCSPS(uint8_t sps_id);
+			H266_NU						GetVVCPPS(uint8_t pps_id);
+			RET_CODE					UpdateVVCDCI(H266_NU dci_nu);
+			RET_CODE					UpdateVVCOPI(H266_NU opi_nu);
+			RET_CODE					UpdateVVCVPS(H266_NU vps_nu);
+			RET_CODE					UpdateVVCSPS(H266_NU sps_nu);
+			RET_CODE					UpdateVVCPPS(H266_NU pps_nu);
+			H266_NU						CreateVVCNU();
+			int8_t						GetActiveSPSID();
+			RET_CODE					ActivateSPS(int8_t sps_id);
+			RET_CODE					DetactivateSPS();
+
+		public:
 			std::vector<uint8_t>		nal_unit_type_filters;
+			std::unordered_map<uint8_t, int8_t>
+										sps_seq_parameter_set_id;
+			int8_t						prev_vps_video_parameter_set_id =  -1;
+			H266_NU						sp_prev_nal_unit;
+			int8_t						m_active_sps_id = -1;
+			int8_t						m_active_nu_type = -1;
+			H266_NU						m_sp_dci;
+			H266_NU						m_sp_opi;
+			std::map <uint8_t, H266_NU>	m_sp_vpses;
+			std::map <uint8_t, H266_NU>	m_sp_spses;
 		};
 
 		struct PICTURE_HEADER_STRUCTURE : public SYNTAX_BITSTREAM_MAP
@@ -215,6 +274,48 @@ namespace BST {
 				DECLARE_FIELDPROP_END()
 
 			}PACKED;
+
+			struct ACCESS_UNIT_DELIMITER_RBSP : public SYNTAX_BITSTREAM_MAP
+			{
+				uint8_t			aud_irap_or_gdr_flag : 1;
+				uint8_t			aud_pic_type : 3;
+				uint8_t			byte_align0 : 4;
+
+				RBSP_TRAILING_BITS
+								rbsp_tailing_bits;
+
+				int Map(AMBst in_bst)
+				{
+					SYNTAX_BITSTREAM_MAP::Map(in_bst);
+					try
+					{
+						uint8_t idx = 0;
+						MAP_BST_BEGIN(0);
+
+						bsrb1(in_bst, aud_irap_or_gdr_flag, 1);
+						bsrb1(in_bst, aud_pic_type, 3);
+
+						nal_read_obj(in_bst, rbsp_tailing_bits);
+
+						MAP_BST_END();
+					}
+					catch (AMException e)
+					{
+						return e.RetCode();
+					}
+
+					return RET_CODE_SUCCESS;
+				}
+
+				int Unmap(AMBst out_bst)
+				{
+					UNREFERENCED_PARAMETER(out_bst);
+					return RET_CODE_ERROR_NOTIMPL;
+				}
+
+				DECLARE_FIELDPROP_BEGIN()
+				DECLARE_FIELDPROP_END()
+			};
 
 			struct GENERAL_CONSTRAINTS_INFO : public SYNTAX_BITSTREAM_MAP
 			{
@@ -947,6 +1048,10 @@ namespace BST {
 
 				VUI_PAYLOAD(uint16_t payloadSize) : vui_parameters(payloadSize) {}
 
+				int Map(AMBst in_bst) {
+					return SYNTAX_BITSTREAM_MAP::Map(in_bst);
+				}
+
 				int Map(uint8_t* pVUIPayloadBuf, uint16_t cbVUIPayloadBuf)
 				{
 					if (pVUIPayloadBuf == nullptr || cbVUIPayloadBuf <= 0)
@@ -997,6 +1102,157 @@ namespace BST {
 				DECLARE_FIELDPROP_BEGIN()
 
 				DECLARE_FIELDPROP_END()
+			};
+
+			struct DECODING_CAPABILITY_INFORMATION_RBSP : public SYNTAX_BITSTREAM_MAP
+			{
+				uint8_t			dci_reserved_zero_4bits : 4;
+				uint8_t			dci_num_ptls_minus1 : 4;
+
+				uint8_t			dci_extension_flag : 1;
+				uint8_t			byte_align0 : 7;
+
+				std::vector<PROFILE_TIER_LEVEL*>
+								profile_tier_level;
+
+				CAMBitArray		dci_extension_data_flag;
+				RBSP_TRAILING_BITS
+								rbsp_trailing_bits;
+
+				DECODING_CAPABILITY_INFORMATION_RBSP();
+				~DECODING_CAPABILITY_INFORMATION_RBSP();
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+			};
+
+			struct OPERATING_POINT_INFORMATION_RBSP : public SYNTAX_BITSTREAM_MAP
+			{
+				uint8_t			opi_ols_info_present_flag : 1;
+				uint8_t			opi_htid_info_present_flag : 1;
+				uint8_t			opi_htid_plus1 : 3;
+				uint8_t			opi_extension_flag : 1;
+				uint8_t			byte_align0 : 2;
+
+				uint8_t			bytes_align[3] = { 0 };
+
+				uint64_t		opi_ols_idx;
+
+				CAMBitArray		opi_extension_data_flag;
+
+				RBSP_TRAILING_BITS
+								rbsp_trailing_bits;
+
+				OPERATING_POINT_INFORMATION_RBSP();
+				~OPERATING_POINT_INFORMATION_RBSP();
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+			};
+
+			struct ADAPTATION_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
+			{
+				struct ALF_DATA : public SYNTAX_BITSTREAM_MAP
+				{
+					uint8_t			alf_luma_filter_signal_flag : 1;
+					uint8_t			alf_chroma_filter_signal_flag : 1;
+					uint8_t			alf_cc_cb_filter_signal_flag : 1;
+					uint8_t			alf_cc_cr_filter_signal_flag : 1;
+					uint8_t			alf_luma_clip_flag : 1;
+					uint8_t			alf_chroma_clip_flag : 1;
+					uint8_t			alf_cc_cb_filters_signalled_minus1 : 2;
+
+					uint8_t			alf_chroma_num_alt_filters_minus1 : 3;
+					uint8_t			alf_cc_cr_filters_signalled_minus1 : 2;
+
+					uint8_t			alf_luma_num_filters_signalled_minus1;
+
+					std::vector<uint8_t>
+									alf_luma_coeff_delta_idx;
+					uint8_t			alf_luma_coeff_abs[25][12] = { {0} };
+					CAMBitArray		alf_luma_coeff_sign[25];
+					uint8_t			alf_luma_clip_idx[25][12] = { {0} };
+					uint8_t			alf_chroma_coeff_abs[25][6] = { {0} };
+					CAMBitArray		alf_chroma_coeff_sign[25];
+					uint8_t			alf_chroma_clip_idx[25][6] = { {0} };
+
+					uint8_t			alf_cc_cb_mapped_coeff_abs[4][7] = { {0} };
+					CAMBitArray		alf_cc_cb_coeff_sign[4];
+
+					uint8_t			alf_cc_cr_mapped_coeff_abs[4][7] = { {0} };
+					CAMBitArray		alf_cc_cr_coeff_sign[4];
+
+					bool			aps_chroma_present_flag;
+					const uint8_t	NumAlfFilters = 25;
+
+					ALF_DATA(bool apsChromaPresentFlag);
+					int Map(AMBst in_bst);
+					int Unmap(AMBst out_bst);
+				};
+
+				struct LMCS_DATA : public SYNTAX_BITSTREAM_MAP
+				{
+					uint8_t			lmcs_min_bin_idx : 4;
+					uint8_t			lmcs_delta_max_bin_idx : 4;
+
+					uint8_t			lmcs_delta_cw_prec_minus1 : 4;
+					uint8_t			lmcs_delta_abs_crs : 3;
+					uint8_t			lmcs_delta_sign_crs_flag : 1;
+
+					uint16_t		lmcs_delta_abs_cw[16];
+					CAMBitArray		lmcs_delta_sign_cw_flag;
+
+					bool			aps_chroma_present_flag;
+
+					LMCS_DATA(bool apsChromaPresentFlag);
+					int Map(AMBst in_bst);
+					int Unmap(AMBst out_bst);
+				};
+
+				struct SCALING_LIST_DATA : public SYNTAX_BITSTREAM_MAP
+				{
+					CAMBitArray		scaling_list_copy_mode_flag;
+					CAMBitArray		scaling_list_pred_mode_flag;
+					uint8_t			scaling_list_pred_id_delta[28] = { 0 };
+					int8_t			scaling_list_dc_coef[14] = { 0 };
+					int8_t			scaling_list_delta_coef[28][64] = { 0 };
+					int				ScalingList[28][64] = { {0} };
+
+					bool			aps_chroma_present_flag;
+					static uint8_t	DiagScanOrder[4][4][64][2];
+
+					SCALING_LIST_DATA(bool apsChromaPresentFlag);
+					int Map(AMBst in_bst);
+					int Unmap(AMBst out_bst);
+
+					static void UpdateDiagScanOrder();
+				};
+
+				uint8_t			aps_params_type : 3;
+				uint8_t			aps_adaptation_parameter_set_id : 5;
+
+				uint8_t			aps_chroma_present_flag : 1;
+				uint8_t			aps_extension_flag : 1;
+				uint8_t			byte_align0 : 6;
+
+				CAMBitArray		aps_extension_data_flag;
+
+				union
+				{
+					void*			ptr_void = nullptr;
+					ALF_DATA*		alf_data;
+					LMCS_DATA*		lmcs_data;
+					SCALING_LIST_DATA*	
+									scaling_list_data;
+				};
+
+				RBSP_TRAILING_BITS
+								rbsp_trailing_bits;
+
+				uint8_t			nu_type;
+
+				ADAPTATION_PARAMETER_SET_RBSP(uint8_t NUType);
+				~ADAPTATION_PARAMETER_SET_RBSP();
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
 			};
 
 			struct VIDEO_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -1411,6 +1667,34 @@ namespace BST {
 
 				DECLARE_FIELDPROP_END()
 			};
+		
+			NAL_UNIT_HEADER		nal_unit_header;
+			union
+			{
+				void*						ptr_rbsp = nullptr;
+				DECODING_CAPABILITY_INFORMATION_RBSP*
+											ptr_decoding_capability_information_rbsp;
+				OPERATING_POINT_INFORMATION_RBSP*
+											ptr_operating_point_information_rbsp;
+				ADAPTATION_PARAMETER_SET_RBSP*
+											ptr_adaptation_parameter_set_rbsp;
+				VIDEO_PARAMETER_SET_RBSP*	ptr_video_parameter_set_rbsp;
+				SEQ_PARAMETER_SET_RBSP*		ptr_seq_parameter_set_rbsp;
+				ACCESS_UNIT_DELIMITER_RBSP*	ptr_access_unit_delimiter_rbsp;
+				SEI_RBSP*					ptr_sei_rbsp;
+			};
+
+			VideoBitstreamCtx*				ptr_ctx_video_bst = nullptr;
+
+			~NAL_UNIT();
+
+			void UpdateCtx(VideoBitstreamCtx* ctx)
+			{
+				ptr_ctx_video_bst = ctx;
+			}
+
+			int Map(AMBst bst);
+			int Unmap(AMBst out_bst);
 		};
 	}
 }

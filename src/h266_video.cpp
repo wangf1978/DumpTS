@@ -146,10 +146,197 @@ const char* vvc_nal_unit_type_descs[32] = {
 	/*31*/ "Unspecified non-VCL NAL unit types",
 };
 
+RET_CODE CreateVVCNALContext(INALVVCContext** ppNALCtx)
+{
+	if (ppNALCtx == NULL)
+		return RET_CODE_INVALID_PARAMETER;
+
+	auto pCtx = new BST::H266Video::VideoBitstreamCtx();
+	pCtx->AddRef();
+	*ppNALCtx = (INALVVCContext*)pCtx;
+	return RET_CODE_SUCCESS;
+}
+
 namespace BST
 {
 	namespace H266Video
 	{
+		int read_extension_and_trailing_bits(AMBst in_bst, SYNTAX_MAP_STATUS& map_status, 
+											 CAMBitArray& extension_data_flag, RBSP_TRAILING_BITS& rbsp_trailing_bits)
+		{
+			int left_bits = 0;
+			int bit_pos = AMBst_Tell(in_bst, &left_bits);
+			int i = 0;
+			for (; i < left_bits - 8; i++) {
+				bsrbarray(in_bst, extension_data_flag, i);
+				bit_pos++;
+			}
+
+			left_bits = left_bits < 8 ? left_bits : 8;
+
+			if (left_bits > 0)
+			{
+				int zero_bit_count = 0;
+				uint8_t final_part = (uint8_t)AMBst_GetBits(in_bst, left_bits);
+				for (int j = 0; j < left_bits; j++) {
+					if (!(final_part&(1 << j)))
+						zero_bit_count++;
+				}
+
+				// Can't find the stop bit, it is an incompatible buffer
+				if (zero_bit_count >= left_bits)
+				{
+					return RET_CODE_BUFFER_NOT_COMPATIBLE;
+				}
+
+				if (left_bits > zero_bit_count + 1)
+				{
+					for (int j = 0; j < left_bits - (zero_bit_count + 1); j++, i++) {
+						if ((final_part >> (left_bits - j - 1)) & 0x1)
+							extension_data_flag.BitSet(i);
+						else
+							extension_data_flag.BitClear(i);
+						map_status.number_of_fields++;
+						bit_pos++;
+					}
+
+					left_bits = zero_bit_count + 1;
+				}
+
+				rbsp_trailing_bits.bit_pos = bit_pos;
+				rbsp_trailing_bits.bit_end_pos = bit_pos + zero_bit_count + 1;
+
+				for (int j = 0; j < zero_bit_count + 1; j++) {
+					if ((final_part >> (zero_bit_count - j)) & 0x01)
+						rbsp_trailing_bits.rbsp_trailing_bits.BitSet(j);
+					else
+						rbsp_trailing_bits.rbsp_trailing_bits.BitClear(j);
+				}
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::SetNUFilters(std::initializer_list<uint8_t> NU_type_filters)
+		{
+			nal_unit_type_filters = NU_type_filters;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::GetNUFilters(std::vector<uint8_t>& NU_type_filters)
+		{
+			NU_type_filters = nal_unit_type_filters;
+
+			return RET_CODE_SUCCESS;
+		}
+
+		bool VideoBitstreamCtx::IsNUFiltered(uint8_t nal_unit_type)
+		{
+			return nal_unit_type_filters.empty() ||
+				std::find(nal_unit_type_filters.cbegin(), nal_unit_type_filters.cend(), nal_unit_type) != nal_unit_type_filters.cend();
+		}
+
+		void VideoBitstreamCtx::Reset()
+		{
+			nal_unit_type_filters.clear();
+			sps_seq_parameter_set_id.clear();
+			prev_vps_video_parameter_set_id = -1;
+			sp_prev_nal_unit = nullptr;
+			m_active_nu_type = -1;
+		}
+
+		H266_NU VideoBitstreamCtx::GetVVCDCI()
+		{
+			return m_sp_dci;
+		}
+
+		H266_NU VideoBitstreamCtx::GetVVCOPI()
+		{
+			return m_sp_opi;
+		}
+
+		H266_NU VideoBitstreamCtx::GetVVCVPS(uint8_t vps_id)
+		{
+			auto iter = m_sp_vpses.find(vps_id);
+			if (iter != m_sp_vpses.end())
+				return iter->second;
+
+			return std::shared_ptr<NAL_UNIT>();
+		}
+
+		H266_NU VideoBitstreamCtx::GetVVCSPS(uint8_t sps_id)
+		{
+			auto iter = m_sp_spses.find(sps_id);
+			if (iter != m_sp_spses.end())
+				return iter->second;
+
+			return std::shared_ptr<NAL_UNIT>();
+		}
+
+		H266_NU VideoBitstreamCtx::GetVVCPPS(uint8_t pps_id)
+		{
+			return std::shared_ptr<NAL_UNIT>();
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateVVCDCI(H266_NU dci_nu)
+		{
+			m_sp_dci = dci_nu;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateVVCOPI(H266_NU opi_nu)
+		{
+			m_sp_opi = opi_nu;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateVVCVPS(H266_NU vps_nu)
+		{
+			if (!vps_nu || vps_nu->nal_unit_header.nal_unit_type != VPS_NUT || vps_nu->ptr_video_parameter_set_rbsp == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
+
+			m_sp_vpses[vps_nu->ptr_video_parameter_set_rbsp->vps_video_parameter_set_id] = vps_nu;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateVVCSPS(H266_NU sps_nu)
+		{
+			if (!sps_nu || sps_nu->nal_unit_header.nal_unit_type != SPS_NUT || sps_nu->ptr_seq_parameter_set_rbsp == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
+
+			m_sp_spses[sps_nu->ptr_seq_parameter_set_rbsp->sps_seq_parameter_set_id] = sps_nu;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateVVCPPS(H266_NU pps_nu)
+		{
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		H266_NU VideoBitstreamCtx::CreateVVCNU()
+		{
+			auto ptr_VVC_NU = new NAL_UNIT;
+			ptr_VVC_NU->UpdateCtx(this);
+			return std::shared_ptr<NAL_UNIT>(ptr_VVC_NU);
+		}
+
+		int8_t 	VideoBitstreamCtx::GetActiveSPSID()
+		{
+			return m_active_sps_id;
+		}
+
+		RET_CODE VideoBitstreamCtx::ActivateSPS(int8_t sps_id)
+		{
+			m_active_sps_id = sps_id;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::DetactivateSPS()
+		{
+			m_active_sps_id = -1;
+			return RET_CODE_SUCCESS;
+		}
+
 		int NAL_UNIT::VIDEO_PARAMETER_SET_RBSP::UpdateReferenceLayers()
 		{
 			uint8_t dependencyFlag[64][64] = { {0} };
@@ -550,13 +737,15 @@ namespace BST
 
 					bsrb1(in_bst, vps_extension_flag, 1);
 					if (vps_extension_flag) {
-						idx = 0;
-						while (AMBst_NAL_more_rbsp_data(in_bst)) {
-							bsrbarray(in_bst, vps_extension_data_flag, idx);
-							idx++;
+						if (AMP_FAILED(iRet = read_extension_and_trailing_bits(in_bst, map_status, vps_extension_data_flag, rbsp_trailing_bits)))
+						{
+							return iRet;
 						}
 					}
-					nal_read_obj(in_bst, rbsp_trailing_bits);
+					else
+					{
+						nal_read_obj(in_bst, rbsp_trailing_bits);
+					}
 				}
 							
 				MAP_BST_END();
@@ -767,7 +956,7 @@ namespace BST
 				bsrb1(in_bst, sps_num_extra_ph_bytes, 2);
 
 				NumExtraPhBits = 0;
-				for (size_t i = 0; i < (size_t)(sps_num_extra_ph_bytes * 8); i++) {
+				for (int i = 0; i < (int)((size_t)sps_num_extra_ph_bytes * 8); i++) {
 					bsrbarray(in_bst, sps_extra_ph_bit_present_flag, i);
 					if (sps_extra_ph_bit_present_flag[i])
 						NumExtraPhBits++;
@@ -776,7 +965,7 @@ namespace BST
 				bsrb1(in_bst, sps_num_extra_sh_bytes, 2);
 
 				NumExtraShBits = 0;
-				for (size_t i = 0; i < (sps_num_extra_sh_bytes * 8); i++) {
+				for (int i = 0; i < (int)((uint32_t)sps_num_extra_sh_bytes * 8); i++) {
 					bsrbarray(in_bst, sps_extra_sh_bit_present_flag, i);
 					if (sps_extra_sh_bit_present_flag[i])
 						NumExtraShBits++;
@@ -870,7 +1059,7 @@ namespace BST
 
 				for (uint8_t i = 0; i < (sps_rpl1_same_as_rpl0_flag ? 1 : 2); i++) {
 					nal_read_ue1(in_bst, sps_num_ref_pic_lists[i]);
-					for (uint16_t j = 0; j < sps_num_ref_pic_lists[i]; j++) {
+					for (uint8_t j = 0; j < (uint8_t)sps_num_ref_pic_lists[i]; j++) {
 						bsrbreadref(in_bst, ref_pic_list_struct[i][j], REF_PIC_LIST_STRUCT, i, j, this);
 					}
 				}
@@ -1034,14 +1223,15 @@ namespace BST
 
 				if (sps_extension_flag)
 				{
-					idx = 0;
-					while (AMBst_NAL_more_rbsp_data(in_bst)) {
-						bsrbarray(in_bst, sps_extension_data_flag, idx);
-						idx++;
+					if (AMP_FAILED(iRet = read_extension_and_trailing_bits(in_bst, map_status, sps_extension_data_flag, rbsp_trailing_bits)))
+					{
+						return iRet;
 					}
 				}
-
-				nal_read_obj(in_bst, rbsp_trailing_bits);
+				else
+				{
+					nal_read_obj(in_bst, rbsp_trailing_bits);
+				}
 
 				MAP_BST_END();
 			}
@@ -1053,6 +1243,628 @@ namespace BST
 			return RET_CODE_SUCCESS;
 		}
 
+		NAL_UNIT::~NAL_UNIT() {
+			switch (nal_unit_header.nal_unit_type)
+			{
+			case TRAIL_NUT:
+				break;
+			case STSA_NUT:
+				break;
+			case RADL_NUT:
+				break;
+			case RASL_NUT:
+				break;
+			case RSV_VCL_4:
+				break;
+			case RSV_VCL_5:
+				break;
+			case RSV_VCL_6:
+				break;
+			case IDR_W_RADL:
+				break;
+			case IDR_N_LP:
+				break;
+			case CRA_NUT:
+				break;
+			case GDR_NUT:
+				break;
+			case RSV_IRAP_11:
+				break;
+			case OPI_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_operating_point_information_rbsp);
+				break;
+			case DCI_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_decoding_capability_information_rbsp);
+				break;
+			case VPS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_video_parameter_set_rbsp);
+				break;
+			case SPS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_seq_parameter_set_rbsp);
+				break;
+			case PPS_NUT:
+				break;
+			case PREFIX_APS_NUT:
+			case SUFFIX_APS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_adaptation_parameter_set_rbsp);
+				break;
+			case PH_NUT:
+				break;
+			case AUD_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_access_unit_delimiter_rbsp);
+				break;
+			case EOS_NUT:
+				break;
+			case EOB_NUT:
+				break;
+			case PREFIX_SEI_NUT:
+			case SUFFIX_SEI_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_sei_rbsp);
+				break;
+			case FD_NUT:
+				break;
+			case RSV_NVCL_26:
+				break;
+			case RSV_NVCL_27:
+				break;
+			case UNSPEC_28:
+				break;
+			case UNSPEC_29:
+				break;
+			case UNSPEC_30:
+				break;
+			case UNSPEC_31:
+				break;
+			}
+		}
+
+		int NAL_UNIT::Map(AMBst bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(bst);
+
+			if (AMP_FAILED(iRet = nal_unit_header.Map(bst)))
+				return iRet;
+
+			//printf("[H266] %s.\n", vvc_nal_unit_type_descs[nal_unit_header.nal_unit_type]);
+
+			if (ptr_ctx_video_bst != NULL &&
+				ptr_ctx_video_bst->IsNUFiltered(nal_unit_header.nal_unit_type) == false)
+				return RET_CODE_NOTHING_TODO;
+
+			if (AMP_FAILED(iRet = AMBst_SetRBSPType(bst, BST_RBSP_NAL_UNIT)))
+				return iRet;
+
+			try
+			{
+				MAP_BST_BEGIN(1);
+				switch (nal_unit_header.nal_unit_type)
+				{
+				case TRAIL_NUT:
+					break;
+				case STSA_NUT:
+					break;
+				case RADL_NUT:
+					break;
+				case RASL_NUT:
+					break;
+				case RSV_VCL_4:
+					break;
+				case RSV_VCL_5:
+					break;
+				case RSV_VCL_6:
+					break;
+				case IDR_W_RADL:
+					break;
+				case IDR_N_LP:
+					break;
+				case CRA_NUT:
+					break;
+				case GDR_NUT:
+					break;
+				case RSV_IRAP_11:
+					break;
+				case OPI_NUT:
+					nal_read_ref(bst, ptr_operating_point_information_rbsp, OPERATING_POINT_INFORMATION_RBSP);
+					break;
+				case DCI_NUT:
+					nal_read_ref(bst, ptr_decoding_capability_information_rbsp, DECODING_CAPABILITY_INFORMATION_RBSP);
+					break;
+				case VPS_NUT:
+					nal_read_ref(bst, ptr_video_parameter_set_rbsp, VIDEO_PARAMETER_SET_RBSP);
+					break;
+				case SPS_NUT:
+					nal_read_ref(bst, ptr_seq_parameter_set_rbsp, SEQ_PARAMETER_SET_RBSP);
+					break;
+				case PPS_NUT:
+					break;
+				case PREFIX_APS_NUT:
+				case SUFFIX_APS_NUT:
+					nal_read_ref(bst, ptr_adaptation_parameter_set_rbsp, ADAPTATION_PARAMETER_SET_RBSP, (uint8_t)nal_unit_header.nal_unit_type);
+					break;
+				case PH_NUT:
+					break;
+				case AUD_NUT:
+					nal_read_ref(bst, ptr_access_unit_delimiter_rbsp, ACCESS_UNIT_DELIMITER_RBSP);
+					break;
+				case EOS_NUT:
+					break;
+				case EOB_NUT:
+					break;
+				case PREFIX_SEI_NUT:
+				case SUFFIX_SEI_NUT:
+					nal_read_ref(bst, ptr_sei_rbsp, SEI_RBSP, nal_unit_header.nal_unit_type, ptr_ctx_video_bst);
+					break;
+				case FD_NUT:
+					break;
+				case RSV_NVCL_26:
+					break;
+				case RSV_NVCL_27:
+					break;
+				case UNSPEC_28:
+					break;
+				case UNSPEC_29:
+					break;
+				case UNSPEC_30:
+					break;
+				case UNSPEC_31:
+					break;
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				AMBst_SetRBSPType(bst, BST_RBSP_SEQUENCE);
+				return e.RetCode();
+			}
+
+			AMBst_SetRBSPType(bst, BST_RBSP_SEQUENCE);
+			SYNTAX_BITSTREAM_MAP::EndMap(bst);
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP::DECODING_CAPABILITY_INFORMATION_RBSP(){
+
+		}
+
+		NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP::~DECODING_CAPABILITY_INFORMATION_RBSP() {
+			for (auto p : profile_tier_level) {
+				AMP_SAFEDEL2(p);
+			}
+		}
+
+		int NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, dci_reserved_zero_4bits, 4);
+				bsrb1(in_bst, dci_num_ptls_minus1, 4);
+				profile_tier_level.resize(dci_num_ptls_minus1 + 1);
+				for (int i = 0; i < (int)dci_num_ptls_minus1 + 1; i++) {
+					bsrbreadref(in_bst, profile_tier_level[i], PROFILE_TIER_LEVEL, 1, 0);
+				}
+
+				bsrb1(in_bst, dci_extension_flag, 1);
+				if (dci_extension_flag) {
+					if (AMP_FAILED(iRet = read_extension_and_trailing_bits(in_bst, map_status, dci_extension_data_flag, rbsp_trailing_bits)))
+					{
+						return iRet;
+					}
+				}
+				else
+				{
+					nal_read_obj(in_bst, rbsp_trailing_bits);
+				}
+
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::OPERATING_POINT_INFORMATION_RBSP::OPERATING_POINT_INFORMATION_RBSP(){
+		}
+
+		NAL_UNIT::OPERATING_POINT_INFORMATION_RBSP::~OPERATING_POINT_INFORMATION_RBSP()
+		{
+		}
+
+		int NAL_UNIT::OPERATING_POINT_INFORMATION_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, opi_ols_info_present_flag, 1);
+				bsrb1(in_bst, opi_htid_info_present_flag, 1);
+
+				if (opi_ols_info_present_flag) {
+					nal_read_ue1(in_bst, opi_ols_idx);
+				}
+
+				if (opi_htid_info_present_flag) {
+					bsrb1(in_bst, opi_htid_plus1, 3);
+				}
+
+				bsrb1(in_bst, opi_extension_flag, 1);
+				if (opi_extension_flag)
+				{
+					if (AMP_FAILED(iRet = read_extension_and_trailing_bits(in_bst, map_status, opi_extension_data_flag, rbsp_trailing_bits)))
+					{
+						return iRet;
+					}
+				}
+				else
+				{
+					nal_read_obj(in_bst, rbsp_trailing_bits);
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::OPERATING_POINT_INFORMATION_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::ALF_DATA::ALF_DATA(bool apsChromaPresentFlag)
+			: alf_chroma_filter_signal_flag(0)
+			, alf_cc_cb_filter_signal_flag(0)
+			, alf_cc_cr_filter_signal_flag(0)
+			, aps_chroma_present_flag(apsChromaPresentFlag){
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::ALF_DATA::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, alf_luma_filter_signal_flag, 1);
+				if (aps_chroma_present_flag)
+				{
+					bsrb1(in_bst, alf_chroma_filter_signal_flag, 1);
+					bsrb1(in_bst, alf_cc_cb_filter_signal_flag, 1);
+					bsrb1(in_bst, alf_cc_cr_filter_signal_flag, 1);
+				}
+
+				if (alf_luma_filter_signal_flag) {
+					bsrb1(in_bst, alf_luma_clip_flag, 1);
+					nal_read_ue1(in_bst, alf_luma_num_filters_signalled_minus1);
+
+					uint8_t nBits = quick_ceil_log2(alf_luma_num_filters_signalled_minus1 + 1);
+					if (alf_luma_num_filters_signalled_minus1 > 0)
+					{
+						alf_luma_coeff_delta_idx.resize(NumAlfFilters);
+						for (uint8_t filtIdx = 0; filtIdx < NumAlfFilters; filtIdx++) {
+							bsrb1(in_bst, alf_luma_coeff_delta_idx[filtIdx], nBits);
+						}
+					}
+
+					for (size_t sfIdx = 0; sfIdx <= alf_luma_num_filters_signalled_minus1; sfIdx++) {
+						for (uint8_t j = 0; j < 12; j++) {
+							nal_read_ue1(in_bst, alf_luma_coeff_abs[sfIdx][j]);
+							if (alf_luma_coeff_abs[sfIdx][j]) {
+								bsrbarray(in_bst, alf_luma_coeff_sign[sfIdx], j);
+							}
+						}
+					}
+
+					if (alf_luma_clip_flag) {
+						for (size_t sfIdx = 0; sfIdx <= alf_luma_num_filters_signalled_minus1; sfIdx++) {
+							for (uint8_t j = 0; j < 12; j++) {
+								bsrb1(in_bst, alf_luma_clip_idx[sfIdx][j], 2);
+							}
+						}
+					}
+				}
+
+				if (alf_chroma_filter_signal_flag) {
+					bsrb1(in_bst, alf_chroma_clip_flag, 1);
+					nal_read_ue1(in_bst, alf_chroma_num_alt_filters_minus1);
+					for (size_t altIdx = 0; altIdx <= alf_chroma_num_alt_filters_minus1; altIdx++) {
+						for (uint8_t j = 0; j < 6; j++) {
+							nal_read_ue1(in_bst, alf_chroma_coeff_abs[altIdx][j]);
+							if (alf_chroma_coeff_abs[altIdx][j] > 0) {
+								bsrbarray(in_bst, alf_chroma_coeff_sign[altIdx], j);
+							}
+						}
+
+						if (alf_chroma_clip_flag) {
+							for (uint8_t j = 0; j < 6; j++) {
+								bsrb1(in_bst, alf_chroma_clip_idx[altIdx][j], 2);
+							}
+						}
+					}
+				}
+
+				if (alf_cc_cb_filter_signal_flag) {
+					nal_read_ue1(in_bst, alf_cc_cb_filters_signalled_minus1);
+					for (size_t k = 0; k < (size_t)alf_cc_cb_filters_signalled_minus1 + 1; k++) {
+						for (uint8_t j = 0; j < 7; j++) {
+							bsrb1(in_bst, alf_cc_cb_mapped_coeff_abs[k][j], 3);
+							if (alf_cc_cb_mapped_coeff_abs[k][j]) {
+								bsrbarray(in_bst, alf_cc_cb_coeff_sign[k], j);
+							}
+						}
+					}
+				}
+
+				if (alf_cc_cr_filter_signal_flag) {
+					nal_read_ue1(in_bst, alf_cc_cr_filters_signalled_minus1);
+					for (size_t k = 0; k < (size_t)alf_cc_cr_filters_signalled_minus1 + 1; k++) {
+						for (uint8_t j = 0; j < 7; j++) {
+							bsrb1(in_bst, alf_cc_cr_mapped_coeff_abs[k][j], 3);
+							if (alf_cc_cr_mapped_coeff_abs[k][j]) {
+								bsrbarray(in_bst, alf_cc_cr_coeff_sign[k], j);
+							}
+						}
+					}
+				}
+				
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::ALF_DATA::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::LMCS_DATA::LMCS_DATA(bool apsChromaPresentFlag)
+			: aps_chroma_present_flag(apsChromaPresentFlag){
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::LMCS_DATA::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+
+				nal_read_ue1(in_bst, lmcs_min_bin_idx);
+				nal_read_ue1(in_bst, lmcs_delta_max_bin_idx);
+				nal_read_ue1(in_bst, lmcs_delta_cw_prec_minus1);
+
+				int LmcsMaxBinIdx = 15 - lmcs_delta_max_bin_idx;
+				for (int i = lmcs_min_bin_idx; i <= LmcsMaxBinIdx; i++) {
+					bsrb1(in_bst, lmcs_delta_abs_cw[i], lmcs_delta_cw_prec_minus1 + 1);
+					if (lmcs_delta_abs_cw[i] > 0){
+						bsrbarray(in_bst, lmcs_delta_sign_cw_flag, i);
+					}
+				}
+
+				if (aps_chroma_present_flag) {
+					bsrb1(in_bst, lmcs_delta_abs_crs, 3);
+					if (lmcs_delta_abs_crs > 0) {
+						bsrb1(in_bst, lmcs_delta_sign_crs_flag, 1);
+					}
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::LMCS_DATA::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::SCALING_LIST_DATA::SCALING_LIST_DATA(bool apsChromaPresentFlag) 
+			: aps_chroma_present_flag(apsChromaPresentFlag) {
+			UpdateDiagScanOrder();
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::SCALING_LIST_DATA::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+
+				for (uint8_t id = 0; id < 28; id++) {
+					uint8_t matrixSize = id < 2 ? 2 : (id < 8 ? 4 : 8);
+					if (aps_chroma_present_flag || id % 3 == 2 || id == 27) {
+						bsrbarray(in_bst, scaling_list_copy_mode_flag, id);
+						if (!scaling_list_copy_mode_flag[id]) {
+							bsrbarray(in_bst, scaling_list_pred_mode_flag, id);
+						}
+
+						if ((scaling_list_copy_mode_flag[id] || scaling_list_pred_mode_flag[id]) && id != 0 && id != 2 && id != 8) {
+							nal_read_ue1(in_bst, scaling_list_pred_id_delta[id]);
+						}
+
+						if (!scaling_list_copy_mode_flag[id]) {
+							int nextCoef = 0;
+							if (id > 13) {
+								nal_read_se1(in_bst, scaling_list_dc_coef[id - 14]);
+								nextCoef += scaling_list_dc_coef[id - 14];
+							}
+
+							uint8_t matrixSize = (id < 2) ? 2 : ((id < 8) ? 4 : 8);
+							for (uint16_t i = 0; i < matrixSize * matrixSize; i++) {
+								uint8_t x = DiagScanOrder[3][3][i][0];
+								uint8_t y = DiagScanOrder[3][3][i][1];
+								if (!(id > 25 && x >= 4 && y >= 4)) {
+									nal_read_se1(in_bst, scaling_list_delta_coef[id][i]);
+									nextCoef += scaling_list_delta_coef[id][i];
+								}
+
+								ScalingList[id][i] = nextCoef;
+							}
+						}
+					}
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::SCALING_LIST_DATA::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		uint8_t NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::SCALING_LIST_DATA::DiagScanOrder[4][4][64][2] = { {{{0}}} };
+
+		void NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::SCALING_LIST_DATA::UpdateDiagScanOrder() {
+			for (unsigned log2BlockWidth = 0; log2BlockWidth < 4; log2BlockWidth++)
+			{
+				for (unsigned log2BlockHeight = 0; log2BlockHeight < 4; log2BlockHeight++)
+				{
+					auto blkWidth = 1u << log2BlockWidth;
+					auto blkHeight = 1u << log2BlockHeight;
+
+					uint8_t i = 0, x = 0, y = 0;
+					bool stopLoop = false;
+					while (!stopLoop) {
+						while (y >= 0) {
+							if (x < blkWidth && y < blkHeight) {
+								DiagScanOrder[log2BlockWidth][log2BlockHeight][i][0] = x;
+								DiagScanOrder[log2BlockWidth][log2BlockHeight][i][1] = y;
+								i++;
+							}
+							y--;
+							x++;
+						}
+						y = x;
+						x = 0;
+						if (i >= blkWidth * blkHeight)
+							stopLoop = true;
+					}
+				}
+			}
+		}
+
+		NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::ADAPTATION_PARAMETER_SET_RBSP(uint8_t NUType)
+			: nu_type(NUType) {
+		}
+
+		NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::~ADAPTATION_PARAMETER_SET_RBSP() {
+			if (aps_params_type == ALF_APS){
+				AMP_SAFEDEL2(alf_data);
+			}
+			else if (aps_params_type == LMCS_APS){
+				AMP_SAFEDEL2(lmcs_data);
+			}
+			else if (aps_params_type == SCALING_APS){
+				AMP_SAFEDEL2(scaling_list_data);
+			}
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, aps_params_type, 3);
+				bsrb1(in_bst, aps_adaptation_parameter_set_id, 5);
+				bsrb1(in_bst, aps_chroma_present_flag, 1);
+
+				if (aps_params_type == ALF_APS)
+				{
+					bsrbreadref(in_bst, alf_data, ALF_DATA, aps_chroma_present_flag);
+				}
+				else if (aps_params_type == LMCS_APS)
+				{
+					bsrbreadref(in_bst, lmcs_data, LMCS_DATA, aps_chroma_present_flag);
+				}
+				else if (aps_params_type == SCALING_APS)
+				{
+					bsrbreadref(in_bst, scaling_list_data, SCALING_LIST_DATA, aps_chroma_present_flag);
+				}
+
+				bsrb1(in_bst, aps_extension_flag, 1);
+				if (aps_extension_flag)
+				{
+					if (AMP_FAILED(iRet = read_extension_and_trailing_bits(in_bst, map_status, aps_extension_data_flag, rbsp_trailing_bits)))
+					{
+						return iRet;
+					}
+				}
+				else
+				{
+					nal_read_obj(in_bst, rbsp_trailing_bits);
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
 	}
 }
 
