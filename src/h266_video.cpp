@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 MIT License
 
@@ -275,6 +275,10 @@ namespace BST
 
 		H266_NU VideoBitstreamCtx::GetVVCPPS(uint8_t pps_id)
 		{
+			auto iter = m_sp_ppses.find(pps_id);
+			if (iter != m_sp_ppses.end())
+				return iter->second;
+
 			return std::shared_ptr<NAL_UNIT>();
 		}
 
@@ -310,7 +314,11 @@ namespace BST
 
 		RET_CODE VideoBitstreamCtx::UpdateVVCPPS(H266_NU pps_nu)
 		{
-			return RET_CODE_ERROR_NOTIMPL;
+			if (!pps_nu || pps_nu->nal_unit_header.nal_unit_type != PPS_NUT || pps_nu->ptr_pic_parameter_set_rbsp == nullptr)
+				return RET_CODE_INVALID_PARAMETER;
+
+			m_sp_ppses[pps_nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id] = pps_nu;
+			return RET_CODE_SUCCESS;
 		}
 
 		H266_NU VideoBitstreamCtx::CreateVVCNU()
@@ -335,6 +343,31 @@ namespace BST
 		{
 			m_active_sps_id = -1;
 			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::GetNumRefIdxActive(int8_t num_ref_idx_active[2])
+		{
+			num_ref_idx_active[0] = NumRefIdxActive[0];
+			num_ref_idx_active[1] = NumRefIdxActive[1];
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::GetRplsIdx(int8_t rpls_idx[2])
+		{
+			rpls_idx[0] = RplsIdx[0];
+			rpls_idx[1] = RplsIdx[1];
+			return RET_CODE_SUCCESS;
+		}
+
+		int8_t VideoBitstreamCtx::GetNumRefEntries(uint8_t idRPL/*0 or 1*/, uint8_t rpls_idx)
+		{
+			if (idRPL != 0 && idRPL != 1)
+				return -1;
+
+			if (rpls_idx >= num_ref_entries[idRPL].size())
+				return -1;
+
+			return num_ref_entries[idRPL][rpls_idx];
 		}
 
 		int NAL_UNIT::VIDEO_PARAMETER_SET_RBSP::UpdateReferenceLayers()
@@ -519,6 +552,11 @@ namespace BST
 					if (!inter_layer_ref_pic_flag[i]) {
 						if (sps_long_term_ref_pics_flag) {
 							bsrbarray(in_bst, st_ref_pic_flag, i);
+
+							for (i = 0, m_pCtx->NumLtrpEntries[m_listIdx][m_rplsIdx] = 0; i < num_ref_entries; i++) {
+								if (!inter_layer_ref_pic_flag[i] && !st_ref_pic_flag[i])
+									m_pCtx->NumLtrpEntries[m_listIdx][m_rplsIdx]++;
+							}
 						}
 						else
 							st_ref_pic_flag.BitSet(i);
@@ -1283,6 +1321,7 @@ namespace BST
 				UNMAP_STRUCT_POINTER5(ptr_seq_parameter_set_rbsp);
 				break;
 			case PPS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_pic_parameter_set_rbsp);
 				break;
 			case PREFIX_APS_NUT:
 			case SUFFIX_APS_NUT:
@@ -1377,6 +1416,7 @@ namespace BST
 					nal_read_ref(bst, ptr_seq_parameter_set_rbsp, SEQ_PARAMETER_SET_RBSP);
 					break;
 				case PPS_NUT:
+					nal_read_ref(bst, ptr_pic_parameter_set_rbsp, PIC_PARAMETER_SET_RBSP, ptr_ctx_video_bst);
 					break;
 				case PREFIX_APS_NUT:
 				case SUFFIX_APS_NUT:
@@ -1861,6 +1901,742 @@ namespace BST
 		}
 
 		int NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::PIC_PARAMETER_SET_RBSP::PIC_PARAMETER_SET_RBSP(INALVVCContext* pCtx)
+			: pps_loop_filter_across_tiles_enabled_flag(0), pps_rect_slice_flag(1)
+			, pps_single_slice_per_subpic_flag(1), pps_tile_idx_delta_present_flag(0)
+			, pps_loop_filter_across_slices_enabled_flag(0), pps_joint_cbcr_qp_offset_present_flag(0)
+			, pps_cb_qp_offset(0), pps_cr_qp_offset(0), pps_joint_cbcr_qp_offset_value(0)
+			, pps_deblocking_filter_override_enabled_flag(0), pps_deblocking_filter_disabled_flag(0), pps_dbf_info_in_ph_flag(0)
+			, pps_luma_beta_offset_div2(0), pps_luma_tc_offset_div2(0)
+			, pps_rpl_info_in_ph_flag(0), pps_sao_info_in_ph_flag(0), pps_alf_info_in_ph_flag(0), pps_wp_info_in_ph_flag(0)
+			, pps_qp_delta_info_in_ph_flag(0), m_pCtx(pCtx)
+		{
+		}
+
+		NAL_UNIT::PIC_PARAMETER_SET_RBSP::~PIC_PARAMETER_SET_RBSP()
+		{
+
+		}
+
+		int NAL_UNIT::PIC_PARAMETER_SET_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			H266_NU sps;
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+
+				bsrb1(in_bst, pps_pic_parameter_set_id, 6);
+				bsrb1(in_bst, pps_seq_parameter_set_id, 4);
+				bsrb1(in_bst, pps_mixed_nalu_types_in_pic_flag, 1);
+				nal_read_ue1(in_bst, pps_pic_width_in_luma_samples);
+				nal_read_ue1(in_bst, pps_pic_height_in_luma_samples);
+				bsrb1(in_bst, pps_conformance_window_flag, 1);
+
+				if (m_pCtx == nullptr || 
+					(sps = m_pCtx->GetVVCSPS(pps_seq_parameter_set_id)) == nullptr ||
+					sps->ptr_seq_parameter_set_rbsp == nullptr)
+					return RET_CODE_ERROR_NOTIMPL;
+
+				uint8_t CtbLog2SizeY = sps->ptr_seq_parameter_set_rbsp->sps_log2_ctu_size_minus5 + 5;
+				uint32_t CtbSizeY = 1 << CtbLog2SizeY;
+				uint8_t MinCbLog2SizeY = sps->ptr_seq_parameter_set_rbsp->sps_log2_min_luma_coding_block_size_minus2 + 2;
+				uint32_t MinCbSizeY = 1 << MinCbLog2SizeY;
+				uint8_t SubWidthC = (sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc == 1 || 
+									 sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc == 2)?2:1;
+				uint8_t SubHeightC = sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc == 1 ? 2 : 1;
+
+				PicWidthInCtbsY = (pps_pic_width_in_luma_samples + CtbSizeY -1) / CtbSizeY;
+				PicHeightInCtbsY = (pps_pic_height_in_luma_samples + CtbSizeY - 1) / CtbSizeY;
+				PicSizeInCtbsY = PicWidthInCtbsY * PicHeightInCtbsY;
+				PicWidthInMinCbsY = pps_pic_width_in_luma_samples / MinCbSizeY;
+				PicHeightInMinCbsY = pps_pic_height_in_luma_samples / MinCbSizeY;
+				PicSizeInMinCbsY = PicWidthInMinCbsY * PicHeightInMinCbsY;
+				PicSizeInSamplesY = pps_pic_width_in_luma_samples * pps_pic_height_in_luma_samples;
+				PicWidthInSamplesC = pps_pic_width_in_luma_samples / SubWidthC;
+				PicHeightInSamplesC = pps_pic_height_in_luma_samples / SubHeightC;
+
+				if (pps_conformance_window_flag)
+				{
+					nal_read_ue1(in_bst, pps_conf_win_left_offset);
+					nal_read_ue1(in_bst, pps_conf_win_right_offset);
+					nal_read_ue1(in_bst, pps_conf_win_top_offset);
+					nal_read_ue1(in_bst, pps_conf_win_bottom_offset);
+				}
+
+				bsrb1(in_bst, pps_scaling_window_explicit_signalling_flag, 1);
+				if (pps_scaling_window_explicit_signalling_flag) {
+					nal_read_se1(in_bst, pps_scaling_win_left_offset);
+					nal_read_se1(in_bst, pps_scaling_win_right_offset);
+					nal_read_se1(in_bst, pps_scaling_win_top_offset);
+					nal_read_se1(in_bst, pps_scaling_win_bottom_offset);
+				}
+
+				bsrb1(in_bst, pps_output_flag_present_flag, 1);
+				bsrb1(in_bst, pps_no_pic_partition_flag, 1);
+				bsrb1(in_bst, pps_subpic_id_mapping_present_flag, 1);
+
+				if (pps_subpic_id_mapping_present_flag) {
+					if (!pps_no_pic_partition_flag) {
+						nal_read_ue1(in_bst, pps_num_subpics_minus1);
+					}
+					nal_read_ue1(in_bst, pps_subpic_id_len_minus1);
+					pps_subpic_id.resize(pps_num_subpics_minus1 + 1);
+					for (int i = 0; i <= pps_num_subpics_minus1; i++) {
+						bsrb1(in_bst, pps_subpic_id[i], pps_subpic_id_len_minus1 + 1);
+					}
+				}
+
+				if (!pps_no_pic_partition_flag) {
+					bsrb1(in_bst, pps_log2_ctu_size_minus5, 2);
+					nal_read_ue1(in_bst, pps_num_exp_tile_columns_minus1);
+					nal_read_ue1(in_bst, pps_num_exp_tile_rows_minus1);
+
+					pps_tile_column_width_minus1.resize(pps_num_exp_tile_columns_minus1 + 1);
+					for (uint32_t i = 0; i <= pps_num_exp_tile_columns_minus1; i++) {
+						nal_read_ue1(in_bst, pps_tile_column_width_minus1[i]);
+					}
+					pps_tile_row_height_minus1.resize(pps_num_exp_tile_rows_minus1 + 1);
+					for (uint32_t i = 0; i <= pps_num_exp_tile_rows_minus1; i++) {
+						nal_read_ue1(in_bst, pps_tile_row_height_minus1[i]);
+					}
+
+					UpdateNumTileColumnsRows();
+
+					if (NumTileColumns*NumTileRows > 1) {
+						bsrb1(in_bst, pps_loop_filter_across_tiles_enabled_flag, 1);
+						bsrb1(in_bst, pps_rect_slice_flag, 1);
+					}
+
+					if (pps_rect_slice_flag) {
+						bsrb1(in_bst, pps_single_slice_per_subpic_flag, 1);
+					}
+
+					TileScanning();
+
+					if (pps_rect_slice_flag && !pps_single_slice_per_subpic_flag) {
+						nal_read_ue1(in_bst, pps_num_slices_in_pic_minus1);
+						if (pps_num_slices_in_pic_minus1 > 1) {
+							bsrb1(in_bst, pps_tile_idx_delta_present_flag, 1);
+						}
+						pps_slice_width_in_tiles_minus1.resize(pps_num_slices_in_pic_minus1);
+						pps_slice_height_in_tiles_minus1.resize(pps_num_slices_in_pic_minus1);
+						pps_num_exp_slices_in_tile.resize(pps_num_slices_in_pic_minus1);
+						pps_exp_slice_height_in_ctus_minus1.resize(pps_num_slices_in_pic_minus1);
+						pps_tile_idx_delta_val.resize(pps_num_slices_in_pic_minus1);
+						for (int i = 0; i < pps_num_slices_in_pic_minus1; i++) {
+							if (SliceTopLeftTileIdx[i] % NumTileColumns != NumTileColumns - 1) {
+								nal_read_ue1(in_bst, pps_slice_width_in_tiles_minus1[i]);
+							}
+							else
+								pps_slice_width_in_tiles_minus1[i] = 0;
+
+							if (SliceTopLeftTileIdx[i] / NumTileColumns != NumTileRows - 1 &&
+								(pps_tile_idx_delta_present_flag || SliceTopLeftTileIdx[i] % NumTileColumns == 0)) {
+								nal_read_ue1(in_bst, pps_slice_height_in_tiles_minus1[i]);
+							}
+							else if (SliceTopLeftTileIdx[i] / NumTileColumns == NumTileRows - 1)
+								pps_slice_height_in_tiles_minus1[i] = 0;
+							else
+								pps_slice_height_in_tiles_minus1[i] = pps_slice_height_in_tiles_minus1[i - 1];
+
+							if (pps_slice_width_in_tiles_minus1[i] == 0 && pps_slice_height_in_tiles_minus1[i] == 0 &&
+								RowHeightVal[SliceTopLeftTileIdx[i] / NumTileColumns] > 1) {
+								nal_read_ue1(in_bst, pps_num_exp_slices_in_tile[i]);
+
+								if (pps_num_exp_slices_in_tile[i] > 0) {
+									pps_exp_slice_height_in_ctus_minus1[i].resize(pps_num_exp_slices_in_tile[i]);
+									for (uint32_t j = 0; j < pps_num_exp_slices_in_tile[i]; j++) {
+										nal_read_ue1(in_bst, pps_exp_slice_height_in_ctus_minus1[i][j]);
+									}
+								}
+
+								i += NumSlicesInTile[i] - 1;
+							}
+							else
+								pps_num_exp_slices_in_tile[i] = 0;
+
+							if (pps_tile_idx_delta_present_flag && i < pps_num_slices_in_pic_minus1) {
+								nal_read_se1(in_bst, pps_tile_idx_delta_val[i]);
+							}
+							else
+								pps_tile_idx_delta_val[i] = 0;
+						}
+					}
+
+					if (!pps_rect_slice_flag || pps_single_slice_per_subpic_flag || pps_num_slices_in_pic_minus1 > 0)
+					{
+						bsrb1(in_bst, pps_loop_filter_across_slices_enabled_flag, 1);
+					}
+				}
+
+				bsrb1(in_bst, pps_cabac_init_present_flag, 1);
+				for (uint8_t i = 0; i < 2; i++) {
+					nal_read_ue1(in_bst, pps_num_ref_idx_default_active_minus1[i]);
+				}
+
+				bsrb1(in_bst, pps_rpl1_idx_present_flag, 1);
+				bsrb1(in_bst, pps_weighted_pred_flag, 1);
+				bsrb1(in_bst, pps_weighted_bipred_flag, 1);
+				bsrb1(in_bst, pps_ref_wraparound_enabled_flag, 1);
+
+				if (pps_ref_wraparound_enabled_flag) {
+					nal_read_ue1(in_bst, pps_pic_width_minus_wraparound_offset);
+				}
+
+				nal_read_se1(in_bst, pps_init_qp_minus26);
+
+				bsrb1(in_bst, pps_cu_qp_delta_enabled_flag, 1);
+				bsrb1(in_bst, pps_chroma_tool_offsets_present_flag, 1);
+
+				if (pps_chroma_tool_offsets_present_flag) {
+					nal_read_se1(in_bst, pps_cb_qp_offset);
+					nal_read_se1(in_bst, pps_cr_qp_offset);
+					bsrb1(in_bst, pps_joint_cbcr_qp_offset_present_flag, 1);
+
+					if (pps_joint_cbcr_qp_offset_present_flag) {
+						nal_read_se1(in_bst, pps_joint_cbcr_qp_offset_value);
+					}
+
+					bsrb1(in_bst, pps_slice_chroma_qp_offsets_present_flag, 1);
+					bsrb1(in_bst, pps_cu_chroma_qp_offset_list_enabled_flag, 1);
+
+					if (pps_cu_chroma_qp_offset_list_enabled_flag) {
+						nal_read_ue1(in_bst, pps_chroma_qp_offset_list_len_minus1);
+
+						pps_cb_qp_offset_list.resize(pps_chroma_qp_offset_list_len_minus1 + 1);
+						pps_cr_qp_offset_list.resize(pps_chroma_qp_offset_list_len_minus1 + 1);
+						pps_joint_cbcr_qp_offset_list.resize(pps_chroma_qp_offset_list_len_minus1 + 1);
+						for (uint8_t i = 0; i <= pps_chroma_qp_offset_list_len_minus1; i++) {
+							nal_read_se1(in_bst, pps_cb_qp_offset_list[i]);
+							nal_read_se1(in_bst, pps_cr_qp_offset_list[i]);
+							if (pps_joint_cbcr_qp_offset_present_flag) {
+								nal_read_se1(in_bst, pps_joint_cbcr_qp_offset_list[i]);
+							}
+							else
+								pps_joint_cbcr_qp_offset_list[i] = 0;
+						}
+					}
+				}
+
+				bsrb1(in_bst, pps_deblocking_filter_control_present_flag, 1);
+				if (pps_deblocking_filter_control_present_flag) {
+					bsrb1(in_bst, pps_deblocking_filter_override_enabled_flag, 1);
+					bsrb1(in_bst, pps_deblocking_filter_disabled_flag, 1);
+					if (!pps_no_pic_partition_flag && pps_deblocking_filter_override_enabled_flag) {
+						bsrb1(in_bst, pps_dbf_info_in_ph_flag, 1);
+					}
+
+					if (!pps_deblocking_filter_disabled_flag) {
+						nal_read_se1(in_bst, pps_luma_beta_offset_div2);
+						nal_read_se1(in_bst, pps_luma_tc_offset_div2);
+
+						if (pps_chroma_tool_offsets_present_flag) {
+							nal_read_se1(in_bst, pps_cb_beta_offset_div2);
+							nal_read_se1(in_bst, pps_cb_tc_offset_div2);
+							nal_read_se1(in_bst, pps_cr_beta_offset_div2);
+							nal_read_se1(in_bst, pps_cr_tc_offset_div2);
+						}
+						else
+						{
+							pps_cb_beta_offset_div2 = pps_luma_beta_offset_div2;
+							pps_cb_tc_offset_div2 = pps_luma_tc_offset_div2;
+							pps_cr_beta_offset_div2 = pps_luma_beta_offset_div2;
+							pps_cr_tc_offset_div2 = pps_luma_tc_offset_div2;
+						}
+					}
+				}
+
+				if (!pps_no_pic_partition_flag) {
+					bsrb1(in_bst, pps_rpl_info_in_ph_flag, 1);
+					bsrb1(in_bst, pps_sao_info_in_ph_flag, 1);
+					bsrb1(in_bst, pps_alf_info_in_ph_flag, 1);
+
+					if ((pps_weighted_pred_flag || pps_weighted_bipred_flag) && pps_rpl_info_in_ph_flag) {
+						bsrb1(in_bst, pps_wp_info_in_ph_flag, 1);
+					}
+
+					bsrb1(in_bst, pps_qp_delta_info_in_ph_flag, 1);
+				}
+
+				bsrb1(in_bst, pps_picture_header_extension_present_flag, 1);
+				bsrb1(in_bst, pps_slice_header_extension_present_flag, 1);
+				bsrb1(in_bst, pps_extension_flag, 1);
+
+				if (pps_extension_flag) {
+					if (AMP_FAILED(iRet = read_extension_and_trailing_bits(in_bst, map_status, pps_extension_data_flag, rbsp_trailing_bits)))
+					{
+						return iRet;
+					}
+				}
+				else
+				{
+					nal_read_obj(in_bst, rbsp_trailing_bits);
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::PIC_PARAMETER_SET_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		int NAL_UNIT::PIC_PARAMETER_SET_RBSP::UpdateNumTileColumnsRows()
+		{
+			uint32_t i = 0, j =  0;
+			int remainingWidthInCtbsY = PicWidthInCtbsY;
+			std::vector<uint32_t> ColWidthVal;
+			ColWidthVal.reserve(pps_num_exp_tile_columns_minus1 + 1);
+			for(i = 0; i <= pps_num_exp_tile_columns_minus1; i++)
+			{
+				ColWidthVal.push_back(pps_tile_column_width_minus1[i] + 1);
+				remainingWidthInCtbsY -= ColWidthVal[i];
+			}
+
+			uint32_t uniformTileColWidth = pps_tile_column_width_minus1[pps_num_exp_tile_columns_minus1] + 1;
+			while (remainingWidthInCtbsY >= (int)uniformTileColWidth) {
+				ColWidthVal.push_back(uniformTileColWidth);
+				i++;
+				remainingWidthInCtbsY -= uniformTileColWidth;
+			}
+			if (remainingWidthInCtbsY > 0) {
+				ColWidthVal.push_back(remainingWidthInCtbsY);
+				i++;
+			}
+			NumTileColumns = i;
+
+			int remainingHeightInCtbsY = PicHeightInCtbsY;
+			RowHeightVal.reserve(pps_num_exp_tile_rows_minus1 + 1);
+			for (j = 0; j <= pps_num_exp_tile_rows_minus1; j++) {
+				RowHeightVal.push_back(pps_tile_row_height_minus1[j] + 1);
+				remainingHeightInCtbsY -= RowHeightVal[j];
+			}
+			uint32_t uniformTileRowHeight = pps_tile_row_height_minus1[pps_num_exp_tile_rows_minus1] + 1;
+			while (remainingHeightInCtbsY >= (int)uniformTileRowHeight) {
+				RowHeightVal.push_back(uniformTileRowHeight);
+				j++;
+				remainingHeightInCtbsY -= uniformTileRowHeight;
+			}
+
+			if (remainingHeightInCtbsY > 0) {
+				RowHeightVal.push_back(remainingHeightInCtbsY);
+				j++;
+			}
+			
+			NumTileRows = j;
+
+			TileColBdVal.resize(NumTileColumns + 1);
+			for (TileColBdVal[0] = 0, i = 0; i < NumTileColumns; i++)
+				TileColBdVal[i + 1] = TileColBdVal[i] + ColWidthVal[i];
+
+			TileRowBdVal.resize(NumTileRows + 1);
+			for (TileRowBdVal[0] = 0, j = 0; j < NumTileRows; j++)
+				TileRowBdVal[j + 1] = TileRowBdVal[j] + RowHeightVal[j];
+
+			uint32_t tileX = 0;
+			CtbToTileColBd.resize(PicWidthInCtbsY + 1);
+			ctbToTileColIdx.resize(PicWidthInCtbsY + 1);
+			for (int32_t ctbAddrX = 0; ctbAddrX <= PicWidthInCtbsY; ctbAddrX++) {
+				if (ctbAddrX == (int32_t)TileColBdVal[tileX + 1])
+					tileX++;
+				CtbToTileColBd[ctbAddrX] = TileColBdVal[tileX]; 
+				ctbToTileColIdx[ctbAddrX] = tileX;
+			}
+
+			uint32_t tileY = 0;
+			CtbToTileRowBd.resize(PicHeightInCtbsY + 1);
+			ctbToTileRowIdx.resize(PicHeightInCtbsY + 1);
+			for (int32_t ctbAddrY = 0; ctbAddrY <= PicHeightInCtbsY; ctbAddrY++) {
+				if (ctbAddrY == (int32_t)TileRowBdVal[tileY + 1])
+					tileY++;
+				CtbToTileRowBd[ctbAddrY] = TileRowBdVal[tileY];
+				ctbToTileRowIdx[ctbAddrY] = tileY;
+			}
+
+			H266_NU sps;
+			if (m_pCtx == nullptr ||
+				(sps = m_pCtx->GetVVCSPS(pps_seq_parameter_set_id)) == nullptr ||
+				sps->ptr_seq_parameter_set_rbsp == nullptr)
+				return RET_CODE_ERROR_NOTIMPL;
+
+			SubpicWidthInTiles.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			SubpicHeightInTiles.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			subpicHeightLessThanOneTileFlag.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			for (i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
+				uint32_t leftX = sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i];
+				uint32_t rightX = leftX + sps->ptr_seq_parameter_set_rbsp->sps_subpic_width_minus1[i];
+				SubpicWidthInTiles[i] = ctbToTileColIdx[rightX] + 1 - ctbToTileColIdx[leftX]; 
+				uint32_t topY = sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_y[i];
+				uint32_t bottomY = topY + sps->ptr_seq_parameter_set_rbsp->sps_subpic_height_minus1[i];
+				SubpicHeightInTiles[i] = ctbToTileRowIdx[bottomY] + 1 - ctbToTileRowIdx[topY]; 
+				if (SubpicHeightInTiles[i] == 1 && sps->ptr_seq_parameter_set_rbsp->sps_subpic_height_minus1[i] + 1 < RowHeightVal[ctbToTileRowIdx[topY]])
+					subpicHeightLessThanOneTileFlag[i] = 1;
+				else
+					subpicHeightLessThanOneTileFlag[i] = 0;
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::PIC_PARAMETER_SET_RBSP::TileScanning()
+		{
+			H266_NU sps;
+			if (m_pCtx == nullptr ||
+				(sps = m_pCtx->GetVVCSPS(pps_seq_parameter_set_id)) == nullptr ||
+				sps->ptr_seq_parameter_set_rbsp == nullptr)
+				return RET_CODE_ERROR_NOTIMPL;
+
+			NumCtusInSlice.resize(pps_num_slices_in_pic_minus1 + 1);
+			if (pps_single_slice_per_subpic_flag) 
+			{
+				if (!sps->ptr_seq_parameter_set_rbsp->sps_subpic_info_present_flag) /* There is no subpicture info and only one slice in a picture. */
+				{
+					for (uint32_t j = 0; j < NumTileRows; j++) {
+						for (uint32_t i = 0; i < NumTileColumns; i++) {
+							AddCtbsToSlice(0, TileColBdVal[i], TileColBdVal[i + 1], TileRowBdVal[j], TileRowBdVal[j + 1]);
+						}
+					}
+				}
+				else 
+				{
+					for (uint32_t i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
+						NumCtusInSlice[i] = 0;
+						if (subpicHeightLessThanOneTileFlag[i]) /* The slice consists of a set of CTU rows in a tile. */
+						{
+							AddCtbsToSlice(i, 
+								sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i],
+								sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i] + sps->ptr_seq_parameter_set_rbsp->sps_subpic_width_minus1[i] + 1,
+								sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_y[i],
+								sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_y[i] + sps->ptr_seq_parameter_set_rbsp->sps_subpic_height_minus1[i] + 1);
+						}
+						else 
+						{ 
+							/* The slice consists of a number of complete tiles covering a rectangular region. */ 
+							uint32_t tileX = ctbToTileColIdx[sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i]];
+							uint32_t tileY = ctbToTileRowIdx[sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_y[i]];
+							for (uint32_t j = 0; j < SubpicHeightInTiles[i]; j++) {
+								for (uint32_t k = 0; k < SubpicWidthInTiles[i]; k++) {
+									AddCtbsToSlice(i, TileColBdVal[tileX + k], TileColBdVal[tileX + k + 1], TileRowBdVal[tileY + j], TileRowBdVal[tileY + j + 1]);
+								}
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				uint32_t tileIdx = 0;
+				for (uint32_t i = 0; i <= pps_num_slices_in_pic_minus1; i++)
+					NumCtusInSlice[i] = 0;
+
+				SliceTopLeftTileIdx.resize(pps_num_slices_in_pic_minus1 + 1);
+				sliceWidthInTiles.resize(pps_num_slices_in_pic_minus1 + 1);
+				sliceHeightInTiles.resize(pps_num_slices_in_pic_minus1 + 1);
+				NumSlicesInTile.resize(pps_num_slices_in_pic_minus1 + 1);
+				sliceHeightInCtus.resize(pps_num_slices_in_pic_minus1 + 1);
+
+				for (uint16_t i = 0; i <= pps_num_slices_in_pic_minus1; i++) 
+				{
+					SliceTopLeftTileIdx[i] = tileIdx;
+					uint32_t tileX = tileIdx % NumTileColumns; 
+					uint32_t tileY = tileIdx / NumTileColumns;
+					if (i < pps_num_slices_in_pic_minus1) {
+						sliceWidthInTiles[i] = pps_slice_width_in_tiles_minus1[i] + 1;
+						sliceHeightInTiles[i] = pps_slice_height_in_tiles_minus1[i] + 1;
+					}
+					else {
+						sliceWidthInTiles[i] = NumTileColumns - tileX; 
+						sliceHeightInTiles[i] = NumTileRows - tileY; 
+						NumSlicesInTile[i] = 1;
+					}
+
+					if (sliceWidthInTiles[i] == 1 && sliceHeightInTiles[i] == 1) {
+						if (pps_num_exp_slices_in_tile[i] == 0) {
+							NumSlicesInTile[i] = 1;
+							sliceHeightInCtus[i] = RowHeightVal[SliceTopLeftTileIdx[i] / NumTileColumns];
+						}
+						else 
+						{
+							uint32_t remainingHeightInCtbsY = RowHeightVal[SliceTopLeftTileIdx[i] / NumTileColumns];
+							uint32_t j = 0;
+							sliceHeightInCtus.resize(pps_num_slices_in_pic_minus1 + 1 + pps_num_exp_slices_in_tile[i]);
+							for (j = 0; j < pps_num_exp_slices_in_tile[i]; j++) {
+								sliceHeightInCtus[i + j] = pps_exp_slice_height_in_ctus_minus1[i][j] + 1;
+								remainingHeightInCtbsY -= sliceHeightInCtus[i + j];
+							}
+							uint32_t uniformSliceHeight = sliceHeightInCtus[i + j - 1];
+							while (remainingHeightInCtbsY >= uniformSliceHeight) {
+								sliceHeightInCtus.push_back(uniformSliceHeight);
+								remainingHeightInCtbsY  -= uniformSliceHeight;
+								j++;
+							}
+							if (remainingHeightInCtbsY > 0) {
+								sliceHeightInCtus.push_back(remainingHeightInCtbsY);
+								j++;
+							}
+
+							NumSlicesInTile[i] = j;
+						}
+						uint32_t ctbY = TileRowBdVal[tileY];
+						sliceWidthInTiles.resize(pps_num_slices_in_pic_minus1 + 1 + NumSlicesInTile[i]);
+						sliceHeightInTiles.resize(pps_num_slices_in_pic_minus1 + 1 + NumSlicesInTile[i]);
+						for (uint32_t j = 0; j < NumSlicesInTile[i]; j++) {
+							AddCtbsToSlice(i + j,
+								TileColBdVal[tileX], TileColBdVal[tileX + 1], ctbY, ctbY + sliceHeightInCtus[i + j]);
+							ctbY += sliceHeightInCtus[i + j]; 
+							sliceWidthInTiles[i + j] = 1;
+							sliceHeightInTiles[i + j] = 1;
+						}
+						i += NumSlicesInTile[i] - 1;
+					}
+					else
+					{
+						for (uint32_t j = 0; j < sliceHeightInTiles[i]; j++) {
+							for (uint32_t k = 0; k < sliceWidthInTiles[i]; k++) {
+								AddCtbsToSlice(i, TileColBdVal[tileX + k], TileColBdVal[tileX + k + 1], TileRowBdVal[tileY + j], TileRowBdVal[tileY + j + 1]);
+							}
+						}
+						if (i < pps_num_slices_in_pic_minus1) {
+							if (pps_tile_idx_delta_present_flag)
+								tileIdx += pps_tile_idx_delta_val[i];
+							else {
+								tileIdx += sliceWidthInTiles[i];
+								if (tileIdx % NumTileColumns == 0)
+									tileIdx += (sliceHeightInTiles[i] - 1) * NumTileColumns;
+							}
+						}
+					}
+				}
+			}
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::PRED_WEIGHT_TABLE::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			H266_NU sps, pps;
+			int8_t NumWeightsL0, NumWeightsL1;
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				nal_read_ue1(in_bst, luma_log2_weight_denom);
+
+				if (m_pCtx == nullptr ||
+					(pps = m_pCtx->GetVVCPPS(m_pic_parameter_set_id)) == nullptr ||
+					pps->ptr_pic_parameter_set_rbsp == nullptr ||
+					(sps = m_pCtx->GetVVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr) {
+					return RET_CODE_ERROR_NOTIMPL;
+				}
+
+				int8_t NumRefIdxActive[2] = { -1, - 1 };
+				int8_t RplsIdx[2] = { -1, -1 };
+				m_pCtx->GetNumRefIdxActive(NumRefIdxActive);
+				m_pCtx->GetRplsIdx(RplsIdx);
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+					nal_read_se1(in_bst, delta_chroma_log2_weight_denom);
+				}
+
+				if (pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag) {
+					nal_read_ue1(in_bst, num_l0_weights);
+					NumWeightsL0 = num_l0_weights;
+				}
+				else
+					NumWeightsL0 = NumRefIdxActive[0];
+
+				for (int8_t i = 0; i < NumWeightsL0; i++) {
+					bsrbarray(in_bst, luma_weight_l0_flag, i);
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+					for (int8_t i = 0; i < NumWeightsL0; i++) {
+						bsrbarray(in_bst, chroma_weight_l0_flag, i);
+					}
+				}
+
+				delta_luma_weight_l0.resize(NumWeightsL0);
+				luma_offset_l0.resize(NumWeightsL0);
+				delta_chroma_weight_l0.resize(NumWeightsL0);
+				delta_chroma_offset_l0.resize(NumWeightsL0);
+				for (int8_t i = 0; i < NumWeightsL0; i++) {
+					if (luma_weight_l0_flag[i]) {
+						nal_read_se1(in_bst, delta_luma_weight_l0[i]);
+						nal_read_se1(in_bst, luma_offset_l0[i]);
+					}
+					else
+					{
+						delta_luma_weight_l0[i] = (1 << luma_log2_weight_denom);
+						luma_offset_l0[i] = 0;
+					}
+
+					if (chroma_weight_l0_flag[i]) {
+						for (uint8_t j = 0; j < 2; j++) {
+							nal_read_se1(in_bst, delta_chroma_weight_l0[i][j]);
+							nal_read_se1(in_bst, delta_chroma_offset_l0[i][j]);
+						}
+					}
+					else
+					{
+						delta_chroma_weight_l0[i][0] = delta_chroma_weight_l0[i][1] = 1 << delta_chroma_log2_weight_denom;
+						delta_chroma_offset_l0[i][0] = delta_chroma_offset_l0[i][1] = 0;
+					}
+				}
+
+				if (pps->ptr_pic_parameter_set_rbsp->pps_weighted_bipred_flag && 
+					pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag && 
+					m_pCtx->GetNumRefEntries(1, RplsIdx[1]) > 0)
+				{
+					nal_read_ue1(in_bst, num_l1_weights);
+				}
+
+				if (!pps->ptr_pic_parameter_set_rbsp->pps_weighted_bipred_flag ||
+					(pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag && m_pCtx->GetNumRefEntries(1, RplsIdx[1]) == 0))
+					NumWeightsL1 = 0;
+				else if (pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag)
+					NumWeightsL1 = num_l1_weights;
+				else
+					NumWeightsL1 = NumRefIdxActive[1];
+
+				for (int8_t i = 0; i < NumWeightsL1; i++) {
+					bsrbarray(in_bst, luma_weight_l1_flag, i);
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+					for (int8_t i = 0; i < NumWeightsL1; i++) {
+						bsrbarray(in_bst, chroma_weight_l1_flag, i);
+					}
+				}
+
+				delta_luma_weight_l1.resize(NumWeightsL1);
+				luma_offset_l1.resize(NumWeightsL1);
+				delta_chroma_weight_l1.resize(NumWeightsL1);
+				delta_chroma_offset_l1.resize(NumWeightsL1);
+				for (int8_t i = 0; i < NumWeightsL1; i++) {
+					if (luma_weight_l1_flag[i]) {
+						nal_read_se1(in_bst, delta_luma_weight_l1[i]);
+						nal_read_se1(in_bst, luma_offset_l1[i]);
+					}
+					else
+					{
+						delta_luma_weight_l1[i] = (1 << luma_log2_weight_denom);
+						luma_offset_l1[i] = 0;
+					}
+
+					if (chroma_weight_l1_flag[i]) {
+						for (uint8_t j = 0; j < 2; j++) {
+							nal_read_se1(in_bst, delta_chroma_weight_l1[i][j]);
+							nal_read_se1(in_bst, delta_chroma_offset_l1[i][j]);
+						}
+					}
+					else
+					{
+						delta_chroma_weight_l1[i][0] = delta_chroma_weight_l1[i][1] = 1 << delta_chroma_log2_weight_denom;
+						delta_chroma_offset_l1[i][0] = delta_chroma_offset_l1[i][1] = 0;
+					}
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::PRED_WEIGHT_TABLE::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		int NAL_UNIT::REF_PIC_LISTS::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			H266_NU sps, pps;
+
+			if (m_pCtx == nullptr ||
+				(pps = m_pCtx->GetVVCPPS(pic_parameter_set_id)) == nullptr ||
+				sps->ptr_pic_parameter_set_rbsp == nullptr ||
+				(sps = m_pCtx->GetVVCSPS(sps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr)
+				return RET_CODE_ERROR_NOTIMPL;
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				for (uint8_t i = 0; i < 2; i++) {
+					if (sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i] > 0 &&
+						(i == 0 || (i == 1 && pps->ptr_pic_parameter_set_rbsp->pps_rpl1_idx_present_flag)))
+					{
+						bsrbarray(in_bst, rpl_sps_flag, i);
+					}
+					else if (sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i] == 0)
+						rpl_sps_flag.BitClear(i);
+					else
+						rpl_sps_flag[0] ? rpl_sps_flag.BitSet(1) : rpl_sps_flag.BitClear(1);
+
+					if (rpl_sps_flag[i]) {
+						if (sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i] > 1 &&
+							(i == 0 || (i == 1 && pps->ptr_pic_parameter_set_rbsp->pps_rpl1_idx_present_flag))) {
+							bsrb1(in_bst, rpl_idx[i], quick_ceil_log2(sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i]));
+
+							m_pCtx->RplsIdx[i] = rpl_sps_flag[i] ? rpl_idx[i] : sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i];
+						}
+					}
+					else
+					{
+						bsrbreadref(in_bst, 
+							sps->ptr_seq_parameter_set_rbsp->ref_pic_list_struct[i][sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i]],
+							REF_PIC_LIST_STRUCT, i, 
+							sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i], 
+							sps->ptr_seq_parameter_set_rbsp);
+					}
+
+					poc_lsb_lt[i].resize(m_pCtx->NumLtrpEntries[i][m_pCtx->RplsIdx[i]]);
+					delta_poc_msb_cycle_lt[i].resize(m_pCtx->NumLtrpEntries[i][m_pCtx->RplsIdx[i]]);
+					for (uint8_t j = 0; j < m_pCtx->NumLtrpEntries[i][m_pCtx->RplsIdx[i]]; j++) {
+						if (sps->ptr_seq_parameter_set_rbsp->ref_pic_list_struct[i][m_pCtx->RplsIdx[i]]->ltrp_in_header_flag) {
+							bsrb1(in_bst, poc_lsb_lt[i][j],
+								sps->ptr_seq_parameter_set_rbsp->sps_log2_max_pic_order_cnt_lsb_minus4 + 4);
+						}
+						bsrbarray(in_bst, delta_poc_msb_cycle_present_flag[i], j);
+						if (delta_poc_msb_cycle_present_flag[i][j]) {
+							nal_read_ue1(in_bst, delta_poc_msb_cycle_lt[i][j]);
+						}
+					}
+
+				}
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::REF_PIC_LISTS::Unmap(AMBst out_bst)
 		{
 			UNREFERENCED_PARAMETER(out_bst);
 			return RET_CODE_ERROR_NOTIMPL;

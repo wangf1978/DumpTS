@@ -598,6 +598,11 @@ int CNALParser::PickupVVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUB
 
 	int dependent_slice_segment_flag = 0;
 
+	if (m_hit_PH_NU_in_one_AU) {
+		nu_entry.first_slice_segment_in_pic_flag = true;
+		m_hit_PH_NU_in_one_AU = false;
+	}
+
 	try
 	{
 		uint8_t sh_picture_header_in_slice_header_flag = (uint8_t)AMBst_GetBits(bs, 1);
@@ -1007,6 +1012,17 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 		// Record the current nal_unit_header information and file offset
 		m_nu_entries.emplace_back(m_cur_submit_pos, offset, NAL_Unit_Len, count_of_leading_bytes, forbidden_zero_bit, nuh_reserved_zero_bit, nal_unit_type, nuh_layer_id, nuh_temporal_id_plus1);
 
+		// When hitting the below NAL unit(s),it means a new AU starts, and reset the flag
+		// m_hit_PH_NU_in_one_AU until a new PH_NU is hit
+		if (nal_unit_type == VVC_AUD_NUT ||
+			nal_unit_type == VVC_OPI_NUT ||
+			nal_unit_type == VVC_DCI_NUT ||
+			nal_unit_type == VVC_VPS_NUT ||
+			nal_unit_type == VVC_SPS_NUT ||
+			nal_unit_type == VVC_PPS_NUT ||
+			nal_unit_type == VVC_PREFIX_APS_NUT)
+			m_hit_PH_NU_in_one_AU = false;
+
 		if (IS_VVC_PARAMETERSET_NAL(nal_unit_type))
 		{
 			// Parsing the ebsp parameter set, and store it
@@ -1014,9 +1030,10 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 		}
 		else if (nal_unit_type == VVC_PH_NUT)
 		{
+			m_hit_PH_NU_in_one_AU = true;
 			iRet = LoadPictureHeaderRBSP(p, NAL_Unit_Len - count_of_leading_bytes, m_cur_submit_pos);
 		}
-		else if (IS_VVC_VCL_NAL(nal_unit_type))
+		else if (IS_VVC_VCL_NAL(nal_unit_type) && nal_unit_type != VVC_RSV_VCL_4 && nal_unit_type != VVC_RSV_VCL_5 && nal_unit_type != VVC_RSV_VCL_6 && nal_unit_type != VVC_RSV_IRAP_11)
 		{
 			// Parsing a part of slice header
 			if (AMP_SUCCEEDED(PickupLastSliceHeaderInfo(p, NAL_Unit_Len - count_of_leading_bytes)))
@@ -1024,6 +1041,8 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 				// Commit the slice information, during committing, picture information may be generated
 				iRet = CommitSliceInfo(false);
 			}
+
+			m_hit_PH_NU_in_one_AU = false;
 		}
 	}
 	else

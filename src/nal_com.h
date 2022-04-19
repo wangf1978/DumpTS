@@ -157,6 +157,9 @@ public:
 	virtual RET_CODE		UpdateVVCPPS(H266_NU pps_nu) = 0;
 	virtual H266_NU			CreateVVCNU() = 0;
 
+	virtual RET_CODE		GetNumRefIdxActive(int8_t num_ref_idx_active[2]) = 0;
+	virtual RET_CODE		GetRplsIdx(int8_t rpls_idx[2]) = 0;
+	virtual int8_t			GetNumRefEntries(uint8_t idRPL/*0 or 1*/, uint8_t rpls_idx) = 0;
 	virtual int8_t			GetActiveSPSID() = 0;
 	virtual	RET_CODE		ActivateSPS(int8_t sps_id) = 0;
 	virtual RET_CODE		DetactivateSPS() = 0;

@@ -197,6 +197,7 @@ protected:
 							m_nu_entries;
 	NAL_UNIT_ENTRY			m_last_first_slice_nu_entry;
 	int8_t					m_cur_nal_unit_type = -1;
+	bool					m_hit_PH_NU_in_one_AU = false;
 
 	union
 	{

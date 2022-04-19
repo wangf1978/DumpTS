@@ -29,6 +29,7 @@ SOFTWARE.
 #include "sei.h"
 #include <vector>
 #include <unordered_map>
+#include <array>
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -174,6 +175,10 @@ namespace BST {
 			RET_CODE					ActivateSPS(int8_t sps_id);
 			RET_CODE					DetactivateSPS();
 
+			RET_CODE					GetNumRefIdxActive(int8_t num_ref_idx_active[2]);
+			RET_CODE					GetRplsIdx(int8_t rpls_idx[2]);
+			int8_t						GetNumRefEntries(uint8_t idRPL/*0 or 1*/, uint8_t rpls_idx);
+
 		public:
 			std::vector<uint8_t>		nal_unit_type_filters;
 			std::unordered_map<uint8_t, int8_t>
@@ -184,8 +189,14 @@ namespace BST {
 			int8_t						m_active_nu_type = -1;
 			H266_NU						m_sp_dci;
 			H266_NU						m_sp_opi;
-			std::map <uint8_t, H266_NU>	m_sp_vpses;
-			std::map <uint8_t, H266_NU>	m_sp_spses;
+			std::map<uint8_t, H266_NU>	m_sp_vpses;		// the smart pointers of VPS for the current h266 bitstream
+			std::map<uint8_t, H266_NU>	m_sp_spses;		// the smart pointers of SPS for the current h266 bitstream
+			std::map<uint8_t, H266_NU>	m_sp_ppses;		// the smart pointers of PPS for the current h266 bitstream
+
+			int8_t						RplsIdx[2] = { -1, -1 };
+			std::vector<uint8_t>		num_ref_entries[2];
+			int8_t						NumRefIdxActive[2] = { -1, -1 };
+			std::vector<uint8_t>		NumLtrpEntries[2];
 		};
 
 		struct PICTURE_HEADER_STRUCTURE : public SYNTAX_BITSTREAM_MAP
@@ -1213,7 +1224,7 @@ namespace BST {
 					CAMBitArray		scaling_list_pred_mode_flag;
 					uint8_t			scaling_list_pred_id_delta[28] = { 0 };
 					int8_t			scaling_list_dc_coef[14] = { 0 };
-					int8_t			scaling_list_delta_coef[28][64] = { 0 };
+					int8_t			scaling_list_delta_coef[28][64] = { {0} };
 					int				ScalingList[28][64] = { {0} };
 
 					bool			aps_chroma_present_flag;
@@ -1423,11 +1434,11 @@ namespace BST {
 				uint8_t			sps_weighted_bipred_flag:1;
 				uint8_t			sps_log2_max_pic_order_cnt_lsb_minus4:4;
 
-				SEQ_PARAMETER_SET_RBSP* 
-								m_seq_parameter_set_rbsp;
+				VideoBitstreamCtx*
+								m_pCtx;
 
 				REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, SEQ_PARAMETER_SET_RBSP* seq_parameter_set_rbsp)
-					: ltrp_in_header_flag(1), m_listIdx(listIdx), m_rplsIdx(rplsIdx), m_seq_parameter_set_rbsp(seq_parameter_set_rbsp){
+					: ltrp_in_header_flag(1), m_listIdx(listIdx), m_rplsIdx(rplsIdx){
 
 					current_sps_num_ref_pic_list = seq_parameter_set_rbsp->sps_num_ref_pic_lists[m_listIdx];
 					sps_long_term_ref_pics_flag = seq_parameter_set_rbsp->sps_long_term_ref_pics_flag;
@@ -1667,7 +1678,366 @@ namespace BST {
 
 				DECLARE_FIELDPROP_END()
 			};
-		
+
+			struct PIC_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
+			{
+				uint16_t		pps_pic_parameter_set_id : 6;
+				uint16_t		pps_seq_parameter_set_id : 4;
+				uint16_t		pps_mixed_nalu_types_in_pic_flag : 1;
+				uint16_t		pps_conformance_window_flag:1;
+				uint16_t		pps_scaling_window_explicit_signalling_flag : 1;
+				uint16_t		pps_output_flag_present_flag;
+				uint16_t		pps_no_pic_partition_flag;
+				uint16_t		pps_subpic_id_mapping_present_flag;
+
+
+				uint32_t		pps_pic_width_in_luma_samples = 0;
+				uint32_t		pps_pic_height_in_luma_samples = 0;
+
+				uint32_t		pps_conf_win_left_offset = 0;
+				uint32_t		pps_conf_win_right_offset = 0;
+				uint32_t		pps_conf_win_top_offset = 0;
+				uint32_t		pps_conf_win_bottom_offset = 0;
+
+				int32_t			pps_scaling_win_left_offset;
+				int32_t			pps_scaling_win_right_offset;
+				int32_t			pps_scaling_win_top_offset;
+				int32_t			pps_scaling_win_bottom_offset;
+
+				uint16_t		pps_num_subpics_minus1 = 0;
+				uint8_t			pps_subpic_id_len_minus1;
+
+				uint8_t			pps_log2_ctu_size_minus5 : 2;
+				uint8_t			pps_loop_filter_across_tiles_enabled_flag : 1;
+				uint8_t			pps_rect_slice_flag : 1;
+				uint8_t			pps_single_slice_per_subpic_flag : 1;
+				uint8_t			pps_tile_idx_delta_present_flag : 1;
+				uint8_t			pps_loop_filter_across_slices_enabled_flag : 1;
+				uint8_t			pps_cabac_init_present_flag : 1;
+
+				std::vector<uint16_t>
+								pps_subpic_id;
+
+				uint32_t		pps_num_exp_tile_columns_minus1;
+				uint32_t		pps_num_exp_tile_rows_minus1;
+				std::vector<uint32_t>
+								pps_tile_column_width_minus1;
+				std::vector<uint32_t>
+								pps_tile_row_height_minus1;
+
+				uint16_t		pps_num_slices_in_pic_minus1;
+				std::vector<uint32_t>
+								pps_slice_width_in_tiles_minus1;
+				std::vector<uint32_t>
+								pps_slice_height_in_tiles_minus1;
+				std::vector<uint32_t>
+								pps_num_exp_slices_in_tile;
+				std::vector<std::vector<uint32_t>>
+								pps_exp_slice_height_in_ctus_minus1;
+				std::vector<int32_t>
+								pps_tile_idx_delta_val;
+
+				uint8_t			pps_num_ref_idx_default_active_minus1[2] = { 0 };
+
+				uint8_t			pps_rpl1_idx_present_flag : 1;
+				uint8_t			pps_weighted_pred_flag : 1;
+				uint8_t			pps_weighted_bipred_flag : 1;
+				uint8_t			pps_ref_wraparound_enabled_flag : 1;
+				uint8_t			pps_cu_qp_delta_enabled_flag : 1;
+				uint8_t			pps_chroma_tool_offsets_present_flag : 1;
+				uint8_t			pps_joint_cbcr_qp_offset_present_flag : 1;
+				uint8_t			pps_slice_chroma_qp_offsets_present_flag : 1;
+
+				int8_t			pps_init_qp_minus26;
+
+				uint32_t		pps_pic_width_minus_wraparound_offset;
+
+				int8_t			pps_cb_qp_offset;
+				int8_t			pps_cr_qp_offset;
+				int8_t			pps_joint_cbcr_qp_offset_value;
+
+				uint8_t			pps_cu_chroma_qp_offset_list_enabled_flag : 1;
+				uint8_t			pps_chroma_qp_offset_list_len_minus1 : 3;
+				uint8_t			pps_deblocking_filter_control_present_flag : 1;
+				uint8_t			pps_deblocking_filter_override_enabled_flag : 1;
+				uint8_t			pps_deblocking_filter_disabled_flag : 1;
+				uint8_t			pps_dbf_info_in_ph_flag : 1;
+
+				std::vector<int8_t>
+								pps_cb_qp_offset_list;
+				std::vector<int8_t>
+								pps_cr_qp_offset_list;
+				std::vector<int8_t>
+								pps_joint_cbcr_qp_offset_list;
+
+				int8_t			pps_luma_beta_offset_div2;
+				int8_t			pps_luma_tc_offset_div2;
+				int8_t			pps_cb_beta_offset_div2;
+				int8_t			pps_cb_tc_offset_div2;
+				int8_t			pps_cr_beta_offset_div2;
+				int8_t			pps_cr_tc_offset_div2;
+
+				uint8_t			pps_rpl_info_in_ph_flag : 1;
+				uint8_t			pps_sao_info_in_ph_flag : 1;
+				uint8_t			pps_alf_info_in_ph_flag : 1;
+				uint8_t			pps_wp_info_in_ph_flag : 1;
+				uint8_t			pps_qp_delta_info_in_ph_flag : 1;
+				uint8_t			pps_picture_header_extension_present_flag : 1;
+				uint8_t			pps_slice_header_extension_present_flag : 1;
+				uint8_t			pps_extension_flag : 1;
+
+				CAMBitArray		pps_extension_data_flag;
+
+				RBSP_TRAILING_BITS
+								rbsp_trailing_bits;
+
+				//
+				// Concluded values
+				//
+				int32_t			PicWidthInCtbsY = -1;
+				int32_t			PicHeightInCtbsY = -1;
+				int32_t			PicSizeInCtbsY = -1;
+				int32_t			PicWidthInMinCbsY = -1;
+				int32_t			PicHeightInMinCbsY = -1;
+				int32_t			PicSizeInMinCbsY = -1;
+				int32_t			PicSizeInSamplesY = -1;
+				int32_t			PicWidthInSamplesC = -1;
+				int32_t			PicHeightInSamplesC = -1;
+
+				uint32_t		NumTileColumns = 0;
+				uint32_t		NumTileRows = 0;
+				std::vector<uint32_t>
+								TileColBdVal;
+				std::vector<uint32_t>
+								TileRowBdVal;
+				std::vector<uint32_t>
+								CtbToTileColBd;
+				std::vector<uint32_t>
+								ctbToTileColIdx;
+				std::vector<uint32_t>
+								CtbToTileRowBd;
+				std::vector<uint32_t>
+								ctbToTileRowIdx;
+				std::vector<uint32_t>
+								SubpicWidthInTiles;
+				std::vector<uint32_t>
+								SubpicHeightInTiles;
+				std::vector<uint8_t>
+								subpicHeightLessThanOneTileFlag;
+				std::vector<uint32_t>
+								NumCtusInSlice;
+				std::vector<std::vector<uint32_t>>
+								CtbAddrInSlice;
+				std::vector<uint32_t>
+								SliceTopLeftTileIdx;
+				std::vector<uint32_t>
+								sliceWidthInTiles;
+				std::vector<uint32_t>
+								sliceHeightInTiles;
+				std::vector<uint32_t>
+								NumSlicesInTile;
+				std::vector<uint32_t> 
+								RowHeightVal;
+				std::vector<uint32_t>
+								sliceHeightInCtus;
+
+				INALVVCContext*	m_pCtx = nullptr;
+
+				PIC_PARAMETER_SET_RBSP(INALVVCContext*	pCtx);
+				~PIC_PARAMETER_SET_RBSP();
+				int Map(AMBst bst);
+				int Unmap(AMBst out_bst);
+				int UpdateNumTileColumnsRows();
+				int TileScanning();
+				inline void AddCtbsToSlice(uint32_t sliceIdx, uint32_t startX, uint32_t stopX, uint32_t startY, uint32_t stopY) {
+					for (uint32_t ctbY = startY; ctbY < stopY; ctbY++)
+						for (uint32_t ctbX = startX; ctbX < stopX; ctbX++) {
+							CtbAddrInSlice[sliceIdx][NumCtusInSlice[sliceIdx]] = ctbY * PicWidthInCtbsY + ctbX;
+							NumCtusInSlice[sliceIdx]++;
+						}
+				}
+			};
+
+			struct PRED_WEIGHT_TABLE : public SYNTAX_BITSTREAM_MAP
+			{
+				uint8_t			luma_log2_weight_denom : 3;
+				uint8_t			byte_align0 : 5;
+
+				int8_t			delta_chroma_log2_weight_denom;
+				uint8_t			num_l0_weights : 4;
+				uint8_t			num_l1_weights : 4;
+				CAMBitArray		luma_weight_l0_flag;
+				CAMBitArray		chroma_weight_l0_flag;
+
+				std::vector<int8_t>
+								delta_luma_weight_l0;
+				std::vector<int8_t>
+								luma_offset_l0;
+					
+				std::vector<std::array<int8_t, 2>>
+								delta_chroma_weight_l0;
+				std::vector<std::array<int8_t, 2>>
+								delta_chroma_offset_l0;
+				
+				CAMBitArray		luma_weight_l1_flag;
+				CAMBitArray		chroma_weight_l1_flag;
+
+				std::vector<int8_t>
+								delta_luma_weight_l1;
+				std::vector<int8_t>
+								luma_offset_l1;
+
+				std::vector<std::array<int8_t, 2>>
+								delta_chroma_weight_l1;
+				std::vector<std::array<int8_t, 2>>
+								delta_chroma_offset_l1;
+
+				INALVVCContext*	m_pCtx;
+				// pred_weight_table may exist in either picture header or slice header
+				uint8_t			m_pic_parameter_set_id;
+
+				PRED_WEIGHT_TABLE(INALVVCContext* pCtx, uint8_t pps_id)
+					: delta_chroma_log2_weight_denom(0), m_pCtx(pCtx), m_pic_parameter_set_id(pps_id){
+				}
+
+				int Map(AMBst bst);
+				int Unmap(AMBst out_bst);
+			};
+
+			struct REF_PIC_LISTS : public SYNTAX_BITSTREAM_MAP
+			{
+				CAMBitArray		rpl_sps_flag;
+				uint8_t			rpl_idx[2];
+
+				REF_PIC_LIST_STRUCT*
+								ref_pic_list_struct[2] = {nullptr, nullptr};
+
+				std::vector<uint16_t>
+								poc_lsb_lt[2];
+				CAMBitArray		delta_poc_msb_cycle_present_flag[2];
+				std::vector<uint32_t>
+								delta_poc_msb_cycle_lt[2];
+
+				VideoBitstreamCtx*	
+								m_pCtx;
+				uint8_t			pic_parameter_set_id;
+
+				REF_PIC_LISTS(VideoBitstreamCtx* pCtx, uint8_t pps_id)
+					: m_pCtx(pCtx), pic_parameter_set_id(pps_id) {
+				}
+
+				int Map(AMBst bst);
+				int Unmap(AMBst out_bst);
+			};
+
+			struct PICTURE_HEADER_STRUCTURE : public SYNTAX_BITSTREAM_MAP
+			{
+				uint16_t		ph_gdr_or_irap_pic_flag : 1;
+				uint16_t		ph_non_ref_pic_flag : 1;
+				uint16_t		ph_gdr_pic_flag : 1;
+				uint16_t		ph_inter_slice_allowed_flag : 1;
+				uint16_t		ph_intra_slice_allowed_flag : 1;
+				uint16_t		ph_pic_parameter_set_id : 6;
+				uint16_t		ph_poc_msb_cycle_present_flag : 1;
+				uint16_t		ph_alf_enabled_flag : 1;
+				uint16_t		ph_num_alf_aps_ids_luma : 3;
+
+				uint16_t		ph_pic_order_cnt_lsb;
+				uint16_t		ph_recovery_poc_cnt;
+
+				CAMBitArray		ph_extra_bit;
+
+				uint32_t		ph_poc_msb_cycle_val;
+
+				std::vector<uint8_t>
+								ph_alf_aps_id_luma;
+
+				uint16_t		ph_alf_cb_enabled_flag : 1;
+				uint16_t		ph_alf_cr_enabled_flag : 1;
+				uint16_t		ph_alf_aps_id_chroma : 3;
+				uint16_t		ph_alf_cc_cb_enabled_flag : 1;
+				uint16_t		ph_alf_cc_cb_aps_id : 3;
+				uint16_t		ph_alf_cc_cr_enabled_flag : 1;
+				uint16_t		ph_alf_cc_cr_aps_id : 3;
+				uint16_t		ph_lmcs_enabled_flag : 1;
+				uint16_t		ph_lmcs_aps_id : 2;
+
+				uint8_t			ph_chroma_residual_scale_flag : 1;
+				uint8_t			ph_explicit_scaling_list_enabled_flag : 1;
+				uint8_t			ph_scaling_list_aps_id : 3;
+				uint8_t			ph_virtual_boundaries_present_flag : 1;
+				uint8_t			ph_num_ver_virtual_boundaries : 2;
+
+				uint8_t			ph_num_hor_virtual_boundaries : 2;
+				uint8_t			ph_pic_output_flag : 1;
+				uint8_t			ph_partition_constraints_override_flag : 1;
+				uint8_t			ph_log2_diff_min_qt_min_cb_intra_slice_luma : 3;
+				uint8_t			byte_align0 : 1;
+
+				std::vector<uint32_t>
+								ph_virtual_boundary_pos_x_minus1;
+					
+				std::vector<uint32_t>
+								ph_virtual_boundary_pos_y_minus1;
+					
+				REF_PIC_LISTS*	ref_pic_lists;
+
+				uint8_t			ph_max_mtt_hierarchy_depth_intra_slice_luma;
+				uint8_t			ph_log2_diff_max_bt_min_qt_intra_slice_luma;
+
+				uint8_t			ph_log2_diff_max_tt_min_qt_intra_slice_luma : 4;
+				uint8_t			ph_log2_diff_min_qt_min_cb_intra_slice_chroma : 4;
+
+				uint8_t			ph_max_mtt_hierarchy_depth_intra_slice_chroma;
+				uint8_t			ph_log2_diff_max_bt_min_qt_intra_slice_chroma : 4;
+				uint8_t			ph_log2_diff_max_tt_min_qt_intra_slice_chroma : 4;
+
+				uint8_t			ph_cu_qp_delta_subdiv_intra_slice;
+				uint8_t			ph_cu_chroma_qp_offset_subdiv_intra_slice;
+
+				uint8_t			ph_log2_diff_min_qt_min_cb_inter_slice:4;
+				uint8_t			ph_max_mtt_hierarchy_depth_inter_slice:4;
+				uint8_t			ph_log2_diff_max_bt_min_qt_inter_slice : 4;
+				uint8_t			ph_log2_diff_max_tt_min_qt_inter_slice : 4;
+
+				uint8_t			ph_cu_qp_delta_subdiv_inter_slice;
+				uint8_t			ph_cu_chroma_qp_offset_subdiv_inter_slice;
+
+				uint8_t			ph_collocated_ref_idx;
+
+				uint8_t			ph_temporal_mvp_enabled_flag : 1;
+				uint8_t			ph_collocated_from_l0_flag : 1;
+				uint8_t			ph_mmvd_fullpel_only_flag : 1;
+				uint8_t			ph_mvd_l1_zero_flag : 1;
+				uint8_t			ph_bdof_disabled_flag : 1;
+				uint8_t			ph_dmvr_disabled_flag : 1;
+				uint8_t			ph_prof_disabled_flag : 1;
+				uint8_t			byte_align1 : 1;
+				
+				PRED_WEIGHT_TABLE*
+								pred_weight_table = nullptr;
+
+				int8_t			ph_qp_delta;
+				
+				uint8_t			ph_joint_cbcr_sign_flag : 1;
+				uint8_t			ph_sao_luma_enabled_flag : 1;
+				uint8_t			ph_sao_chroma_enabled_flag : 1;
+				uint8_t			ph_deblocking_params_present_flag : 1;
+				uint8_t			ph_deblocking_filter_disabled_flag : 1;
+				uint8_t			byte_align2 : 3;
+
+				int8_t			ph_luma_beta_offset_div2;
+				int8_t			ph_luma_tc_offset_div2;
+				int8_t			ph_cb_beta_offset_div2;
+				int8_t			ph_cb_tc_offset_div2;
+				int8_t			ph_cr_beta_offset_div2;
+				int8_t			ph_cr_tc_offset_div2;
+				uint16_t		ph_extension_length;
+
+				std::vector<uint8_t>
+								ph_extension_data_byte;
+			};
+
 			NAL_UNIT_HEADER		nal_unit_header;
 			union
 			{
@@ -1680,6 +2050,7 @@ namespace BST {
 											ptr_adaptation_parameter_set_rbsp;
 				VIDEO_PARAMETER_SET_RBSP*	ptr_video_parameter_set_rbsp;
 				SEQ_PARAMETER_SET_RBSP*		ptr_seq_parameter_set_rbsp;
+				PIC_PARAMETER_SET_RBSP*		ptr_pic_parameter_set_rbsp;
 				ACCESS_UNIT_DELIMITER_RBSP*	ptr_access_unit_delimiter_rbsp;
 				SEI_RBSP*					ptr_sei_rbsp;
 			};
