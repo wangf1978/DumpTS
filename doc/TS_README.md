@@ -15,6 +15,7 @@
 * [Show PCR](#show-pcr)
 * [Generate diagram with ATC, PCR, PTSes and DTSes](#generate-diagram-with-atc-pcr-ptses-and-dtses)
 * [Diff ATC clock and DTS clock](#diff-atc-clock-and-dts-clock)
+* [Replace the PIDs](#replace-the-pids)
 
 [Return to Main](../README.md)
 ## Extract an elementary stream
@@ -680,7 +681,7 @@ pkt_idx:         41 [PID: 0X0100][header 4bytes: C0 0A ED 53] CC:06 ATC: 0x000AE
 pkt_idx:         42 [PID: 0X0100][header 4bytes: C0 0A FD 8D] CC:07 ATC: 0x000AFD8D(    720269), diff: 4154(0.153852ms)
 pkt_idx:         43 [PID: 0X0100][header 4bytes: C0 0B 05 A6] CC:08 ATC: 0x000B05A6(    722342), diff: 2073(0.076778ms)
 ```
-    
+
 Since there are so many packets in one transport stream file, you may only want to show the abnormal difference, for example, the difference exceeds 16.6 milliseconds(16.6*27000 = 448200 27MHZ), you can specify the threshold with --diffATC
 ```
 DumpTS 00001.m2ts --diffATC=448200
@@ -955,4 +956,56 @@ If you want to compare ATC and DTS clock of itself, you can specify the same PID
 ```
 DumpTS Mono_AAC_test.m2ts --diffATCDTS --pid=0x110,0x110
 ```
+[Top](#contents)
+## Replace the PIDs
+If you want to change from one PID or some PIDs to another PIDs, `--pid/--destpid` can be used to specify the replaced PID(s), for example,
+At first, check the ts information
+```
+DumpTS test.tts --showinfo
+```
+And then,
+```
+Program Number: 55, program_map_PID: 0X40F(1039).
+Program(PID:0X040F)
+        Stream#0, PID: 0X104F, stm_type: 0X0F (AAC Audio)
+        Stream#1, PID: 0X100F, stm_type: 0X1B (MPEG4 AVC Video)
+
+The number of transport packets: 350428
+        PID: 0x0000             transport packet count:      4,546 - PAT
+        PID: 0x0001             transport packet count:         44 - CAT
+        PID: 0x001F             transport packet count:      2,208 - SIT
+        PID: 0x040F             transport packet count:      4,547 - PMT
+        PID: 0x0701             transport packet count:        873 -
+        PID: 0x0A0F             transport packet count:     12,096 - PCR
+        PID: 0x100F             transport packet count:    278,016 - MPEG4 AVC Video
+        PID: 0x104F             transport packet count:     48,030 - AAC Audio
+        PID: 0x1FFF             transport packet count:         68 - Null packet
+```
+Ok, now you want to change the PID from 0x104F to 0x1100, and the PID from 0x100F to 0x1011 with Blu-ray style, use the below commands:
+```
+DumpTS Test.tts --pid=0x104F,0x100F --destpid=0x1100,0x1011 --output=Test_2.tts
+```
+After finishing the command, verify the result by
+```
+DumpTS Test_2.tts --showinfo
+```
+And then,
+```
+Program Number: 55, program_map_PID: 0X40F(1039).
+Program(PID:0X040F)
+        Stream#0, PID: 0X1011, stm_type: 0X1B (MPEG4 AVC Video)
+        Stream#1, PID: 0X1100, stm_type: 0X0F (AAC Audio)
+
+The number of transport packets: 350428
+        PID: 0x0000             transport packet count:      4,546 - PAT
+        PID: 0x0001             transport packet count:         44 - CAT
+        PID: 0x001F             transport packet count:      2,208 - SIT
+        PID: 0x040F             transport packet count:      4,547 - PMT
+        PID: 0x0701             transport packet count:        873 -
+        PID: 0x0A0F             transport packet count:     12,096 - PCR
+        PID: 0x1011             transport packet count:    278,016 - MPEG4 AVC Video
+        PID: 0x1100             transport packet count:     48,030 - AAC Audio
+        PID: 0x1FFF             transport packet count:         68 - Null packet
+```
+
 [Top](#contents)
