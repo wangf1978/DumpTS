@@ -2850,7 +2850,7 @@ int DumpOneStream()
 					unwritten_pat_buf.clear();
 			}
 
-			if (PID == sPID && pes_buffer_len > 0)
+			if (PID == sPID && pes_buffer_len > 0 && (curProgSeqID == sProgSeqID || sProgSeqID == -1))
 			{
 				if (bPSI)
 				{
@@ -3057,7 +3057,7 @@ int DumpOneStream()
 			}
 		}
 
-		if (PID == sPID && (payload_unit_start || (!payload_unit_start && pes_buffer_len > 0)))
+		if (PID == sPID && (payload_unit_start || (!payload_unit_start && pes_buffer_len > 0)) && (curProgSeqID == sProgSeqID || sProgSeqID == -1))
 		{
 			memcpy(pes_buffer + pes_buffer_len, buf + index, (size_t)g_ts_fmtinfo.packet_size - index);
 			pes_buffer_len += g_ts_fmtinfo.packet_size - index;
