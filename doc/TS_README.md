@@ -15,7 +15,7 @@
 * [Show PCR](#show-pcr)
 * [Generate diagram with ATC, PCR, PTSes and DTSes](#generate-diagram-with-atc-pcr-ptses-and-dtses)
 * [Diff ATC clock and DTS clock](#diff-atc-clock-and-dts-clock)
-* [Replace the PIDs](#replace-the-pids)
+* [Change the values(s) of PID(s)](#change-the-values-of-PIDs)
 
 [Return to Main](../README.md)
 ## Extract an elementary stream
@@ -957,8 +957,8 @@ If you want to compare ATC and DTS clock of itself, you can specify the same PID
 DumpTS Mono_AAC_test.m2ts --diffATCDTS --pid=0x110,0x110
 ```
 [Top](#contents)
-## Replace the PIDs
-If you want to change from one PID or some PIDs to another PIDs, `--pid/--destpid` can be used to specify the replaced PID(s), for example,
+## Change the value(s) of PID(s)
+If you want to change from the values of some PIDs, `--pid/--destpid` can be used to specify the replaced PID(s) and the target PID(s), 
 At first, check the ts information
 ```
 DumpTS test.tts --showinfo
@@ -981,7 +981,7 @@ The number of transport packets: 350428
         PID: 0x104F             transport packet count:     48,030 - AAC Audio
         PID: 0x1FFF             transport packet count:         68 - Null packet
 ```
-Ok, now you want to change the PID from 0x104F to 0x1100, and the PID from 0x100F to 0x1011 with Blu-ray style, use the below commands:
+Ok, now you want to change the PID from 0x104F to 0x1100, and the PID from 0x100F to 0x1011 with Blu-ray style, use the below command:
 ```
 DumpTS Test.tts --pid=0x104F,0x100F --destpid=0x1100,0x1011 --output=Test_2.tts
 ```
