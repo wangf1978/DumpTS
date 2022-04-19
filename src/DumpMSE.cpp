@@ -54,7 +54,7 @@ SOFTWARE.
 using MSEID = int64_t;
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
-extern MEDIA_SCHEME_TYPE g_media_scheme_type;
+extern MEDIA_SCHEME_TYPE g_source_media_scheme_type;
 extern int AV1_PreparseStream(const char* szAV1FileName, bool& bIsAnnexB);
 
 const char* g_szRule    = "                                                                                                                        ";
@@ -2487,13 +2487,13 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 		return RET_CODE_ERROR;
 	}
 
-	if (g_media_scheme_type == MEDIA_SCHEME_UNKNOWN)
+	if (g_source_media_scheme_type == MEDIA_SCHEME_UNKNOWN)
 	{
 		printf("Unsupported media scheme!\n");
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
-	if (g_media_scheme_type == MEDIA_SCHEME_NAL)
+	if (g_source_media_scheme_type == MEDIA_SCHEME_NAL)
 	{
 		NAL_CODING nal_coding = NAL_CODING_UNKNOWN;
 		if (_stricmp(iterSrcFmt->second.c_str(), "h264") == 0)
@@ -2514,7 +2514,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 				iRet = RET_CODE_OUTOFMEMORY;
 		}
 	}
-	else if (g_media_scheme_type == MEDIA_SCHEME_AV1)
+	else if (g_source_media_scheme_type == MEDIA_SCHEME_AV1)
 	{
 		bool bAnnexBStream = false, bIVF = false;
 		if (AMP_FAILED(AV1_PreparseStream(g_params["input"].c_str(), bAnnexBStream)))
@@ -2535,7 +2535,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 		else
 			iRet = RET_CODE_OUTOFMEMORY;
 	}
-	else if (g_media_scheme_type == MEDIA_SCHEME_MPV)
+	else if (g_source_media_scheme_type == MEDIA_SCHEME_MPV)
 	{
 		CMPEG2VideoParser* pMPVParser = new CMPEG2VideoParser();
 		if (pMPVParser != nullptr)
@@ -2543,7 +2543,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 		else
 			iRet = RET_CODE_OUTOFMEMORY;
 	}
-	else if (g_media_scheme_type == MEDIA_SCHEME_LOAS_LATM)
+	else if (g_source_media_scheme_type == MEDIA_SCHEME_LOAS_LATM)
 	{
 		BST::AACAudio::CLOASParser* pLOASParser = new BST::AACAudio::CLOASParser();
 		if (pLOASParser != nullptr)
@@ -2551,7 +2551,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 		else
 			iRet = RET_CODE_OUTOFMEMORY;
 	}
-	else if (g_media_scheme_type == MEDIA_SCHEME_ISOBMFF)
+	else if (g_source_media_scheme_type == MEDIA_SCHEME_ISOBMFF)
 	{
 		printf("Oops! Not implement yet.\n");
 		iRet = RET_CODE_ERROR_NOTIMPL;

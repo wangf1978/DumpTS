@@ -2616,8 +2616,8 @@ int DumpOneStream()
 		// Don't support converting ts to tts or m2ts at present
 		if (iterSrcFmt != g_params.end() &&
 			_stricmp(iterSrcFmt->second.c_str(), "ts") == 0 && (
-				_stricmp(iterDstFmt->second.c_str(), "tts") == 0 ||
-				_stricmp(iterDstFmt->second.c_str(), "m2ts") == 0))
+			_stricmp(iterDstFmt->second.c_str(), "tts") == 0 ||
+			_stricmp(iterDstFmt->second.c_str(), "m2ts") == 0))
 		{
 			printf("Don't support convert source format: %s to destination format: %s!\n", iterSrcFmt->second.c_str(), iterDstFmt->second.c_str());
 			goto done;

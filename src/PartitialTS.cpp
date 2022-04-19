@@ -32,9 +32,11 @@ using namespace std;
 
 extern const char *dump_msg[];
 extern map<std::string, std::string, CaseInsensitiveComparator> g_params;
+extern MEDIA_SCHEME_TYPE					g_source_media_scheme_type;
+extern MEDIA_SCHEME_TYPE					CheckAndUpdateFileFormat(std::string& filepath, const char* param_name);
 
 // Dump a partial TS
-int DumpPartialTS(bool bOnlyESTS = true)
+int DumpPartialTS()
 {
 	errno_t errn = 0;
 	int nDumpRet = -1;
@@ -44,6 +46,7 @@ int DumpPartialTS(bool bOnlyESTS = true)
 	uint8_t buf[TS_PACKET_SIZE] = { 0 };
 	std::set<uint16_t> pid_filters;
 	bool bTTSOutput = false;
+	int64_t num_of_ts_packs_skip = 0;
 	int64_t num_of_ts_packs_written = 0;
 
 	auto iter_srcfmt = g_params.find("srcfmt");
@@ -51,14 +54,32 @@ int DumpPartialTS(bool bOnlyESTS = true)
 	auto iter_inputfile = g_params.find("input");
 	auto iter_outputfile = g_params.find("output");
 	auto iter_PID = g_params.find("pid");
+	auto iterStart = g_params.find("start");
+	auto iterEnd = g_params.find("end");
 
-	if (iter_PID == g_params.end())
+	int64_t nStart = -1LL, nEnd = INT64_MAX, iVal = -1LL;
+	if (iterStart != g_params.end())
 	{
-		nDumpRet = -1;
-		printf("Please specify the PID.\n");
-		goto done;
+		iVal = ConvertToLongLong(iterStart->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nStart = (uint32_t)iVal;
 	}
-	else
+
+	if (iterEnd != g_params.end())
+	{
+		iVal = ConvertToLongLong(iterEnd->second);
+		if (iVal >= 0 && iVal <= UINT32_MAX)
+			nEnd = (uint32_t)iVal;
+	}
+
+	if (g_params.find("outputfmt") == g_params.end())
+	{
+		// Assume the output format is the same with input format
+		g_params["outputfmt"] = g_params["srcfmt"];
+		iter_dstfmt = g_params.find("outputfmt");
+	}
+
+	if (iter_PID != g_params.end())
 	{
 		std::vector<std::string> strPIDs;
 		splitstr(iter_PID->second.c_str(), ",;.:", strPIDs);
@@ -152,14 +173,23 @@ int DumpPartialTS(bool bOnlyESTS = true)
 		goto done;
 	}
 
+	if (nStart > 0)
+	{
+		_fseeki64(fp, nStart*ts_pack_size, SEEK_SET);
+		num_of_ts_packs_skip = nStart;
+	}
+
 	while (true)
 	{
+		if (num_of_ts_packs_skip >= nEnd)
+			break;
+
 		size_t nRead = fread(buf, 1, ts_pack_size, fp);
 		if (nRead < ts_pack_size)
 			break;
 
 		uint16_t PID = ((buf[offset + 1] & 0x3F) << 8) | buf[offset + 2];
-		if (pid_filters.find(PID) == pid_filters.end())
+		if (pid_filters.find(PID) == pid_filters.end() && pid_filters.size() != 0)
 			continue;
 
 		size_t nWritten = 0;
@@ -175,6 +205,7 @@ int DumpPartialTS(bool bOnlyESTS = true)
 		}
 
 		num_of_ts_packs_written++;
+		num_of_ts_packs_skip++;
 	}
 
 	printf("Write %" PRId64 " transport stream packs successfully.\n", num_of_ts_packs_written);

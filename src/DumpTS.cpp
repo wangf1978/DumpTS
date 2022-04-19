@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -55,7 +55,8 @@ TS_FORMAT_INFO						g_ts_fmtinfo;
 int									g_verbose_level = 0;
 DUMP_STATUS							g_dump_status;
 
-MEDIA_SCHEME_TYPE					g_media_scheme_type = MEDIA_SCHEME_UNKNOWN;
+MEDIA_SCHEME_TYPE					g_source_media_scheme_type = MEDIA_SCHEME_UNKNOWN;
+MEDIA_SCHEME_TYPE					g_output_media_scheme_type = MEDIA_SCHEME_UNKNOWN;
 
 bool								g_silent_output = false;
 
@@ -92,8 +93,9 @@ extern int	BenchRead(int option);
 extern int	ShowPCR(int option);
 extern int	DiffTSATC();
 extern int	RefactorTS();
+extern int	DumpTSToTS();
 extern int	DumpOneStream();
-extern int	DumpPartialTS(bool bOnlyESTS = true);
+extern int	DumpPartialTS();
 extern int	DumpMP4();
 extern int	DumpMKV();
 extern int	DumpMMT();
@@ -456,6 +458,50 @@ bool VerifyCommandLine()
 	return true;
 }
 
+MEDIA_SCHEME_TYPE GetMediaSchemeTypeFromFormat(const char* param_name)
+{
+	auto iterParam = g_params.find(param_name);
+	if (iterParam == g_params.end())
+		return MEDIA_SCHEME_UNKNOWN;
+
+	MEDIA_SCHEME_TYPE media_scheme_fmt = MEDIA_SCHEME_UNKNOWN;
+	if (_stricmp(iterParam->second.c_str(), "m2ts") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
+	else if (_stricmp(iterParam->second.c_str(), "ts") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
+	else if (_stricmp(iterParam->second.c_str(), "tts") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
+	else if (_stricmp(iterParam->second.c_str(), "vob") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_PROGRAM_STREAM;
+	else if (_stricmp(iterParam->second.c_str(), "mpg") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_PROGRAM_STREAM;
+	else if (_stricmp(iterParam->second.c_str(), "mp4") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_ISOBMFF;
+	else if (_stricmp(iterParam->second.c_str(), "mkv") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_MATROSKA;
+	else if (_stricmp(iterParam->second.c_str(), "aiff") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_AIFF;
+	else if (_stricmp(iterParam->second.c_str(), "mmt") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_MMT;
+	else if (_stricmp(iterParam->second.c_str(), "h264") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_NAL;
+	else if (_stricmp(iterParam->second.c_str(), "h265") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_NAL;
+	else if (_stricmp(iterParam->second.c_str(), "h266") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_NAL;
+	else if (_stricmp(iterParam->second.c_str(), "mpv") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_MPV;
+	else if (_stricmp(iterParam->second.c_str(), "adts") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_ADTS;
+	else if (_stricmp(iterParam->second.c_str(), "loas") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_LOAS_LATM;
+	else if (_stricmp(iterParam->second.c_str(), "av1") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_AV1;
+	else if (_stricmp(iterParam->second.c_str(), "ivf") == 0)
+		media_scheme_fmt = MEDIA_SCHEME_IVF;
+	return media_scheme_fmt;
+}
+
 MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* param_name)
 {
 	MEDIA_SCHEME_TYPE media_scheme_fmt = MEDIA_SCHEME_UNKNOWN;
@@ -572,37 +618,45 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".ivf") == 0)
 		{
-			g_params["container"] = "ivf";
-
-			// check its codec type
-			FILE* rfp = nullptr;
-			uint8_t ivf_header[IVF_HDR_SIZE] = { 0 };
-			errno_t errn_fp = fopen_s(&rfp, filepath.c_str(), "rb");
-			if (errn_fp != 0 || rfp == NULL)
+			if (_stricmp(param_name, "srcfmt"))
 			{
-				printf("Failed to open the file: %s {errno: %d}.\n", filepath.c_str(), errn_fp);
-				goto done;
-			}
+				g_params["container"] = "ivf";
 
-			if (fread(ivf_header, 1, IVF_HDR_SIZE, rfp) != IVF_HDR_SIZE || ivf_header[0] != 'D' || ivf_header[1] != 'K' || ivf_header[2] != 'I' || ivf_header[3] != 'F')
-			{
+				// check its codec type
+				FILE* rfp = nullptr;
+				uint8_t ivf_header[IVF_HDR_SIZE] = { 0 };
+				errno_t errn_fp = fopen_s(&rfp, filepath.c_str(), "rb");
+				if (errn_fp != 0 || rfp == NULL)
+				{
+					printf("Failed to open the file: %s {errno: %d}.\n", filepath.c_str(), errn_fp);
+					goto done;
+				}
+
+				if (fread(ivf_header, 1, IVF_HDR_SIZE, rfp) != IVF_HDR_SIZE || ivf_header[0] != 'D' || ivf_header[1] != 'K' || ivf_header[2] != 'I' || ivf_header[3] != 'F')
+				{
+					fclose(rfp);
+					goto done;
+				}
+
 				fclose(rfp);
-				goto done;
-			}
 
-			fclose(rfp);
-
-			uint32_t codec_fourcc = ((uint32_t)ivf_header[8] << 24) | ((uint32_t)ivf_header[9] << 16) | ((uint32_t)ivf_header[10] << 8) | ivf_header[11];
-			if (codec_fourcc == 'AV01')
-			{
-				g_params[param_name] = "av1";
-				media_scheme_fmt = MEDIA_SCHEME_AV1;
+				uint32_t codec_fourcc = ((uint32_t)ivf_header[8] << 24) | ((uint32_t)ivf_header[9] << 16) | ((uint32_t)ivf_header[10] << 8) | ivf_header[11];
+				if (codec_fourcc == 'AV01')
+				{
+					g_params[param_name] = "av1";
+					media_scheme_fmt = MEDIA_SCHEME_AV1;
+				}
+				else
+				{
+					// TODO...
+				}
 			}
 			else
 			{
-				// TODO...
+				// for the output file
+				g_params[param_name] = "ivf";
+				media_scheme_fmt = MEDIA_SCHEME_IVF;
 			}
-			
 		}
 	}
 
@@ -622,23 +676,27 @@ int PrepareParams()
 	if (iterSilent != g_params.end())
 		g_silent_output = true;
 
-	auto iter = g_params.find("srcfmt");
+	auto IterSrcFmt = g_params.find("srcfmt");
 
-	if (iter == g_params.end())
+	if (IterSrcFmt == g_params.end())
 	{
 		// check the file extension
 		if (g_params.find("input") != g_params.end())
 		{
 			std::string& str_input_file_name = g_params["input"];
-			g_media_scheme_type = CheckAndUpdateFileFormat(str_input_file_name, "srcfmt");
+			g_source_media_scheme_type = CheckAndUpdateFileFormat(str_input_file_name, "srcfmt");
 		}
 
-		iter = g_params.find("srcfmt");
+		IterSrcFmt = g_params.find("srcfmt");
+	}
+	else
+	{
+		g_source_media_scheme_type = GetMediaSchemeTypeFromFormat("srcfmt");
 	}
 
-	if (iter != g_params.end())
+	if (IterSrcFmt != g_params.end())
 	{
-		if (iter->second.compare("m2ts") == 0)
+		if (IterSrcFmt->second.compare("m2ts") == 0)
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_BDMV;
 			g_ts_fmtinfo.packet_size = 192;
@@ -646,7 +704,7 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 4;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
-		else if (iter->second.compare("ts") == 0)
+		else if (IterSrcFmt->second.compare("ts") == 0)
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_TS;
 			g_ts_fmtinfo.packet_size = 188;
@@ -654,7 +712,7 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
-		else if (iter->second.compare("mpg") == 0)
+		else if (IterSrcFmt->second.compare("mpg") == 0)
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_PS;
 			g_ts_fmtinfo.packet_size = 0xFFFF;
@@ -662,7 +720,7 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
-		else if (iter->second.compare("vob") == 0)
+		else if (IterSrcFmt->second.compare("vob") == 0)
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_DVD_VIDEO;
 			g_ts_fmtinfo.packet_size = 2048;
@@ -670,7 +728,7 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
-		else if (iter->second.compare("mp4") == 0)
+		else if (IterSrcFmt->second.compare("mp4") == 0)
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_MP4;
 			g_ts_fmtinfo.packet_size = 0xFFFF;
@@ -678,7 +736,7 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
-		else if (iter->second.compare("mkv") == 0)
+		else if (IterSrcFmt->second.compare("mkv") == 0)
 		{
 			g_ts_fmtinfo.eMpegSys = MPEG_SYSTEM_MATROSKA;
 			g_ts_fmtinfo.packet_size = 0xFFFF;
@@ -686,18 +744,42 @@ int PrepareParams()
 			g_ts_fmtinfo.num_of_prefix_bytes = 0;
 			g_ts_fmtinfo.num_of_suffix_bytes = 0;
 		}
-		else if (iter->second.compare("huffman_codebook") == 0 ||
-			iter->second.compare(0, strlen("spectrum_huffman_codebook_"), "spectrum_huffman_codebook_") == 0 ||
-			iter->second.compare("aiff") == 0 ||
-			iter->second.compare("mmt") == 0 ||
-			iter->second.compare("mpv") == 0 ||
-			iter->second.compare("h264") == 0 ||
-			iter->second.compare("h265") == 0 || 
-			iter->second.compare("h266") == 0 ||
-			iter->second.compare("loas") == 0 ||
-			iter->second.compare("adts") == 0 ||
-			iter->second.compare("av1") == 0)
+		else if (IterSrcFmt->second.compare("huffman_codebook") == 0 ||
+			IterSrcFmt->second.compare(0, strlen("spectrum_huffman_codebook_"), "spectrum_huffman_codebook_") == 0 ||
+			IterSrcFmt->second.compare("aiff") == 0 ||
+			IterSrcFmt->second.compare("mmt") == 0 ||
+			IterSrcFmt->second.compare("mpv") == 0 ||
+			IterSrcFmt->second.compare("h264") == 0 ||
+			IterSrcFmt->second.compare("h265") == 0 || 
+			IterSrcFmt->second.compare("h266") == 0 ||
+			IterSrcFmt->second.compare("loas") == 0 ||
+			IterSrcFmt->second.compare("adts") == 0 ||
+			IterSrcFmt->second.compare("av1") == 0)
 			bIgnorePreparseTS = true;
+	}
+
+	auto iterDstFmt = g_params.find("outputfmt");
+	if (iterDstFmt == g_params.end())
+	{
+		// check the file extension
+		if (g_params.find("output") != g_params.end())
+		{
+			std::string& str_output_file_name = g_params["output"];
+			g_output_media_scheme_type = CheckAndUpdateFileFormat(str_output_file_name, "outputfmt");
+			iterDstFmt = g_params.find("outputfmt");
+		}
+
+		if (iterDstFmt == g_params.end() && g_params.find("copy") != g_params.end() && IterSrcFmt != g_params.end())
+		{
+			g_params["outputfmt"] = IterSrcFmt->second;
+			g_output_media_scheme_type = g_source_media_scheme_type;
+			iterDstFmt = g_params.find("outputfmt");
+		}
+	}
+	else
+	{
+		// Have already specified the output format manually, also update the output media scheme
+		g_output_media_scheme_type = GetMediaSchemeTypeFromFormat("outputfmt");
 	}
 
 	if (bIgnorePreparseTS == false && g_ts_fmtinfo.packet_size == 0 && g_params.find("crc") == g_params.end())
@@ -1137,65 +1219,25 @@ int main(int argc, char* argv[])
 		}
 		else if (str_output_fmt.compare("ts") == 0 || str_output_fmt.compare("tts") == 0 || str_output_fmt.compare("m2ts") == 0)
 		{
-			if (g_params.find("destpid") == g_params.end())
-				nDumpRet = DumpPartialTS();
-			else
-				nDumpRet = RefactorTS();
+			nDumpRet = DumpTSToTS();
 		}
 	}
 	else
 	{
-		bool bSimiliarFormatConverting = false;
-		if (iter_dstfmt != g_params.end())
+		auto iterOutput = g_params.find("output");
+		if (g_params.find("showPCRDiagram") != g_params.end())
 		{
-			if (_stricmp(iter_dstfmt->second.c_str(), "copy") == 0)
-				bSimiliarFormatConverting = true;
-			else if (iter_srcfmt != g_params.end())
-			{
-				if (_stricmp(iter_dstfmt->second.c_str(), iter_srcfmt->second.c_str()) == 0)
-					bSimiliarFormatConverting = true;
-				else if ((_stricmp(iter_srcfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "tts") == 0 || _stricmp(iter_srcfmt->second.c_str(), "ts") == 0) &&
-						 (_stricmp(iter_dstfmt->second.c_str(), "m2ts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "tts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "ts") == 0))
-					bSimiliarFormatConverting = true;
-			}
-		}
-
-		// copy whole TS or a part of TS
-		if (bSimiliarFormatConverting)
-		{
-			if (g_params.find("output") == g_params.end())
-			{
-				// give an output file name
-				char szExt[_MAX_EXT];
-				memset(szExt, 0, sizeof(szExt));
-				std::string& src_filepath = g_params["input"];
-				_splitpath_s(src_filepath.c_str(), NULL, 0, NULL, 0, NULL, 0, szExt, _MAX_EXT);
-
-				std::string strNewFilePath;
-				size_t ccExt = strlen(szExt);
-				if (ccExt > 0)
-					strNewFilePath = src_filepath.substr(0, src_filepath.length() - strlen(szExt));
-				else
-					strNewFilePath = src_filepath;
-
-				if (g_params.find("progseq") != g_params.end())
-					strNewFilePath += "_ps_" + g_params["progseq"];
-
-				if (g_params.find("start") != g_params.end())
-					strNewFilePath += "_spnstart_" + g_params["start"];
-
-				if (g_params.find("end") != g_params.end())
-					strNewFilePath += "_spnend_" + g_params["end"];
-
-				strNewFilePath += szExt;
-				g_params["output"] = strNewFilePath;
-			}
-
-			g_params["pid"] = "-1";
-			nDumpRet = DumpOneStream();
+			int optionShowPCRDiagram = 5;
+			nDumpRet = ShowPCR(optionShowPCRDiagram);
 			goto done;
 		}
-		else if (g_params.find("output") == g_params.end() || g_params.find("showPCRDiagram") != g_params.end())
+
+		if (g_source_media_scheme_type == g_output_media_scheme_type && g_source_media_scheme_type == MEDIA_SCHEME_TRANSPORT_STREAM)
+		{
+			nDumpRet = DumpTSToTS();
+			goto done;
+		}
+		else if (g_params.find("output") == g_params.end())
 		{
 			if (g_params.find("showinfo") != g_params.end())
 			{
@@ -1277,12 +1319,6 @@ int main(int argc, char* argv[])
 				}
 
 				nDumpRet = ShowPCR(optionShowPCR);
-				goto done;
-			}
-			else if (g_params.find("showPCRDiagram") != g_params.end())
-			{
-				int optionShowPCRDiagram = 5;
-				nDumpRet = ShowPCR(optionShowPCRDiagram);
 				goto done;
 			}
 			else if (g_params.find("showNTP") != g_params.end())
@@ -1381,7 +1417,7 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		nDumpRet = RefactorTS();
+		nDumpRet = DumpTSToTS();
 	}
 
 done:
@@ -1573,5 +1609,127 @@ int DumpTransportPackets()
 	if (fp != nullptr)
 		fclose(fp);
 
+	return nDumpRet;
+}
+
+/*
+	There are below scenarios from TS to TS
+	1. Direct copy, including ts->ts, tts(m2ts) to tts(m2ts) and tts(m2ts) to ts
+	2. Change PID src PID -> dst PID
+	3. Add ATC clock, ts -> tts(m2ts)
+	4. Reconstruct a new TS with the specified PIDs by remuxing
+	5. Reconstruct a new TS by copy the TS packs of the specified PIDs(with --copy)
+
+	Totally, 
+	* For the simple copy, go though DumpPartialTS
+	* Need complex parsing, and change the original content, go through RefactorTS
+
+	This function will detect this case, and let it to go through the different process routines
+*/
+int DumpTSToTS()
+{
+	int nDumpRet = -1;
+	auto iter_srcfmt = g_params.find("srcfmt");
+	auto iter_dstfmt = g_params.find("outputfmt");
+	auto iter_inputfile = g_params.find("input");
+	auto iter_outputfile = g_params.find("output");
+	auto iter_PID = g_params.find("pid");
+	auto iter_copy = g_params.find("copy");
+	// ts -> ts, tts(m2ts) -> tts(m2ts) and tts(m2ts) -> ts: bSimpleSrcDstTransition = true
+	// ts -> m2ts(tts): bSimpleSrcDstTransition = false
+	bool bSimpleSrcDstTransition = false;
+	std::set<uint16_t> pid_filters;
+
+	if (g_params.find("outputfmt") == g_params.end())
+	{
+		// Assume the output format is the same with input format
+		g_params["outputfmt"] = g_params["srcfmt"];
+		iter_dstfmt = g_params.find("outputfmt");
+	}
+
+	if (iter_srcfmt == g_params.end())
+	{
+		printf("[TS] Unknown source transport stream format.\n");
+		goto done;
+	}
+
+	if (iter_dstfmt == g_params.end())
+	{
+		printf("[TS] Unknown output transport stream format.\n");
+		goto done;
+	}
+
+	if (iter_outputfile == g_params.end())
+	{
+		// give an output file name
+		char szExt[_MAX_EXT];
+		memset(szExt, 0, sizeof(szExt));
+		std::string& src_filepath = iter_inputfile->second;
+		_splitpath_s(src_filepath.c_str(), NULL, 0, NULL, 0, NULL, 0, szExt, _MAX_EXT);
+
+		std::string strNewFilePath;
+		size_t ccExt = strlen(szExt);
+		if (ccExt > 0)
+			strNewFilePath = src_filepath.substr(0, src_filepath.length() - strlen(szExt));
+		else
+			strNewFilePath = src_filepath;
+
+		if (g_params.find("progseq") != g_params.end())
+			strNewFilePath += "_ps_" + g_params["progseq"];
+
+		if (g_params.find("start") != g_params.end())
+			strNewFilePath += "_spnstart_" + g_params["start"];
+
+		if (g_params.find("end") != g_params.end())
+			strNewFilePath += "_spnend_" + g_params["end"];
+
+		if (strNewFilePath + szExt == src_filepath)
+			strNewFilePath += "_copy";
+
+		strNewFilePath += szExt;
+
+		g_params["output"] = strNewFilePath;
+	}
+
+	// ts -> m2ts(tts): bSimpleSrcDstTransition = false
+	if (_stricmp(iter_srcfmt->second.c_str(), "ts") == 0 && (_stricmp(iter_dstfmt->second.c_str(), "tts") == 0 || _stricmp(iter_dstfmt->second.c_str(), "m2ts") == 0))
+		bSimpleSrcDstTransition = false;
+	else
+		bSimpleSrcDstTransition = true;
+
+	if (g_params.find("destpid") != g_params.end())
+	{
+		// 2. Change PID src PID -> dst PID
+		nDumpRet = RefactorTS();
+	}
+	else if (!bSimpleSrcDstTransition)
+	{
+		// 3. Add ATC clock, ts -> tts(m2ts)
+		nDumpRet = RefactorTS();
+	}
+	else
+	{
+		if (g_params.find("progseq") != g_params.end())
+		{
+			g_params["pid"] = "-1";
+			nDumpRet = DumpOneStream();
+		}
+		else if (iter_PID == g_params.end())
+		{
+			// No source/destination PID is specified
+			nDumpRet = DumpPartialTS();
+		}
+		else if (iter_copy != g_params.end())
+		{
+			// Simple copy a part of transport stream packs with the specified PID(s)
+			nDumpRet = DumpPartialTS();
+		}
+		else
+		{
+			nDumpRet = RefactorTS();
+		}
+	}
+
+done:
 	return nDumpRet;
 }

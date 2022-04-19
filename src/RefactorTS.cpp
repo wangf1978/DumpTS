@@ -33,8 +33,9 @@ SOFTWARE.
 
 extern map<std::string, std::string, CaseInsensitiveComparator> 
 											g_params;
-extern MEDIA_SCHEME_TYPE					g_media_scheme_type;
+extern MEDIA_SCHEME_TYPE					g_source_media_scheme_type;
 extern MEDIA_SCHEME_TYPE					CheckAndUpdateFileFormat(std::string& filepath, const char* param_name);
+extern MEDIA_SCHEME_TYPE					GetMediaSchemeTypeFromFormat(const char* param_name);
 
 // Refactor TS, for example, change PID, PTS, or changing from ts to m2ts and so on
 int RefactorTS()
@@ -60,6 +61,8 @@ int RefactorTS()
 
 	unsigned long ts_pack_idx = 0;
 	auto iterOutput = g_params.find("output");
+	auto iterDstFmt = g_params.find("outputfmt");
+	auto iterSrcFmt = g_params.find("srcfmt");
 
 	errno_t errn = fopen_s(&fp, g_params["input"].c_str(), "rb");
 	if (errn != 0 || fp == NULL)
@@ -78,46 +81,23 @@ int RefactorTS()
 		}
 	}
 
-	if (g_params.find("srcfmt") == g_params.end())
+	if (iterDstFmt == g_params.end())
 	{
-		// Check its extension name
-		char szExt[_MAX_EXT];
-		memset(szExt, 0, sizeof(szExt));
-		_splitpath_s(g_params["input"].c_str(), NULL, 0, NULL, 0, NULL, 0, szExt, _MAX_EXT);
-
-		if (_stricmp(szExt, ".ts") == 0)
+		if (iterSrcFmt != g_params.end())
 		{
-			g_params["srcfmt"] = "ts";
-			g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
-		}
-		else if (_stricmp(szExt, ".m2ts") == 0)
-		{
-			g_params["srcfmt"] = "m2ts";
-			g_media_scheme_type = MEDIA_SCHEME_TRANSPORT_STREAM;
+			// Assume the output format is the same with input format
+			g_params["outputfmt"] = iterSrcFmt->second;
+			iterDstFmt = g_params.find("outputfmt");
 		}
 		else
 		{
-			// Implement it later, need scan the current TS, and decide which kind of TS stream it is.
+			printf("Don't know the output format!\n");
 			goto done;
 		}
 	}
 
-	if (g_params.find("outputfmt") == g_params.end())
-	{
-		// Check whether the output file is specified or not
-		if (iterOutput != g_params.end())
-		{
-			auto dstFileScheme = CheckAndUpdateFileFormat(iterOutput->second, "outputfmt");
-		}
-		else
-		{
-			// Assume the output format is the same with input format
-			g_params["outputfmt"] = g_params["srcfmt"];
-		}
-	}
-
 	// Check whether to add 30bits of ATC time at the beginning of each 188 TS packet
-	if (g_params["outputfmt"].compare("m2ts") == 0 && g_params["srcfmt"].compare("ts") == 0)
+	if (iterDstFmt->second.compare("m2ts") == 0 && iterSrcFmt->second.compare("ts") == 0)
 		bAppendATCTime = true;
 
 	if (g_params.find("pid") != g_params.end() && g_params.find("destpid") != g_params.end())
@@ -182,10 +162,10 @@ int RefactorTS()
 		}
 	}
 
-	if (g_params.find("srcfmt") != g_params.end() && g_params["srcfmt"].compare("m2ts") == 0)
+	if (g_params.find("srcfmt") != g_params.end() && (iterSrcFmt->second.compare("m2ts") == 0 || iterSrcFmt->second.compare("tts") == 0))
 		ts_pack_size = TS_PACKET_SIZE;
 
-	if (g_params.find("outputfmt") != g_params.end() && g_params["outputfmt"].compare("m2ts") == 0)
+	if (iterDstFmt != g_params.end() && (iterDstFmt->second.compare("m2ts") == 0))
 	{
 		buf_head_offset = 4;
 		dest_ts_pack_size = TS_PACKET_SIZE;
@@ -218,11 +198,6 @@ int RefactorTS()
 		else if (dest_ts_pack_size == 188 && ts_pack_size == 192)
 		{
 			memmove(buf, buf + 4, 188);
-		}
-		else
-		{
-			printf("Don't know how to process {%s(), %s: %d}.\n", __FUNCTION__, __FILE__, __LINE__);
-			break;
 		}
 
 		// Try to change PID
