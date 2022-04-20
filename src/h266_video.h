@@ -181,7 +181,6 @@ namespace BST {
 
 			RET_CODE					GetNumRefIdxActive(int8_t num_ref_idx_active[2]);
 			RET_CODE					GetRplsIdx(int8_t rpls_idx[2]);
-			int8_t						GetNumRefEntries(uint8_t idRPL/*0 or 1*/, uint8_t rpls_idx);
 
 		public:
 			std::vector<uint8_t>		nal_unit_type_filters;
@@ -199,9 +198,8 @@ namespace BST {
 			H266_NU						m_ph;			// the life-cycle is in the scope of AU
 
 			int8_t						RplsIdx[2] = { -1, -1 };
-			std::vector<uint8_t>		num_ref_entries[2];
 			int8_t						NumRefIdxActive[2] = { -1, -1 };
-			std::vector<uint8_t>		NumLtrpEntries[2];
+			uint8_t						NumLtrpEntries[2][65];
 			std::shared_ptr<REF_PIC_LIST_STRUCT>
 										ref_pic_list_struct[2][65];
 		};
@@ -612,7 +610,7 @@ namespace BST {
 						}
 
 						idx = 0;
-						while (AMBst_IsAligned(in_bst)) {
+						while (!AMBst_IsAligned(in_bst)) {
 							bsrbarray(in_bst, ptl_reserved_zero_bit, idx);
 							idx++;
 						}
@@ -1837,11 +1835,12 @@ namespace BST {
 				std::vector<std::array<int8_t, 2>>
 								delta_chroma_offset_l1;
 
-				INALVVCContext*	m_pCtx;
+				VideoBitstreamCtx*
+								m_pCtx;
 				// pred_weight_table may exist in either picture header or slice header
 				uint8_t			m_pic_parameter_set_id;
 
-				PRED_WEIGHT_TABLE(INALVVCContext* pCtx, uint8_t pps_id)
+				PRED_WEIGHT_TABLE(VideoBitstreamCtx* pCtx, uint8_t pps_id)
 					: delta_chroma_log2_weight_denom(0), m_pCtx(pCtx), m_pic_parameter_set_id(pps_id){
 				}
 

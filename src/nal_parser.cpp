@@ -79,6 +79,26 @@ CNALParser::CNALParser(NAL_CODING coding, NAL_BYTESTREAM_FORMAT fmt, uint8_t NUL
 		hevc_time_scale = 0;
 		hevc_units_field_based_flag = 0;
 	}
+	else if (coding == NAL_CODING_VVC)
+	{
+		INALVVCContext* pNALVVCCtx = nullptr;
+		if (AMP_FAILED(CreateVVCNALContext(&pNALVVCCtx)))
+		{
+			printf("Failed to create the VVC NAL context.\n");
+			ret_code = RET_CODE_ERROR;
+		}
+		else
+		{
+			m_pNALVVCCtx = pNALVVCCtx;
+			pNALVVCCtx->QueryInterface(IID_INALContext, (void**)&m_pCtx);
+		}
+
+		vvc_presentation_time_code = 0;	// in the unit of 100-nano seconds
+		vvc_num_units_in_tick = 0;
+		vvc_time_scale = 0;
+		vui_progressive_source_flag = 0;
+		vui_interlaced_source_flag = 0;
+	}
 
 	AMP_SAFEASSIGN(pRetCode, ret_code);
 }
@@ -439,14 +459,67 @@ int CNALParser::PushESBP(uint8_t* pStart, uint8_t* pEnd)
 	return RET_CODE_SUCCESS;
 }
 
-int CNALParser::LoadPictureHeaderRBSP(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
-{
-	return RET_CODE_ERROR_NOTIMPL;
-}
-
 int CNALParser::LoadVVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
 {
-	return RET_CODE_ERROR_NOTIMPL;
+	int iRet = RET_CODE_SUCCESS;
+	int read_buf_len = 0;
+	AMBst bst = NULL;
+
+	//uint8_t* pStart = AM_LRB_GetReadPtr(m_rbNALUnitEBSP, &read_buf_len);
+
+	uint8_t* pStart = pNUBuf;
+	read_buf_len = cbNUBuf;
+
+	if (pStart == NULL || read_buf_len < 4)
+	{
+		//printf("the byte stream of NAL unit carry insufficient data {offset: %llu}.\n", cur_submit_pos);
+		return RET_CODE_ERROR;
+	}
+
+	int8_t nal_unit_type = (*(pStart + 1) >> 3) & 0x1F;
+	AMP_Assert(IS_VVC_PARAMETERSET_NAL(nal_unit_type) || nal_unit_type == VVC_PH_NUT);
+
+	auto nal_unit = m_pNALVVCCtx->CreateVVCNU();
+
+	bst = AMBst_CreateFromBuffer(pStart, read_buf_len);
+	if (AMP_FAILED(iRet = nal_unit->Map(bst)))
+	{
+		printf("Failed to unpack %s parameter set {offset: %" PRIu64 ", err: %d}\n", vvc_nal_unit_type_descs[nal_unit_type], cur_submit_pos, iRet);
+		goto done;
+	}
+
+	if (nal_unit_type == BST::H266Video::OPI_NUT)
+	{
+		m_pNALVVCCtx->UpdateVVCOPI(nal_unit);
+	}
+	else if (nal_unit_type == BST::H266Video::DCI_NUT)
+	{
+		m_pNALVVCCtx->UpdateVVCDCI(nal_unit);
+	}
+	else if (nal_unit_type == BST::H266Video::VPS_NUT)
+	{
+		m_pNALVVCCtx->UpdateVVCVPS(nal_unit);
+	}
+	else if (nal_unit_type == BST::H266Video::SPS_NUT)
+	{
+		m_pNALVVCCtx->UpdateVVCSPS(nal_unit);
+	}
+	else if (nal_unit_type == BST::H266Video::PPS_NUT)
+	{
+		m_pNALVVCCtx->UpdateVVCPPS(nal_unit);
+	}
+	else if (nal_unit_type == BST::H266Video::PH_NUT)
+	{
+		m_pNALVVCCtx->UpdateVVCPH(nal_unit);
+	}
+
+done:
+	if (bst != NULL)
+		AMBst_Destroy(bst);
+
+	nal_unit = nullptr;
+
+	return iRet;
 }
 
 int CNALParser::LoadHEVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos)
@@ -1031,7 +1104,7 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 		else if (nal_unit_type == VVC_PH_NUT)
 		{
 			m_hit_PH_NU_in_one_AU = true;
-			iRet = LoadPictureHeaderRBSP(p, NAL_Unit_Len - count_of_leading_bytes, m_cur_submit_pos);
+			iRet = LoadVVCParameterSet(p, NAL_Unit_Len - count_of_leading_bytes, m_cur_submit_pos);
 		}
 		else if (IS_VVC_VCL_NAL(nal_unit_type) && nal_unit_type != VVC_RSV_VCL_4 && nal_unit_type != VVC_RSV_VCL_5 && nal_unit_type != VVC_RSV_VCL_6 && nal_unit_type != VVC_RSV_IRAP_11)
 		{

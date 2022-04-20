@@ -368,17 +368,6 @@ namespace BST
 			return RET_CODE_SUCCESS;
 		}
 
-		int8_t VideoBitstreamCtx::GetNumRefEntries(uint8_t idRPL/*0 or 1*/, uint8_t rpls_idx)
-		{
-			if (idRPL != 0 && idRPL != 1)
-				return -1;
-
-			if (rpls_idx >= num_ref_entries[idRPL].size())
-				return -1;
-
-			return num_ref_entries[idRPL][rpls_idx];
-		}
-
 		REF_PIC_LIST_STRUCT::REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, void* seq_parameter_set_rbsp)
 			: ltrp_in_header_flag(1), m_listIdx(listIdx), m_rplsIdx(rplsIdx) {
 
@@ -945,9 +934,9 @@ namespace BST
 						bsrb1(in_bst, sps_subpic_same_size_flag, 1);
 					}
 
+					uint32_t numSubpicCols;
 					uint32_t tmpWidthVal = sps_pic_width_max_in_luma_samples + CtbSizeY - 1;
 					uint32_t tmpHeightVal = (sps_pic_height_max_in_luma_samples + CtbSizeY - 1) / CtbSizeY;
-					uint32_t numSubpicCols = tmpWidthVal / (sps_subpic_width_minus1[0] + 1);
 					sps_subpic_ctu_top_left_x.resize(sps_num_subpics_minus1 + 1);
 					sps_subpic_ctu_top_left_y.resize(sps_num_subpics_minus1 + 1);
 					sps_subpic_width_minus1.resize(sps_num_subpics_minus1 + 1);
@@ -977,6 +966,11 @@ namespace BST
 							}
 							else
 								sps_subpic_height_minus1[i] = tmpHeightVal - sps_subpic_ctu_top_left_y[i] - 1;
+
+							if (i == 0)
+							{
+								numSubpicCols = tmpWidthVal / (sps_subpic_width_minus1[0] + 1);
+							}
 						}
 						else
 						{
@@ -2348,15 +2342,16 @@ namespace BST
 					}
 				}
 
+				uint8_t num_ref_entries = m_pCtx->ref_pic_list_struct[1][RplsIdx[1]] 
+					? m_pCtx->ref_pic_list_struct[1][RplsIdx[1]]->num_ref_entries : 0;
 				if (pps->ptr_pic_parameter_set_rbsp->pps_weighted_bipred_flag && 
-					pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag && 
-					m_pCtx->GetNumRefEntries(1, RplsIdx[1]) > 0)
+					pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag && num_ref_entries > 0)
 				{
 					nal_read_ue1(in_bst, num_l1_weights);
 				}
 
 				if (!pps->ptr_pic_parameter_set_rbsp->pps_weighted_bipred_flag ||
-					(pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag && m_pCtx->GetNumRefEntries(1, RplsIdx[1]) == 0))
+					(pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag && num_ref_entries == 0))
 					NumWeightsL1 = 0;
 				else if (pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag)
 					NumWeightsL1 = num_l1_weights;
@@ -2687,15 +2682,19 @@ namespace BST
 						nal_read_ue1(in_bst, ph_cu_chroma_qp_offset_subdiv_inter_slice);
 					}
 
+					uint8_t cur_num_ref_entries_0 = m_pCtx->RplsIdx[0] >= 0 && m_pCtx->ref_pic_list_struct[0][m_pCtx->RplsIdx[0]]
+						? m_pCtx->ref_pic_list_struct[0][m_pCtx->RplsIdx[0]]->num_ref_entries : 0;
+					uint8_t cur_num_ref_entries_1 = m_pCtx->RplsIdx[1] >= 0 && m_pCtx->ref_pic_list_struct[1][m_pCtx->RplsIdx[1]]
+						? m_pCtx->ref_pic_list_struct[1][m_pCtx->RplsIdx[1]]->num_ref_entries : 0;
 					if (sps->ptr_seq_parameter_set_rbsp->sps_temporal_mvp_enabled_flag) {
 						bsrb1(in_bst, ph_temporal_mvp_enabled_flag, 1);
 						if (ph_temporal_mvp_enabled_flag && pps->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag) {
-							if (m_pCtx->num_ref_entries[1][m_pCtx->RplsIdx[1]] > 0){
+							if (cur_num_ref_entries_1 > 0){
 								bsrb1(in_bst, ph_collocated_from_l0_flag, 1);
 							}
 
-							if ((ph_collocated_from_l0_flag && m_pCtx->num_ref_entries[0][m_pCtx->RplsIdx[0]] > 1) ||
-								(!ph_collocated_from_l0_flag && m_pCtx->num_ref_entries[1][m_pCtx->RplsIdx[1]] > 1)) {
+							if ((ph_collocated_from_l0_flag && cur_num_ref_entries_0 > 1) ||
+								(!ph_collocated_from_l0_flag && cur_num_ref_entries_1 > 1)) {
 								nal_read_ue1(in_bst, ph_collocated_ref_idx);
 							}
 						}
@@ -2710,7 +2709,7 @@ namespace BST
 					if (!pps->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag) {
 						presenceFlag = 1;
 					}
-					else if (m_pCtx->num_ref_entries[1][m_pCtx->RplsIdx[1]] > 0){
+					else if (cur_num_ref_entries_1 > 0){
 						presenceFlag = 1;
 					}
 
@@ -2789,6 +2788,17 @@ namespace BST
 								ph_cb_beta_offset_div2 = ph_cr_beta_offset_div2 = ph_luma_beta_offset_div2;
 								ph_cb_tc_offset_div2 = ph_cr_tc_offset_div2 = ph_luma_tc_offset_div2;
 							}
+						}
+					}
+				}
+
+				if (pps->ptr_pic_parameter_set_rbsp->pps_picture_header_extension_present_flag) {
+					nal_read_ue1(in_bst, ph_extension_length);
+					if (ph_extension_length > 0)
+					{
+						ph_extension_data_byte.resize(ph_extension_length);
+						for (int i = 0; i < ph_extension_length; i++) {
+							bsrb1(in_bst, ph_extension_data_byte[i], 8);
 						}
 					}
 				}

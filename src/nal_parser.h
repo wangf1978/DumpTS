@@ -129,7 +129,6 @@ public:
 
 protected:
 	int						PushESBP(uint8_t* pStart, uint8_t* pEnd);
-	int						LoadPictureHeaderRBSP(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						LoadVVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						LoadHEVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
 	int						LoadAVCParameterSet(uint8_t* pNUBuf, int cbNUBuf, uint64_t cur_submit_pos);
@@ -210,10 +209,19 @@ protected:
 		};
 		struct // For HEVC
 		{
-			int64_t			hevc_presentation_time_code;	// in the unit of 100-nano seconds
+			int64_t			hevc_presentation_time_code;// in the unit of 100-nano seconds
 			uint32_t		hevc_num_units_in_tick;
 			uint32_t		hevc_time_scale;
 			uint8_t			hevc_units_field_based_flag;
+		};
+		struct // For VVC
+		{
+			int64_t			vvc_presentation_time_code;	// in the unit of 100-nano seconds
+			uint32_t		vvc_num_units_in_tick;
+			uint32_t		vvc_time_scale;
+			uint8_t			vui_progressive_source_flag : 1;
+			uint8_t			vui_interlaced_source_flag : 1;
+			uint8_t			byte_align0 : 6;
 		};
 		uint8_t				state_buf[512];
 	};
