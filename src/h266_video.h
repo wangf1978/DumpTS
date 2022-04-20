@@ -131,6 +131,8 @@ namespace BST {
 		int read_extension_and_trailing_bits(AMBst in_bst, SYNTAX_MAP_STATUS& map_status, 
 											 CAMBitArray& extension_data_flag, RBSP_TRAILING_BITS& rbsp_trailing_bits);
 
+		struct REF_PIC_LIST_STRUCT;
+
 		class VideoBitstreamCtx : public CComUnknown, public INALVVCContext
 		{
 		public:
@@ -200,40 +202,43 @@ namespace BST {
 			std::vector<uint8_t>		num_ref_entries[2];
 			int8_t						NumRefIdxActive[2] = { -1, -1 };
 			std::vector<uint8_t>		NumLtrpEntries[2];
+			std::shared_ptr<REF_PIC_LIST_STRUCT>
+										ref_pic_list_struct[2][65];
 		};
 
-		struct PICTURE_HEADER_STRUCTURE : public SYNTAX_BITSTREAM_MAP
+		struct REF_PIC_LIST_STRUCT : public SYNTAX_BITSTREAM_MAP
 		{
-			uint8_t			ph_gdr_or_irap_pic_flag : 1;
-			uint8_t			ph_non_ref_pic_flag : 1;
-			uint8_t			ph_gdr_pic_flag : 1;
-			uint8_t			ph_inter_slice_allowed_flag : 1;
-			uint8_t			ph_intra_slice_allowed_flag : 1;
-			uint8_t			byte_align_0 : 3;
+			uint8_t			num_ref_entries : 7;
+			uint8_t			ltrp_in_header_flag : 1;
 
-			uint32_t		ph_pic_parameter_set_id : 6;
-			uint32_t		ph_pic_order_cnt_lsb : 20;
-			uint32_t		dword_align_0 : 6;
+			CAMBitArray		inter_layer_ref_pic_flag;
+			CAMBitArray		st_ref_pic_flag;
+			std::vector<uint16_t>
+							abs_delta_poc_st;
+			CAMBitArray		strp_entry_sign_flag;
+			std::vector<uint16_t>
+							rpls_poc_lsb_lt;
+			std::vector<uint16_t>
+							ilrp_idx;
 
-			uint32_t		ph_recovery_poc_cnt;
-			
-			CAMBitArray		ph_extra_bit;
+			uint8_t			m_listIdx;	// 0,1
+			uint8_t			m_rplsIdx;	// 0~64
 
+			// Variables inherited from the current SPS
+			uint8_t			current_sps_num_ref_pic_list;
+			uint8_t			sps_long_term_ref_pics_flag:1;
+			uint8_t			sps_inter_layer_prediction_enabled_flag:1;
+			uint8_t			sps_weighted_pred_flag:1;
+			uint8_t			sps_weighted_bipred_flag:1;
+			uint8_t			sps_log2_max_pic_order_cnt_lsb_minus4:4;
 
-			int Map(AMBst in_bst)
-			{
-				SYNTAX_BITSTREAM_MAP::Map(in_bst);
-				try
-				{
+			VideoBitstreamCtx*
+							m_pCtx;
 
-				}
-				catch (AMException e)
-				{
-					return e.RetCode();
-				}
-
-				return RET_CODE_SUCCESS;
-			}
+			REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, void* seq_parameter_set_rbsp);
+			int Map(AMBst in_bst);
+			int Unmap(AMBst out_bst);
+			size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL);
 		};
 
 		struct NAL_UNIT : public SYNTAX_BITSTREAM_MAP
@@ -1410,52 +1415,6 @@ namespace BST {
 				size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL);
 			};
 
-			struct SEQ_PARAMETER_SET_RBSP;
-
-			struct REF_PIC_LIST_STRUCT : public SYNTAX_BITSTREAM_MAP
-			{
-				uint8_t			num_ref_entries : 7;
-				uint8_t			ltrp_in_header_flag : 1;
-
-				CAMBitArray		inter_layer_ref_pic_flag;
-				CAMBitArray		st_ref_pic_flag;
-				std::vector<uint16_t>
-								abs_delta_poc_st;
-				CAMBitArray		strp_entry_sign_flag;
-				std::vector<uint16_t>
-								rpls_poc_lsb_lt;
-				std::vector<uint16_t>
-								ilrp_idx;
-
-				uint8_t			m_listIdx;	// 0,1
-				uint8_t			m_rplsIdx;	// 0~64
-				// Variables inherited from the current SPS
-				uint8_t			current_sps_num_ref_pic_list;
-				uint8_t			sps_long_term_ref_pics_flag:1;
-				uint8_t			sps_inter_layer_prediction_enabled_flag:1;
-				uint8_t			sps_weighted_pred_flag:1;
-				uint8_t			sps_weighted_bipred_flag:1;
-				uint8_t			sps_log2_max_pic_order_cnt_lsb_minus4:4;
-
-				VideoBitstreamCtx*
-								m_pCtx;
-
-				REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, SEQ_PARAMETER_SET_RBSP* seq_parameter_set_rbsp)
-					: ltrp_in_header_flag(1), m_listIdx(listIdx), m_rplsIdx(rplsIdx){
-
-					current_sps_num_ref_pic_list = seq_parameter_set_rbsp->sps_num_ref_pic_lists[m_listIdx];
-					sps_long_term_ref_pics_flag = seq_parameter_set_rbsp->sps_long_term_ref_pics_flag;
-					sps_inter_layer_prediction_enabled_flag = seq_parameter_set_rbsp->sps_inter_layer_prediction_enabled_flag;
-					sps_weighted_pred_flag = seq_parameter_set_rbsp->sps_weighted_pred_flag;
-					sps_weighted_bipred_flag = seq_parameter_set_rbsp->sps_weighted_bipred_flag;
-					sps_log2_max_pic_order_cnt_lsb_minus4 = seq_parameter_set_rbsp->sps_log2_max_pic_order_cnt_lsb_minus4;
-				}
-
-				int Map(AMBst in_bst);
-				int Unmap(AMBst out_bst);
-				size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL);
-			};
-
 			struct SEQ_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
 			{
 				uint8_t			sps_seq_parameter_set_id : 4;
@@ -1590,8 +1549,8 @@ namespace BST {
 				uint8_t			sps_affine_prof_enabled_flag : 1;
 
 				uint8_t			sps_num_ref_pic_lists[2];
-				REF_PIC_LIST_STRUCT*
-								ref_pic_list_struct[2][65] = { {nullptr} };
+				std::shared_ptr<REF_PIC_LIST_STRUCT>
+								ref_pic_list_struct[2][64];
 
 				uint32_t		sps_prof_control_present_in_ph_flag : 1;
 				uint32_t		sps_bcw_enabled_flag : 1;
@@ -1656,29 +1615,12 @@ namespace BST {
 								rbsp_trailing_bits;
 
 				SEQ_PARAMETER_SET_RBSP();
-				~SEQ_PARAMETER_SET_RBSP() {
-					AMP_SAFEDEL2(profile_tier_level);
-					AMP_SAFEDEL2(dpb_parameters);
-					for (int i = 0; i < 2; i++)
-					{
-						for (int j = 0; j < 65; j++) {
-							AMP_SAFEDEL2(ref_pic_list_struct[i][j]);
-						}
-					}
-					AMP_SAFEDEL2(general_timing_hrd_parameters);
-					AMP_SAFEDEL2(ols_timing_hrd_parameters);
-					AMP_SAFEDEL2(vui_payload);
-				}
+				~SEQ_PARAMETER_SET_RBSP();
 
 				int Map(AMBst in_bst);
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
+				int Unmap(AMBst out_bst);
 
 				DECLARE_FIELDPROP_BEGIN()
-
 				DECLARE_FIELDPROP_END()
 			};
 
@@ -1912,8 +1854,8 @@ namespace BST {
 				CAMBitArray		rpl_sps_flag;
 				uint8_t			rpl_idx[2];
 
-				REF_PIC_LIST_STRUCT*
-								ref_pic_list_struct[2] = {nullptr, nullptr};
+				std::shared_ptr<REF_PIC_LIST_STRUCT>
+								ref_pic_list_struct[2];
 
 				std::vector<uint16_t>
 								poc_lsb_lt[2];

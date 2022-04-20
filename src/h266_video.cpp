@@ -379,6 +379,99 @@ namespace BST
 			return num_ref_entries[idRPL][rpls_idx];
 		}
 
+		REF_PIC_LIST_STRUCT::REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, void* seq_parameter_set_rbsp)
+			: ltrp_in_header_flag(1), m_listIdx(listIdx), m_rplsIdx(rplsIdx) {
+
+			NAL_UNIT::SEQ_PARAMETER_SET_RBSP* ptr_seq_parameter_set_rbsp = (NAL_UNIT::SEQ_PARAMETER_SET_RBSP*)seq_parameter_set_rbsp;
+
+			current_sps_num_ref_pic_list = ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[m_listIdx];
+			sps_long_term_ref_pics_flag = ptr_seq_parameter_set_rbsp->sps_long_term_ref_pics_flag;
+			sps_inter_layer_prediction_enabled_flag = ptr_seq_parameter_set_rbsp->sps_inter_layer_prediction_enabled_flag;
+			sps_weighted_pred_flag = ptr_seq_parameter_set_rbsp->sps_weighted_pred_flag;
+			sps_weighted_bipred_flag = ptr_seq_parameter_set_rbsp->sps_weighted_bipred_flag;
+			sps_log2_max_pic_order_cnt_lsb_minus4 = ptr_seq_parameter_set_rbsp->sps_log2_max_pic_order_cnt_lsb_minus4;
+		}
+
+		int REF_PIC_LIST_STRUCT::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				int idx = 0;
+				MAP_BST_BEGIN(0);
+				nal_read_ue(in_bst, num_ref_entries, uint8_t);
+				if (sps_long_term_ref_pics_flag &&
+					m_rplsIdx < current_sps_num_ref_pic_list && num_ref_entries > 0)
+					bsrb1(in_bst, ltrp_in_header_flag, 1);
+				abs_delta_poc_st.resize(num_ref_entries);
+				ilrp_idx.resize(num_ref_entries);
+				for (uint16_t i = 0, j = 0; i < num_ref_entries; i++)
+				{
+					if (sps_inter_layer_prediction_enabled_flag) {
+						bsrbarray(in_bst, inter_layer_ref_pic_flag, i);
+					}
+					else
+						inter_layer_ref_pic_flag.BitClear(i);
+
+					if (!inter_layer_ref_pic_flag[i]) {
+						if (sps_long_term_ref_pics_flag) {
+							bsrbarray(in_bst, st_ref_pic_flag, i);
+
+							for (i = 0, m_pCtx->NumLtrpEntries[m_listIdx][m_rplsIdx] = 0; i < num_ref_entries; i++) {
+								if (!inter_layer_ref_pic_flag[i] && !st_ref_pic_flag[i])
+									m_pCtx->NumLtrpEntries[m_listIdx][m_rplsIdx]++;
+							}
+						}
+						else
+							st_ref_pic_flag.BitSet(i);
+
+						if (st_ref_pic_flag[i]) {
+							nal_read_ue(in_bst, abs_delta_poc_st[i], uint16_t);
+							uint32_t AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i] + 1;
+							if ((sps_weighted_pred_flag || sps_weighted_bipred_flag) && i != 0)
+								AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i];
+
+							if (AbsDeltaPocSt > 0) {
+								bsrbarray(in_bst, strp_entry_sign_flag, i);
+							}
+							else
+								strp_entry_sign_flag.BitClear(i);
+						}
+						else if (!ltrp_in_header_flag)
+						{
+							uint16_t rpls_poc_lsb_lt_value;
+							bsrb1(in_bst, rpls_poc_lsb_lt_value, sps_log2_max_pic_order_cnt_lsb_minus4 + 4);
+							rpls_poc_lsb_lt[j++] = rpls_poc_lsb_lt_value;
+						}
+						else
+						{
+							nal_read_ue(in_bst, ilrp_idx[i], uint16_t);
+						}
+					}
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int REF_PIC_LIST_STRUCT::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(REF_PIC_LIST_STRUCT)
+
+		DECLARE_FIELDPROP_END()
+
 		int NAL_UNIT::VIDEO_PARAMETER_SET_RBSP::UpdateReferenceLayers()
 		{
 			uint8_t dependencyFlag[64][64] = { {0} };
@@ -532,76 +625,6 @@ namespace BST
 				}
 			}
 			
-			return RET_CODE_SUCCESS;
-		}
-
-		int NAL_UNIT::REF_PIC_LIST_STRUCT::Map(AMBst in_bst)
-		{
-			int iRet = RET_CODE_SUCCESS;
-			SYNTAX_BITSTREAM_MAP::Map(in_bst);
-
-			try
-			{
-				int idx = 0;
-				MAP_BST_BEGIN(0);
-				nal_read_ue(in_bst, num_ref_entries, uint8_t);
-				if (sps_long_term_ref_pics_flag &&
-					m_rplsIdx < current_sps_num_ref_pic_list && num_ref_entries > 0)
-					bsrb1(in_bst, ltrp_in_header_flag, 1);
-				abs_delta_poc_st.resize(num_ref_entries);
-				ilrp_idx.resize(num_ref_entries);
-				for (uint16_t i = 0, j = 0; i < num_ref_entries; i++)
-				{
-					if (sps_inter_layer_prediction_enabled_flag) {
-						bsrbarray(in_bst, inter_layer_ref_pic_flag, i);
-					}
-					else
-						inter_layer_ref_pic_flag.BitClear(i);
-
-					if (!inter_layer_ref_pic_flag[i]) {
-						if (sps_long_term_ref_pics_flag) {
-							bsrbarray(in_bst, st_ref_pic_flag, i);
-
-							for (i = 0, m_pCtx->NumLtrpEntries[m_listIdx][m_rplsIdx] = 0; i < num_ref_entries; i++) {
-								if (!inter_layer_ref_pic_flag[i] && !st_ref_pic_flag[i])
-									m_pCtx->NumLtrpEntries[m_listIdx][m_rplsIdx]++;
-							}
-						}
-						else
-							st_ref_pic_flag.BitSet(i);
-
-						if (st_ref_pic_flag[i]) {
-							nal_read_ue(in_bst, abs_delta_poc_st[i], uint16_t);
-							uint32_t AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i] + 1;
-							if ((sps_weighted_pred_flag || sps_weighted_bipred_flag) && i != 0)
-								AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i];
-
-							if (AbsDeltaPocSt > 0) {
-								bsrbarray(in_bst, strp_entry_sign_flag, i);
-							}
-							else
-								strp_entry_sign_flag.BitClear(i);
-						}
-						else if(!ltrp_in_header_flag)
-						{
-							uint16_t rpls_poc_lsb_lt_value;
-							bsrb1(in_bst, rpls_poc_lsb_lt_value, sps_log2_max_pic_order_cnt_lsb_minus4 + 4);
-							rpls_poc_lsb_lt[j++] = rpls_poc_lsb_lt_value;
-						}
-						else
-						{
-							nal_read_ue(in_bst, ilrp_idx[i], uint16_t);
-						}
-					}
-				}
-
-				MAP_BST_END();
-			}
-			catch (AMException e)
-			{
-				return e.RetCode();
-			}
-
 			return RET_CODE_SUCCESS;
 		}
 
@@ -815,16 +838,6 @@ namespace BST
 
 		DECLARE_FIELDPROP_END()
 
-		int NAL_UNIT::REF_PIC_LIST_STRUCT::Unmap(AMBst out_bst)
-		{
-			UNREFERENCED_PARAMETER(out_bst);
-			return RET_CODE_ERROR_NOTIMPL;
-		}
-
-		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::REF_PIC_LIST_STRUCT)
-
-		DECLARE_FIELDPROP_END()
-
 		NAL_UNIT::SEQ_PARAMETER_SET_RBSP::SEQ_PARAMETER_SET_RBSP()
 			: sps_res_change_in_clvs_allowed_flag(0)
 			, sps_independent_subpics_flag(1)
@@ -874,6 +887,14 @@ namespace BST
 			, sps_num_hor_virtual_boundaries(0)
 			, sps_sublayer_cpb_params_present_flag(0)
 		{
+		}
+
+		NAL_UNIT::SEQ_PARAMETER_SET_RBSP::~SEQ_PARAMETER_SET_RBSP() {
+			AMP_SAFEDEL2(profile_tier_level);
+			AMP_SAFEDEL2(dpb_parameters);
+			AMP_SAFEDEL2(general_timing_hrd_parameters);
+			AMP_SAFEDEL2(ols_timing_hrd_parameters);
+			AMP_SAFEDEL2(vui_payload);
 		}
 
 		int NAL_UNIT::SEQ_PARAMETER_SET_RBSP::Map(AMBst in_bst)
@@ -1107,7 +1128,9 @@ namespace BST
 				for (uint8_t i = 0; i < (sps_rpl1_same_as_rpl0_flag ? 1 : 2); i++) {
 					nal_read_ue1(in_bst, sps_num_ref_pic_lists[i]);
 					for (uint8_t j = 0; j < (uint8_t)sps_num_ref_pic_lists[i]; j++) {
-						bsrbreadref(in_bst, ref_pic_list_struct[i][j], REF_PIC_LIST_STRUCT, i, j, this);
+						REF_PIC_LIST_STRUCT* refListStructure = nullptr;
+						bsrbreadref(in_bst, refListStructure, REF_PIC_LIST_STRUCT, i, j, this);
+						ref_pic_list_struct[i][j] = std::shared_ptr<REF_PIC_LIST_STRUCT>(refListStructure);
 					}
 				}
 
@@ -1288,6 +1311,12 @@ namespace BST
 			}
 
 			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::SEQ_PARAMETER_SET_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
 		}
 
 		NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP::DECODING_CAPABILITY_INFORMATION_RBSP(){
@@ -2424,11 +2453,15 @@ namespace BST
 					}
 					else
 					{
+						REF_PIC_LIST_STRUCT* refPicListStruct = nullptr;
 						bsrbreadref(in_bst, 
-							sps->ptr_seq_parameter_set_rbsp->ref_pic_list_struct[i][sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i]],
+							refPicListStruct,
 							REF_PIC_LIST_STRUCT, i, 
 							sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i], 
 							sps->ptr_seq_parameter_set_rbsp);
+
+						ref_pic_list_struct[i] = std::shared_ptr<REF_PIC_LIST_STRUCT>(refPicListStruct);
+						m_pCtx->ref_pic_list_struct[i][sps->ptr_seq_parameter_set_rbsp->sps_num_ref_pic_lists[i]] = ref_pic_list_struct[i];
 					}
 
 					poc_lsb_lt[i].resize(m_pCtx->NumLtrpEntries[i][m_pCtx->RplsIdx[i]]);
@@ -2935,6 +2968,18 @@ namespace BST
 					break;
 				case SPS_NUT:
 					nal_read_ref(bst, ptr_seq_parameter_set_rbsp, SEQ_PARAMETER_SET_RBSP);
+
+					// Try to update ref_pic_struct in the context
+					if (ptr_ctx_video_bst != nullptr)
+					{
+						for (int i = 0; i < 2; i++) {
+							for (int j = 0; j < 64; j++) {
+								ptr_ctx_video_bst->ref_pic_list_struct[i][j] =
+									ptr_seq_parameter_set_rbsp->ref_pic_list_struct[i][j];
+							}
+						}
+					}
+
 					break;
 				case PPS_NUT:
 					nal_read_ref(bst, ptr_pic_parameter_set_rbsp, PIC_PARAMETER_SET_RBSP, ptr_ctx_video_bst);
