@@ -1660,6 +1660,8 @@ namespace BST {
 
 				std::vector<uint16_t>
 								pps_subpic_id;
+				std::vector<uint16_t>
+								SubpicIdVal;
 
 				uint32_t		pps_num_exp_tile_columns_minus1;
 				uint32_t		pps_num_exp_tile_rows_minus1;
@@ -1783,6 +1785,8 @@ namespace BST {
 								RowHeightVal;
 				std::vector<uint32_t>
 								sliceHeightInCtus;
+				std::vector<uint16_t>
+								NumSlicesInSubpic;
 
 				INALVVCContext*	m_pCtx = nullptr;
 

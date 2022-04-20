@@ -934,7 +934,6 @@ namespace BST
 						bsrb1(in_bst, sps_subpic_same_size_flag, 1);
 					}
 
-					uint32_t numSubpicCols;
 					uint32_t tmpWidthVal = sps_pic_width_max_in_luma_samples + CtbSizeY - 1;
 					uint32_t tmpHeightVal = (sps_pic_height_max_in_luma_samples + CtbSizeY - 1) / CtbSizeY;
 					sps_subpic_ctu_top_left_x.resize(sps_num_subpics_minus1 + 1);
@@ -966,14 +965,10 @@ namespace BST
 							}
 							else
 								sps_subpic_height_minus1[i] = tmpHeightVal - sps_subpic_ctu_top_left_y[i] - 1;
-
-							if (i == 0)
-							{
-								numSubpicCols = tmpWidthVal / (sps_subpic_width_minus1[0] + 1);
-							}
 						}
 						else
 						{
+							uint32_t numSubpicCols = tmpWidthVal / (sps_subpic_width_minus1[0] + 1);
 							sps_subpic_ctu_top_left_x[i] = (i%numSubpicCols)*(sps_subpic_width_minus1[0] + 1);
 							sps_subpic_ctu_top_left_y[i] = (i / numSubpicCols)* (sps_subpic_height_minus1[0] + 1);
 							  sps_subpic_width_minus1[i] = sps_subpic_width_minus1[0];
@@ -1834,6 +1829,14 @@ namespace BST
 					for (int i = 0; i <= pps_num_subpics_minus1; i++) {
 						bsrb1(in_bst, pps_subpic_id[i], pps_subpic_id_len_minus1 + 1);
 					}
+
+					SubpicIdVal.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+					for (int i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
+						if (sps->ptr_seq_parameter_set_rbsp->sps_subpic_id_mapping_explicitly_signalled_flag)
+							SubpicIdVal[i] = pps_subpic_id_mapping_present_flag ? pps_subpic_id[i] : sps->ptr_seq_parameter_set_rbsp->sps_subpic_id[i];
+						else
+							SubpicIdVal[i] = i;
+					}
 				}
 
 				if (!pps_no_pic_partition_flag) {
@@ -2266,6 +2269,27 @@ namespace BST
 					}
 				}
 			}
+
+			std::vector<uint16_t> SubpicIdxForSlice, SubpicLevelSliceIdx;
+			NumSlicesInSubpic.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			for (int i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
+				NumSlicesInSubpic[i] = 0;
+				SubpicIdxForSlice.resize(pps_num_slices_in_pic_minus1 + 1);
+				SubpicLevelSliceIdx.resize(pps_num_slices_in_pic_minus1 + 1);
+				for (int j = 0; j <= pps_num_slices_in_pic_minus1; j++) {
+					uint32_t posX = CtbAddrInSlice[j][0] % PicWidthInCtbsY;
+					uint32_t posY = CtbAddrInSlice[j][0] / PicWidthInCtbsY;
+					if ((posX >= sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i]) &&
+						(posX  < sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i] + sps->ptr_seq_parameter_set_rbsp->sps_subpic_width_minus1[i] + 1) &&
+						(posY >= sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_y[i]) &&
+						(posY < sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_y[i] + sps->ptr_seq_parameter_set_rbsp->sps_subpic_height_minus1[i] + 1)) {
+						SubpicIdxForSlice[j] = i;
+						SubpicLevelSliceIdx[j] = NumSlicesInSubpic[i];
+						NumSlicesInSubpic[i]++;
+					}
+				}
+			}
+
 			return RET_CODE_SUCCESS;
 		}
 

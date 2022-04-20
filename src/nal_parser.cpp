@@ -669,58 +669,91 @@ int CNALParser::PickupVVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUB
 	AMBst bs = AMBst_CreateFromBuffer(pEBSPBuf + 2, read_buf_len - 2);
 	AMBst_SetRBSPType(bs, BST_RBSP_NAL_UNIT);
 
-	int dependent_slice_segment_flag = 0;
-
 	if (m_hit_PH_NU_in_one_AU) {
 		nu_entry.first_slice_segment_in_pic_flag = true;
 		m_hit_PH_NU_in_one_AU = false;
 	}
 
+	H266_NU sps, pps, ph;
+	int pic_parameter_set_id = -1;
+
 	try
 	{
+		uint16_t ph_inter_slice_allowed_flag = 0;
 		uint8_t sh_picture_header_in_slice_header_flag = (uint8_t)AMBst_GetBits(bs, 1);
 		if (sh_picture_header_in_slice_header_flag)
 		{
+			nu_entry.first_slice_segment_in_pic_flag = true;
 
+			BST::H266Video::NAL_UNIT::PICTURE_HEADER_STRUCTURE PicHdrStruct((BST::H266Video::VideoBitstreamCtx*)m_pCtx);
+			iRet = PicHdrStruct.Map(bs);
+
+			pic_parameter_set_id = PicHdrStruct.ph_pic_parameter_set_id;
+			ph_inter_slice_allowed_flag = PicHdrStruct.ph_inter_slice_allowed_flag;
+		}
+		else
+		{
+			ph = m_pNALVVCCtx->GetVVCPH();
+			if (ph != nullptr && ph->ptr_picture_header_rbsp)
+			{
+				pic_parameter_set_id = ph->ptr_picture_header_rbsp->picture_header_structure.ph_pic_parameter_set_id;
+				ph_inter_slice_allowed_flag = ph->ptr_picture_header_rbsp->picture_header_structure.ph_inter_slice_allowed_flag;
+			}
+
+			iRet = RET_CODE_NOTHING_TODO;
 		}
 
-		nu_entry.first_slice_segment_in_pic_flag = (int8_t)AMBst_GetBits(bs, 1);
-		if (nal_unit_type >= BST::H265Video::BLA_W_LP && nal_unit_type <= BST::H265Video::RSV_IRAP_VCL23)
-			nu_entry.no_output_of_prior_pics_flag = (int8_t)AMBst_GetBits(bs, 1);
-
-		nu_entry.slice_pic_parameter_set_id = (uint8_t)AMBst_Get_ue(bs);
-
-		H265_NU pps, sps;
-		if (nu_entry.slice_pic_parameter_set_id < 0 ||
-			nu_entry.slice_pic_parameter_set_id > UINT8_MAX || !(pps = m_pNALHEVCCtx->GetHEVCPPS((uint8_t)nu_entry.slice_pic_parameter_set_id)) ||
-			pps->ptr_pic_parameter_set_rbsp == nullptr)
+		if (ph == nullptr ||
+			(pps = m_pNALVVCCtx->GetVVCPPS(pic_parameter_set_id)) == nullptr ||
+			pps->ptr_pic_parameter_set_rbsp == nullptr ||
+			(sps = m_pNALVVCCtx->GetVVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr ||
+			sps->ptr_seq_parameter_set_rbsp == nullptr)
 		{
 			nu_entry.slice_type = -2;
 			goto done;
 		}
 
-		if (!nu_entry.first_slice_segment_in_pic_flag)
+		if (!ph_inter_slice_allowed_flag)
 		{
-			if (pps->ptr_pic_parameter_set_rbsp->dependent_slice_segments_enabled_flag)
-				dependent_slice_segment_flag = (int8_t)AMBst_GetBits(bs, 1);
-
-			sps = m_pNALHEVCCtx->GetHEVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id);
-			if (!sps || sps->ptr_seq_parameter_set_rbsp == nullptr)
-			{
-				nu_entry.slice_type = -2;
-				goto done;
-			}
-
-			uint32_t slice_segment_address = (uint32_t)AMBst_GetBits(bs, quick_ceil_log2(sps->ptr_seq_parameter_set_rbsp->PicSizeInCtbsY));
-		}
-
-		if (!dependent_slice_segment_flag)
-		{
-			AMBst_SkipBits(bs, pps->ptr_pic_parameter_set_rbsp->num_extra_slice_header_bits);
-			nu_entry.slice_type = (int8_t)AMBst_Get_ue(bs);
+			nu_entry.slice_type = 2;
 		}
 		else
-			nu_entry.slice_type = -1;
+		{
+
+			int CurrSubpicIdx = 0;
+			if (sps->ptr_seq_parameter_set_rbsp->sps_subpic_info_present_flag) {
+				uint32_t sh_subpic_id = (uint32_t)AMBst_GetBits(bs, sps->ptr_seq_parameter_set_rbsp->sps_subpic_id_len_minus1 + 1);
+
+				for (; CurrSubpicIdx <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; CurrSubpicIdx++)
+					if (pps->ptr_pic_parameter_set_rbsp->SubpicIdVal[CurrSubpicIdx] == sh_subpic_id)
+						break;
+			}
+
+			uint32_t sh_slice_address = 0;
+			uint32_t NumTilesInPic = pps->ptr_pic_parameter_set_rbsp->NumTileRows*pps->ptr_pic_parameter_set_rbsp->NumTileColumns;
+			if ((pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && pps->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[CurrSubpicIdx] > 1) ||
+				(!pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && NumTilesInPic > 1))
+			{
+				if (!pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag) {
+					sh_slice_address = (uint32_t)AMBst_GetBits(bs, quick_ceil_log2(NumTilesInPic));
+				}
+				else
+				{
+					sh_slice_address = (uint32_t)AMBst_GetBits(bs, quick_ceil_log2(pps->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[CurrSubpicIdx]));
+				}
+			}
+
+			if (sps->ptr_seq_parameter_set_rbsp->NumExtraShBits > 0)
+				AMBst_SkipBits(bs, sps->ptr_seq_parameter_set_rbsp->NumExtraShBits);
+
+			if (!pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && NumTilesInPic > 1 + sh_slice_address) {
+				uint32_t sh_num_tiles_in_slice_minus1 = (uint32_t)AMBst_Get_ue(bs);
+			}
+
+			nu_entry.slice_type = (int8_t)AMBst_Get_ue(bs);
+		}
+
+		nu_entry.slice_pic_parameter_set_id = (int16_t)pic_parameter_set_id;
 	}
 	catch (...)
 	{
