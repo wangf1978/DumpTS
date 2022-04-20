@@ -362,10 +362,11 @@ namespace BST
 			// The global context member related with decode process
 			//
 			BufferPool*			buffer_pool = nullptr;			// BufferPool, a storage area for a set of frame buffers
-																// When a frame buffer is used for storing a decoded frame, it is indicated by a VBI slot that points to this frame buffer
+																// When a frame buffer is used for storing a decoded frame, 
+																// it is indicated by a VBI slot that points to this frame buffer
 			int8_t				VBI[NUM_REF_FRAMES];			// virtual buffer index,  maps fb_idx to reference slot
 																// an array of indices of the frame areas in the BufferPool. VBI elements which do not point to
-																// any slot in the VBI are set to - 1. VBI array size is equal to 8, with the indices taking values from 0 to 7
+																// any slot in the VBI are set to -1. VBI array size is equal to 8, with the indices taking values from 0 to 7
 			int8_t				cfbi;							// current frame buffer index
 																// the variable that contains the index to the area in the BufferPool that contains the current frame
 
@@ -502,14 +503,18 @@ namespace BST
 			BST_FIELD_PROP_NUMBER1(obu_forbidden_bit, 1, "must be set to 0");
 			BST_FIELD_PROP_2NUMBER1(obu_type, 4, obu_type_names[obu_type]);
 			BST_FIELD_PROP_NUMBER1(obu_extension_flag, 1, "indicates if the optional obu_extension_header is present");
-			BST_FIELD_PROP_BOOL(obu_has_size_field, "indicates that the obu_size syntax element will be present", "indicates that the obu_size syntax element will not be present");
+			BST_FIELD_PROP_BOOL(obu_has_size_field, "indicates that the obu_size syntax element will be present", 
+				"indicates that the obu_size syntax element will not be present");
 			BST_FIELD_PROP_NUMBER1(obu_reserved_1bit, 1, "must be set to 0");
 			if (obu_extension_flag)
 			{
 				NAV_WRITE_TAG_BEGIN2("obu_extension_header");
-					BST_FIELD_PROP_2NUMBER("temporal_id", 3, obu_extension_header.temporal_id, "specifies the temporal level of the data contained in the OBU");
-					BST_FIELD_PROP_2NUMBER("spatial_id", 3, obu_extension_header.spatial_id, "specifies the spatial level of the data contained in the OBU");
-					BST_FIELD_PROP_2NUMBER("extension_header_reserved_3bits", 3, obu_extension_header.extension_header_reserved_3bits, "must be set to 0. The value is ignored by a decoder");
+					BST_FIELD_PROP_2NUMBER("temporal_id", 3, obu_extension_header.temporal_id, 
+						"specifies the temporal level of the data contained in the OBU");
+					BST_FIELD_PROP_2NUMBER("spatial_id", 3, obu_extension_header.spatial_id, 
+						"specifies the spatial level of the data contained in the OBU");
+					BST_FIELD_PROP_2NUMBER("extension_header_reserved_3bits", 3, obu_extension_header.extension_header_reserved_3bits, 
+						"must be set to 0. The value is ignored by a decoder");
 				NAV_WRITE_TAG_END2("obu_extension_header");
 			}
 			DECLARE_FIELDPROP_END()
@@ -607,14 +612,18 @@ namespace BST
 					}
 
 					DECLARE_FIELDPROP_BEGIN()
-					BST_FIELD_PROP_2NUMBER1(num_units_in_display_tick, 32, "the number of time units of a clock operating at the frequency time_scale Hz that corresponds to one increment of a clock tick counter");
+					BST_FIELD_PROP_2NUMBER1(num_units_in_display_tick, 32, 
+						"the number of time units of a clock operating at the frequency time_scale Hz "
+						"that corresponds to one increment of a clock tick counter");
 					BST_FIELD_PROP_2NUMBER1(time_scale, 32, "the number of time units that pass in one second");
 					BST_FIELD_PROP_BOOL_BEGIN(equal_picture_interval, 
-						"indicates that pictures should be displayed according to their output order with the number of ticks between two consecutive pictures (without dropping frames) specified by num_ticks_per_picture_minus_1 + 1", 
+						"indicates that pictures should be displayed according to their output order with the number of ticks "
+						"between two consecutive pictures (without dropping frames) specified by num_ticks_per_picture_minus_1 + 1", 
 						"indicates that the interval between two consecutive pictures is not specified");
 					if (equal_picture_interval)
 					{
-						BST_FIELD_PROP_UVLC(num_ticks_per_picture_minus_1, "plus 1 specifies the number of clock ticks corresponding to output time between two consecutive pictures in the output order");
+						BST_FIELD_PROP_UVLC(num_ticks_per_picture_minus_1, 
+							"plus 1 specifies the number of clock ticks corresponding to output time between two consecutive pictures in the output order");
 					}
 					BST_FIELD_PROP_BOOL_END("equal_picture_interval");
 					DECLARE_FIELDPROP_END()
@@ -664,12 +673,18 @@ namespace BST
 					}
 
 					DECLARE_FIELDPROP_BEGIN()
-					BST_FIELD_PROP_2NUMBER1(bitrate_scale, 4, "together with bitrate_minus_1 specifies the maximum smoothing buffer input bitrate");
-					BST_FIELD_PROP_2NUMBER1(buffer_size_scale, 4, "together with buffer_size_minus_1 specifies the smoothing buffer size");
-					BST_FIELD_PROP_2NUMBER1(buffer_delay_length_minus_1, 5, "plus 1 specifies the length of the decoder_buffer_delay and the encoder_buffer_delay syntax elements, in bits");
-					BST_FIELD_PROP_2NUMBER1(num_units_in_decoding_tick, 32, "the number of time units of a decoding clock operating at the frequency time_scale Hz that corresponds to one increment of a clock tick counter");
-					BST_FIELD_PROP_2NUMBER1(buffer_removal_time_length_minus_1, 5, "plus 1 specifies the length of the buffer_removal_time syntax element, in bits");
-					BST_FIELD_PROP_2NUMBER1(frame_presentation_time_length_minus_1, 5, "plus 1 specifies the length of the frame_presentation_time syntax element, in bits");
+					BST_FIELD_PROP_2NUMBER1(bitrate_scale, 4, 
+						"together with bitrate_minus_1 specifies the maximum smoothing buffer input bitrate");
+					BST_FIELD_PROP_2NUMBER1(buffer_size_scale, 4, 
+						"together with buffer_size_minus_1 specifies the smoothing buffer size");
+					BST_FIELD_PROP_2NUMBER1(buffer_delay_length_minus_1, 5, 
+						"plus 1 specifies the length of the decoder_buffer_delay and the encoder_buffer_delay syntax elements, in bits");
+					BST_FIELD_PROP_2NUMBER1(num_units_in_decoding_tick, 32, 
+						"the number of time units of a decoding clock operating at the frequency time_scale Hz that corresponds to one increment of a clock tick counter");
+					BST_FIELD_PROP_2NUMBER1(buffer_removal_time_length_minus_1, 5, 
+						"plus 1 specifies the length of the buffer_removal_time syntax element, in bits");
+					BST_FIELD_PROP_2NUMBER1(frame_presentation_time_length_minus_1, 5, 
+						"plus 1 specifies the length of the frame_presentation_time syntax element, in bits");
 					DECLARE_FIELDPROP_END()
 				}PACKED;
 
@@ -819,7 +834,8 @@ namespace BST
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE("mono_chrome", mono_chrome, "Should be 0");
 					}
 					else {
-						BST_FIELD_PROP_BOOL(mono_chrome, "indicates that the video does not contain U and V color planes", "indicates that the video contains Y, U, and V color planes");
+						BST_FIELD_PROP_BOOL(mono_chrome, "indicates that the video does not contain U and V color planes", 
+							"indicates that the video contains Y, U, and V color planes");
 					}
 
 					NAV_WRITE_TAG_WITH_NUMBER_VALUE("NumPlanes", mono_chrome ? 1 : 3, "NumPlanes = mono_chrome ? 1 : 3");
@@ -865,12 +881,14 @@ namespace BST
 						transfer_characteristics == TC_SRGB &&
 						matrix_coefficients == MC_IDENTITY)
 					{
-						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(color_range, color_range ? "shall be referred to as the full swing representation for all intents relating to this specification"
-																				  : "shall be referred to as the studio swing representation");
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(color_range, color_range 
+							? "shall be referred to as the full swing representation for all intents relating to this specification"
+							: "shall be referred to as the studio swing representation");
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE("subsampling_x", subsampling_x, "");
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE("subsampling_y", subsampling_y, "");
 						NAV_WRITE_TAG_WITH_ALIAS("ColorSpace", "YUV Color-space", YUVColorSpace());
-						BST_FIELD_PROP_BOOL(separate_uv_delta_q, "indicates that the U and V planes may have separate delta quantizer values", "indicates that the U and V planes will share the same delta quantizer value");
+						BST_FIELD_PROP_BOOL(separate_uv_delta_q, "indicates that the U and V planes may have separate delta quantizer values", 
+							"indicates that the U and V planes will share the same delta quantizer value");
 					}
 					else
 					{
@@ -1021,7 +1039,8 @@ namespace BST
 
 							if (ptr_sequence_header_obu->decoder_model_info_present_flag) {
 								bsrb1(in_bst, decoder_model_present_for_this_op, 1);
-								MAP_MEM_TO_STRUCT_POINTER5_1(in_bst, decoder_model_present_for_this_op, ptr_operating_parameters_info, OPERATING_PARAMETERS_INFO, ptr_sequence_header_obu);
+								MAP_MEM_TO_STRUCT_POINTER5_1(in_bst, decoder_model_present_for_this_op, ptr_operating_parameters_info, 
+									OPERATING_PARAMETERS_INFO, ptr_sequence_header_obu);
 							}
 							else
 								decoder_model_present_for_this_op = 0;
@@ -1050,7 +1069,8 @@ namespace BST
 					}
 
 					DECLARE_FIELDPROP_BEGIN()
-					BST_FIELD_PROP_2NUMBER1(operating_point_idc, 12, "contains a bitmask that indicates which spatial and temporal layers should be decoded for the current operating point");
+					BST_FIELD_PROP_2NUMBER1(operating_point_idc, 12, "contains a bitmask that indicates which spatial and temporal layers "
+						"should be decoded for the current operating point");
 					BST_FIELD_PROP_2NUMBER1(seq_level_idx, 5, "specifies the level that the coded video sequence conforms to when operating point i is selected");
 					if (seq_level_idx > 7) {
 						BST_FIELD_PROP_2NUMBER1(seq_tier, 1, "specifies the tier that the coded video sequence conforms to when operating point i is selected");
@@ -1342,14 +1362,18 @@ namespace BST
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(initial_display_delay_present_flag, "");
 						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(operating_points_cnt_minus_1, "");
 						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("operating_point_idc", "operating_point_idc[0]", operating_points[0].operating_point_idc, "");
-						BST_FIELD_PROP_2NUMBER_ALIAS_F_("seq_level_idx", "seq_level_idx[0]", 5, operating_points[0].seq_level_idx, get_av1_level_name(operating_points[0].seq_level_idx));
+						BST_FIELD_PROP_2NUMBER_ALIAS_F_("seq_level_idx", "seq_level_idx[0]", 
+							5, operating_points[0].seq_level_idx, get_av1_level_name(operating_points[0].seq_level_idx));
 						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("seq_tier", "seq_tier[0]", operating_points[0].seq_tier, "");
-						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("decoder_model_present_for_this_op", "decoder_model_present_for_this_op[0]", operating_points[0].decoder_model_present_for_this_op, "");
-						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("initial_display_delay_present_for_this_op", "initial_display_delay_present_for_this_op[0]", operating_points[0].initial_display_delay_present_for_this_op, "");
+						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("decoder_model_present_for_this_op", 
+							"decoder_model_present_for_this_op[0]", operating_points[0].decoder_model_present_for_this_op, "");
+						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("initial_display_delay_present_for_this_op", 
+							"initial_display_delay_present_for_this_op[0]", operating_points[0].initial_display_delay_present_for_this_op, "");
 					}
 					else
 					{
-						BST_FIELD_PROP_BOOL_BEGIN(timing_info_present_flag, "timing info is present in the coded video sequence", "timing info is NOT present in the coded video sequence");
+						BST_FIELD_PROP_BOOL_BEGIN(timing_info_present_flag, "timing info is present in the coded video sequence", 
+							"timing info is NOT present in the coded video sequence");
 						if (timing_info_present_flag)
 						{
 							BST_FIELD_PROP_REF2_1(ptr_timing_info, "timing_info", "");
@@ -1363,23 +1387,29 @@ namespace BST
 						}
 						BST_FIELD_PROP_BOOL_END("timing_info_present_flag");
 
-						BST_FIELD_PROP_NUMBER1(initial_display_delay_present_flag, 1, "specifies whether initial display delay information is present in the coded video sequence");
-						BST_FIELD_PROP_2NUMBER1(operating_points_cnt_minus_1, 5, "plus 1 indicates the number of operating points present in the coded video sequence");
+						BST_FIELD_PROP_NUMBER1(initial_display_delay_present_flag, 1, 
+							"specifies whether initial display delay information is present in the coded video sequence");
+						BST_FIELD_PROP_2NUMBER1(operating_points_cnt_minus_1, 5, 
+							"plus 1 indicates the number of operating points present in the coded video sequence");
 
 						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;=operating_points_cnt_minus_1;i++)", "");
 						for (i = 0; i <= operating_points_cnt_minus_1; i++) {
 							NAV_WRITE_TAG_ARRAY_BEGIN0("operating_point", i, "");
-							BST_FIELD_PROP_2NUMBER("operating_point_idc", 12, operating_points[i].operating_point_idc, "contains a bitmask that indicates which spatial and temporal layers should be decoded for the current operating point");
+							BST_FIELD_PROP_2NUMBER("operating_point_idc", 12, operating_points[i].operating_point_idc, 
+								"contains a bitmask that indicates which spatial and temporal layers should be decoded for the current operating point");
 							BST_FIELD_PROP_2NUMBER("seq_level_idx", 5, operating_points[i].seq_level_idx, get_av1_level_name(operating_points[i].seq_level_idx));
 							if (operating_points[i].seq_level_idx > 7)
 							{
-								BST_FIELD_PROP_2NUMBER("seq_tier", 1, operating_points[i].seq_tier, "specifies the tier that the coded video sequence conforms to when the current operating point is selected");
+								BST_FIELD_PROP_2NUMBER("seq_tier", 1, operating_points[i].seq_tier, 
+									"specifies the tier that the coded video sequence conforms to when the current operating point is selected");
 							}
 
 							if (decoder_model_info_present_flag)
 							{
 								BST_FIELD_PROP_NUMBER_BEGIN("decoder_model_present_for_this_op", 1, operating_points[i].decoder_model_present_for_this_op, 
-									operating_points[i].decoder_model_present_for_this_op?"there is a decoder model associated with operating point":"No decoder model associated with operating point");
+									operating_points[i].decoder_model_present_for_this_op
+									?"there is a decoder model associated with operating point"
+									:"No decoder model associated with operating point");
 								BST_FIELD_PROP_REF2_1(operating_points[i].ptr_operating_parameters_info, "operating_parameters_info", "");
 								BST_FIELD_PROP_NUMBER_END("decoder_model_present_for_this_op");
 							}
@@ -1395,7 +1425,8 @@ namespace BST
 									? "indicates that initial_display_delay_minus_1 is specified for the current operating point" 
 									: "indicates that initial_display_delay_minus_1 is NOT specified for the current operating point");
 								BST_FIELD_PROP_2NUMBER("initial_display_delay_minus_1", 4, operating_points[i].initial_display_delay_minus_1, 
-									"plus 1 specifies, for the current operating point, the number of decoded frames that should be present in the buffer pool before the first presentable frame is displayed");
+									"plus 1 specifies, for the current operating point, the number of decoded frames that "
+									"should be present in the buffer pool before the first presentable frame is displayed");
 								BST_FIELD_PROP_NUMBER_END("initial_display_delay_present_for_this_op");
 							}
 
@@ -1405,8 +1436,10 @@ namespace BST
 
 						BST_FIELD_PROP_2NUMBER1(frame_width_bits_minus_1, 4, "the number of bits minus 1 used for transmitting the frame width syntax elements");
 						BST_FIELD_PROP_2NUMBER1(frame_height_bits_minus_1, 4, "the number of bits minus 1 used for transmitting the frame height syntax elements");
-						BST_FIELD_PROP_2NUMBER1(max_frame_width_minus_1, (long long)frame_width_bits_minus_1 + 1, "the maximum frame width minus 1 for the frames represented by this sequence header");
-						BST_FIELD_PROP_2NUMBER1(max_frame_height_minus_1, (long long)frame_height_bits_minus_1 + 1, "the maximum frame height minus 1 for the frames represented by this sequence header");
+						BST_FIELD_PROP_2NUMBER1(max_frame_width_minus_1, (long long)frame_width_bits_minus_1 + 1, 
+							"the maximum frame width minus 1 for the frames represented by this sequence header");
+						BST_FIELD_PROP_2NUMBER1(max_frame_height_minus_1, (long long)frame_height_bits_minus_1 + 1, 
+							"the maximum frame height minus 1 for the frames represented by this sequence header");
 
 						if (reduced_still_picture_header)
 						{
@@ -1414,15 +1447,19 @@ namespace BST
 						}
 						else
 						{
-							BST_FIELD_PROP_BOOL_BEGIN(frame_id_numbers_present_flag, "frame id numbers are present in the coded video sequence", "frame id numbers are NOT present in the coded video sequence");
+							BST_FIELD_PROP_BOOL_BEGIN(frame_id_numbers_present_flag, 
+								"frame id numbers are present in the coded video sequence", "frame id numbers are NOT present in the coded video sequence");
 								BST_FIELD_PROP_2NUMBER1(delta_frame_id_length_minus_2, 4, "plus 2 used to encode delta_frame_id syntax elements");
-								BST_FIELD_PROP_2NUMBER1(additional_frame_id_length_minus_1, 3, "is used to calculate the number of bits used to encode the frame_id syntax element");
+								BST_FIELD_PROP_2NUMBER1(additional_frame_id_length_minus_1, 3, 
+									"is used to calculate the number of bits used to encode the frame_id syntax element");
 							BST_FIELD_PROP_BOOL_END("frame_id_numbers_present_flag");
 						}
 
 						BST_FIELD_PROP_BOOL(use_128x128_superblock, "superblocks contain 128x128 luma samples", "superblocks contain 64x64 luma samples");
-						BST_FIELD_PROP_BOOL(enable_filter_intra, "the use_filter_intra syntax element may be present", "the use_filter_intra syntax element will not be present");
-						BST_FIELD_PROP_BOOL(enable_intra_edge_filter, "the intra edge filtering process should be enabled", "the intra edge filtering process should NOT be enabled");
+						BST_FIELD_PROP_BOOL(enable_filter_intra, "the use_filter_intra syntax element may be present", 
+							"the use_filter_intra syntax element will not be present");
+						BST_FIELD_PROP_BOOL(enable_intra_edge_filter, "the intra edge filtering process should be enabled", 
+							"the intra edge filtering process should NOT be enabled");
 
 						if (reduced_still_picture_header)
 						{
@@ -1439,24 +1476,34 @@ namespace BST
 						}
 						else
 						{
-							BST_FIELD_PROP_BOOL(enable_interintra_compound, "the mode info for inter blocks may contain the syntax element interintra", "the syntax element interintra will not be present");
-							BST_FIELD_PROP_BOOL(enable_masked_compound, "the mode info for inter blocks may contain the syntax element compound_type", "the syntax element compound_type will not be present");
-							BST_FIELD_PROP_BOOL(enable_warped_motion, "the allow_warped_motion syntax element may be present", "the allow_warped_motion syntax element will not be present");
-							BST_FIELD_PROP_BOOL(enable_dual_filter, "the inter prediction filter type may be specified independently in the horizontal and vertical directions", "only one filter type may be specified, which is then used in both directions");
-							BST_FIELD_PROP_BOOL(enable_order_hint, "tools based on the values of order hints may be used", "tools based on order hints are disabled");
+							BST_FIELD_PROP_BOOL(enable_interintra_compound, "the mode info for inter blocks may contain the syntax element interintra", 
+								"the syntax element interintra will not be present");
+							BST_FIELD_PROP_BOOL(enable_masked_compound, "the mode info for inter blocks may contain the syntax element compound_type", 
+								"the syntax element compound_type will not be present");
+							BST_FIELD_PROP_BOOL(enable_warped_motion, "the allow_warped_motion syntax element may be present", 
+								"the allow_warped_motion syntax element will not be present");
+							BST_FIELD_PROP_BOOL(enable_dual_filter, "the inter prediction filter type may be specified independently in the horizontal and vertical directions", 
+								"only one filter type may be specified, which is then used in both directions");
+							BST_FIELD_PROP_BOOL(enable_order_hint, "tools based on the values of order hints may be used", 
+								"tools based on order hints are disabled");
 							if (enable_order_hint)
 							{
-								BST_FIELD_PROP_BOOL(enable_jnt_comp, "the distance weights process may be used for inter prediction", "the distance weights process should NOT be used for inter prediction");
-								BST_FIELD_PROP_BOOL(enable_ref_frame_mvs, "the use_ref_frame_mvs syntax element may be present", "the use_ref_frame_mvs syntax element will not be present");
+								BST_FIELD_PROP_BOOL(enable_jnt_comp, "the distance weights process may be used for inter prediction", 
+									"the distance weights process should NOT be used for inter prediction");
+								BST_FIELD_PROP_BOOL(enable_ref_frame_mvs, "the use_ref_frame_mvs syntax element may be present", 
+									"the use_ref_frame_mvs syntax element will not be present");
 							}
 							else
 							{
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(enable_jnt_comp, "");
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(enable_ref_frame_mvs, "");
 							}
-							BST_FIELD_PROP_BOOL(seq_choose_screen_content_tools, "seq_force_screen_content_tools should be set equal to SELECT_SCREEN_CONTENT_TOOLS", "the seq_force_screen_content_tools syntax element will be present");
+							BST_FIELD_PROP_BOOL(seq_choose_screen_content_tools, 
+								"seq_force_screen_content_tools should be set equal to SELECT_SCREEN_CONTENT_TOOLS", 
+								"the seq_force_screen_content_tools syntax element will be present");
 							if (seq_choose_screen_content_tools) {
-								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(seq_force_screen_content_tools, seq_force_screen_content_tools == SELECT_SCREEN_CONTENT_TOOLS?"the allow_screen_content_tools syntax element will be present in the frame header"
+								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(seq_force_screen_content_tools, seq_force_screen_content_tools == SELECT_SCREEN_CONTENT_TOOLS
+									?"the allow_screen_content_tools syntax element will be present in the frame header"
 									:"seq_force_screen_content_tools contains the value for allow_screen_content_tools");
 							}
 							else
@@ -1466,7 +1513,9 @@ namespace BST
 
 							if (seq_force_screen_content_tools > 0)
 							{
-								BST_FIELD_PROP_BOOL(seq_choose_integer_mv, "seq_force_integer_mv should be set equal to SELECT_INTEGER_MV", "the seq_force_integer_mv syntax element will be present");
+								BST_FIELD_PROP_BOOL(seq_choose_integer_mv, 
+									"seq_force_integer_mv should be set equal to SELECT_INTEGER_MV", 
+									"the seq_force_integer_mv syntax element will be present");
 								if (seq_choose_integer_mv)
 								{
 									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(seq_force_integer_mv, "Should be SELECT_INTEGER_MV");
@@ -1488,13 +1537,17 @@ namespace BST
 							NAV_WRITE_TAG_WITH_1NUMBER_VALUE1(OrderHintBits, "the number of bits used for the order_hint syntax element");
 						}
 
-						BST_FIELD_PROP_BOOL(enable_superres, "the use_superres syntax element will be present in the uncompressed header", "the use_superres syntax element will not be present");
+						BST_FIELD_PROP_BOOL(enable_superres, 
+							"the use_superres syntax element will be present in the uncompressed header", 
+							"the use_superres syntax element will not be present");
 						BST_FIELD_PROP_BOOL(enable_cdef, "cdef filtering may be enabled", "cdef filtering is disabled");
 						BST_FIELD_PROP_BOOL(enable_restoration, "loop restoration filtering may be enabled", "loop restoration filtering is disabled");
 
 						BST_FIELD_PROP_REF2_1(color_config, "color_config", "");
 
-						BST_FIELD_PROP_BOOL(film_gain_params_present, "film grain parameters are present in the coded video sequence", "film grain parameters are NOT present in the coded video sequence");
+						BST_FIELD_PROP_BOOL(film_gain_params_present, 
+							"film grain parameters are present in the coded video sequence", 
+							"film grain parameters are NOT present in the coded video sequence");
 					}
 				DECLARE_FIELDPROP_END()
 
@@ -1843,12 +1896,16 @@ namespace BST
 
 						DECLARE_FIELDPROP_BEGIN()
 						BST_FIELD_PROP_2NUMBER1(spatial_layers_cnt_minus_1, 2, "indicates the number of spatial layers present in the video sequence minus one");
-						BST_FIELD_PROP_BOOL(spatial_layer_dimensions_present_flag, "the spatial_layer_max_width and spatial_layer_max_height parameters are present for each of the (spatial_layers_cnt_minus_1 + 1) layers"
-																				 , "the spatial_layer_max_width and spatial_layer_max_height parameters are NOT present for each of the (spatial_layers_cnt_minus_1 + 1) layers");
-						BST_FIELD_PROP_BOOL(spatial_layer_description_present_flag, "the spatial_layer_ref_id is present for each of the (spatial_layers_cnt_minus_1 + 1) layers"
-																				  , "the spatial_layer_ref_id is NOT present for each of the (spatial_layers_cnt_minus_1 + 1) layers");
-						BST_FIELD_PROP_BOOL(temporal_group_description_present_flag, "the temporal dependency information is present", " the temporal dependency information is NOT present");
-						BST_FIELD_PROP_2NUMBER1(scalability_structure_reserved_3bits, 3, "must be set to zero and be ignored by decoders");
+						BST_FIELD_PROP_BOOL(spatial_layer_dimensions_present_flag, 
+							"the spatial_layer_max_width and spatial_layer_max_height parameters are present for each of the (spatial_layers_cnt_minus_1 + 1) layers", 
+							"the spatial_layer_max_width and spatial_layer_max_height parameters are NOT present for each of the (spatial_layers_cnt_minus_1 + 1) layers");
+						BST_FIELD_PROP_BOOL(spatial_layer_description_present_flag, 
+							"the spatial_layer_ref_id is present for each of the (spatial_layers_cnt_minus_1 + 1) layers", 
+							"the spatial_layer_ref_id is NOT present for each of the (spatial_layers_cnt_minus_1 + 1) layers");
+						BST_FIELD_PROP_BOOL(temporal_group_description_present_flag, 
+							"the temporal dependency information is present", " the temporal dependency information is NOT present");
+						BST_FIELD_PROP_2NUMBER1(scalability_structure_reserved_3bits, 3, 
+							"must be set to zero and be ignored by decoders");
 
 						if (spatial_layer_dimensions_present_flag)
 						{
@@ -1883,11 +1940,15 @@ namespace BST
 
 								BST_ARRAY_FIELD_PROP_NUMBER_("temporal_group_temporal_id", "pic", i, 3, temporal_groups[i].temporal_group_temporal_id, 
 									"specifies the temporal_id value for the i-th picture in the temporal group");
-								BST_ARRAY_FIELD_PROP_NUMBER_("temporal_group_temporal_switching_up_point_flag", "pic", i, 3, temporal_groups[i].temporal_group_temporal_switching_up_point_flag, 
-									"set to 1 if subsequent (in decoding order) pictures with a temporal_id higher than temporal_group_temporal_id[i] do not depend on any picture preceding the "
+								BST_ARRAY_FIELD_PROP_NUMBER_("temporal_group_temporal_switching_up_point_flag", "pic", 
+									i, 3, temporal_groups[i].temporal_group_temporal_switching_up_point_flag, 
+									"set to 1 if subsequent (in decoding order) pictures with a temporal_id higher than "
+									"temporal_group_temporal_id[i] do not depend on any picture preceding the "
 									"current picture(in coding order) with temporal_id higher than temporal_group_temporal_id[i]");
-								BST_ARRAY_FIELD_PROP_NUMBER_("temporal_group_spatial_switching_up_point_flag", "pic", i, 3, temporal_groups[i].temporal_group_spatial_switching_up_point_flag, 
-									"is set to 1 if spatial layers of the current picture in the temporal group (i.e., pictures with a spatial_id higher than zero) do not depend on any picture "
+								BST_ARRAY_FIELD_PROP_NUMBER_("temporal_group_spatial_switching_up_point_flag", "pic", 
+									i, 3, temporal_groups[i].temporal_group_spatial_switching_up_point_flag, 
+									"is set to 1 if spatial layers of the current picture in the temporal group "
+									"(i.e., pictures with a spatial_id higher than zero) do not depend on any picture "
 									"preceding the current picture in the temporal group");
 								BST_ARRAY_FIELD_PROP_NUMBER_("temporal_group_ref_cnt", "pic", i, 3, temporal_groups[i].temporal_group_ref_cnt, 
 									"indicates the number of reference pictures used by the i-th picture in the temporal group");
@@ -1896,7 +1957,8 @@ namespace BST
 								{
 									BST_2ARRAY_FIELD_PROP_2NUMBER_("temporal_group_ref_pic_diff", "pic#", i, "refpic#", j, 8, 
 										temporal_groups[i].temporal_group_ref_pic_diff[j], 
-										"indicates, for the i-th picture in the temporal group, the temporal distance between the i-th picture and the j-th reference picture used by the i-th picture. "
+										"indicates, for the i-th picture in the temporal group, the temporal distance "
+										"between the i-th picture and the j-th reference picture used by the i-th picture. "
 										"The temporal distance is measured in frames, counting only frames of identical spatial_id values");
 								}
 								NAV_WRITE_TAG_END("Tag21");
@@ -2037,14 +2099,16 @@ namespace BST
 
 					DECLARE_FIELDPROP_BEGIN()
 					BST_FIELD_PROP_2NUMBER1(counting_type, 5, "");
-					BST_FIELD_PROP_BOOL(full_timestamp_flag, "indicates that the seconds_value, minutes_value, hours_value syntax elements will be present"
-														   , "indicates that there are flags to control the presence of seconds_value, minutes_value, hours_value syntax elements");
-					BST_FIELD_PROP_BOOL(discontinuity_flag, "indicates that the difference between the current value of clockTimestamp and the value of clockTimestamp computed from "
-															"the previous set of clock timestamp syntax elements in output order should not be interpreted as the time difference "
-															"between the times of origin or capture of the associated frames or fields"
-														  , "indicates that the difference between the current value of clockTimestamp and the value of clockTimestamp computed from "
-															"the previous set of timestamp syntax elements in output order can be interpreted as the time difference between the times "
-															"of origin or capture of the associated frames or fields");
+					BST_FIELD_PROP_BOOL(full_timestamp_flag, 
+						"indicates that the seconds_value, minutes_value, hours_value syntax elements will be present", 
+						"indicates that there are flags to control the presence of seconds_value, minutes_value, hours_value syntax elements");
+					BST_FIELD_PROP_BOOL(discontinuity_flag, 
+						"indicates that the difference between the current value of clockTimestamp and the value of clockTimestamp computed from "
+						"the previous set of clock timestamp syntax elements in output order should not be interpreted as the time difference "
+						"between the times of origin or capture of the associated frames or fields", 
+						"indicates that the difference between the current value of clockTimestamp and the value of clockTimestamp computed from "
+						"the previous set of timestamp syntax elements in output order can be interpreted as the time difference between the times "
+						"of origin or capture of the associated frames or fields");
 					BST_FIELD_PROP_NUMBER1(cnt_dropped_flag, 1, "specifies the skipping of one or more values of n_frames using the counting method specified by counting_type");
 					BST_FIELD_PROP_2NUMBER1(n_frames, 9, "is used to compute clockTimestamp");
 					if (full_timestamp_flag)
@@ -2662,7 +2726,9 @@ namespace BST
 						}
 
 						DECLARE_FIELDPROP_BEGIN()
-							BST_FIELD_PROP_BOOL_BEGIN(render_and_frame_size_different, "the render width and height are explicitly coded", "the render width and height are inferred from the frame width and height");
+							BST_FIELD_PROP_BOOL_BEGIN(render_and_frame_size_different
+								, "the render width and height are explicitly coded"
+								, "the render width and height are inferred from the frame width and height");
 							if (render_and_frame_size_different)
 							{
 								BST_FIELD_PROP_2NUMBER1(render_width_minus_1, 16, "plus one is the render width of the frame in luma samples");
@@ -2740,7 +2806,8 @@ namespace BST
 								}
 								else
 								{
-									av1_read_ref(in_bst, ptr_superres_params, FRAME_SIZE::SUPERRES_PARAMS, FrameWidth, ptr_uncompressed_header->ptr_sequence_header_obu->enable_superres);
+									av1_read_ref(in_bst, ptr_superres_params, FRAME_SIZE::SUPERRES_PARAMS, FrameWidth, 
+										ptr_uncompressed_header->ptr_sequence_header_obu->enable_superres);
 									compute_image_size.MiCols = 2 * ((FrameWidth + 7) >> 3);
 									compute_image_size.MiRows = 2 * ((FrameHeight + 7) >> 3);
 								}
@@ -2766,7 +2833,8 @@ namespace BST
 						for (i = 0; i < REFS_PER_FRAME; i++)
 						{
 							BST_ARRAY_FIELD_PROP_BOOL_BEGIN_("found_ref", "ref", i, found_ref[i], 
-								"indicates that the frame dimensions can be inferred from reference frame i where i is the loop counter in the syntax parsing process for frame_size_with_refs", 
+								"indicates that the frame dimensions can be inferred from reference frame i "
+								"where i is the loop counter in the syntax parsing process for frame_size_with_refs", 
 								"indicates that the frame dimensions are not inferred from reference frame i");
 
 							if (found_ref[i])
@@ -3090,8 +3158,10 @@ namespace BST
 							goto done;
 
 						{
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sbCols, ptr_uncompressed_header->ptr_sequence_header_obu->use_128x128_superblock ? "((MiCols + 31) &gt;&gt; 5)" : "((MiCols + 15) &gt;&gt; 4)");
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sbRows, ptr_uncompressed_header->ptr_sequence_header_obu->use_128x128_superblock ? "((MiRows + 31) &gt;&gt; 5)" : "((MiRows + 15) &gt;&gt; 4)");
+							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sbCols, 
+								ptr_uncompressed_header->ptr_sequence_header_obu->use_128x128_superblock ? "((MiCols + 31) &gt;&gt; 5)" : "((MiCols + 15) &gt;&gt; 4)");
+							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sbRows, 
+								ptr_uncompressed_header->ptr_sequence_header_obu->use_128x128_superblock ? "((MiRows + 31) &gt;&gt; 5)" : "((MiRows + 15) &gt;&gt; 4)");
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sbShift, ptr_uncompressed_header->ptr_sequence_header_obu->use_128x128_superblock ? "5" : "4");
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sbSize, "sbShift + 2");
 
@@ -3122,7 +3192,8 @@ namespace BST
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag0", "for(startSb=0;startSb&lt;sbCols;startSb+=tileWidthSb)", "");
 								i = 0;
 								for (size_t startSb = 0; startSb < sbCols; startSb += tileWidthSb) {
-									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag01", "MiColStarts[%d]", (int)(startSb << sbShift), "MiColStarts[i]=startSb&lt;&lt;sbShift", i);
+									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag01", "MiColStarts[%d]", 
+										(int)(startSb << sbShift), "MiColStarts[i]=startSb&lt;&lt;sbShift", i);
 									i++;
 								}
 								NAV_WRITE_TAG_END("Tag0");
@@ -3143,7 +3214,8 @@ namespace BST
 								NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag1", "for(startSb=0;startSb&lt;sbRows;startSb+=tileHeightSb)", "");
 								i = 0;
 								for (size_t startSb = 0; startSb < sbRows; startSb += tileHeightSb) {
-									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag11", "MiRowStarts[%d]", (int)(startSb << sbShift), "MiRowStarts[i]=startSb&lt;&lt;sbShift", i);
+									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag11", "MiRowStarts[%d]", 
+										(int)(startSb << sbShift), "MiRowStarts[i]=startSb&lt;&lt;sbShift", i);
 									i++;
 								}
 								NAV_WRITE_TAG_END("Tag1");
@@ -3196,7 +3268,8 @@ namespace BST
 								NAV_WRITE_TAG_END("Tag1");
 
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(TileRows, "specifies the number of tiles down the frame, not greater than MAX_TILE_ROWS");
-								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(TileRowsLog2, "TileRowsLog2 = tile_log2(1, TileRows), specifies the base 2 logarithm of the desired number of tiles down the frame");
+								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(TileRowsLog2, 
+									"TileRowsLog2 = tile_log2(1, TileRows), specifies the base 2 logarithm of the desired number of tiles down the frame");
 							}
 
 							BST_FIELD_PROP_BOOL_END("uniform_tile_spacing_flag");
@@ -3608,7 +3681,8 @@ namespace BST
 							}
 							else
 							{
-								BST_FIELD_PROP_BOOL_BEGIN(segmentation_update_map, "the segmentation map are updated during the decoding of this frame", "the segmentation map from the previous frame is used");
+								BST_FIELD_PROP_BOOL_BEGIN(segmentation_update_map, "the segmentation map are updated during the decoding of this frame", 
+									"the segmentation map from the previous frame is used");
 								if (segmentation_update_map)
 								{
 									BST_FIELD_PROP_BOOL(segmentation_temporal_update,
@@ -3616,7 +3690,8 @@ namespace BST
 										"the new segmentation map is coded without reference to the existing segmentation map");
 								}
 								BST_FIELD_PROP_BOOL_END("segmentation_update_map");
-								BST_FIELD_PROP_BOOL(segmentation_update_data, "new parameters are about to be specified for each segment", "the segmentation parameters should keep their existing values");
+								BST_FIELD_PROP_BOOL(segmentation_update_data, "new parameters are about to be specified for each segment", 
+									"the segmentation parameters should keep their existing values");
 							}
 
 							if (segmentation_update_data == 1) {
@@ -3625,7 +3700,8 @@ namespace BST
 									NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag00", "for(j=0;j&lt;SEG_LVL_MAX(%d);j++)", "", SEG_LVL_MAX);
 									for (uint8_t j = 0; j < SEG_LVL_MAX; j++) {
 										NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag000", "[%d][%d]", "", i, j);
-										BST_FIELD_PROP_NUMBER("feature_enabled", 1, feature_enabled[i*j], feature_enabled[i*j]?"the feature value is coded":"the corresponding feature is unused and has value equal to 0");
+										BST_FIELD_PROP_NUMBER("feature_enabled", 1, feature_enabled[i*j], 
+											feature_enabled[i*j]?"the feature value is coded":"the corresponding feature is unused and has value equal to 0");
 										int16_t clippedValue = 0;
 										if (feature_enabled[i*j])
 										{
@@ -3999,14 +4075,22 @@ namespace BST
 							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_level", "loop_filter_level[0]", loop_filter_level[0], "Should be 0");
 							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_level", "loop_filter_level[1]", loop_filter_level[1], "Should be 0");
 
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[INTRA_FRAME]", loop_filter_ref_deltas[INTRA_FRAME], "Should be 1");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[LAST_FRAME]", loop_filter_ref_deltas[LAST_FRAME], "Should be 0");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[LAST2_FRAME]", loop_filter_ref_deltas[LAST2_FRAME], "Should be 0");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[LAST3_FRAME]", loop_filter_ref_deltas[LAST3_FRAME], "Should be 0");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[GOLDEN_FRAME]", loop_filter_ref_deltas[GOLDEN_FRAME], "Should be -1");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[BWDREF_FRAME]", loop_filter_ref_deltas[BWDREF_FRAME], "Should be 0");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[ALTREF2_FRAME]", loop_filter_ref_deltas[ALTREF2_FRAME], "Should be -1");
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[ALTREF_FRAME]", loop_filter_ref_deltas[ALTREF_FRAME], "Should be -1");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[INTRA_FRAME]", 
+								loop_filter_ref_deltas[INTRA_FRAME], "Should be 1");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[LAST_FRAME]", 
+								loop_filter_ref_deltas[LAST_FRAME], "Should be 0");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[LAST2_FRAME]", 
+								loop_filter_ref_deltas[LAST2_FRAME], "Should be 0");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[LAST3_FRAME]", 
+								loop_filter_ref_deltas[LAST3_FRAME], "Should be 0");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[GOLDEN_FRAME]", 
+								loop_filter_ref_deltas[GOLDEN_FRAME], "Should be -1");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[BWDREF_FRAME]", 
+								loop_filter_ref_deltas[BWDREF_FRAME], "Should be 0");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[ALTREF2_FRAME]", 
+								loop_filter_ref_deltas[ALTREF2_FRAME], "Should be -1");
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_ref_deltas", "loop_filter_ref_deltas[ALTREF_FRAME]", 
+								loop_filter_ref_deltas[ALTREF_FRAME], "Should be -1");
 
 							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_mode_deltas", "loop_filter_mode_deltas[0]", loop_filter_mode_deltas[0], "Should be 0");
 							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("loop_filter_mode_deltas", "loop_filter_mode_deltas[1]", loop_filter_mode_deltas[1], "Should be 0");
@@ -4529,7 +4613,9 @@ namespace BST
 								auto FrameIsIntra = (ptr_uncompressed_header->frame_type == INTRA_ONLY_FRAME ||
 													 ptr_uncompressed_header->frame_type == KEY_FRAME);
 
-								if (FrameIsIntra || !ptr_uncompressed_header->ptr_frame_reference_mode->reference_select || !ptr_uncompressed_header->ptr_sequence_header_obu->enable_order_hint)
+								if (FrameIsIntra 
+									|| !ptr_uncompressed_header->ptr_frame_reference_mode->reference_select 
+									|| !ptr_uncompressed_header->ptr_sequence_header_obu->enable_order_hint)
 								{
 									skipModeAllowed = 0;
 								}
@@ -4637,7 +4723,9 @@ namespace BST
 						auto FrameIsIntra = (ptr_uncompressed_header->frame_type == INTRA_ONLY_FRAME ||
 											 ptr_uncompressed_header->frame_type == KEY_FRAME);
 
-						if (FrameIsIntra || !ptr_uncompressed_header->ptr_frame_reference_mode->reference_select || !ptr_uncompressed_header->ptr_sequence_header_obu->enable_order_hint)
+						if (FrameIsIntra 
+							|| !ptr_uncompressed_header->ptr_frame_reference_mode->reference_select 
+							|| !ptr_uncompressed_header->ptr_sequence_header_obu->enable_order_hint)
 						{
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(skipModeAllowed, "");
 						}
@@ -4662,8 +4750,10 @@ namespace BST
 							else if (backwardIdx >= 0) 
 							{
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(skipModeAllowed, "Should be 1");
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[0]", SkipModeFrame[0], "specifies the frames to use for compound prediction when skip_mode is equal to 1");
-								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[1]", SkipModeFrame[1], "specifies the frames to use for compound prediction when skip_mode is equal to 1");
+								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[0]", SkipModeFrame[0], 
+									"specifies the frames to use for compound prediction when skip_mode is equal to 1");
+								NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[1]", SkipModeFrame[1], 
+									"specifies the frames to use for compound prediction when skip_mode is equal to 1");
 							}
 							else
 							{
@@ -4680,15 +4770,18 @@ namespace BST
 								else
 								{
 									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(skipModeAllowed, "Should be 1");
-									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[0]", SkipModeFrame[0], "specifies the frames to use for compound prediction when skip_mode is equal to 1");
-									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[1]", SkipModeFrame[1], "specifies the frames to use for compound prediction when skip_mode is equal to 1");
+									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[0]", SkipModeFrame[0], 
+										"specifies the frames to use for compound prediction when skip_mode is equal to 1");
+									NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("SkipModeFrame", "SkipModeFrame[1]", SkipModeFrame[1], 
+										"specifies the frames to use for compound prediction when skip_mode is equal to 1");
 								}
 							}
 						}
 
 						if (skipModeAllowed)
 						{
-							BST_FIELD_PROP_BOOL(skip_mode_present, "specifies that the syntax element skip_mode will be present", "specifies that skip_mode will not be used for this frame");
+							BST_FIELD_PROP_BOOL(skip_mode_present, "specifies that the syntax element skip_mode will be present", 
+								"specifies that skip_mode will not be used for this frame");
 						}
 						else
 						{
@@ -4939,7 +5032,8 @@ namespace BST
 										"The values allowed are in the range -(1 &lt;&lt; absBits) to (1 &lt;&lt; absBits)");
 									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(precBits, 
 										"the number of fractional bits used for representing gm_params[ref][idx]. "
-										"All global motion parameters are stored in the model with WARPEDMODEL_PREC_BITS fractional bits, but the parameters are encoded with less precision");
+										"All global motion parameters are stored in the model with WARPEDMODEL_PREC_BITS fractional bits, "
+										"but the parameters are encoded with less precision");
 
 									NAV_WRITE_TAG_WITH_NUMBER_VALUE1(precDiff, "");
 									int32_t round = (m_idx % 3) == 2 ? (1 << WARPEDMODEL_PREC_BITS) : 0;
@@ -4955,7 +5049,8 @@ namespace BST
 									NAV_FIELD_PROP_REF(decode_subexp);
 									NAV_WRITE_TAG_END("decode_signed_subexp_with_ref");
 
-									NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("gm_params", "gm_params[ref#%d][idx#%d]", "%d(0X%X)", ptr_ref_global_motion_params->gm_params[m_idx],
+									NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("gm_params", "gm_params[ref#%d][idx#%d]", "%d(0X%X)", 
+										ptr_ref_global_motion_params->gm_params[m_idx],
 										"gm_params[ref][idx] = (decode_signed_subexp_with_ref(-mx, mx + 1, r)&lt;&lt;precDiff)+round", m_ref, m_idx);
 								DECLARE_FIELDPROP_END()
 							}PACKED;
@@ -5179,7 +5274,8 @@ namespace BST
 								// 7.21. Reference frame loading process
 								// SavedGmParams[i][ref][j] is set equal to gm_params[ref][j] for ref = LAST_FRAME..ALTREF_FRAME, for j = 0..5
 								for (uint8_t ref = LAST_FRAME; ref <= ALTREF_FRAME; ref++) {
-									memcpy(curFrame->gm_params[ref - LAST_FRAME], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params, sizeof(ptr_ref_gm_params[ref - LAST_FRAME]->gm_params));
+									memcpy(curFrame->gm_params[ref - LAST_FRAME], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params, 
+										sizeof(ptr_ref_gm_params[ref - LAST_FRAME]->gm_params));
 								}
 
 								MAP_BST_END();
@@ -5215,11 +5311,14 @@ namespace BST
 								NAV_WRITE_TAG_END("Tag000");
 							}
 
-							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag001", "GmType[ref#%d]", ptr_ref_gm_params[ref - LAST_FRAME]->GmType, GLOBAL_MOTION_TYPE_NAME(ptr_ref_gm_params[ref - LAST_FRAME]->GmType), ref);
+							NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag001", "GmType[ref#%d]", 
+								ptr_ref_gm_params[ref - LAST_FRAME]->GmType, GLOBAL_MOTION_TYPE_NAME(ptr_ref_gm_params[ref - LAST_FRAME]->GmType), ref);
 							//NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("gm_param", "gm_params", ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[idx], "", ref, idx);
 							NAV_WRITE_TAG_WITH_VALUEFMTSTR("gm_params", "%d,%d,%d,%d,%d,%d", "", 
-								ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[0], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[1], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[2],
-								ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[3], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[4], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[5]);
+								ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[0], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[1], 
+								ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[2],
+								ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[3], ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[4], 
+								ptr_ref_gm_params[ref - LAST_FRAME]->gm_params[5]);
 							NAV_WRITE_TAG_END("Tag00");
 						}
 						NAV_WRITE_TAG_END("Tag0");
@@ -5396,18 +5495,22 @@ namespace BST
 						if (!ptr_uncompressed_header->ptr_sequence_header_obu->film_gain_params_present || (
 							!ptr_uncompressed_header->show_frame && !ptr_uncompressed_header->showable_frame))
 						{
-							NAV_WRITE_TAG_WITH_ALIAS("reset_grain_params", "reset_grain_params()", "a function call that indicates that all the syntax elements read in film_grain_params should be set equal to 0");
+							NAV_WRITE_TAG_WITH_ALIAS("reset_grain_params", "reset_grain_params()", 
+								"a function call that indicates that all the syntax elements read in film_grain_params should be set equal to 0");
 						}
 						else
 						{
-							BST_FIELD_PROP_BOOL_BEGIN_("apply_grain", film_grain_params_data.apply_grain, "specifies that film grain should be added to this frame", "specifies that film grain should NOT be added to this frame");
+							BST_FIELD_PROP_BOOL_BEGIN_("apply_grain", film_grain_params_data.apply_grain, 
+								"specifies that film grain should be added to this frame", "specifies that film grain should NOT be added to this frame");
 							if (!film_grain_params_data.apply_grain)
 							{
-								NAV_WRITE_TAG_WITH_ALIAS("reset_grain_params", "reset_grain_params()", "a function call that indicates that all the syntax elements read in film_grain_params should be set equal to 0");
+								NAV_WRITE_TAG_WITH_ALIAS("reset_grain_params", "reset_grain_params()", 
+									"a function call that indicates that all the syntax elements read in film_grain_params should be set equal to 0");
 							}
 							else
 							{
-								BST_FIELD_PROP_2NUMBER("grain_seed", 16, film_grain_params_data.grain_seed, "specifies the starting value for the pseudo-random numbers used during film grain synthesis");
+								BST_FIELD_PROP_2NUMBER("grain_seed", 16, film_grain_params_data.grain_seed, 
+									"specifies the starting value for the pseudo-random numbers used during film grain synthesis");
 
 								if (ptr_uncompressed_header->frame_type == INTER_FRAME)
 								{
@@ -5416,21 +5519,25 @@ namespace BST
 								}
 								else
 								{
-									NAV_WRITE_TAG_WITH_1NUMBER_VALUE("update_grain", film_grain_params_data.update_grain, "Should be 1, means that a new set of parameters should be sent");
+									NAV_WRITE_TAG_WITH_1NUMBER_VALUE("update_grain", film_grain_params_data.update_grain, 
+										"Should be 1, means that a new set of parameters should be sent");
 								}
 
 								if (!film_grain_params_data.update_grain)
 								{
-									BST_FIELD_PROP_2NUMBER("film_grain_params_ref_idx", 3, film_grain_params_data.film_grain_params_ref_idx, "indicates which reference frame contains the film grain parameters to be used for this frame");
+									BST_FIELD_PROP_2NUMBER("film_grain_params_ref_idx", 3, film_grain_params_data.film_grain_params_ref_idx, 
+										"indicates which reference frame contains the film grain parameters to be used for this frame");
 									NAV_WRITE_TAG_WITH_NUMBER_VALUE("tempGrainSeed", tempGrainSeed, "tempGrainSeed = grain_seed");
 									NAV_WRITE_TAG_WITH_ALIAS_F("load_grain_params", "load_grain_params(film_grain_params_ref_idx#%d)", 
-										"a function call that indicates that all the syntax elements read in film_grain_params should be set equal to the values stored in an area of memory indexed by idx", 
+										"a function call that indicates that all the syntax elements read in film_grain_params "
+										"should be set equal to the values stored in an area of memory indexed by idx", 
 										film_grain_params_data.film_grain_params_ref_idx);
 								}
 								else
 								{
 									NAV_WRITE_TAG_BEGIN2("update_grain");
-									BST_FIELD_PROP_2NUMBER("num_y_points", 4, film_grain_params_data.num_y_points, "specifies the number of points for the piece-wise linear scaling function of the luma component");
+									BST_FIELD_PROP_2NUMBER("num_y_points", 4, film_grain_params_data.num_y_points, 
+										"specifies the number of points for the piece-wise linear scaling function of the luma component");
 									NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;num_y_points;i++)", "");
 									for (int i = 0; i < film_grain_params_data.num_y_points; i++)
 									{
@@ -5445,11 +5552,13 @@ namespace BST
 
 									if (ptr_uncompressed_header->ptr_sequence_header_obu->color_config->mono_chrome)
 									{
-										NAV_WRITE_TAG_WITH_NUMBER_VALUE("chroma_scaling_from_luma", film_grain_params_data.chroma_scaling_from_luma, "specifies that the chroma scaling is inferred from the luma scaling");
+										NAV_WRITE_TAG_WITH_NUMBER_VALUE("chroma_scaling_from_luma", film_grain_params_data.chroma_scaling_from_luma, 
+											"specifies that the chroma scaling is inferred from the luma scaling");
 									}
 									else
 									{
-										BST_FIELD_PROP_BOOL1(film_grain_params_data, chroma_scaling_from_luma, "the chroma scaling is inferred from the luma scaling", "the chroma scaling is NOT inferred from the luma scaling");
+										BST_FIELD_PROP_BOOL1(film_grain_params_data, chroma_scaling_from_luma, "the chroma scaling is inferred from the luma scaling", 
+											"the chroma scaling is NOT inferred from the luma scaling");
 									}
 
 									if (ptr_uncompressed_header->ptr_sequence_header_obu->color_config->mono_chrome ||
@@ -5461,7 +5570,8 @@ namespace BST
 									}
 									else
 									{
-										BST_FIELD_PROP_2NUMBER("num_cb_points", 4, film_grain_params_data.num_cb_points, "specifies the number of points for the piece-wise linear scaling function of the cb component");
+										BST_FIELD_PROP_2NUMBER("num_cb_points", 4, film_grain_params_data.num_cb_points, 
+											"specifies the number of points for the piece-wise linear scaling function of the cb component");
 										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "for(i=0;i&lt;num_cb_points;i++)", "");
 										for (int i = 0; i < film_grain_params_data.num_cb_points; i++)
 										{
@@ -5489,8 +5599,10 @@ namespace BST
 										NAV_WRITE_TAG_END("Tag2");
 									}
 
-									BST_FIELD_PROP_2NUMBER("grain_scaling_minus_8", 2, film_grain_params_data.grain_scaling_minus_8, "represents the shift-8 applied to the values of the chroma component");
-									BST_FIELD_PROP_2NUMBER("ar_coeff_lag", 2, film_grain_params_data.ar_coeff_lag, "specifies the number of auto-regressive coefficients for luma and chroma");
+									BST_FIELD_PROP_2NUMBER("grain_scaling_minus_8", 2, film_grain_params_data.grain_scaling_minus_8, 
+										"represents the shift-8 applied to the values of the chroma component");
+									BST_FIELD_PROP_2NUMBER("ar_coeff_lag", 2, film_grain_params_data.ar_coeff_lag, 
+										"specifies the number of auto-regressive coefficients for luma and chroma");
 
 									NAV_WRITE_TAG_WITH_NUMBER_VALUE("numPosLuma", film_grain_params_data.numPosLuma, "numPosLuma = 2*ar_coeff_lag*(ar_coeff_lag+1)");
 									if (film_grain_params_data.num_y_points)
@@ -5499,7 +5611,8 @@ namespace BST
 										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;numPosLuma;i++)", "");
 										for (int i = 0; i < film_grain_params_data.numPosLuma; i++)
 										{
-											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_y_plus_128", i, 8, film_grain_params_data.ar_coeffs_y_plus_128[i], "auto-regressive coefficients used for the Y plane");
+											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_y_plus_128", i, 8, film_grain_params_data.ar_coeffs_y_plus_128[i], 
+												"auto-regressive coefficients used for the Y plane");
 										}
 										NAV_WRITE_TAG_END("Tag3");
 									}
@@ -5512,7 +5625,8 @@ namespace BST
 										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag4", "for(i=0;i&lt;numPosChroma;i++)", "");
 										for (int i = 0; i < film_grain_params_data.numPosChroma; i++)
 										{
-											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_cb_plus_128", i, 8, film_grain_params_data.ar_coeffs_cb_plus_128[i], "auto-regressive coefficients used for the U plane");
+											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_cb_plus_128", i, 8, film_grain_params_data.ar_coeffs_cb_plus_128[i], 
+												"auto-regressive coefficients used for the U plane");
 										}
 										NAV_WRITE_TAG_END("Tag4");
 									}
@@ -5520,13 +5634,16 @@ namespace BST
 										NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag5", "for(i=0;i&lt;numPosChroma;i++)", "");
 										for (int i = 0; i < film_grain_params_data.numPosChroma; i++)
 										{
-											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_cr_plus_128", i, 8, film_grain_params_data.ar_coeffs_cr_plus_128[i], "auto-regressive coefficients used for the V plane");
+											BST_ARRAY_FIELD_PROP_NUMBER("ar_coeffs_cr_plus_128", i, 8, film_grain_params_data.ar_coeffs_cr_plus_128[i], 
+												"auto-regressive coefficients used for the V plane");
 										}
 										NAV_WRITE_TAG_END("Tag5");
 									}
 
-									BST_FIELD_PROP_2NUMBER("ar_coeff_shift_minus_6", 2, film_grain_params_data.ar_coeff_shift_minus_6, "specifies the range of the auto-regressive coefficients");
-									BST_FIELD_PROP_2NUMBER("grain_scale_shift", 2, film_grain_params_data.grain_scale_shift, "specifies how much the Gaussian random numbers should be scaled down during the grain synthesis process");
+									BST_FIELD_PROP_2NUMBER("ar_coeff_shift_minus_6", 2, film_grain_params_data.ar_coeff_shift_minus_6, 
+										"specifies the range of the auto-regressive coefficients");
+									BST_FIELD_PROP_2NUMBER("grain_scale_shift", 2, film_grain_params_data.grain_scale_shift, 
+										"specifies how much the Gaussian random numbers should be scaled down during the grain synthesis process");
 
 									if (film_grain_params_data.num_cb_points)
 									{
@@ -5548,9 +5665,11 @@ namespace BST
 											"represents an offset used in derivation of the input index to the cr component scaling function");
 									}
 
-									BST_FIELD_PROP_BOOL1(film_grain_params_data, overlap_flag, "indicates that the overlap between film grain blocks shall be applied", "indicates that the overlap between film grain blocks shall not be applied");
+									BST_FIELD_PROP_BOOL1(film_grain_params_data, overlap_flag, "indicates that the overlap between film grain blocks shall be applied", 
+										"indicates that the overlap between film grain blocks shall not be applied");
 									BST_FIELD_PROP_BOOL1(film_grain_params_data, clip_to_restricted_range,
-										"indicates that clipping to the restricted (studio) range shall be applied to the sample values after adding the film grain(see the semantics for color_range for an explanation of studio swing)", 
+										"indicates that clipping to the restricted (studio) range shall be applied to the sample values "
+										"after adding the film grain(see the semantics for color_range for an explanation of studio swing)", 
 										"indicates that clipping to the full range shall be applied to the sample values after adding the film grain");
 
 									NAV_WRITE_TAG_END("update_grain");
@@ -5823,7 +5942,8 @@ namespace BST
 								ctx_video_bst->show_frame = show_frame;
 								if (show_frame && ptr_sequence_header_obu->decoder_model_info_present_flag && !ptr_sequence_header_obu->ptr_timing_info->equal_picture_interval)
 								{
-									bsrb1(in_bst, temporal_point_info.frame_presentation_time, (int)(ptr_sequence_header_obu->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1));
+									bsrb1(in_bst, temporal_point_info.frame_presentation_time, 
+										(int)(ptr_sequence_header_obu->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1));
 								}
 
 								if (show_frame) {
@@ -6446,7 +6566,8 @@ namespace BST
 					}
 					else
 					{
-						BST_FIELD_PROP_BOOL_BEGIN(show_existing_frame, "indicates the frame indexed by frame_to_show_map_idx is to be output", "indicates that further processing is required");
+						BST_FIELD_PROP_BOOL_BEGIN(show_existing_frame, "indicates the frame indexed by frame_to_show_map_idx is to be output", 
+							"indicates that further processing is required");
 						if (show_existing_frame == 1)
 						{
 							BST_FIELD_PROP_2NUMBER1(frame_to_show_map_idx, 3, "specifies the frame to be output");
@@ -6455,7 +6576,8 @@ namespace BST
 								BST_FIELD_PROP_2NUMBER("frame_presentation_time",
 									(int)(ptr_sequence_header_obu->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1),
 									temporal_point_info.frame_presentation_time,
-									"the presentation time of the frame in clock ticks DispCT counted from the removal time of the last random access point for the operating point that is being decoded");
+									"the presentation time of the frame in clock ticks DispCT counted from the removal time of "
+									"the last random access point for the operating point that is being decoded");
 								NAV_WRITE_TAG_END("temporal_point_info");
 							}
 							NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, "Should be 0");
@@ -6463,7 +6585,8 @@ namespace BST
 								BST_FIELD_PROP_2NUMBER1(display_frame_id, idLen, "provides the frame id number for the frame to output");
 							}
 
-							NAV_WRITE_TAG_WITH_NUMBER_VALUE_DESC_F("frame_type", frame_type, "%s, frame_type = RefFrameType[frame_to_show_map_idx]", AV1_FRAME_TYPE_NAMEA(frame_type));
+							NAV_WRITE_TAG_WITH_NUMBER_VALUE_DESC_F("frame_type", frame_type, 
+								"%s, frame_type = RefFrameType[frame_to_show_map_idx]", AV1_FRAME_TYPE_NAMEA(frame_type));
 
 							if (frame_type == KEY_FRAME) {
 								NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, "refresh_frame_flags = allFrames");
@@ -6485,13 +6608,15 @@ namespace BST
 						BST_FIELD_PROP_2NUMBER1(frame_type, 2, AV1_FRAME_TYPE_NAMEA(frame_type));
 						FrameIsIntra = (frame_type == INTRA_ONLY_FRAME || frame_type == KEY_FRAME);
 						NAV_WRITE_TAG_WITH_1NUMBER_VALUE("FrameIsIntra", FrameIsIntra ? 1 : 0, "FrameIsIntra=(frame_type==INTRA_ONLY_FRAME || frame_type==KEY_FRAME)");
-						BST_FIELD_PROP_BOOL(show_frame, "specifies that this frame should be immediately output once decoded", "specifies that this frame should not be immediately output");
+						BST_FIELD_PROP_BOOL(show_frame, "specifies that this frame should be immediately output once decoded", 
+							"specifies that this frame should not be immediately output");
 						if (show_frame && ptr_sequence_header_obu->decoder_model_info_present_flag && !ptr_sequence_header_obu->ptr_timing_info->equal_picture_interval) {
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("temporal_point_info", "temporal_point_info()", "");
 							BST_FIELD_PROP_2NUMBER("frame_presentation_time",
 								(int)(ptr_sequence_header_obu->ptr_decoder_model_info->frame_presentation_time_length_minus_1 + 1),
 								temporal_point_info.frame_presentation_time,
-								"the presentation time of the frame in clock ticks DispCT counted from the removal time of the last random access point for the operating point that is being decoded");
+								"the presentation time of the frame in clock ticks DispCT counted from the removal time of "
+								"the last random access point for the operating point that is being decoded");
 							NAV_WRITE_TAG_END("temporal_point_info");
 						}
 
@@ -6500,7 +6625,8 @@ namespace BST
 						}
 						else
 						{
-							BST_FIELD_PROP_BOOL(showable_frame, "specifies that the frame may be output using the show_existing_frame mechanism", "specifies that this frame will not be output using the show_existing_frame mechanism");
+							BST_FIELD_PROP_BOOL(showable_frame, "specifies that the frame may be output using the show_existing_frame mechanism", 
+								"specifies that this frame will not be output using the show_existing_frame mechanism");
 						}
 
 						if (frame_type == SWITCH_FRAME || (frame_type == KEY_FRAME && show_frame))
@@ -6554,7 +6680,8 @@ namespace BST
 						if (allow_screen_content_tools)
 						{
 							if (ptr_sequence_header_obu->seq_force_integer_mv == SELECT_INTEGER_MV) {
-								BST_FIELD_PROP_BOOL(force_integer_mv, "specifies that motion vectors will always be integers", "specifies that motion vectors can contain fractional bits");
+								BST_FIELD_PROP_BOOL(force_integer_mv, "specifies that motion vectors will always be integers", 
+									"specifies that motion vectors can contain fractional bits");
 							}
 							else
 							{
@@ -6611,7 +6738,8 @@ namespace BST
 					else
 					{
 						BST_FIELD_PROP_BOOL(frame_size_override_flag, 
-							"specifies that the frame size will either be specified as the size of one of the reference frames, or computed from the frame_width_minus_1 and frame_height_minus_1 syntax elements", 
+							"specifies that the frame size will either be specified as the size of one of the reference frames, "
+							"or computed from the frame_width_minus_1 and frame_height_minus_1 syntax elements", 
 							"specifies that the frame size is equal to the size in the sequence header");
 					}
 
@@ -6624,12 +6752,14 @@ namespace BST
 					}
 					else
 					{
-						BST_FIELD_PROP_2NUMBER1(primary_ref_frame, 3, "specifies which reference frame contains the CDF values and other state that should be loaded at the start of the frame");
+						BST_FIELD_PROP_2NUMBER1(primary_ref_frame, 3, 
+							"specifies which reference frame contains the CDF values and other state that should be loaded at the start of the frame");
 					}
 
 					if (ptr_sequence_header_obu->decoder_model_info_present_flag)
 					{
-						BST_FIELD_PROP_BOOL_BEGIN(buffer_removal_time_present_flag, "specifies that buffer_removal_time is present", "specifies that buffer_removal_time is not present");
+						BST_FIELD_PROP_BOOL_BEGIN(buffer_removal_time_present_flag, "specifies that buffer_removal_time is present", 
+							"specifies that buffer_removal_time is not present");
 						if (buffer_removal_time_present_flag)
 						{
 							NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag2", "for(opNum=0;opNum&lt;=operating_points_cnt_minus_1;opNum++ )", "buffer_removal_time information");
@@ -6649,8 +6779,10 @@ namespace BST
 										uint8_t n = (uint8_t)(ptr_sequence_header_obu->ptr_decoder_model_info->buffer_removal_time_length_minus_1 + 1);
 										NAV_WRITE_TAG_WITH_NUMBER_VALUE("n", n, "n = buffer_removal_time_length_minus_1 + 1");
 										BST_ARRAY_FIELD_PROP_NUMBER("buffer_removal_time", opNum, n, buffer_removal_time[opNum], 
-											"specifies the frame removal time in units of DecCT clock ticks counted from the removal time of the last random access point for operating point opNum. "
-											"buffer_removal_time is signaled as a fixed length unsigned integer with a length in bits given by buffer_removal_time_length_minus_1+1")
+											"specifies the frame removal time in units of DecCT clock ticks counted from the removal time of "
+											"the last random access point for operating point opNum. "
+											"buffer_removal_time is signaled as a fixed length unsigned integer with a length in bits given "
+											"by buffer_removal_time_length_minus_1+1")
 									}
 								}
 							}
@@ -6659,16 +6791,21 @@ namespace BST
 						BST_FIELD_PROP_BOOL_END("buffer_removal_time_present_flag");
 					}
 
-					NAV_WRITE_TAG_WITH_ALIAS("allow_high_precision_mv", "allow_high_precision_mv = 0", "initialize its value to 0, specifies that motion vectors are specified to quarter pel precision");
-					NAV_WRITE_TAG_WITH_ALIAS("use_ref_frame_mvs", "use_ref_frame_mvs = 0", "initialize its value to 0, specifies that this information will not be used");
-					NAV_WRITE_TAG_WITH_ALIAS("allow_intrabc", "allow_intrabc = 0", "initialize its value to 0, indicates that intra block copy is not allowed in this frame");
+					NAV_WRITE_TAG_WITH_ALIAS("allow_high_precision_mv", "allow_high_precision_mv = 0", 
+						"initialize its value to 0, specifies that motion vectors are specified to quarter pel precision");
+					NAV_WRITE_TAG_WITH_ALIAS("use_ref_frame_mvs", "use_ref_frame_mvs = 0", 
+						"initialize its value to 0, specifies that this information will not be used");
+					NAV_WRITE_TAG_WITH_ALIAS("allow_intrabc", "allow_intrabc = 0", 
+						"initialize its value to 0, indicates that intra block copy is not allowed in this frame");
 
 					if (frame_type == SWITCH_FRAME || (frame_type == KEY_FRAME && show_frame)){
-						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, "contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
+						NAV_WRITE_TAG_WITH_NUMBER_VALUE1(refresh_frame_flags, 
+							"contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
 					}
 					else
 					{
-						BST_FIELD_PROP_2NUMBER1(refresh_frame_flags, 8, "contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
+						BST_FIELD_PROP_2NUMBER1(refresh_frame_flags, 8, 
+							"contains a bitmask that specifies which reference frame slots will be updated with the current frame after it is decoded.");
 					}
 
 					if (!FrameIsIntra || refresh_frame_flags != allFrames)
@@ -6677,7 +6814,8 @@ namespace BST
 						{
 							for (uint8_t i = 0; i < NUM_REF_FRAMES; i++)
 							{
-								BST_ARRAY_FIELD_PROP_NUMBER1(ref_order_hint, i, ptr_sequence_header_obu->OrderHintBits, "specifies the expected output order hint for each reference frame");
+								BST_ARRAY_FIELD_PROP_NUMBER1(ref_order_hint, i, ptr_sequence_header_obu->OrderHintBits, 
+									"specifies the expected output order hint for each reference frame");
 								//if (ref_order_hint[i] != RefOrderHint[i]) {
 								//	RefValid[i] = 0;
 								//}
@@ -6688,7 +6826,8 @@ namespace BST
 					if (frame_type == KEY_FRAME)
 					{
 						BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
-						BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
+						BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", 
+							"The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
 						if (allow_screen_content_tools && ptr_frame_size->ptr_superres_params->UpscaledWidth == ptr_frame_size->FrameWidth) {
 							BST_FIELD_PROP_BOOL(allow_intrabc, 
 								"indicates that intra block copy may be used in this frame", 
@@ -6700,7 +6839,8 @@ namespace BST
 						if (frame_type == INTRA_ONLY_FRAME)
 						{
 							BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
-							BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
+							BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", 
+								"The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
 							if (allow_screen_content_tools && ptr_frame_size->ptr_superres_params->UpscaledWidth == ptr_frame_size->FrameWidth) {
 								BST_FIELD_PROP_BOOL(allow_intrabc,
 									"indicates that intra block copy may be used in this frame",
@@ -6750,7 +6890,8 @@ namespace BST
 								{
 									uint8_t n = ptr_sequence_header_obu->delta_frame_id_length_minus_2 + 2;
 									BST_ARRAY_FIELD_PROP_NUMBER1(delta_frame_id_minus_1, i, n, "plus 1 specifies the distance to the frame id for the reference frame");
-									NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("expectedFrameId", "expectedFrameId[%d]", "%" PRIu32 "(0X%" PRIX32 ")", expectedFrameId[i],
+									NAV_WRITE_TAG_WITH_ALIAS_VALUEFMTSTR_AND_NUMBER_VALUE("expectedFrameId", "expectedFrameId[%d]", "%" PRIu32 "(0X%" PRIX32 ")", 
+										expectedFrameId[i],
 										"specifies the frame id for each frame used for reference. It is a requirement of bitstream"
 										"conformance that whenever expectedFrameId[i] is calculated, the value matches RefFrameId[ref_frame_idx[i]]"
 										"(this contains the value of current_frame_id at the time that the frame indexed by ref_frame_idx was stored)", i);
@@ -6760,12 +6901,14 @@ namespace BST
 
 							if (frame_size_override_flag && !error_resilient_mode)
 							{
-								BST_FIELD_PROP_REF2_1(ptr_frame_size_with_refs, "frame_size_with_refs", "For inter frames, the frame size is either set equal to the size of a reference frame, or can be sent explicitly");
+								BST_FIELD_PROP_REF2_1(ptr_frame_size_with_refs, "frame_size_with_refs", 
+									"For inter frames, the frame size is either set equal to the size of a reference frame, or can be sent explicitly");
 							}
 							else
 							{
 								BST_FIELD_PROP_REF2_1(ptr_frame_size, "frame_size", "");
-								BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", "The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
+								BST_FIELD_PROP_REF2_1(ptr_render_size, "render_size", 
+									"The render size is provided as a hint to the application about the desired display size. It has no effect on the decoding process");
 							}
 
 							if (force_integer_mv)
@@ -6776,7 +6919,9 @@ namespace BST
 							}
 							else
 							{
-								BST_FIELD_PROP_BOOL(allow_high_precision_mv, "specifies that motion vectors are specified to eighth pel precision", "specifies that motion vectors are specified to quarter pel precision");
+								BST_FIELD_PROP_BOOL(allow_high_precision_mv
+									, "specifies that motion vectors are specified to eighth pel precision"
+									, "specifies that motion vectors are specified to quarter pel precision");
 							}
 
 							BST_FIELD_PROP_REF2_1(ptr_read_interpolation_filter, "read_interpolation_filter", "");
@@ -6896,7 +7041,8 @@ namespace BST
 					}
 					else
 					{
-						BST_FIELD_PROP_BOOL(allow_warped_motion, "indicates that the syntax element motion_mode may be present", "indicates that the syntax element motion_mode will not be present");
+						BST_FIELD_PROP_BOOL(allow_warped_motion, 
+							"indicates that the syntax element motion_mode may be present", "indicates that the syntax element motion_mode will not be present");
 					}
 
 					BST_FIELD_PROP_BOOL(reduced_tx_set, 
@@ -6995,7 +7141,8 @@ namespace BST
 				DECLARE_FIELDPROP_BEGIN()
 				if (frame_header_copied)
 				{
-					NAV_WRITE_TAG_WITH_ALIAS("frame_header_copy", "frame_header_copy()", "a function call that indicates that a copy of the previous frame_header_obu should be inserted at this point");
+					NAV_WRITE_TAG_WITH_ALIAS("frame_header_copy", "frame_header_copy()", 
+						"a function call that indicates that a copy of the previous frame_header_obu should be inserted at this point");
 				}
 				else
 				{
@@ -7353,11 +7500,13 @@ namespace BST
 
 			if (obu_header.obu_has_size_field)
 			{
-				BST_FIELD_PROP_2NUMBER1(obu_size, (long long)obu_size_leb128_bytes<<3, "contains the size in bytes of the OBU not including the bytes within obu_header or the obu_size syntax element");
+				BST_FIELD_PROP_2NUMBER1(obu_size, (long long)obu_size_leb128_bytes<<3, 
+					"contains the size in bytes of the OBU not including the bytes within obu_header or the obu_size syntax element");
 			}
 			else
 			{
-				NAV_WRITE_TAG_WITH_NUMBER_VALUE("obu_size", (int)obu_size, "contains the size in bytes of the OBU not including the bytes within obu_header or the obu_size syntax element");
+				NAV_WRITE_TAG_WITH_NUMBER_VALUE("obu_size", (int)obu_size, 
+					"contains the size in bytes of the OBU not including the bytes within obu_header or the obu_size syntax element");
 			}
 
 			if (obu_header.obu_type != OBU_SEQUENCE_HEADER &&

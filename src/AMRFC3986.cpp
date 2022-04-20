@@ -2,7 +2,7 @@
 
 MIT License
 
-Copyright (c) 2021 Ravin.Wang(wangf1978@hotmail.com)
+Copyright (c) 2022 Ravin.Wang(wangf1978@hotmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -384,7 +384,8 @@ int AMURI_SplitAuthority(_In_z_ const char* szURI, inplace_str_range authority_c
 	return iRet;
 }
 
-int	_SplitComponent(_In_reads_(ccComponentLength) const char* pComponent, int ccComponentLength, std::vector<URI_Segment>& component_segments, const char* delims, int offset=0)
+int	_SplitComponent(_In_reads_(ccComponentLength) const char* pComponent, int ccComponentLength, 
+					std::vector<URI_Segment>& component_segments, const char* delims, int offset=0)
 {
 	const char* ps = pComponent;
 	const char* pe = ccComponentLength == -1?(char*)((intptr_t)-1):(pComponent + ccComponentLength);
@@ -413,7 +414,8 @@ int	_SplitComponent(_In_reads_(ccComponentLength) const char* pComponent, int cc
 // Pair pattern:
 // nv_segment = [name ":"]value
 // nv_pari_segments = nv_segment *("&" nv_segment)
-int	_SplitComponent2(_In_reads_(ccComponentLength) const char* pComponent, int ccComponentLength, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims, const char* pair_delims, int offset=0)
+int	_SplitComponent2(_In_reads_(ccComponentLength) const char* pComponent, int ccComponentLength, 
+					 std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims, const char* pair_delims, int offset=0)
 {
 	const char* ps = pComponent;
 	const char* pe = ccComponentLength == -1?(char*)((intptr_t)-1):(pComponent + ccComponentLength);
@@ -480,7 +482,8 @@ int	AMURI_SplitComponent(_In_z_ const char* szComponent, std::vector<URI_Segment
 	return _SplitComponent(szComponent, -1, component_segments, delims);
 }
 
-int	AMURI_SplitComponent2(_In_z_ const char* szURI, inplace_str_range component_range, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims, const char* pair_delims)
+int	AMURI_SplitComponent2(_In_z_ const char* szURI, inplace_str_range component_range, 
+						  std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims, const char* pair_delims)
 {
 	if (szURI == NULL || component_range.start < 0 || component_range.length < 0 || delims == NULL || pair_delims == NULL)
 		return RET_CODE_INVALID_PARAMETER;
@@ -488,7 +491,8 @@ int	AMURI_SplitComponent2(_In_z_ const char* szURI, inplace_str_range component_
 	return _SplitComponent2(szURI + component_range.start, component_range.length, namevalue_pairs, delims, pair_delims, component_range.start);
 }
 
-int	AMURI_SplitComponent2(_In_z_ const char* pComponent, int ccComponentLength, std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims, const char* pair_delims)
+int	AMURI_SplitComponent2(_In_z_ const char* pComponent, int ccComponentLength, 
+						  std::vector<URI_NameValue_Pair>& namevalue_pairs, const char* delims, const char* pair_delims)
 {
 	if (pComponent == NULL || ccComponentLength < 0 || delims == NULL || pair_delims == NULL)
 		return RET_CODE_INVALID_PARAMETER;
@@ -663,12 +667,15 @@ int AMURI_MergeRBPath(AMURI_NAVIGATION* URINav, int nTWritePos)
 		T.components.Ranges[URI_COMPONENT_PATH].type = URI_PART_PATH_ABEMPTY;
 
 		T.szURIRef[nTWritePos++] = '/';
-		STRNCPY(T.szURIRef + nTWritePos, (ptrdiff_t)MAX_URI_LENGTH - nTWritePos, R.szURIRef + R.components.Ranges[URI_COMPONENT_PATH].start, R.components.Ranges[URI_COMPONENT_PATH].length);
+		STRNCPY(T.szURIRef + nTWritePos, (ptrdiff_t)MAX_URI_LENGTH - nTWritePos, 
+			R.szURIRef + R.components.Ranges[URI_COMPONENT_PATH].start, R.components.Ranges[URI_COMPONENT_PATH].length);
 	}
 	else
 	{
 		int last_splash_pos_in_base = Base.components.Ranges[URI_COMPONENT_PATH].start + Base.components.Ranges[URI_COMPONENT_PATH].length - 1;
-		while(last_splash_pos_in_base >= Base.components.Ranges[URI_COMPONENT_PATH].start && Base.szURIRef[last_splash_pos_in_base] != '/')last_splash_pos_in_base--;
+		while(last_splash_pos_in_base >= Base.components.Ranges[URI_COMPONENT_PATH].start && 
+			  Base.szURIRef[last_splash_pos_in_base] != '/')
+			last_splash_pos_in_base--;
 
 		if (last_splash_pos_in_base < Base.components.Ranges[URI_COMPONENT_PATH].start)
 		{
@@ -680,7 +687,8 @@ int AMURI_MergeRBPath(AMURI_NAVIGATION* URINav, int nTWritePos)
 			T.components.Ranges[URI_COMPONENT_PATH].length = nMergedPathLen;
 			T.components.Ranges[URI_COMPONENT_PATH].type = R.components.Ranges[URI_COMPONENT_PATH].type;
 
-			STRNCPY(T.szURIRef + nTWritePos, (ptrdiff_t)MAX_URI_LENGTH - nTWritePos, R.szURIRef + R.components.Ranges[URI_COMPONENT_PATH].start, R.components.Ranges[URI_COMPONENT_PATH].length);
+			STRNCPY(T.szURIRef + nTWritePos, (ptrdiff_t)MAX_URI_LENGTH - nTWritePos, 
+				R.szURIRef + R.components.Ranges[URI_COMPONENT_PATH].start, R.components.Ranges[URI_COMPONENT_PATH].length);
 		}
 		else
 		{
@@ -696,7 +704,8 @@ int AMURI_MergeRBPath(AMURI_NAVIGATION* URINav, int nTWritePos)
 				Base.szURIRef + Base.components.Ranges[URI_COMPONENT_PATH].start, 
 				(ptrdiff_t)last_splash_pos_in_base - Base.components.Ranges[URI_COMPONENT_PATH].start + 1);
 			nTWritePos += last_splash_pos_in_base - Base.components.Ranges[URI_COMPONENT_PATH].start + 1;
-			STRNCPY(T.szURIRef + nTWritePos, (ptrdiff_t)MAX_URI_LENGTH - nTWritePos, R.szURIRef + R.components.Ranges[URI_COMPONENT_PATH].start, R.components.Ranges[URI_COMPONENT_PATH].length);
+			STRNCPY(T.szURIRef + nTWritePos, (ptrdiff_t)MAX_URI_LENGTH - nTWritePos, 
+				R.szURIRef + R.components.Ranges[URI_COMPONENT_PATH].start, R.components.Ranges[URI_COMPONENT_PATH].length);
 		}
 	}
 
@@ -824,7 +833,8 @@ int AMURI_Component_Recomposition(AMURI_NAVIGATION* URINav, _In_reads_z_(ccURI) 
 		ccRequired += 1;	// Appending ":"
 
 		if (szURI != NULL && ccURI >= ccRequired){
-			STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, T.szURIRef + T.components.Ranges[URI_COMPONENT_SCHEME].start, T.components.Ranges[URI_COMPONENT_SCHEME].length);
+			STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, 
+				T.szURIRef + T.components.Ranges[URI_COMPONENT_SCHEME].start, T.components.Ranges[URI_COMPONENT_SCHEME].length);
 			nPos += T.components.Ranges[URI_COMPONENT_SCHEME].length;
 			STRCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, ":");
 			nPos++;
@@ -840,7 +850,8 @@ int AMURI_Component_Recomposition(AMURI_NAVIGATION* URINav, _In_reads_z_(ccURI) 
 			nPos += 2;
 
 			if (T.components.Ranges[URI_COMPONENT_AUTHORITY].length > 0){
-				STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, T.szURIRef + T.components.Ranges[URI_COMPONENT_AUTHORITY].start, T.components.Ranges[URI_COMPONENT_AUTHORITY].length);
+				STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, 
+					T.szURIRef + T.components.Ranges[URI_COMPONENT_AUTHORITY].start, T.components.Ranges[URI_COMPONENT_AUTHORITY].length);
 				nPos += T.components.Ranges[URI_COMPONENT_AUTHORITY].length;
 			}
 		}
@@ -851,7 +862,8 @@ int AMURI_Component_Recomposition(AMURI_NAVIGATION* URINav, _In_reads_z_(ccURI) 
 	if (T.components.Ranges[URI_COMPONENT_PATH].length > 0){
 		ccRequired += T.components.Ranges[URI_COMPONENT_PATH].length;
 		if (szURI != NULL && ccURI >= ccRequired){
-			STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, T.szURIRef + T.components.Ranges[URI_COMPONENT_PATH].start, T.components.Ranges[URI_COMPONENT_PATH].length);
+			STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, 
+				T.szURIRef + T.components.Ranges[URI_COMPONENT_PATH].start, T.components.Ranges[URI_COMPONENT_PATH].length);
 			nPos += T.components.Ranges[URI_COMPONENT_PATH].length;
 		}
 	}
@@ -882,7 +894,8 @@ int AMURI_Component_Recomposition(AMURI_NAVIGATION* URINav, _In_reads_z_(ccURI) 
 			nPos += 1;
 
 			if (T.components.Ranges[URI_COMPONENT_FRAGMENT].length > 0){
-				STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, T.szURIRef + T.components.Ranges[URI_COMPONENT_FRAGMENT].start, T.components.Ranges[URI_COMPONENT_FRAGMENT].length);
+				STRNCPY(szURI + nPos, (ptrdiff_t)ccURI - nPos, 
+					T.szURIRef + T.components.Ranges[URI_COMPONENT_FRAGMENT].start, T.components.Ranges[URI_COMPONENT_FRAGMENT].length);
 				nPos += T.components.Ranges[URI_COMPONENT_FRAGMENT].length;
 			}
 		}
