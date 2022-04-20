@@ -282,6 +282,10 @@ namespace BST
 			return std::shared_ptr<NAL_UNIT>();
 		}
 
+		H266_NU VideoBitstreamCtx::GetVVCPH() {
+			return m_ph;
+		}
+
 		RET_CODE VideoBitstreamCtx::UpdateVVCDCI(H266_NU dci_nu)
 		{
 			m_sp_dci = dci_nu;
@@ -318,6 +322,11 @@ namespace BST
 				return RET_CODE_INVALID_PARAMETER;
 
 			m_sp_ppses[pps_nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id] = pps_nu;
+			return RET_CODE_SUCCESS;
+		}
+
+		RET_CODE VideoBitstreamCtx::UpdateVVCPH(H266_NU ph_nu) {
+			m_ph = ph_nu;
 			return RET_CODE_SUCCESS;
 		}
 
@@ -1279,196 +1288,6 @@ namespace BST
 			}
 
 			return RET_CODE_SUCCESS;
-		}
-
-		NAL_UNIT::~NAL_UNIT() {
-			switch (nal_unit_header.nal_unit_type)
-			{
-			case TRAIL_NUT:
-				break;
-			case STSA_NUT:
-				break;
-			case RADL_NUT:
-				break;
-			case RASL_NUT:
-				break;
-			case RSV_VCL_4:
-				break;
-			case RSV_VCL_5:
-				break;
-			case RSV_VCL_6:
-				break;
-			case IDR_W_RADL:
-				break;
-			case IDR_N_LP:
-				break;
-			case CRA_NUT:
-				break;
-			case GDR_NUT:
-				break;
-			case RSV_IRAP_11:
-				break;
-			case OPI_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_operating_point_information_rbsp);
-				break;
-			case DCI_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_decoding_capability_information_rbsp);
-				break;
-			case VPS_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_video_parameter_set_rbsp);
-				break;
-			case SPS_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_seq_parameter_set_rbsp);
-				break;
-			case PPS_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_pic_parameter_set_rbsp);
-				break;
-			case PREFIX_APS_NUT:
-			case SUFFIX_APS_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_adaptation_parameter_set_rbsp);
-				break;
-			case PH_NUT:
-				break;
-			case AUD_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_access_unit_delimiter_rbsp);
-				break;
-			case EOS_NUT:
-				break;
-			case EOB_NUT:
-				break;
-			case PREFIX_SEI_NUT:
-			case SUFFIX_SEI_NUT:
-				UNMAP_STRUCT_POINTER5(ptr_sei_rbsp);
-				break;
-			case FD_NUT:
-				break;
-			case RSV_NVCL_26:
-				break;
-			case RSV_NVCL_27:
-				break;
-			case UNSPEC_28:
-				break;
-			case UNSPEC_29:
-				break;
-			case UNSPEC_30:
-				break;
-			case UNSPEC_31:
-				break;
-			}
-		}
-
-		int NAL_UNIT::Map(AMBst bst)
-		{
-			int iRet = RET_CODE_SUCCESS;
-			SYNTAX_BITSTREAM_MAP::Map(bst);
-
-			if (AMP_FAILED(iRet = nal_unit_header.Map(bst)))
-				return iRet;
-
-			//printf("[H266] %s.\n", vvc_nal_unit_type_descs[nal_unit_header.nal_unit_type]);
-
-			if (ptr_ctx_video_bst != NULL &&
-				ptr_ctx_video_bst->IsNUFiltered(nal_unit_header.nal_unit_type) == false)
-				return RET_CODE_NOTHING_TODO;
-
-			if (AMP_FAILED(iRet = AMBst_SetRBSPType(bst, BST_RBSP_NAL_UNIT)))
-				return iRet;
-
-			try
-			{
-				MAP_BST_BEGIN(1);
-				switch (nal_unit_header.nal_unit_type)
-				{
-				case TRAIL_NUT:
-					break;
-				case STSA_NUT:
-					break;
-				case RADL_NUT:
-					break;
-				case RASL_NUT:
-					break;
-				case RSV_VCL_4:
-					break;
-				case RSV_VCL_5:
-					break;
-				case RSV_VCL_6:
-					break;
-				case IDR_W_RADL:
-					break;
-				case IDR_N_LP:
-					break;
-				case CRA_NUT:
-					break;
-				case GDR_NUT:
-					break;
-				case RSV_IRAP_11:
-					break;
-				case OPI_NUT:
-					nal_read_ref(bst, ptr_operating_point_information_rbsp, OPERATING_POINT_INFORMATION_RBSP);
-					break;
-				case DCI_NUT:
-					nal_read_ref(bst, ptr_decoding_capability_information_rbsp, DECODING_CAPABILITY_INFORMATION_RBSP);
-					break;
-				case VPS_NUT:
-					nal_read_ref(bst, ptr_video_parameter_set_rbsp, VIDEO_PARAMETER_SET_RBSP);
-					break;
-				case SPS_NUT:
-					nal_read_ref(bst, ptr_seq_parameter_set_rbsp, SEQ_PARAMETER_SET_RBSP);
-					break;
-				case PPS_NUT:
-					nal_read_ref(bst, ptr_pic_parameter_set_rbsp, PIC_PARAMETER_SET_RBSP, ptr_ctx_video_bst);
-					break;
-				case PREFIX_APS_NUT:
-				case SUFFIX_APS_NUT:
-					nal_read_ref(bst, ptr_adaptation_parameter_set_rbsp, ADAPTATION_PARAMETER_SET_RBSP, (uint8_t)nal_unit_header.nal_unit_type);
-					break;
-				case PH_NUT:
-					break;
-				case AUD_NUT:
-					nal_read_ref(bst, ptr_access_unit_delimiter_rbsp, ACCESS_UNIT_DELIMITER_RBSP);
-					break;
-				case EOS_NUT:
-					break;
-				case EOB_NUT:
-					break;
-				case PREFIX_SEI_NUT:
-				case SUFFIX_SEI_NUT:
-					nal_read_ref(bst, ptr_sei_rbsp, SEI_RBSP, nal_unit_header.nal_unit_type, ptr_ctx_video_bst);
-					break;
-				case FD_NUT:
-					break;
-				case RSV_NVCL_26:
-					break;
-				case RSV_NVCL_27:
-					break;
-				case UNSPEC_28:
-					break;
-				case UNSPEC_29:
-					break;
-				case UNSPEC_30:
-					break;
-				case UNSPEC_31:
-					break;
-				}
-
-				MAP_BST_END();
-			}
-			catch (AMException e)
-			{
-				AMBst_SetRBSPType(bst, BST_RBSP_SEQUENCE);
-				return e.RetCode();
-			}
-
-			AMBst_SetRBSPType(bst, BST_RBSP_SEQUENCE);
-			SYNTAX_BITSTREAM_MAP::EndMap(bst);
-
-			return RET_CODE_SUCCESS;
-		}
-
-		int NAL_UNIT::Unmap(AMBst out_bst)
-		{
-			UNREFERENCED_PARAMETER(out_bst);
-			return RET_CODE_ERROR_NOTIMPL;
 		}
 
 		NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP::DECODING_CAPABILITY_INFORMATION_RBSP(){
@@ -2637,6 +2456,538 @@ namespace BST
 		}
 
 		int NAL_UNIT::REF_PIC_LISTS::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::PICTURE_HEADER_STRUCTURE::PICTURE_HEADER_STRUCTURE(VideoBitstreamCtx* pCtx)
+			: ph_gdr_pic_flag(0), ph_intra_slice_allowed_flag(1), ph_alf_enabled_flag(0)
+			, ph_alf_cb_enabled_flag(0), ph_alf_cr_enabled_flag(0), ph_alf_cc_cb_enabled_flag(0)
+			, ph_virtual_boundaries_present_flag(0), ph_num_ver_virtual_boundaries(0)
+			, ph_pic_output_flag(1), ph_partition_constraints_override_flag(0)
+			, ph_cu_qp_delta_subdiv_intra_slice(0), ph_cu_chroma_qp_offset_subdiv_intra_slice(0)
+			, ph_cu_qp_delta_subdiv_inter_slice(0), ph_cu_chroma_qp_offset_subdiv_inter_slice(0)
+			, ph_collocated_ref_idx(0), ph_temporal_mvp_enabled_flag(0), ph_collocated_from_l0_flag(1)
+			, ph_mmvd_fullpel_only_flag(0), ph_mvd_l1_zero_flag(1), ph_bdof_disabled_flag(1), ph_dmvr_disabled_flag(1)
+			, ph_prof_disabled_flag(1), ph_sao_luma_enabled_flag(0), ph_sao_chroma_enabled_flag(0)
+			, ph_deblocking_params_present_flag(0), m_pCtx(pCtx) {
+		}
+
+		int NAL_UNIT::PICTURE_HEADER_STRUCTURE::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			H266_NU sps, pps;
+
+			if (m_pCtx == nullptr)
+				return RET_CODE_ERROR_NOTIMPL;
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+
+				bsrb1(in_bst, ph_gdr_or_irap_pic_flag, 1);
+				bsrb1(in_bst, ph_non_ref_pic_flag, 1);
+				if (ph_gdr_or_irap_pic_flag) {
+					bsrb1(in_bst, ph_gdr_pic_flag, 1);
+				}
+				bsrb1(in_bst, ph_inter_slice_allowed_flag, 1);
+				if (ph_inter_slice_allowed_flag) {
+					bsrb1(in_bst, ph_intra_slice_allowed_flag, 1);
+				}
+				nal_read_ue1(in_bst, ph_pic_parameter_set_id);
+
+				if ((pps = m_pCtx->GetVVCPPS(ph_pic_parameter_set_id)) == nullptr ||
+					pps->ptr_pic_parameter_set_rbsp == nullptr ||
+					(sps = m_pCtx->GetVVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr ||
+					sps->ptr_seq_parameter_set_rbsp == nullptr)
+					return RET_CODE_ERROR_NOTIMPL;
+
+				bsrb1(in_bst, ph_pic_order_cnt_lsb, sps->ptr_seq_parameter_set_rbsp->sps_log2_max_pic_order_cnt_lsb_minus4 + 4);
+				if (ph_gdr_pic_flag) {
+					nal_read_ue1(in_bst, ph_recovery_poc_cnt);
+				}
+
+				for (int i = 0; i < sps->ptr_seq_parameter_set_rbsp->NumExtraPhBits; i++) {
+					bsrbarray(in_bst, ph_extra_bit, i);
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_poc_msb_cycle_flag) {
+					bsrb1(in_bst, ph_poc_msb_cycle_present_flag, 1);
+					if (ph_poc_msb_cycle_present_flag) {
+						bsrb1(in_bst, ph_poc_msb_cycle_val, sps->ptr_seq_parameter_set_rbsp->sps_poc_msb_cycle_len_minus1 + 1);
+					}
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_alf_enabled_flag && pps->ptr_pic_parameter_set_rbsp->pps_alf_info_in_ph_flag) {
+					bsrb1(in_bst, ph_alf_enabled_flag, 1);
+					if (ph_alf_enabled_flag) {
+						bsrb1(in_bst, ph_num_alf_aps_ids_luma, 3);
+						ph_alf_aps_id_luma.resize(ph_num_alf_aps_ids_luma);
+						for (int i = 0; i < ph_num_alf_aps_ids_luma; i++){
+							bsrb1(in_bst, ph_alf_aps_id_luma[i], 3);
+						}
+						if (sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+							bsrb1(in_bst, ph_alf_cb_enabled_flag, 1);
+							bsrb1(in_bst, ph_alf_cr_enabled_flag, 1);
+						}
+
+						if (ph_alf_cb_enabled_flag || ph_alf_cr_enabled_flag) {
+							bsrb1(in_bst, ph_alf_aps_id_chroma, 3);
+						}
+
+						if (sps->ptr_seq_parameter_set_rbsp->sps_ccalf_enabled_flag) {
+							bsrb1(in_bst, ph_alf_cc_cb_enabled_flag, 1);
+							if (ph_alf_cc_cb_enabled_flag) {
+								bsrb1(in_bst, ph_alf_cc_cb_aps_id, 3);
+							}
+							bsrb1(in_bst, ph_alf_cc_cr_enabled_flag, 1);
+							if (ph_alf_cc_cr_enabled_flag) {
+								bsrb1(in_bst, ph_alf_cc_cr_aps_id, 3);
+							}
+						}
+					}
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_lmcs_enabled_flag) {
+					bsrb1(in_bst, ph_lmcs_enabled_flag, 1);
+					if (ph_lmcs_enabled_flag) {
+						bsrb1(in_bst, ph_lmcs_aps_id, 2);
+						if (sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+							bsrb1(in_bst, ph_chroma_residual_scale_flag, 1);
+						}
+					}
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_explicit_scaling_list_enabled_flag) {
+					bsrb1(in_bst, ph_explicit_scaling_list_enabled_flag, 1);
+					if (ph_explicit_scaling_list_enabled_flag) {
+						bsrb1(in_bst, ph_scaling_list_aps_id, 3);
+					}
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_virtual_boundaries_enabled_flag && !sps->ptr_seq_parameter_set_rbsp->sps_virtual_boundaries_present_flag) {
+					bsrb1(in_bst, ph_virtual_boundaries_present_flag, 1);
+					if (ph_virtual_boundaries_present_flag) {
+						nal_read_ue1(in_bst, ph_num_ver_virtual_boundaries);
+						ph_virtual_boundary_pos_x_minus1.resize(ph_num_ver_virtual_boundaries);
+						for (int i = 0; i < ph_num_ver_virtual_boundaries; i++) {
+							nal_read_ue1(in_bst, ph_virtual_boundary_pos_x_minus1[i]);
+						}
+
+						nal_read_ue1(in_bst, ph_num_hor_virtual_boundaries);
+						ph_virtual_boundary_pos_y_minus1.resize(ph_num_hor_virtual_boundaries);
+						for (int i = 0; i < ph_num_hor_virtual_boundaries; i++) {
+							nal_read_ue1(in_bst, ph_virtual_boundary_pos_y_minus1[i]);
+						}
+					}
+				}
+
+				if (pps->ptr_pic_parameter_set_rbsp->pps_output_flag_present_flag && !ph_non_ref_pic_flag) {
+					bsrb1(in_bst, ph_pic_output_flag, 1);
+				}
+
+				if (pps->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag) {
+					bsrbreadref(in_bst, ref_pic_lists, REF_PIC_LISTS, m_pCtx, ph_pic_parameter_set_id);
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_partition_constraints_override_enabled_flag) {
+					bsrb1(in_bst, ph_partition_constraints_override_flag, 1);
+				}
+
+				ph_log2_diff_min_qt_min_cb_intra_slice_luma = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_min_qt_min_cb_intra_slice_luma;
+				ph_max_mtt_hierarchy_depth_intra_slice_luma = sps->ptr_seq_parameter_set_rbsp->sps_max_mtt_hierarchy_depth_intra_slice_luma;
+				ph_log2_diff_max_bt_min_qt_intra_slice_luma = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_max_bt_min_qt_intra_slice_luma;
+				ph_log2_diff_max_tt_min_qt_intra_slice_luma = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_max_tt_min_qt_intra_slice_luma;
+				ph_log2_diff_min_qt_min_cb_intra_slice_chroma = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_min_qt_min_cb_intra_slice_chroma;
+				ph_max_mtt_hierarchy_depth_intra_slice_chroma = sps->ptr_seq_parameter_set_rbsp->sps_max_mtt_hierarchy_depth_intra_slice_chroma;
+				ph_log2_diff_max_bt_min_qt_intra_slice_chroma = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_max_bt_min_qt_intra_slice_chroma;
+				ph_log2_diff_max_tt_min_qt_intra_slice_chroma = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_max_tt_min_qt_intra_slice_chroma;
+				if (ph_intra_slice_allowed_flag) {
+					if (ph_partition_constraints_override_flag) {
+						nal_read_ue1(in_bst, ph_log2_diff_min_qt_min_cb_intra_slice_luma);
+						nal_read_ue1(in_bst, ph_max_mtt_hierarchy_depth_intra_slice_luma);
+						if (ph_max_mtt_hierarchy_depth_intra_slice_luma != 0) {
+							nal_read_ue1(in_bst, ph_log2_diff_max_bt_min_qt_intra_slice_luma);
+							nal_read_ue1(in_bst, ph_log2_diff_max_tt_min_qt_intra_slice_luma);
+						}
+
+						if (sps->ptr_seq_parameter_set_rbsp->sps_qtbtt_dual_tree_intra_flag) {
+							nal_read_ue1(in_bst, ph_log2_diff_min_qt_min_cb_intra_slice_chroma);
+							nal_read_ue1(in_bst, ph_log2_diff_max_bt_min_qt_intra_slice_chroma);
+							if (ph_max_mtt_hierarchy_depth_intra_slice_chroma != 0) {
+								nal_read_ue1(in_bst, ph_log2_diff_max_bt_min_qt_intra_slice_chroma);
+								nal_read_ue1(in_bst, ph_log2_diff_max_tt_min_qt_intra_slice_chroma);
+							}
+						}
+					}
+
+					if (pps->ptr_pic_parameter_set_rbsp->pps_cu_qp_delta_enabled_flag) {
+						nal_read_ue1(in_bst, ph_cu_qp_delta_subdiv_intra_slice);
+					}
+
+					if (pps->ptr_pic_parameter_set_rbsp->pps_cu_chroma_qp_offset_list_enabled_flag) {
+						nal_read_ue1(in_bst, ph_cu_chroma_qp_offset_subdiv_intra_slice);
+					}
+				}
+
+				ph_log2_diff_min_qt_min_cb_inter_slice = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_min_qt_min_cb_inter_slice;
+				ph_max_mtt_hierarchy_depth_inter_slice = sps->ptr_seq_parameter_set_rbsp->sps_max_mtt_hierarchy_depth_inter_slice;
+				ph_log2_diff_max_bt_min_qt_inter_slice = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_max_bt_min_qt_inter_slice;
+				ph_log2_diff_max_tt_min_qt_inter_slice = sps->ptr_seq_parameter_set_rbsp->sps_log2_diff_max_tt_min_qt_inter_slice;
+				if (ph_inter_slice_allowed_flag) {
+					if (ph_partition_constraints_override_flag) {
+						nal_read_ue1(in_bst, ph_log2_diff_min_qt_min_cb_inter_slice);
+						nal_read_ue1(in_bst, ph_max_mtt_hierarchy_depth_inter_slice);
+						if (ph_max_mtt_hierarchy_depth_inter_slice != 0) {
+							nal_read_ue1(in_bst, ph_log2_diff_max_bt_min_qt_inter_slice);
+							nal_read_ue1(in_bst, ph_log2_diff_max_tt_min_qt_inter_slice);
+						}
+					}
+
+					if (pps->ptr_pic_parameter_set_rbsp->pps_cu_qp_delta_enabled_flag) {
+						nal_read_ue1(in_bst, ph_cu_qp_delta_subdiv_inter_slice);
+					}
+
+					if (pps->ptr_pic_parameter_set_rbsp->pps_cu_chroma_qp_offset_list_enabled_flag) {
+						nal_read_ue1(in_bst, ph_cu_chroma_qp_offset_subdiv_inter_slice);
+					}
+
+					if (sps->ptr_seq_parameter_set_rbsp->sps_temporal_mvp_enabled_flag) {
+						bsrb1(in_bst, ph_temporal_mvp_enabled_flag, 1);
+						if (ph_temporal_mvp_enabled_flag && pps->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag) {
+							if (m_pCtx->num_ref_entries[1][m_pCtx->RplsIdx[1]] > 0){
+								bsrb1(in_bst, ph_collocated_from_l0_flag, 1);
+							}
+
+							if ((ph_collocated_from_l0_flag && m_pCtx->num_ref_entries[0][m_pCtx->RplsIdx[0]] > 1) ||
+								(!ph_collocated_from_l0_flag && m_pCtx->num_ref_entries[1][m_pCtx->RplsIdx[1]] > 1)) {
+								nal_read_ue1(in_bst, ph_collocated_ref_idx);
+							}
+						}
+					}
+
+					if (sps->ptr_seq_parameter_set_rbsp->sps_mmvd_fullpel_only_enabled_flag) {
+						bsrb1(in_bst, ph_mmvd_fullpel_only_flag, 1);
+					}
+
+					uint8_t presenceFlag = 0;
+					/* This condition is intentionally not merged into the next, to avoid possible interpretation of RplsIdx[ i ] not having a specified value. */
+					if (!pps->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag) {
+						presenceFlag = 1;
+					}
+					else if (m_pCtx->num_ref_entries[1][m_pCtx->RplsIdx[1]] > 0){
+						presenceFlag = 1;
+					}
+
+					if (presenceFlag) {
+						bsrb1(in_bst, ph_mvd_l1_zero_flag, 1);
+						if (sps->ptr_seq_parameter_set_rbsp->sps_bdof_control_present_in_ph_flag) {
+							bsrb1(in_bst, ph_bdof_disabled_flag, 1);
+						}
+						else
+							ph_bdof_disabled_flag = 1 - sps->ptr_seq_parameter_set_rbsp->sps_bdof_enabled_flag;
+
+						if (sps->ptr_seq_parameter_set_rbsp->sps_dmvr_control_present_in_ph_flag) {
+							bsrb1(in_bst, ph_dmvr_disabled_flag, 1);
+						}
+						else
+							ph_dmvr_disabled_flag = 1 - sps->ptr_seq_parameter_set_rbsp->sps_dmvr_enabled_flag;
+					}
+					
+					if (sps->ptr_seq_parameter_set_rbsp->sps_prof_control_present_in_ph_flag) {
+						bsrb1(in_bst, ph_prof_disabled_flag, 1);
+					}
+					else
+						ph_prof_disabled_flag = sps->ptr_seq_parameter_set_rbsp->sps_affine_prof_enabled_flag ? 0 : 1;
+
+					if ((pps->ptr_pic_parameter_set_rbsp->pps_weighted_pred_flag || pps->ptr_pic_parameter_set_rbsp->pps_weighted_bipred_flag) && 
+						 pps->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag)
+					{
+						bsrbreadref(in_bst, pred_weight_table, PRED_WEIGHT_TABLE, m_pCtx, ph_pic_parameter_set_id);
+					}
+				}
+
+				if (pps->ptr_pic_parameter_set_rbsp->pps_qp_delta_info_in_ph_flag) {
+					nal_read_se1(in_bst, ph_qp_delta);
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_joint_cbcr_enabled_flag) {
+					bsrb1(in_bst, ph_joint_cbcr_sign_flag, 1);
+				}
+
+				if (sps->ptr_seq_parameter_set_rbsp->sps_sao_enabled_flag && pps->ptr_pic_parameter_set_rbsp->pps_sao_info_in_ph_flag) {
+					bsrb1(in_bst, ph_sao_luma_enabled_flag, 1);
+					if (sps->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+						bsrb1(in_bst, ph_sao_chroma_enabled_flag, 1);
+					}
+				}
+
+				ph_deblocking_filter_disabled_flag = pps->ptr_pic_parameter_set_rbsp->pps_deblocking_filter_disabled_flag;
+				if(pps->ptr_pic_parameter_set_rbsp->pps_chroma_tool_offsets_present_flag)
+				{
+					ph_cb_beta_offset_div2 = ph_cr_beta_offset_div2 = pps->ptr_pic_parameter_set_rbsp->pps_cb_beta_offset_div2;
+					ph_cb_tc_offset_div2   = ph_cr_tc_offset_div2   = pps->ptr_pic_parameter_set_rbsp->pps_cb_tc_offset_div2;
+				}
+
+				if (pps->ptr_pic_parameter_set_rbsp->pps_dbf_info_in_ph_flag) {
+					bsrb1(in_bst, ph_deblocking_params_present_flag, 1);
+					if (ph_deblocking_params_present_flag) {
+						if (!pps->ptr_pic_parameter_set_rbsp->pps_deblocking_filter_disabled_flag) {
+							bsrb1(in_bst, ph_deblocking_filter_disabled_flag, 1);
+						}
+						else
+							ph_deblocking_filter_disabled_flag = 0;
+
+						ph_luma_beta_offset_div2 = pps->ptr_pic_parameter_set_rbsp->pps_luma_beta_offset_div2;
+						ph_luma_tc_offset_div2 = pps->ptr_pic_parameter_set_rbsp->pps_luma_tc_offset_div2;
+						if (!ph_deblocking_filter_disabled_flag) {
+							nal_read_se1(in_bst, ph_luma_beta_offset_div2);
+							nal_read_se1(in_bst, ph_luma_tc_offset_div2);
+							if (pps->ptr_pic_parameter_set_rbsp->pps_chroma_tool_offsets_present_flag) {
+								nal_read_se1(in_bst, ph_cb_beta_offset_div2);
+								nal_read_se1(in_bst, ph_cb_tc_offset_div2);
+								nal_read_se1(in_bst, ph_cr_beta_offset_div2);
+								nal_read_se1(in_bst, ph_cr_tc_offset_div2);
+							}
+							else
+							{
+								ph_cb_beta_offset_div2 = ph_cr_beta_offset_div2 = ph_luma_beta_offset_div2;
+								ph_cb_tc_offset_div2 = ph_cr_tc_offset_div2 = ph_luma_tc_offset_div2;
+							}
+						}
+					}
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::PICTURE_HEADER_STRUCTURE::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		int NAL_UNIT::PICTURE_HEADER_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				nal_read_obj(in_bst, picture_header_structure);
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::PICTURE_HEADER_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		NAL_UNIT::~NAL_UNIT() {
+			switch (nal_unit_header.nal_unit_type)
+			{
+			case TRAIL_NUT:
+				break;
+			case STSA_NUT:
+				break;
+			case RADL_NUT:
+				break;
+			case RASL_NUT:
+				break;
+			case RSV_VCL_4:
+				break;
+			case RSV_VCL_5:
+				break;
+			case RSV_VCL_6:
+				break;
+			case IDR_W_RADL:
+				break;
+			case IDR_N_LP:
+				break;
+			case CRA_NUT:
+				break;
+			case GDR_NUT:
+				break;
+			case RSV_IRAP_11:
+				break;
+			case OPI_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_operating_point_information_rbsp);
+				break;
+			case DCI_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_decoding_capability_information_rbsp);
+				break;
+			case VPS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_video_parameter_set_rbsp);
+				break;
+			case SPS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_seq_parameter_set_rbsp);
+				break;
+			case PPS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_pic_parameter_set_rbsp);
+				break;
+			case PREFIX_APS_NUT:
+			case SUFFIX_APS_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_adaptation_parameter_set_rbsp);
+				break;
+			case PH_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_picture_header_rbsp);
+				break;
+			case AUD_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_access_unit_delimiter_rbsp);
+				break;
+			case EOS_NUT:
+				break;
+			case EOB_NUT:
+				break;
+			case PREFIX_SEI_NUT:
+			case SUFFIX_SEI_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_sei_rbsp);
+				break;
+			case FD_NUT:
+				break;
+			case RSV_NVCL_26:
+				break;
+			case RSV_NVCL_27:
+				break;
+			case UNSPEC_28:
+				break;
+			case UNSPEC_29:
+				break;
+			case UNSPEC_30:
+				break;
+			case UNSPEC_31:
+				break;
+			}
+		}
+
+		int NAL_UNIT::Map(AMBst bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(bst);
+
+			if (AMP_FAILED(iRet = nal_unit_header.Map(bst)))
+				return iRet;
+
+			//printf("[H266] %s.\n", vvc_nal_unit_type_descs[nal_unit_header.nal_unit_type]);
+
+			if (ptr_ctx_video_bst != NULL &&
+				ptr_ctx_video_bst->IsNUFiltered(nal_unit_header.nal_unit_type) == false)
+				return RET_CODE_NOTHING_TODO;
+
+			if (AMP_FAILED(iRet = AMBst_SetRBSPType(bst, BST_RBSP_NAL_UNIT)))
+				return iRet;
+
+			try
+			{
+				MAP_BST_BEGIN(1);
+				switch (nal_unit_header.nal_unit_type)
+				{
+				case TRAIL_NUT:
+					break;
+				case STSA_NUT:
+					break;
+				case RADL_NUT:
+					break;
+				case RASL_NUT:
+					break;
+				case RSV_VCL_4:
+					break;
+				case RSV_VCL_5:
+					break;
+				case RSV_VCL_6:
+					break;
+				case IDR_W_RADL:
+					break;
+				case IDR_N_LP:
+					break;
+				case CRA_NUT:
+					break;
+				case GDR_NUT:
+					break;
+				case RSV_IRAP_11:
+					break;
+				case OPI_NUT:
+					nal_read_ref(bst, ptr_operating_point_information_rbsp, OPERATING_POINT_INFORMATION_RBSP);
+					break;
+				case DCI_NUT:
+					nal_read_ref(bst, ptr_decoding_capability_information_rbsp, DECODING_CAPABILITY_INFORMATION_RBSP);
+					break;
+				case VPS_NUT:
+					nal_read_ref(bst, ptr_video_parameter_set_rbsp, VIDEO_PARAMETER_SET_RBSP);
+					break;
+				case SPS_NUT:
+					nal_read_ref(bst, ptr_seq_parameter_set_rbsp, SEQ_PARAMETER_SET_RBSP);
+					break;
+				case PPS_NUT:
+					nal_read_ref(bst, ptr_pic_parameter_set_rbsp, PIC_PARAMETER_SET_RBSP, ptr_ctx_video_bst);
+					break;
+				case PREFIX_APS_NUT:
+				case SUFFIX_APS_NUT:
+					nal_read_ref(bst, ptr_adaptation_parameter_set_rbsp, ADAPTATION_PARAMETER_SET_RBSP, (uint8_t)nal_unit_header.nal_unit_type);
+					break;
+				case PH_NUT:
+					nal_read_ref(bst, ptr_picture_header_rbsp, PICTURE_HEADER_RBSP, ptr_ctx_video_bst);
+					break;
+				case AUD_NUT:
+					nal_read_ref(bst, ptr_access_unit_delimiter_rbsp, ACCESS_UNIT_DELIMITER_RBSP);
+					break;
+				case EOS_NUT:
+					break;
+				case EOB_NUT:
+					break;
+				case PREFIX_SEI_NUT:
+				case SUFFIX_SEI_NUT:
+					nal_read_ref(bst, ptr_sei_rbsp, SEI_RBSP, nal_unit_header.nal_unit_type, ptr_ctx_video_bst);
+					break;
+				case FD_NUT:
+					break;
+				case RSV_NVCL_26:
+					break;
+				case RSV_NVCL_27:
+					break;
+				case UNSPEC_28:
+					break;
+				case UNSPEC_29:
+					break;
+				case UNSPEC_30:
+					break;
+				case UNSPEC_31:
+					break;
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				AMBst_SetRBSPType(bst, BST_RBSP_SEQUENCE);
+				return e.RetCode();
+			}
+
+			AMBst_SetRBSPType(bst, BST_RBSP_SEQUENCE);
+			SYNTAX_BITSTREAM_MAP::EndMap(bst);
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::Unmap(AMBst out_bst)
 		{
 			UNREFERENCED_PARAMETER(out_bst);
 			return RET_CODE_ERROR_NOTIMPL;

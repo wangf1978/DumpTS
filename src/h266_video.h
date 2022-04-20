@@ -165,11 +165,13 @@ namespace BST {
 			H266_NU						GetVVCVPS(uint8_t vps_id);
 			H266_NU						GetVVCSPS(uint8_t sps_id);
 			H266_NU						GetVVCPPS(uint8_t pps_id);
+			H266_NU						GetVVCPH();
 			RET_CODE					UpdateVVCDCI(H266_NU dci_nu);
 			RET_CODE					UpdateVVCOPI(H266_NU opi_nu);
 			RET_CODE					UpdateVVCVPS(H266_NU vps_nu);
 			RET_CODE					UpdateVVCSPS(H266_NU sps_nu);
 			RET_CODE					UpdateVVCPPS(H266_NU pps_nu);
+			RET_CODE					UpdateVVCPH(H266_NU ph_nu);
 			H266_NU						CreateVVCNU();
 			int8_t						GetActiveSPSID();
 			RET_CODE					ActivateSPS(int8_t sps_id);
@@ -192,6 +194,7 @@ namespace BST {
 			std::map<uint8_t, H266_NU>	m_sp_vpses;		// the smart pointers of VPS for the current h266 bitstream
 			std::map<uint8_t, H266_NU>	m_sp_spses;		// the smart pointers of SPS for the current h266 bitstream
 			std::map<uint8_t, H266_NU>	m_sp_ppses;		// the smart pointers of PPS for the current h266 bitstream
+			H266_NU						m_ph;			// the life-cycle is in the scope of AU
 
 			int8_t						RplsIdx[2] = { -1, -1 };
 			std::vector<uint8_t>		num_ref_entries[2];
@@ -2036,6 +2039,26 @@ namespace BST {
 
 				std::vector<uint8_t>
 								ph_extension_data_byte;
+
+				VideoBitstreamCtx*
+								m_pCtx;
+
+				PICTURE_HEADER_STRUCTURE(VideoBitstreamCtx* pCtx);
+				int Map(AMBst bst);
+				int Unmap(AMBst out_bst);
+			};
+
+			struct PICTURE_HEADER_RBSP : public SYNTAX_BITSTREAM_MAP
+			{
+				PICTURE_HEADER_STRUCTURE
+								picture_header_structure;
+
+				PICTURE_HEADER_RBSP(VideoBitstreamCtx* pCtx) :
+					picture_header_structure(pCtx) {
+				}
+
+				int Map(AMBst bst);
+				int Unmap(AMBst out_bst);
 			};
 
 			NAL_UNIT_HEADER		nal_unit_header;
@@ -2052,6 +2075,7 @@ namespace BST {
 				SEQ_PARAMETER_SET_RBSP*		ptr_seq_parameter_set_rbsp;
 				PIC_PARAMETER_SET_RBSP*		ptr_pic_parameter_set_rbsp;
 				ACCESS_UNIT_DELIMITER_RBSP*	ptr_access_unit_delimiter_rbsp;
+				PICTURE_HEADER_RBSP*		ptr_picture_header_rbsp;
 				SEI_RBSP*					ptr_sei_rbsp;
 			};
 

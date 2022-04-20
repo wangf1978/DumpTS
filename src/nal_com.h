@@ -150,11 +150,13 @@ public:
 	virtual H266_NU			GetVVCVPS(uint8_t vps_id) = 0;
 	virtual H266_NU			GetVVCSPS(uint8_t sps_id) = 0;
 	virtual H266_NU			GetVVCPPS(uint8_t pps_id) = 0;
+	virtual H266_NU			GetVVCPH() = 0;
 	virtual RET_CODE		UpdateVVCDCI(H266_NU dci_nu) = 0;
 	virtual RET_CODE		UpdateVVCOPI(H266_NU opi_nu) = 0;
 	virtual RET_CODE		UpdateVVCVPS(H266_NU vps_nu) = 0;
 	virtual RET_CODE		UpdateVVCSPS(H266_NU sps_nu) = 0;
 	virtual RET_CODE		UpdateVVCPPS(H266_NU pps_nu) = 0;
+	virtual RET_CODE		UpdateVVCPH(H266_NU ph_nu) = 0;
 	virtual H266_NU			CreateVVCNU() = 0;
 
 	virtual RET_CODE		GetNumRefIdxActive(int8_t num_ref_idx_active[2]) = 0;
