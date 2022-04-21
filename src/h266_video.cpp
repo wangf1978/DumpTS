@@ -546,7 +546,7 @@ namespace BST
 				}
 				else if (vps_ols_mode_idc == 2) {
 
-					layerIncludedInOlsFlag[i].resize(vps_max_layers_minus1 + 1);
+					layerIncludedInOlsFlag[i].resize((size_t)vps_max_layers_minus1 + 1);
 					for (int j = 0; j <= vps_max_layers_minus1; j++) {
 						layerIncludedInOlsFlag[i][j] = 0;
 						NumSubLayersInLayerInOLS[i][j] = 0;
@@ -673,7 +673,7 @@ namespace BST
 
 						if (vps_ols_mode_idc == 2) {
 							bsrb1(in_bst, vps_num_output_layer_sets_minus2, 8);
-							vps_ols_output_layer_flag.resize(vps_num_output_layer_sets_minus2 + 2);
+							vps_ols_output_layer_flag.resize((size_t)vps_num_output_layer_sets_minus2 + 2);
 							for (int i = 1; i <= (int)vps_num_output_layer_sets_minus2 + 1; i++){
 								for (int j = 0; j <= (int)vps_max_layers_minus1; j++){
 									bsrbarray(in_bst, vps_ols_output_layer_flag[i], j);
@@ -685,7 +685,7 @@ namespace BST
 					bsrb1(in_bst, vps_num_ptls_minus1, 8);
 				}
 
-				vps_ptl_max_tid.resize(vps_num_ptls_minus1 + 1);
+				vps_ptl_max_tid.resize((size_t)vps_num_ptls_minus1 + 1);
 				for (int i = 0; i <= vps_num_ptls_minus1; i++) {
 					if (i > 0) {
 						bsrbarray(in_bst, vps_pt_present_flag, i);
@@ -937,10 +937,10 @@ namespace BST
 
 					uint32_t tmpWidthVal = sps_pic_width_max_in_luma_samples + CtbSizeY - 1;
 					uint32_t tmpHeightVal = (sps_pic_height_max_in_luma_samples + CtbSizeY - 1) / CtbSizeY;
-					sps_subpic_ctu_top_left_x.resize(sps_num_subpics_minus1 + 1);
-					sps_subpic_ctu_top_left_y.resize(sps_num_subpics_minus1 + 1);
-					sps_subpic_width_minus1.resize(sps_num_subpics_minus1 + 1);
-					sps_subpic_height_minus1.resize(sps_num_subpics_minus1 + 1);
+					sps_subpic_ctu_top_left_x.resize((size_t)sps_num_subpics_minus1 + 1);
+					sps_subpic_ctu_top_left_y.resize((size_t)sps_num_subpics_minus1 + 1);
+					sps_subpic_width_minus1.resize((size_t)sps_num_subpics_minus1 + 1);
+					sps_subpic_height_minus1.resize((size_t)sps_num_subpics_minus1 + 1);
 					for (int i = 0; sps_num_subpics_minus1 > 0 && i <= sps_num_subpics_minus1; i++) {
 						if (!sps_subpic_same_size_flag || i == 0) {
 							if (i > 0 && sps_pic_width_max_in_luma_samples > CtbSizeY) {
@@ -993,7 +993,7 @@ namespace BST
 					if (sps_subpic_id_mapping_explicitly_signalled_flag) {
 						bsrb1(in_bst, sps_subpic_id_mapping_present_flag, 1);
 						if (sps_subpic_id_mapping_present_flag){
-							sps_subpic_id.resize(sps_num_subpics_minus1 + 1);
+							sps_subpic_id.resize((size_t)sps_num_subpics_minus1 + 1);
 							for (size_t i = 0; i <= sps_num_subpics_minus1; i++) {
 								bsrb1(in_bst, sps_subpic_id[i], sps_subpic_id_len_minus1 + 1);
 							}
@@ -1329,7 +1329,7 @@ namespace BST
 				MAP_BST_BEGIN(0);
 				bsrb1(in_bst, dci_reserved_zero_4bits, 4);
 				bsrb1(in_bst, dci_num_ptls_minus1, 4);
-				profile_tier_level.resize(dci_num_ptls_minus1 + 1);
+				profile_tier_level.resize((size_t)dci_num_ptls_minus1 + 1);
 				for (int i = 0; i < (int)dci_num_ptls_minus1 + 1; i++) {
 					bsrbreadref(in_bst, profile_tier_level[i], PROFILE_TIER_LEVEL, 1, 0);
 				}
@@ -1826,12 +1826,12 @@ namespace BST
 						nal_read_ue1(in_bst, pps_num_subpics_minus1);
 					}
 					nal_read_ue1(in_bst, pps_subpic_id_len_minus1);
-					pps_subpic_id.resize(pps_num_subpics_minus1 + 1);
+					pps_subpic_id.resize((size_t)pps_num_subpics_minus1 + 1);
 					for (int i = 0; i <= pps_num_subpics_minus1; i++) {
 						bsrb1(in_bst, pps_subpic_id[i], pps_subpic_id_len_minus1 + 1);
 					}
 
-					SubpicIdVal.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+					SubpicIdVal.resize((size_t)sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
 					for (int i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
 						if (sps->ptr_seq_parameter_set_rbsp->sps_subpic_id_mapping_explicitly_signalled_flag)
 							SubpicIdVal[i] = pps_subpic_id_mapping_present_flag ? pps_subpic_id[i] : sps->ptr_seq_parameter_set_rbsp->sps_subpic_id[i];
@@ -1845,11 +1845,11 @@ namespace BST
 					nal_read_ue1(in_bst, pps_num_exp_tile_columns_minus1);
 					nal_read_ue1(in_bst, pps_num_exp_tile_rows_minus1);
 
-					pps_tile_column_width_minus1.resize(pps_num_exp_tile_columns_minus1 + 1);
+					pps_tile_column_width_minus1.resize((size_t)pps_num_exp_tile_columns_minus1 + 1);
 					for (uint32_t i = 0; i <= pps_num_exp_tile_columns_minus1; i++) {
 						nal_read_ue1(in_bst, pps_tile_column_width_minus1[i]);
 					}
-					pps_tile_row_height_minus1.resize(pps_num_exp_tile_rows_minus1 + 1);
+					pps_tile_row_height_minus1.resize((size_t)pps_num_exp_tile_rows_minus1 + 1);
 					for (uint32_t i = 0; i <= pps_num_exp_tile_rows_minus1; i++) {
 						nal_read_ue1(in_bst, pps_tile_row_height_minus1[i]);
 					}
@@ -1890,8 +1890,8 @@ namespace BST
 							}
 							else if (SliceTopLeftTileIdx[i] / NumTileColumns == NumTileRows - 1)
 								pps_slice_height_in_tiles_minus1[i] = 0;
-							else
-								pps_slice_height_in_tiles_minus1[i] = pps_slice_height_in_tiles_minus1[i - 1];
+							else if (i > 0)
+								pps_slice_height_in_tiles_minus1[i] = pps_slice_height_in_tiles_minus1[(size_t)(i - 1)];
 
 							if (pps_slice_width_in_tiles_minus1[i] == 0 && pps_slice_height_in_tiles_minus1[i] == 0 &&
 								RowHeightVal[SliceTopLeftTileIdx[i] / NumTileColumns] > 1) {
@@ -1957,9 +1957,9 @@ namespace BST
 					if (pps_cu_chroma_qp_offset_list_enabled_flag) {
 						nal_read_ue1(in_bst, pps_chroma_qp_offset_list_len_minus1);
 
-						pps_cb_qp_offset_list.resize(pps_chroma_qp_offset_list_len_minus1 + 1);
-						pps_cr_qp_offset_list.resize(pps_chroma_qp_offset_list_len_minus1 + 1);
-						pps_joint_cbcr_qp_offset_list.resize(pps_chroma_qp_offset_list_len_minus1 + 1);
+						pps_cb_qp_offset_list.resize((size_t)pps_chroma_qp_offset_list_len_minus1 + 1);
+						pps_cr_qp_offset_list.resize((size_t)pps_chroma_qp_offset_list_len_minus1 + 1);
+						pps_joint_cbcr_qp_offset_list.resize((size_t)pps_chroma_qp_offset_list_len_minus1 + 1);
 						for (uint8_t i = 0; i <= pps_chroma_qp_offset_list_len_minus1; i++) {
 							nal_read_se1(in_bst, pps_cb_qp_offset_list[i]);
 							nal_read_se1(in_bst, pps_cr_qp_offset_list[i]);
@@ -2048,7 +2048,7 @@ namespace BST
 			uint32_t i = 0, j =  0;
 			int remainingWidthInCtbsY = PicWidthInCtbsY;
 			std::vector<uint32_t> ColWidthVal;
-			ColWidthVal.reserve(pps_num_exp_tile_columns_minus1 + 1);
+			ColWidthVal.reserve((size_t)pps_num_exp_tile_columns_minus1 + 1);
 			for(i = 0; i <= pps_num_exp_tile_columns_minus1; i++)
 			{
 				ColWidthVal.push_back(pps_tile_column_width_minus1[i] + 1);
@@ -2068,7 +2068,7 @@ namespace BST
 			NumTileColumns = i;
 
 			int remainingHeightInCtbsY = PicHeightInCtbsY;
-			RowHeightVal.reserve(pps_num_exp_tile_rows_minus1 + 1);
+			RowHeightVal.reserve((size_t)pps_num_exp_tile_rows_minus1 + 1);
 			for (j = 0; j <= pps_num_exp_tile_rows_minus1; j++) {
 				RowHeightVal.push_back(pps_tile_row_height_minus1[j] + 1);
 				remainingHeightInCtbsY -= RowHeightVal[j];
@@ -2087,29 +2087,34 @@ namespace BST
 			
 			NumTileRows = j;
 
-			TileColBdVal.resize(NumTileColumns + 1);
+			TileColBdVal.resize((size_t)NumTileColumns + 1);
 			for (TileColBdVal[0] = 0, i = 0; i < NumTileColumns; i++)
-				TileColBdVal[i + 1] = TileColBdVal[i] + ColWidthVal[i];
+				TileColBdVal[i + 1] = (uint32_t)((uint64_t)TileColBdVal[i] + ColWidthVal[i]);
 
-			TileRowBdVal.resize(NumTileRows + 1);
+			TileRowBdVal.resize((size_t)NumTileRows + 1);
 			for (TileRowBdVal[0] = 0, j = 0; j < NumTileRows; j++)
-				TileRowBdVal[j + 1] = TileRowBdVal[j] + RowHeightVal[j];
+				TileRowBdVal[j + 1] = (uint32_t)((uint64_t)TileRowBdVal[j] + RowHeightVal[j]);
 
 			uint32_t tileX = 0;
-			CtbToTileColBd.resize(PicWidthInCtbsY + 1);
-			ctbToTileColIdx.resize(PicWidthInCtbsY + 1);
+			if (PicWidthInCtbsY >= 0) {
+				 CtbToTileColBd.resize((size_t)((int64_t)PicWidthInCtbsY + 1));
+				ctbToTileColIdx.resize((size_t)((int64_t)PicWidthInCtbsY + 1));
+			}
 			for (int32_t ctbAddrX = 0; ctbAddrX <= PicWidthInCtbsY; ctbAddrX++) {
-				if (ctbAddrX == (int32_t)TileColBdVal[tileX + 1])
+				if (ctbAddrX == (int32_t)TileColBdVal[(size_t)tileX + 1])
 					tileX++;
 				CtbToTileColBd[ctbAddrX] = TileColBdVal[tileX]; 
 				ctbToTileColIdx[ctbAddrX] = tileX;
 			}
 
 			uint32_t tileY = 0;
-			CtbToTileRowBd.resize(PicHeightInCtbsY + 1);
-			ctbToTileRowIdx.resize(PicHeightInCtbsY + 1);
+			if (PicHeightInCtbsY >= 0)
+			{
+				 CtbToTileRowBd.resize((size_t)((int64_t)PicHeightInCtbsY + 1));
+				ctbToTileRowIdx.resize((size_t)((int64_t)PicHeightInCtbsY + 1));
+			}
 			for (int32_t ctbAddrY = 0; ctbAddrY <= PicHeightInCtbsY; ctbAddrY++) {
-				if (ctbAddrY == (int32_t)TileRowBdVal[tileY + 1])
+				if (ctbAddrY == (int32_t)TileRowBdVal[(size_t)tileY + 1])
 					tileY++;
 				CtbToTileRowBd[ctbAddrY] = TileRowBdVal[tileY];
 				ctbToTileRowIdx[ctbAddrY] = tileY;
@@ -2121,9 +2126,9 @@ namespace BST
 				sps->ptr_seq_parameter_set_rbsp == nullptr)
 				return RET_CODE_ERROR_NOTIMPL;
 
-			SubpicWidthInTiles.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
-			SubpicHeightInTiles.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
-			subpicHeightLessThanOneTileFlag.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			SubpicWidthInTiles.resize((size_t)sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			SubpicHeightInTiles.resize((size_t)sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			subpicHeightLessThanOneTileFlag.resize((size_t)sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
 			for (i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
 				uint32_t leftX = sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i];
 				uint32_t rightX = leftX + sps->ptr_seq_parameter_set_rbsp->sps_subpic_width_minus1[i];
@@ -2148,7 +2153,7 @@ namespace BST
 				sps->ptr_seq_parameter_set_rbsp == nullptr)
 				return RET_CODE_ERROR_NOTIMPL;
 
-			NumCtusInSlice.resize(pps_num_slices_in_pic_minus1 + 1);
+			NumCtusInSlice.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
 			if (pps_single_slice_per_subpic_flag) 
 			{
 				if (!sps->ptr_seq_parameter_set_rbsp->sps_subpic_info_present_flag) /* There is no subpicture info and only one slice in a picture. */
@@ -2191,17 +2196,17 @@ namespace BST
 				for (uint32_t i = 0; i <= pps_num_slices_in_pic_minus1; i++)
 					NumCtusInSlice[i] = 0;
 
-				SliceTopLeftTileIdx.resize(pps_num_slices_in_pic_minus1 + 1);
-				sliceWidthInTiles.resize(pps_num_slices_in_pic_minus1 + 1);
-				sliceHeightInTiles.resize(pps_num_slices_in_pic_minus1 + 1);
-				NumSlicesInTile.resize(pps_num_slices_in_pic_minus1 + 1);
-				sliceHeightInCtus.resize(pps_num_slices_in_pic_minus1 + 1);
+				SliceTopLeftTileIdx.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
+				sliceWidthInTiles.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
+				sliceHeightInTiles.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
+				NumSlicesInTile.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
+				sliceHeightInCtus.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
 
 				for (uint16_t i = 0; i <= pps_num_slices_in_pic_minus1; i++) 
 				{
 					SliceTopLeftTileIdx[i] = tileIdx;
-					uint32_t tileX = tileIdx % NumTileColumns; 
-					uint32_t tileY = tileIdx / NumTileColumns;
+					uint16_t tileX = tileIdx % NumTileColumns; 
+					uint16_t tileY = tileIdx / NumTileColumns;
 					if (i < pps_num_slices_in_pic_minus1) {
 						sliceWidthInTiles[i] = pps_slice_width_in_tiles_minus1[i] + 1;
 						sliceHeightInTiles[i] = pps_slice_height_in_tiles_minus1[i] + 1;
@@ -2220,13 +2225,13 @@ namespace BST
 						else 
 						{
 							uint32_t remainingHeightInCtbsY = RowHeightVal[SliceTopLeftTileIdx[i] / NumTileColumns];
-							uint32_t j = 0;
-							sliceHeightInCtus.resize(pps_num_slices_in_pic_minus1 + 1 + pps_num_exp_slices_in_tile[i]);
+							uint16_t j = 0;
+							sliceHeightInCtus.resize((size_t)pps_num_slices_in_pic_minus1 + 1 + pps_num_exp_slices_in_tile[i]);
 							for (j = 0; j < pps_num_exp_slices_in_tile[i]; j++) {
-								sliceHeightInCtus[i + j] = pps_exp_slice_height_in_ctus_minus1[i][j] + 1;
-								remainingHeightInCtbsY -= sliceHeightInCtus[i + j];
+								sliceHeightInCtus[(size_t)i + j] = (uint32_t)pps_exp_slice_height_in_ctus_minus1[i][j] + 1;
+								remainingHeightInCtbsY -= sliceHeightInCtus[(size_t)i + j];
 							}
-							uint32_t uniformSliceHeight = sliceHeightInCtus[i + j - 1];
+							uint32_t uniformSliceHeight = sliceHeightInCtus[(size_t)i + j - 1];
 							while (remainingHeightInCtbsY >= uniformSliceHeight) {
 								sliceHeightInCtus.push_back(uniformSliceHeight);
 								remainingHeightInCtbsY  -= uniformSliceHeight;
@@ -2240,22 +2245,23 @@ namespace BST
 							NumSlicesInTile[i] = j;
 						}
 						uint32_t ctbY = TileRowBdVal[tileY];
-						sliceWidthInTiles.resize(pps_num_slices_in_pic_minus1 + 1 + NumSlicesInTile[i]);
-						sliceHeightInTiles.resize(pps_num_slices_in_pic_minus1 + 1 + NumSlicesInTile[i]);
+						sliceWidthInTiles.resize((size_t)pps_num_slices_in_pic_minus1 + 1 + NumSlicesInTile[i]);
+						sliceHeightInTiles.resize((size_t)pps_num_slices_in_pic_minus1 + 1 + NumSlicesInTile[i]);
 						for (uint32_t j = 0; j < NumSlicesInTile[i]; j++) {
-							AddCtbsToSlice(i + j,
-								TileColBdVal[tileX], TileColBdVal[tileX + 1], ctbY, ctbY + sliceHeightInCtus[i + j]);
-							ctbY += sliceHeightInCtus[i + j]; 
-							sliceWidthInTiles[i + j] = 1;
-							sliceHeightInTiles[i + j] = 1;
+							AddCtbsToSlice((size_t)i + j,
+								TileColBdVal[(size_t)tileX], TileColBdVal[(size_t)tileX + 1], ctbY, (uint32_t)((uint64_t)ctbY + sliceHeightInCtus[i + j]));
+							ctbY += sliceHeightInCtus[(size_t)i + j]; 
+							sliceWidthInTiles[(size_t)i + j] = 1;
+							sliceHeightInTiles[(size_t)i + j] = 1;
 						}
 						i += NumSlicesInTile[i] - 1;
 					}
 					else
 					{
-						for (uint32_t j = 0; j < sliceHeightInTiles[i]; j++) {
-							for (uint32_t k = 0; k < sliceWidthInTiles[i]; k++) {
-								AddCtbsToSlice(i, TileColBdVal[tileX + k], TileColBdVal[tileX + k + 1], TileRowBdVal[tileY + j], TileRowBdVal[tileY + j + 1]);
+						for (uint16_t j = 0; j < sliceHeightInTiles[i]; j++) {
+							for (uint16_t k = 0; k < sliceWidthInTiles[i]; k++) {
+								AddCtbsToSlice(i, TileColBdVal[(size_t)tileX + k], TileColBdVal[(size_t)tileX + k + 1], 
+									TileRowBdVal[(size_t)tileY + j], TileRowBdVal[(size_t)tileY + j + 1]);
 							}
 						}
 						if (i < pps_num_slices_in_pic_minus1) {
@@ -2272,12 +2278,12 @@ namespace BST
 			}
 
 			std::vector<uint16_t> SubpicIdxForSlice, SubpicLevelSliceIdx;
-			NumSlicesInSubpic.resize(sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
-			for (int i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
+			NumSlicesInSubpic.resize((size_t)sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1 + 1);
+			for (uint16_t i = 0; i <= sps->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; i++) {
 				NumSlicesInSubpic[i] = 0;
-				SubpicIdxForSlice.resize(pps_num_slices_in_pic_minus1 + 1);
-				SubpicLevelSliceIdx.resize(pps_num_slices_in_pic_minus1 + 1);
-				for (int j = 0; j <= pps_num_slices_in_pic_minus1; j++) {
+				SubpicIdxForSlice.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
+				SubpicLevelSliceIdx.resize((size_t)pps_num_slices_in_pic_minus1 + 1);
+				for (uint16_t j = 0; j <= pps_num_slices_in_pic_minus1; j++) {
 					uint32_t posX = CtbAddrInSlice[j][0] % PicWidthInCtbsY;
 					uint32_t posY = CtbAddrInSlice[j][0] / PicWidthInCtbsY;
 					if ((posX >= sps->ptr_seq_parameter_set_rbsp->sps_subpic_ctu_top_left_x[i]) &&

@@ -203,7 +203,7 @@ namespace BST {
 
 			int8_t						RplsIdx[2] = { -1, -1 };
 			int8_t						NumRefIdxActive[2] = { -1, -1 };
-			uint8_t						NumLtrpEntries[2][65];
+			uint8_t						NumLtrpEntries[2][65] = { {0} };
 			std::shared_ptr<REF_PIC_LIST_STRUCT>
 										ref_pic_list_struct[2][65];
 		};
@@ -304,6 +304,8 @@ namespace BST {
 
 				RBSP_TRAILING_BITS
 								rbsp_tailing_bits;
+
+				ACCESS_UNIT_DELIMITER_RBSP() : aud_irap_or_gdr_flag(0), aud_pic_type(0), byte_align0(0){}
 
 				int Map(AMBst in_bst)
 				{
@@ -683,9 +685,9 @@ namespace BST {
 					try
 					{
 						MAP_BST_BEGIN(0);
-						dpb_max_dec_pic_buffering_minus1.resize((m_subLayerInfoFlag?m_MaxSubLayersMinus1:0) + 1);
-						dpb_max_num_reorder_pics.resize((m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
-						dpb_max_latency_increase_plus1.resize((m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
+						dpb_max_dec_pic_buffering_minus1.resize((size_t)(m_subLayerInfoFlag?m_MaxSubLayersMinus1:0) + 1);
+						dpb_max_num_reorder_pics.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
+						dpb_max_latency_increase_plus1.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
 						if (m_subLayerInfoFlag)
 						{
 							for (int i = 0; i <= m_MaxSubLayersMinus1; i++) {
@@ -824,7 +826,7 @@ namespace BST {
 					try
 					{
 						MAP_BST_BEGIN(0);
-						parameters.resize(m_pTimingHRDParameters->hrd_cpb_cnt_minus1 + 1);
+						parameters.resize((size_t)m_pTimingHRDParameters->hrd_cpb_cnt_minus1 + 1);
 						for (int j = 0; j <= m_pTimingHRDParameters->hrd_cpb_cnt_minus1; j++) {
 							nal_read_ue(in_bst, parameters[j].bit_rate_value_minus1, uint32_t);
 							nal_read_ue(in_bst, parameters[j].cpb_size_value_minus1, uint32_t);
@@ -874,17 +876,20 @@ namespace BST {
 					SUBLAYER_HRD_PARAMETERS*
 									sublayer_vcl_hrd_parameters = nullptr;
 
+					OLS_TIMING_HRD_PARAMETER()
+						:fixed_pic_rate_general_flag(0), fixed_pic_rate_within_cvs_flag(1), low_delay_hrd_flag(0) {
+					}
 				};
 
 				std::vector< OLS_TIMING_HRD_PARAMETER>
 									parameters;
 
-				int					m_firstSubLayer;
-				int					m_MaxSubLayersVal;
+				uint8_t				m_firstSubLayer;
+				uint8_t				m_MaxSubLayersVal;
 				GENERAL_TIMING_HRD_PARAMETERS* 
 									m_pTimingHRDParameters;
 
-				OLS_TIMING_HRD_PARAMETERS(int firstSubLayer, int MaxSubLayersVal, GENERAL_TIMING_HRD_PARAMETERS* pTimingHRDParameters)
+				OLS_TIMING_HRD_PARAMETERS(uint8_t firstSubLayer, uint8_t MaxSubLayersVal, GENERAL_TIMING_HRD_PARAMETERS* pTimingHRDParameters)
 					: m_firstSubLayer(firstSubLayer)
 					, m_MaxSubLayersVal(MaxSubLayersVal)
 					, m_pTimingHRDParameters(pTimingHRDParameters){
@@ -900,7 +905,7 @@ namespace BST {
 						MAP_BST_BEGIN(0);
 						if (m_MaxSubLayersVal >= m_firstSubLayer)
 						{
-							parameters.resize(m_MaxSubLayersVal - m_firstSubLayer + 1);
+							parameters.resize((size_t)m_MaxSubLayersVal - m_firstSubLayer + 1);
 							for (int i = 0; i <= m_MaxSubLayersVal - m_firstSubLayer; i++)
 							{
 								bsrb1(in_bst, parameters[i].fixed_pic_rate_general_flag, 1);
@@ -1067,7 +1072,7 @@ namespace BST {
 				CAMBitArray		vui_reserved_payload_extension_data;
 				CAMBitArray		vui_payload_bit_equal_to_zero;
 
-				VUI_PAYLOAD(uint16_t payloadSize) : vui_parameters(payloadSize) {}
+				VUI_PAYLOAD(uint16_t payloadSize) : vui_parameters(payloadSize), byte_align0(0){}
 
 				int Map(AMBst in_bst) {
 					return SYNTAX_BITSTREAM_MAP::Map(in_bst);
@@ -1681,7 +1686,7 @@ namespace BST {
 								pps_slice_height_in_tiles_minus1;
 				std::vector<uint32_t>
 								pps_num_exp_slices_in_tile;
-				std::vector<std::vector<uint32_t>>
+				std::vector<std::vector<uint16_t>>
 								pps_exp_slice_height_in_ctus_minus1;
 				std::vector<int32_t>
 								pps_tile_idx_delta_val;
@@ -1777,17 +1782,17 @@ namespace BST {
 								NumCtusInSlice;
 				std::vector<std::vector<uint32_t>>
 								CtbAddrInSlice;
-				std::vector<uint32_t>
+				std::vector<uint16_t>
 								SliceTopLeftTileIdx;
-				std::vector<uint32_t>
+				std::vector<uint16_t>
 								sliceWidthInTiles;
-				std::vector<uint32_t>
+				std::vector<uint16_t>
 								sliceHeightInTiles;
-				std::vector<uint32_t>
+				std::vector<uint16_t>
 								NumSlicesInTile;
 				std::vector<uint32_t> 
 								RowHeightVal;
-				std::vector<uint32_t>
+				std::vector<uint16_t>
 								sliceHeightInCtus;
 				std::vector<uint16_t>
 								NumSlicesInSubpic;
@@ -1859,7 +1864,7 @@ namespace BST {
 			struct REF_PIC_LISTS : public SYNTAX_BITSTREAM_MAP
 			{
 				CAMBitArray		rpl_sps_flag;
-				uint8_t			rpl_idx[2];
+				uint8_t			rpl_idx[2] = { 0, 0 };
 
 				std::shared_ptr<REF_PIC_LIST_STRUCT>
 								ref_pic_list_struct[2];
