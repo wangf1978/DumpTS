@@ -198,7 +198,7 @@ namespace BST {
 			RET_CODE					SetNUFilters(std::initializer_list<uint8_t> NU_type_filters);
 			RET_CODE					GetNUFilters(std::vector<uint8_t>& NU_type_filters);
 			bool						IsNUFiltered(uint8_t nal_unit_type);
-			RET_CODE					SetActiveNUType(int8_t nu_type) {m_active_nu_type = nu_type; return RET_CODE_SUCCESS;}
+			RET_CODE					SetActiveNUType(int8_t nu_type) { m_active_nu_type = nu_type; return RET_CODE_SUCCESS; }
 			int8_t						GetActiveNUType() { return m_active_nu_type; }
 			void						Reset();
 			H264_NU						GetAVCSPS(uint8_t sps_id);

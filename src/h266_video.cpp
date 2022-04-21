@@ -2875,6 +2875,399 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		NAL_UNIT::SLICE_HEADER::SLICE_HEADER(VideoBitstreamCtx* pCtx, int8_t nu_type)
+			: sh_num_tiles_in_slice_minus1(0), sh_cu_chroma_qp_offset_enabled_flag(0)
+			, sh_deblocking_params_present_flag(0), sh_dep_quant_used_flag(0), sh_deblocking_filter_disabled_flag(0)
+			, sh_cb_qp_offset(0), sh_cr_qp_offset(0), sh_joint_cbcr_qp_offset(0)
+			, sh_sign_data_hiding_used_flag(0), sh_ts_residual_coding_disabled_flag(0), m_pCtx(pCtx), nal_unit_type(nu_type){
+		}
+
+		NAL_UNIT::SLICE_HEADER::~SLICE_HEADER() {
+
+		}
+
+		int NAL_UNIT::SLICE_HEADER::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			H266_NU ph_nu, pps_nu, sps_nu;
+			PICTURE_HEADER_STRUCTURE* pPHStructure = nullptr;
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, sh_picture_header_in_slice_header_flag, 1);
+				if (sh_picture_header_in_slice_header_flag)
+				{
+					bsrbreadref(in_bst, picture_header_structure, PICTURE_HEADER_STRUCTURE, m_pCtx);
+					pPHStructure = picture_header_structure;
+				}
+				else
+				{
+					ph_nu = m_pCtx->GetVVCPH();
+					if (ph_nu == nullptr || ph_nu->ptr_picture_header_rbsp == nullptr)
+						return RET_CODE_ERROR_NOTIMPL;
+
+					pPHStructure = &ph_nu->ptr_picture_header_rbsp->picture_header_structure;
+				}
+
+				if ((pps_nu = m_pCtx->GetVVCPPS(pPHStructure->ph_pic_parameter_set_id)) == nullptr ||
+					(pps_nu->ptr_pic_parameter_set_rbsp == nullptr) ||
+					(sps_nu = m_pCtx->GetVVCSPS(pps_nu->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr ||
+					(sps_nu->ptr_seq_parameter_set_rbsp == nullptr))
+				{
+					return RET_CODE_ERROR_NOTIMPL;
+				}
+
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_subpic_info_present_flag) {
+					bsrb1(in_bst, sh_subpic_id, sps_nu->ptr_seq_parameter_set_rbsp->sps_subpic_id_len_minus1 + 1);
+				}
+
+				int CurrSubpicIdx = 0;
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_subpic_info_present_flag) {
+					uint32_t sh_subpic_id = (uint32_t)AMBst_GetBits(in_bst, sps_nu->ptr_seq_parameter_set_rbsp->sps_subpic_id_len_minus1 + 1);
+
+					for (; CurrSubpicIdx <= sps_nu->ptr_seq_parameter_set_rbsp->sps_num_subpics_minus1; CurrSubpicIdx++)
+						if (pps_nu->ptr_pic_parameter_set_rbsp->SubpicIdVal[CurrSubpicIdx] == sh_subpic_id)
+							break;
+				}
+
+				uint32_t NumTilesInPic = pps_nu->ptr_pic_parameter_set_rbsp->NumTileRows*pps_nu->ptr_pic_parameter_set_rbsp->NumTileColumns;
+				if ((pps_nu->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && 
+					 pps_nu->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic.size() > 0 && 
+					 pps_nu->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[CurrSubpicIdx] > 1)
+					|| (!pps_nu->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && NumTilesInPic > 1))
+				{
+					if (!pps_nu->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag) {
+						bsrb1(in_bst, sh_slice_address, quick_ceil_log2(NumTilesInPic));
+					}
+					else
+					{
+						bsrb1(in_bst, sh_slice_address, quick_ceil_log2(pps_nu->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[CurrSubpicIdx]));
+					}
+				}
+
+				for (int i = 0; i < sps_nu->ptr_seq_parameter_set_rbsp->NumExtraShBits; i++) {
+					bsrbarray(in_bst, sh_extra_bit, i);
+				}
+
+				if (!pps_nu->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && NumTilesInPic - sh_slice_address > 1) {
+					nal_read_ue1(in_bst, sh_num_tiles_in_slice_minus1);
+				}
+
+				if (pPHStructure->ph_inter_slice_allowed_flag) {
+					nal_read_ue1(in_bst, sh_slice_type);
+				}
+				else
+					sh_slice_type = VVC_I_SLICE;
+
+				if (nal_unit_type == IDR_W_RADL || nal_unit_type == IDR_N_LP || nal_unit_type == CRA_NUT || nal_unit_type == GDR_NUT) {
+					bsrb1(in_bst, sh_no_output_of_prior_pics_flag, 1);
+				}
+
+				if (pps_nu->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag) 
+				{
+					uint32_t picLevelSliceIdx = sh_slice_address;
+					for (int j = 0; j < CurrSubpicIdx; j++)
+						picLevelSliceIdx += pps_nu->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[j];
+
+					NumCtusInCurrSlice = pps_nu->ptr_pic_parameter_set_rbsp->NumCtusInSlice[picLevelSliceIdx];
+					CtbAddrInCurrSlice.resize(NumCtusInCurrSlice);
+					for (int i = 0; i < NumCtusInCurrSlice; i++)
+						CtbAddrInCurrSlice[i] = pps_nu->ptr_pic_parameter_set_rbsp->CtbAddrInSlice[picLevelSliceIdx][i];
+				}
+				else {
+					NumCtusInCurrSlice = 0;
+					for (uint32_t tileIdx = sh_slice_address; tileIdx <= sh_slice_address + sh_num_tiles_in_slice_minus1; tileIdx++) {
+						uint16_t tileX = tileIdx % pps_nu->ptr_pic_parameter_set_rbsp->NumTileColumns;
+						uint16_t tileY = tileIdx / pps_nu->ptr_pic_parameter_set_rbsp->NumTileColumns;
+						for (uint32_t ctbY = pps_nu->ptr_pic_parameter_set_rbsp->TileRowBdVal[tileY]; 
+									  ctbY < pps_nu->ptr_pic_parameter_set_rbsp->TileRowBdVal[tileY + 1]; ctbY++)
+						{
+							for (uint32_t ctbX = pps_nu->ptr_pic_parameter_set_rbsp->TileColBdVal[tileX];
+										  ctbX < pps_nu->ptr_pic_parameter_set_rbsp->TileColBdVal[tileX + 1]; ctbX++) 
+							{
+								CtbAddrInCurrSlice.push_back(ctbY * pps_nu->ptr_pic_parameter_set_rbsp->PicWidthInCtbsY + ctbX);
+								NumCtusInCurrSlice++;
+							}
+						}
+					}
+				}
+
+				uint8_t MinCbLog2SizeY = sps_nu->ptr_seq_parameter_set_rbsp->sps_log2_min_luma_coding_block_size_minus2 + 2;
+				if (sh_slice_type == VVC_I_SLICE)
+				{
+					MinQtLog2SizeY = MinCbLog2SizeY + pPHStructure->ph_log2_diff_min_qt_min_cb_intra_slice_luma;
+					MinQtLog2SizeC = MinCbLog2SizeY + pPHStructure->ph_log2_diff_min_qt_min_cb_intra_slice_chroma;
+					MaxBtSizeY = 1 << (MinQtLog2SizeY + pPHStructure->ph_log2_diff_max_bt_min_qt_intra_slice_luma);
+					MaxBtSizeC = 1 << (MinQtLog2SizeC + pPHStructure->ph_log2_diff_max_bt_min_qt_intra_slice_chroma);
+					MaxTtSizeY = 1 << (MinQtLog2SizeY + pPHStructure->ph_log2_diff_max_tt_min_qt_intra_slice_luma);
+					MaxTtSizeC = 1 << (MinQtLog2SizeC + pPHStructure->ph_log2_diff_max_tt_min_qt_intra_slice_chroma);
+					MaxMttDepthY = pPHStructure->ph_max_mtt_hierarchy_depth_intra_slice_luma;
+					MaxMttDepthC = pPHStructure->ph_max_mtt_hierarchy_depth_intra_slice_chroma;
+					CuQpDeltaSubdiv = pPHStructure->ph_cu_qp_delta_subdiv_intra_slice;
+					CuChromaQpOffsetSubdiv = pPHStructure->ph_cu_chroma_qp_offset_subdiv_intra_slice;
+				}
+				else
+				{
+					MinQtLog2SizeY = MinCbLog2SizeY + pPHStructure->ph_log2_diff_min_qt_min_cb_inter_slice;
+					MinQtLog2SizeC = MinCbLog2SizeY + pPHStructure->ph_log2_diff_min_qt_min_cb_inter_slice;
+					MaxBtSizeY = 1 << (MinQtLog2SizeY + pPHStructure->ph_log2_diff_max_bt_min_qt_inter_slice);
+					MaxBtSizeC = 1 << (MinQtLog2SizeC + pPHStructure->ph_log2_diff_max_bt_min_qt_inter_slice);
+					MaxTtSizeY = 1 << (MinQtLog2SizeY + pPHStructure->ph_log2_diff_max_tt_min_qt_inter_slice);
+					MaxTtSizeC = 1 << (MinQtLog2SizeC + pPHStructure->ph_log2_diff_max_tt_min_qt_inter_slice);
+					MaxMttDepthY = pPHStructure->ph_max_mtt_hierarchy_depth_inter_slice;
+					MaxMttDepthC = pPHStructure->ph_max_mtt_hierarchy_depth_inter_slice;
+					CuQpDeltaSubdiv = pPHStructure->ph_cu_qp_delta_subdiv_inter_slice;
+					CuChromaQpOffsetSubdiv = pPHStructure->ph_cu_chroma_qp_offset_subdiv_inter_slice;
+				}
+
+				MinQtSizeY = 1 << MinQtLog2SizeY;
+				MinQtSizeC = 1 << MinQtLog2SizeC;
+				MinBtSizeY = 1 << MinCbLog2SizeY;
+				MinTtSizeY = 1 << MinCbLog2SizeY;
+
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_alf_enabled_flag && !pps_nu->ptr_pic_parameter_set_rbsp->pps_alf_info_in_ph_flag) {
+					bsrb1(in_bst, sh_alf_enabled_flag, 1);
+					if (sh_alf_enabled_flag) {
+						bsrb1(in_bst, sh_num_alf_aps_ids_luma, 3);
+						for (uint16_t i = 0; i < sh_num_alf_aps_ids_luma; i++) {
+							bsrb1(in_bst, sh_alf_aps_id_luma[i], 3);
+						}
+
+						if (sps_nu->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+							bsrb1(in_bst, sh_alf_cb_enabled_flag, 1);
+							bsrb1(in_bst, sh_alf_cr_enabled_flag, 1);
+						}
+						else
+						{
+							sh_alf_cb_enabled_flag = pPHStructure->ph_alf_cb_enabled_flag;
+							sh_alf_cr_enabled_flag = pPHStructure->ph_alf_cr_enabled_flag;
+						}
+
+						if (sh_alf_cb_enabled_flag || sh_alf_cr_enabled_flag) {
+							bsrb1(in_bst, sh_alf_aps_id_chroma, 3);
+						}
+						else
+							sh_alf_aps_id_chroma = pPHStructure->ph_alf_aps_id_chroma;
+
+						if (sps_nu->ptr_seq_parameter_set_rbsp->sps_ccalf_enabled_flag) {
+							bsrb1(in_bst, sh_alf_cc_cb_enabled_flag, 1);
+							if (sh_alf_cc_cb_enabled_flag) {
+								bsrb1(in_bst, sh_alf_cc_cb_aps_id, 3);
+							}
+							else
+								sh_alf_cc_cb_aps_id = pPHStructure->ph_alf_cc_cb_aps_id;
+
+							bsrb1(in_bst, sh_alf_cc_cr_enabled_flag, 1);
+							if (sh_alf_cc_cr_enabled_flag) {
+								bsrb1(in_bst, sh_alf_cc_cr_aps_id, 3);
+							}
+							else
+								sh_alf_cc_cr_aps_id = pPHStructure->ph_alf_cc_cr_aps_id;
+						}
+					}
+				}
+				else
+					sh_alf_enabled_flag = pPHStructure->ph_alf_enabled_flag;
+
+				if (pPHStructure->ph_lmcs_enabled_flag && !sh_picture_header_in_slice_header_flag)
+				{
+					bsrb1(in_bst, sh_lmcs_used_flag, 1);
+				}
+				else
+					sh_lmcs_used_flag = sh_picture_header_in_slice_header_flag ? pPHStructure->ph_lmcs_enabled_flag : 0;
+
+				if (pPHStructure->ph_explicit_scaling_list_enabled_flag && !sh_picture_header_in_slice_header_flag) {
+					bsrb1(in_bst, sh_explicit_scaling_list_used_flag, 1);
+				}
+				else
+					sh_explicit_scaling_list_used_flag = sh_picture_header_in_slice_header_flag ? pPHStructure->ph_explicit_scaling_list_enabled_flag : 0;
+
+				if (!pps_nu->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag
+					&& ((nal_unit_type != IDR_W_RADL && nal_unit_type != IDR_N_LP) || sps_nu->ptr_seq_parameter_set_rbsp->sps_idr_rpl_present_flag)) {
+					bsrbreadref(in_bst, ref_pic_lists, REF_PIC_LISTS, m_pCtx, pps_nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id);
+				}
+
+				std::shared_ptr<REF_PIC_LIST_STRUCT> curr_ref_pic_list[2] = 
+					{ m_pCtx->ref_pic_list_struct[0][m_pCtx->RplsIdx[0]], m_pCtx->ref_pic_list_struct[1][m_pCtx->RplsIdx[1]] };
+				if ((sh_slice_type != VVC_I_SLICE && curr_ref_pic_list[0] && curr_ref_pic_list[0]->num_ref_entries > 1) || 
+					(sh_slice_type == VVC_B_SLICE && curr_ref_pic_list[1] && curr_ref_pic_list[1]->num_ref_entries > 1)) {
+					bsrb1(in_bst, sh_num_ref_idx_active_override_flag, 1);
+				}
+				else
+					sh_num_ref_idx_active_override_flag = 1;
+
+				if (sh_num_ref_idx_active_override_flag) {
+					for (uint8_t i = 0; i < (sh_slice_type == VVC_B_SLICE ? 2 : 1); i++) {
+						if (curr_ref_pic_list[i] && curr_ref_pic_list[i]->num_ref_entries > 1) {
+							nal_read_ue1(in_bst, sh_num_ref_idx_active_minus1[i]);
+						}
+					}
+				}
+
+				if (sh_slice_type != VVC_I_SLICE) {
+					if (pps_nu->ptr_pic_parameter_set_rbsp->pps_cabac_init_present_flag) {
+						bsrb1(in_bst, sh_cabac_init_flag, 1);
+					}
+					else
+						sh_cabac_init_flag = 0;
+
+					if (sh_slice_type == VVC_B_SLICE)
+						sh_collocated_from_l0_flag = pPHStructure->ph_collocated_from_l0_flag;
+					else
+						sh_collocated_from_l0_flag = 1;
+
+					if (pPHStructure->ph_temporal_mvp_enabled_flag && !pps_nu->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag) {
+						if (sh_slice_type == VVC_B_SLICE) {
+							bsrb1(in_bst, sh_collocated_from_l0_flag, 1);
+						}
+
+						if (pps_nu->ptr_pic_parameter_set_rbsp->pps_rpl_info_in_ph_flag)
+							sh_collocated_ref_idx = pPHStructure->ph_collocated_ref_idx;
+						else
+							sh_collocated_ref_idx = 0;
+					
+						if ((sh_collocated_from_l0_flag && m_pCtx->NumRefIdxActive[0] > 1) || (!sh_collocated_from_l0_flag && m_pCtx->NumRefIdxActive[1] > 1)) {
+							nal_read_ue1(in_bst, sh_collocated_ref_idx);
+						}
+					}
+
+					if (!pps_nu->ptr_pic_parameter_set_rbsp->pps_wp_info_in_ph_flag && ((pps_nu->ptr_pic_parameter_set_rbsp->pps_weighted_pred_flag && sh_slice_type == VVC_P_SLICE) ||
+						(pps_nu->ptr_pic_parameter_set_rbsp->pps_weighted_bipred_flag && sh_slice_type == VVC_B_SLICE)))
+					{
+						bsrbreadref(in_bst, pred_weight_table, PRED_WEIGHT_TABLE, m_pCtx, pps_nu->ptr_pic_parameter_set_rbsp->pps_pic_parameter_set_id);
+					}
+				}
+
+				if (!pps_nu->ptr_pic_parameter_set_rbsp->pps_qp_delta_info_in_ph_flag) {
+					nal_read_se1(in_bst, sh_qp_delta);
+				}
+
+				if (pps_nu->ptr_pic_parameter_set_rbsp->pps_slice_chroma_qp_offsets_present_flag) {
+					nal_read_se1(in_bst, sh_cb_qp_offset);
+					nal_read_se1(in_bst, sh_cr_qp_offset);
+					if (sps_nu->ptr_seq_parameter_set_rbsp->sps_joint_cbcr_enabled_flag) {
+						nal_read_se1(in_bst, sh_joint_cbcr_qp_offset);
+					}
+				}
+
+				if (pps_nu->ptr_pic_parameter_set_rbsp->pps_cu_chroma_qp_offset_list_enabled_flag) {
+					bsrb1(in_bst, sh_cu_chroma_qp_offset_enabled_flag, 1);
+				}
+
+				sh_sao_luma_used_flag = pPHStructure->ph_sao_luma_enabled_flag;
+				sh_sao_chroma_used_flag = pPHStructure->ph_sao_chroma_enabled_flag;
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_sao_enabled_flag && !pps_nu->ptr_pic_parameter_set_rbsp->pps_sao_info_in_ph_flag) {
+					bsrb1(in_bst, sh_sao_luma_used_flag, 1);
+					if (sps_nu->ptr_seq_parameter_set_rbsp->sps_chroma_format_idc != 0) {
+						bsrb1(in_bst, sh_sao_chroma_used_flag, 1);
+					}
+				}
+
+				if (pps_nu->ptr_pic_parameter_set_rbsp->pps_deblocking_filter_override_enabled_flag && 
+					!pps_nu->ptr_pic_parameter_set_rbsp->pps_dbf_info_in_ph_flag) {
+					bsrb1(in_bst, sh_deblocking_params_present_flag, 1);
+				}
+
+				sh_luma_beta_offset_div2 = pPHStructure->ph_luma_beta_offset_div2;
+				sh_luma_tc_offset_div2 = pPHStructure->ph_luma_tc_offset_div2;
+
+				if (pps_nu->ptr_pic_parameter_set_rbsp->pps_chroma_tool_offsets_present_flag) {
+					sh_cb_beta_offset_div2 = pPHStructure->ph_cb_beta_offset_div2;
+					sh_cb_tc_offset_div2 = pPHStructure->ph_cb_tc_offset_div2;
+					sh_cr_beta_offset_div2 = pPHStructure->ph_cr_beta_offset_div2;
+					sh_cr_tc_offset_div2 = pPHStructure->ph_cr_tc_offset_div2;
+				}
+
+				if (sh_deblocking_params_present_flag) {
+					if (!pps_nu->ptr_pic_parameter_set_rbsp->pps_deblocking_filter_disabled_flag) {
+						bsrb1(in_bst, sh_deblocking_filter_disabled_flag, 1);
+					}
+					else
+						sh_deblocking_filter_disabled_flag = 0;
+
+					if (!sh_deblocking_filter_disabled_flag) {
+						nal_read_se1(in_bst, sh_luma_beta_offset_div2);
+						nal_read_se1(in_bst, sh_luma_tc_offset_div2);
+
+						if (pps_nu->ptr_pic_parameter_set_rbsp->pps_chroma_tool_offsets_present_flag) {
+							nal_read_se1(in_bst, sh_cb_beta_offset_div2);
+							nal_read_se1(in_bst, sh_cb_tc_offset_div2);
+							nal_read_se1(in_bst, sh_cr_beta_offset_div2);
+							nal_read_se1(in_bst, sh_cr_tc_offset_div2);
+						}
+						else
+						{
+							sh_cb_beta_offset_div2 = sh_cr_beta_offset_div2 = sh_luma_beta_offset_div2;
+							sh_cb_tc_offset_div2 = sh_cr_tc_offset_div2 = sh_luma_tc_offset_div2;
+						}
+					}
+				}
+				else
+					sh_deblocking_filter_disabled_flag = pPHStructure->ph_deblocking_filter_disabled_flag;
+
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_dep_quant_enabled_flag) {
+					bsrb1(in_bst, sh_dep_quant_used_flag, 1);
+				}
+
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_sign_data_hiding_enabled_flag && !sh_dep_quant_used_flag) {
+					bsrb1(in_bst, sh_sign_data_hiding_used_flag, 1);
+				}
+
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_transform_skip_enabled_flag && !sh_dep_quant_used_flag && !sh_sign_data_hiding_used_flag) {
+					bsrb1(in_bst, sh_ts_residual_coding_disabled_flag, 1);
+				}
+
+				if (pps_nu->ptr_pic_parameter_set_rbsp->pps_slice_header_extension_present_flag) {
+					nal_read_ue1(in_bst, sh_slice_header_extension_length);
+					sh_slice_header_extension_data_byte.resize(sh_slice_header_extension_length);
+					for(int i = 0; i < sh_slice_header_extension_length; i++){
+						bsrb1(in_bst, sh_slice_header_extension_data_byte[i], 8);
+					}
+				}
+
+				int NumEntryPoints = 0; 
+				if (sps_nu->ptr_seq_parameter_set_rbsp->sps_entry_point_offsets_present_flag){
+					for (uint16_t i = 1; i < NumCtusInCurrSlice; i++) {
+						uint32_t ctbAddrX = CtbAddrInCurrSlice[i] % pps_nu->ptr_pic_parameter_set_rbsp->PicWidthInCtbsY;
+						uint32_t ctbAddrY = CtbAddrInCurrSlice[i] / pps_nu->ptr_pic_parameter_set_rbsp->PicWidthInCtbsY;
+						uint32_t prevCtbAddrX = CtbAddrInCurrSlice[i - 1] % pps_nu->ptr_pic_parameter_set_rbsp->PicWidthInCtbsY;
+						uint32_t prevCtbAddrY = CtbAddrInCurrSlice[i - 1] / pps_nu->ptr_pic_parameter_set_rbsp->PicWidthInCtbsY;
+						if (pps_nu->ptr_pic_parameter_set_rbsp->CtbToTileRowBd[ctbAddrY] != pps_nu->ptr_pic_parameter_set_rbsp->CtbToTileRowBd[prevCtbAddrY]
+							|| pps_nu->ptr_pic_parameter_set_rbsp->CtbToTileColBd[ctbAddrX] != pps_nu->ptr_pic_parameter_set_rbsp->CtbToTileColBd[prevCtbAddrX]
+							|| (ctbAddrY != prevCtbAddrY && sps_nu->ptr_seq_parameter_set_rbsp->sps_entropy_coding_sync_enabled_flag))
+							NumEntryPoints++;
+					}
+				}
+
+				if (NumEntryPoints > 0)
+				{
+					nal_read_ue1(in_bst, sh_entry_offset_len_minus1);
+					sh_entry_point_offset_minus1.resize(NumEntryPoints);
+					for (int i = 0; i < NumEntryPoints; i++) {
+						bsrb1(in_bst, sh_entry_point_offset_minus1[i], sh_entry_offset_len_minus1);
+					}
+				}
+
+				AMBst_Realign(in_bst);
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::SLICE_HEADER::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
 		NAL_UNIT::~NAL_UNIT() {
 			switch (nal_unit_header.nal_unit_type)
 			{

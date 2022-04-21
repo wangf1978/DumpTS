@@ -719,7 +719,6 @@ int CNALParser::PickupVVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUB
 		}
 		else
 		{
-
 			int CurrSubpicIdx = 0;
 			if (sps->ptr_seq_parameter_set_rbsp->sps_subpic_info_present_flag) {
 				uint32_t sh_subpic_id = (uint32_t)AMBst_GetBits(bs, sps->ptr_seq_parameter_set_rbsp->sps_subpic_id_len_minus1 + 1);

@@ -2015,6 +2015,107 @@ namespace BST {
 				int Unmap(AMBst out_bst);
 			};
 
+			struct SLICE_HEADER : public SYNTAX_BITSTREAM_MAP
+			{
+				uint16_t		sh_picture_header_in_slice_header_flag : 1;
+				uint16_t		sh_slice_type : 3;
+				uint16_t		sh_no_output_of_prior_pics_flag : 1;
+				uint16_t		sh_alf_enabled_flag : 1;
+				uint16_t		sh_num_alf_aps_ids_luma : 3;
+				uint16_t		sh_alf_cb_enabled_flag : 1;
+				uint16_t		sh_alf_cr_enabled_flag : 1;
+				uint16_t		sh_alf_aps_id_chroma : 3;
+				uint16_t		sh_alf_cc_cb_enabled_flag : 1;
+				uint16_t		sh_alf_cc_cr_enabled_flag : 1;
+
+				uint16_t		sh_subpic_id;
+
+				uint32_t		sh_slice_address;
+				CAMBitArray		sh_extra_bit;
+				uint16_t		sh_num_tiles_in_slice_minus1;
+
+				uint8_t			sh_alf_aps_id_luma[8];
+				
+				uint8_t			sh_alf_cc_cb_aps_id : 3;
+				uint8_t			sh_alf_cc_cr_aps_id : 3;
+				uint8_t			sh_lmcs_used_flag : 1;
+				uint8_t			sh_explicit_scaling_list_used_flag : 1;
+
+				uint8_t			sh_num_ref_idx_active_override_flag : 1;
+				uint8_t			sh_cabac_init_flag : 1;
+				uint8_t			sh_collocated_from_l0_flag: 1;
+				uint8_t			sh_cu_chroma_qp_offset_enabled_flag : 1;
+				uint8_t			sh_sao_luma_used_flag : 1;
+				uint8_t			sh_sao_chroma_used_flag : 1;
+				uint8_t			sh_deblocking_params_present_flag : 1;
+				uint8_t			sh_dep_quant_used_flag : 1;
+
+				uint8_t			sh_collocated_ref_idx:7;
+				uint8_t			sh_deblocking_filter_disabled_flag : 1;
+
+				uint8_t			sh_num_ref_idx_active_minus1[2] = { 0 , 0 };
+
+				int8_t			sh_qp_delta;
+				int8_t			sh_cb_qp_offset;
+				int8_t			sh_cr_qp_offset;
+				int8_t			sh_joint_cbcr_qp_offset;
+
+				int8_t			sh_luma_beta_offset_div2;
+				int8_t			sh_luma_tc_offset_div2;
+				int8_t			sh_cb_beta_offset_div2;
+				int8_t			sh_cb_tc_offset_div2;
+				int8_t			sh_cr_beta_offset_div2;
+				int8_t			sh_cr_tc_offset_div2;
+
+				uint16_t		sh_sign_data_hiding_used_flag : 1;
+				uint16_t		sh_ts_residual_coding_disabled_flag : 1;
+				uint16_t		sh_slice_header_extension_length : 9;
+				uint16_t		sh_entry_offset_len_minus1 : 5;
+
+				std::vector<uint8_t>
+								sh_slice_header_extension_data_byte;
+
+				std::vector<uint32_t>
+								sh_entry_point_offset_minus1;
+
+				PICTURE_HEADER_STRUCTURE*
+								picture_header_structure = nullptr;
+
+				REF_PIC_LISTS*	ref_pic_lists = nullptr;
+
+				PRED_WEIGHT_TABLE*
+								pred_weight_table = nullptr;
+
+				VideoBitstreamCtx*
+								m_pCtx;
+				int8_t			nal_unit_type;
+
+				uint16_t		NumCtusInCurrSlice = 0;
+				std::vector<uint32_t>
+								CtbAddrInCurrSlice;
+
+				uint8_t			MinQtLog2SizeY = 0;
+				uint8_t			MinQtLog2SizeC = 0;
+				uint32_t		MaxBtSizeY = 0;
+				uint32_t		MaxBtSizeC = 0;
+				uint32_t		MaxTtSizeY = 0;
+				uint32_t		MaxTtSizeC = 0;
+				uint8_t			MaxMttDepthY = 0;
+				uint8_t			MaxMttDepthC = 0;
+				uint8_t			CuQpDeltaSubdiv = 0;
+				uint8_t			CuChromaQpOffsetSubdiv = 0;
+
+				uint32_t		MinQtSizeY = 0;
+				uint32_t		MinQtSizeC = 0;
+				uint32_t		MinBtSizeY = 0;
+				uint32_t		MinTtSizeY = 0;
+
+				SLICE_HEADER(VideoBitstreamCtx* pCtx, int8_t nu_type);
+				~SLICE_HEADER();
+				int Map(AMBst bst);
+				int Unmap(AMBst out_bst);
+			};
+
 			NAL_UNIT_HEADER		nal_unit_header;
 			union
 			{
