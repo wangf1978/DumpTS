@@ -433,7 +433,8 @@ int MSENav::Load(uint32_t enum_options)
 		for (; i < _countof(support_schemas); i++)
 		{
 			if (support_schemas[i].length() == (size_t)MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].length &&
-				MBCSNICMP(szMSEURI + MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].start, support_schemas[i].c_str(), MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].length) == 0)
+				MBCSNICMP(szMSEURI + MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].start, 
+					support_schemas[i].c_str(), MSE_uri_components.Ranges[URI_COMPONENT_SCHEME].length) == 0)
 				break;
 		}
 		if (i >= _countof(support_schemas))
@@ -1362,9 +1363,14 @@ public:
 
 		const char* szCVSType = "";
 		if (m_curr_nal_coding == NAL_CODING_HEVC)
-			szCVSType = IS_CRA(represent_nal_unit_type) ? "(CRA, open GOP)" : (IS_BLA(represent_nal_unit_type) ? "(BLA)" : (IS_IDR(represent_nal_unit_type) ? "(IDR, closed GOP)" : ""));
+			szCVSType = IS_CRA(represent_nal_unit_type) ? "(CRA, open GOP)" 
+														: (IS_BLA(represent_nal_unit_type) 
+															? "(BLA)" 
+															: (IS_IDR(represent_nal_unit_type) ? "(IDR, closed GOP)" : ""));
 		else if (m_curr_nal_coding == NAL_CODING_AVC)
 			szCVSType = represent_nal_unit_type == AVC_CS_IDR_PIC ? "(IDR, closed GOP)" : "(I, open GOP)";
+		else if (m_curr_nal_coding == NAL_CODING_VVC)
+			szCVSType = IS_VVC_CRA(represent_nal_unit_type) ? "(CRA, open GOP)" : (IS_VVC_IDR(represent_nal_unit_type) ? "(IDR, closed GOP)" : "");
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sCVS#%" PRId64 " %s",
 			(m_level[NAL_LEVEL_CVS]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_CVS]], szCVSType);
@@ -1404,7 +1410,8 @@ public:
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sAU#%" PRId64 " (%s)",
 			(m_level[NAL_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_AU]],
 			m_curr_nal_coding == NAL_CODING_AVC?AVC_PIC_SLICE_TYPE_NAMEA(picture_slice_type):(
-			m_curr_nal_coding == NAL_CODING_HEVC?HEVC_PIC_SLICE_TYPE_NAMEA(picture_slice_type):""));
+			m_curr_nal_coding == NAL_CODING_HEVC?HEVC_PIC_SLICE_TYPE_NAMEA(picture_slice_type):(
+			m_curr_nal_coding == NAL_CODING_VVC? VVC_PIC_SLICE_TYPE_NAMEA(picture_slice_type) : "")));
 
 		if (ccWrittenOnce <= 0)
 			return RET_CODE_NOTHING_TODO;
@@ -1461,8 +1468,9 @@ public:
 				{
 					ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s::%s",
 						(m_level[NAL_LEVEL_NU]) * 4, g_szRule, "NU", m_unit_index[m_level[NAL_LEVEL_NU]],
-						m_curr_nal_coding == NAL_CODING_AVC ? (IS_AVC_VCL_NAL(nal_unit_type) ? "VCL" : "non-VCL") : (
-						m_curr_nal_coding == NAL_CODING_HEVC ? (IS_HEVC_VCL_NAL(nal_unit_type) ? "VCL" : "non-VCL") : ""),
+						m_curr_nal_coding == NAL_CODING_AVC ?  (IS_AVC_VCL_NAL(nal_unit_type)  ? "VCL" : "non-VCL") : (
+						m_curr_nal_coding == NAL_CODING_HEVC ? (IS_HEVC_VCL_NAL(nal_unit_type) ? "VCL" : "non-VCL") : (
+						m_curr_nal_coding == NAL_CODING_VVC ?  (IS_VVC_VCL_NAL(nal_unit_type)  ? "VCL" : "non-VCL") : "")),
 						GetNUName(nal_unit_type));
 				}
 
@@ -1663,14 +1671,21 @@ public:
 			else if (m_curr_nu_type == HEVC_PPS_NUT) m_filtered_nu_count[NU_FILTER_PPS]++;
 			else if (m_curr_nu_type == HEVC_FD_NUT)  m_filtered_nu_count[NU_FILTER_FIL]++;
 		}
-
-		if ((m_curr_nal_coding == NAL_CODING_AVC && IS_AVC_VCL_NAL(m_curr_nu_type)) ||
-			(m_curr_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(m_curr_nu_type)))
-			m_filtered_nu_count[NU_FILTER_VCL]++;
-		
-		if ((m_curr_nal_coding == NAL_CODING_AVC && (m_curr_nu_type == AVC_SEI_NUT)) ||
-			(m_curr_nal_coding == NAL_CODING_HEVC &&(m_curr_nu_type == HEVC_PREFIX_SEI_NUT || m_curr_nu_type == HEVC_SUFFIX_SEI_NUT)))
-
+		else if (m_curr_nal_coding == NAL_CODING_VVC)
+		{
+			if (IS_VVC_VCL_NAL(m_curr_nu_type)) {
+				if (IS_VVC_IDR(m_curr_nu_type))
+					m_filtered_nu_count[NU_FILTER_IDR]++;
+				m_filtered_nu_count[NU_FILTER_VCL]++;
+			}
+			else if (m_curr_nu_type == VVC_PREFIX_SEI_NUT || m_curr_nu_type == VVC_SUFFIX_SEI_NUT)
+				m_filtered_nu_count[NU_FILTER_SEI]++;
+			else if (m_curr_nu_type == VVC_AUD_NUT) m_filtered_nu_count[NU_FILTER_AUD]++;
+			else if (m_curr_nu_type == VVC_VPS_NUT) m_filtered_nu_count[NU_FILTER_VPS]++;
+			else if (m_curr_nu_type == VVC_SPS_NUT) m_filtered_nu_count[NU_FILTER_SPS]++;
+			else if (m_curr_nu_type == VVC_PPS_NUT) m_filtered_nu_count[NU_FILTER_PPS]++;
+			else if (m_curr_nu_type == VVC_FD_NUT)  m_filtered_nu_count[NU_FILTER_FIL]++;
+		}
 
 		m_unit_index[m_level[NAL_LEVEL_NU]]++;
 		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
@@ -1764,7 +1779,8 @@ protected:
 		{
 			if (nal_unit_type != 0xFF && !(
 				(m_curr_nal_coding == NAL_CODING_AVC  && (nal_unit_type == BST::H264Video::SEI_NUT)) ||
-				(m_curr_nal_coding == NAL_CODING_HEVC && (nal_unit_type >= BST::H265Video::PREFIX_SEI_NUT || nal_unit_type == BST::H265Video::SUFFIX_SEI_NUT))))
+				(m_curr_nal_coding == NAL_CODING_HEVC && (nal_unit_type >= BST::H265Video::PREFIX_SEI_NUT || nal_unit_type == BST::H265Video::SUFFIX_SEI_NUT)) ||
+				(m_curr_nal_coding == NAL_CODING_VVC  && (nal_unit_type >= BST::H266Video::PREFIX_SEI_NUT || nal_unit_type == BST::H266Video::SUFFIX_SEI_NUT))))
 			{
 				return RET_CODE_NOTHING_TODO;
 			}
@@ -1865,6 +1881,17 @@ protected:
 					else if (nal_unit_type == HEVC_PPS_NUT && ft == NU_FILTER_PPS) bHit = true;
 					else if (nal_unit_type == HEVC_FD_NUT  && ft == NU_FILTER_FIL) bHit = true;
 				}
+				else if (m_curr_nal_coding == NAL_CODING_VVC)
+				{
+					if (IS_VVC_VCL_NAL(nal_unit_type) && ft == NU_FILTER_VCL) bHit = true;
+					else if (IS_VVC_IDR(nal_unit_type) && ft == NU_FILTER_IDR) bHit = true;
+					else if ((nal_unit_type == VVC_PREFIX_SEI_NUT || nal_unit_type == VVC_SUFFIX_SEI_NUT) && ft == NU_FILTER_IDR) bHit = true;
+					else if (nal_unit_type == VVC_AUD_NUT && ft == NU_FILTER_AUD) bHit = true;
+					else if (nal_unit_type == VVC_VPS_NUT && ft == NU_FILTER_VPS) bHit = true;
+					else if (nal_unit_type == VVC_SPS_NUT && ft == NU_FILTER_SPS) bHit = true;
+					else if (nal_unit_type == VVC_PPS_NUT && ft == NU_FILTER_PPS) bHit = true;
+					else if (nal_unit_type == VVC_FD_NUT  && ft == NU_FILTER_FIL) bHit = true;
+				}
 
 				if (!bHit)
 					continue;
@@ -1931,6 +1958,8 @@ protected:
 			return nal_unit_type >= 0 && nal_unit_type < _countof(avc_nal_unit_type_short_names) ? avc_nal_unit_type_short_names[nal_unit_type] : "";
 		else if (m_curr_nal_coding == NAL_CODING_HEVC)
 			return nal_unit_type >= 0 && nal_unit_type < _countof(hevc_nal_unit_type_short_names) ? hevc_nal_unit_type_short_names[nal_unit_type] : "";
+		else if (m_curr_nal_coding == NAL_CODING_VVC)
+			return nal_unit_type >= 0 && nal_unit_type < _countof(vvc_nal_unit_type_short_names) ? vvc_nal_unit_type_short_names[nal_unit_type] : "";
 		return "";
 	}
 
@@ -2004,6 +2033,14 @@ protected:
 				return RET_CODE_NEEDMOREINPUT;
 
 			nal_unit_type = (pEBSPNUBuf[0] >> 1) & 0x3F;;
+		}
+		else if (m_curr_nal_coding == NAL_CODING_VVC)
+		{
+			nalUnitHeaderBytes = 2;
+			if (cbEBSPNUBuf < 2)
+				return RET_CODE_NEEDMOREINPUT;
+
+			nal_unit_type = (pEBSPNUBuf[1] >> 3) & 0x1F;
 		}
 		else
 			return RET_CODE_ERROR_NOTIMPL;

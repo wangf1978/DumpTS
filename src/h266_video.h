@@ -128,6 +128,10 @@ namespace BST {
 			UNSPEC_31 = 31,
 		};
 
+		const uint8_t B_SLICE = 0;
+		const uint8_t P_SLICE = 1;
+		const uint8_t I_SLICE = 2;
+
 		int read_extension_and_trailing_bits(AMBst in_bst, SYNTAX_MAP_STATUS& map_status, 
 											 CAMBitArray& extension_data_flag, RBSP_TRAILING_BITS& rbsp_trailing_bits);
 

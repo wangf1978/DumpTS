@@ -874,6 +874,7 @@ namespace BST
 			, sps_virtual_boundaries_present_flag(0)
 			, sps_num_ver_virtual_boundaries(0)
 			, sps_num_hor_virtual_boundaries(0)
+			, sps_timing_hrd_params_present_flag(0)
 			, sps_sublayer_cpb_params_present_flag(0)
 		{
 		}

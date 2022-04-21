@@ -239,6 +239,16 @@ enum AVC_PICTURE_SLICE_TYPE
 	(st) == VVC_P_SLICE?L"P":(\
 	(st) == VVC_I_SLICE?L"I":L"")))
 
+#define VVC_PIC_SLICE_TYPE_NAMEA(st)	(\
+	(st) == VVC_B_SLICE?"B":(\
+	(st) == VVC_P_SLICE?"P":(\
+	(st) == VVC_I_SLICE?"I":"")))
+
+#define VVC_PIC_SLICE_TYPE_NAMEW(st)	(\
+	(st) == VVC_B_SLICE?L"B":(\
+	(st) == VVC_P_SLICE?L"P":(\
+	(st) == VVC_I_SLICE?L"I":L"")))
+
 #define IS_HEVC_PARAMETERSET_NAL(nal_unit_type)	(\
 	(nal_unit_type) == HEVC_VPS_NUT ||\
 	(nal_unit_type) == HEVC_SPS_NUT ||\
@@ -295,6 +305,25 @@ enum AVC_PICTURE_SLICE_TYPE
 #define IS_LEADING(nal_unit_type)		(IS_RADL(nal_unit_type) || IS_RASL(nal_unit_type))
 
 #define IS_TRAILING(nal_unit_type)		(IS_TRAIL(nal_unit_type) || IS_TSA(nal_unit_type) || IS_STSA(nal_unit_type))
+
+#define IS_VVC_TRAIL(nal_unit_type)		(nal_unit_type == VVC_TRAIL_NUT)
+
+#define IS_VVC_STSA(nal_unit_type)		(nal_unit_type >= VVC_STSA_NUT)
+
+#define IS_VVC_IDR(nal_unit_type)		(nal_unit_type >= VVC_IDR_W_RADL && nal_unit_type <= VVC_IDR_N_LP)
+
+#define IS_VVC_RADL(nal_unit_type)		(nal_unit_type == VVC_RADL_NUT)
+
+#define IS_VVC_RASL(nal_unit_type)		(nal_unit_type == VVC_RASL_NUT)
+
+#define IS_VVC_IRAP(nal_unit_type)		(nal_unit_type >= VVC_IDR_W_RADL && nal_unit_type <= VVC_RSV_IRAP_11)
+
+#define IS_VVC_CRA(nal_unit_type)		(nal_unit_type == VVC_CRA_NUT)
+
+#define IS_VVC_LEADING(nal_unit_type)	(IS_VVC_RADL(nal_unit_type) || IS_VVC_RASL(nal_unit_type))
+
+#define IS_VVC_TRAILING(nal_unit_type)	(IS_VVC_TRAIL(nal_unit_type) || IS_VVC_STSA(nal_unit_type))
+
 
 struct NAL_UNIT_ENTRY
 {

@@ -703,7 +703,7 @@ int CNALParser::PickupVVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUB
 			iRet = RET_CODE_NOTHING_TODO;
 		}
 
-		if (ph == nullptr ||
+		if (pic_parameter_set_id == -1 ||
 			(pps = m_pNALVVCCtx->GetVVCPPS(pic_parameter_set_id)) == nullptr ||
 			pps->ptr_pic_parameter_set_rbsp == nullptr ||
 			(sps = m_pNALVVCCtx->GetVVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr ||
@@ -731,7 +731,8 @@ int CNALParser::PickupVVCSliceHeaderInfo(NAL_UNIT_ENTRY& nu_entry, uint8_t* pNUB
 
 			uint32_t sh_slice_address = 0;
 			uint32_t NumTilesInPic = pps->ptr_pic_parameter_set_rbsp->NumTileRows*pps->ptr_pic_parameter_set_rbsp->NumTileColumns;
-			if ((pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && pps->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[CurrSubpicIdx] > 1) ||
+			if ((pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && pps->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic.size() > 0 && 
+				 pps->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[CurrSubpicIdx] > 1) ||
 				(!pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag && NumTilesInPic > 1))
 			{
 				if (!pps->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag) {
@@ -1278,7 +1279,338 @@ int CNALParser::CommitVVCPicture(
 	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_start,
 	std::vector<NAL_UNIT_ENTRY>::const_iterator pic_end)
 {
-	return RET_CODE_ERROR_NOTIMPL;
+	int iRet = RET_CODE_SUCCESS;
+	uint8_t picture_type = PIC_TYPE_UNKNOWN;
+
+	if (pic_end <= pic_start)
+		return RET_CODE_NEEDMOREINPUT;
+
+	int read_buf_len = 0;
+	uint8_t* pEBSPBuf = AM_LRB_GetReadPtr(m_rbNALUnitEBSP, &read_buf_len);
+
+	uint8_t* pAUBufStart = pEBSPBuf + pic_start->NU_offset;
+	uint8_t* pAUBufEnd = pEBSPBuf + (pic_end == m_nu_entries.cend() ? read_buf_len : pic_end->NU_offset);
+
+	// Get the first VCL NAL Unit in base layer
+	int16_t slice_pic_parameter_set_id = -1;
+	uint8_t nal_unit_type = 0XFF, picture_slice_type = 3;
+	auto firstBlPicNalUnit = pic_end;
+	bool bCVSChange = false, bHasVPS = false, bHasSPS = false;
+	int8_t represent_nal_unit_type = -1, first_I_nal_unit_type = -1;
+
+	for (auto iter = pic_start; iter != pic_end; iter++)
+	{
+		if (iter->nal_unit_type_vvc == BST::H266Video::VPS_NUT)
+			bHasVPS = true;
+		else if (iter->nal_unit_type_vvc == BST::H266Video::SPS_NUT)
+			bHasSPS = true;
+
+		// At present, only parsing base-layer NAL unit in advance
+		if (!IS_VVC_VCL_NAL(iter->nal_unit_type_vvc) || iter->nuh_layer_id_vvc != 0)
+			continue;
+
+		if (represent_nal_unit_type == -1 && (IS_VVC_IDR(iter->nal_unit_type_vvc) || IS_VVC_CRA(iter->nal_unit_type_vvc)))
+		{
+			represent_nal_unit_type = (int8_t)iter->nal_unit_type_vvc;
+			bCVSChange = true;
+		}
+
+		if (slice_pic_parameter_set_id == -1)
+		{
+			firstBlPicNalUnit = iter;
+			slice_pic_parameter_set_id = iter->slice_pic_parameter_set_id;
+		}
+		else if (slice_pic_parameter_set_id != iter->slice_pic_parameter_set_id)
+		{
+			// Break the spec, record it to error table
+			printf("[NALParser] slice_pic_parameter_set_id of all VCL NAL Units shall be the same in a coded picture.\n");
+			if (m_nal_enum)
+				m_nal_enum->EnumNALError(m_pCtx, iter->file_offset - iter->leading_bytes, 3);
+			break;
+		}
+
+		if (nal_unit_type == 0xFF)
+			nal_unit_type = iter->nal_unit_type_vvc;
+		else if (nal_unit_type != iter->nal_unit_type_vvc)
+		{
+			// Break the spec, record it to error table
+			printf("[NALParser] nal_unit_type of all VCL NAL Units shall be the same in a coded picture.\n");
+			if (m_nal_enum)
+				m_nal_enum->EnumNALError(m_pCtx, iter->file_offset - iter->leading_bytes, 4);
+		}
+
+		if (iter->slice_type == BST::H266Video::B_SLICE)
+			picture_slice_type = 0;
+		else if (iter->slice_type == BST::H266Video::P_SLICE && picture_slice_type >= 2)
+			picture_slice_type = 1;
+		else if (iter->slice_type == BST::H266Video::I_SLICE && picture_slice_type == 3)
+		{
+			first_I_nal_unit_type = iter->nal_unit_type_vvc;
+			picture_slice_type = 2;
+		}
+	}
+
+	if (picture_slice_type == 2 && bCVSChange == false && bHasVPS && bHasSPS)
+	{
+		represent_nal_unit_type = first_I_nal_unit_type;
+		bCVSChange = true;
+	}
+
+	// Judge the current picture type
+	if (IS_VVC_IDR(nal_unit_type))
+		picture_type = PIC_TYPE_IDR;
+	else if (IS_VVC_CRA(nal_unit_type))
+		picture_type = PIC_TYPE_CRA;
+	else if (IS_VVC_IRAP(nal_unit_type))
+		picture_type = PIC_TYPE_IRAP;
+	else if (IS_VVC_LEADING(nal_unit_type))
+		picture_type = PIC_TYPE_LEADING;
+	else if (IS_VVC_TRAILING(nal_unit_type))
+		picture_type = PIC_TYPE_TRAILING;
+
+	// Update EP_MAP
+	auto byte_stream_nal_unit_start_pos = pic_start->file_offset - pic_start->leading_bytes;
+
+	uint16_t pic_width_in_luma_samples = 0;
+	uint16_t pic_height_in_luma_samples = 0;
+	uint8_t aspect_ratio_info_present_flag = 0, colour_description_present_flag = 0, timing_info_present_flag = 0, units_field_based_flag = 0;
+	uint8_t aspect_ratio_idc = 0;
+	uint16_t sar_width = 0, sar_height = 0;
+	uint8_t colour_primaries = 0, transfer_characteristics = 0, matrix_coeffs = 0;
+	uint32_t num_units_in_tick = 0, time_scale = 0;
+
+	// Check PPS reference is changed or not
+	bool bSequenceChange = false;
+
+	if (slice_pic_parameter_set_id < 0 || slice_pic_parameter_set_id >= 64)
+	{
+		// Break the spec, record it to error table
+		printf("[NALParser] No available slice_pic_parameter_set_id for the current coded picture.\n");
+		if (m_nal_enum)
+			m_nal_enum->EnumNALError(m_pCtx, pic_start->file_offset - pic_start->leading_bytes, 4);
+		goto done;
+	}
+
+	if (firstBlPicNalUnit == pic_end)
+		printf("[NALParser] There is no base-layer VCL NAL Unit in the current code picture unit.\n");
+	else
+	{
+		// Check the sequence is changed or not
+		H266_NU sp_pps, sp_sps, sp_vps;
+		if (slice_pic_parameter_set_id < 0 ||
+			slice_pic_parameter_set_id > UINT8_MAX ||
+			!(sp_pps = m_pNALVVCCtx->GetVVCPPS((uint8_t)slice_pic_parameter_set_id)) ||
+			sp_pps->ptr_pic_parameter_set_rbsp == nullptr)
+		{
+			printf("[NALParser] The current picture unit is NOT associated with an available SPS.\n");
+			goto done;
+		}
+
+		sp_sps = m_pNALVVCCtx->GetVVCSPS(sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
+		if (!sp_sps || sp_sps->ptr_seq_parameter_set_rbsp == nullptr)
+		{
+			printf("[NALParser] The current picture unit is NOT associated with an available SPS.\n");
+			goto done;
+		}
+
+		if (m_nal_enum_options&MSE_ENUM_SYNTAX_VIEW)
+			m_pNALVVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
+
+		sp_vps = m_pNALVVCCtx->GetVVCVPS(sp_sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id);
+
+		pic_width_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->sps_pic_width_max_in_luma_samples;
+		pic_height_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->sps_pic_height_max_in_luma_samples;
+		if (sp_vps &&
+			sp_vps->ptr_video_parameter_set_rbsp != nullptr &&
+			sp_vps->ptr_video_parameter_set_rbsp->vps_timing_hrd_params_present_flag)
+		{
+			vvc_num_units_in_tick = sp_vps->ptr_video_parameter_set_rbsp->general_timing_hrd_parameters->num_units_in_tick;
+			vvc_time_scale = sp_vps->ptr_video_parameter_set_rbsp->general_timing_hrd_parameters->time_scale;
+		}
+
+		timing_info_present_flag = sp_sps->ptr_seq_parameter_set_rbsp->sps_timing_hrd_params_present_flag;
+		if (timing_info_present_flag)
+		{
+			num_units_in_tick = sp_sps->ptr_seq_parameter_set_rbsp->general_timing_hrd_parameters->num_units_in_tick;
+			time_scale = sp_sps->ptr_seq_parameter_set_rbsp->general_timing_hrd_parameters->time_scale;
+
+			vvc_num_units_in_tick = num_units_in_tick;
+			vvc_time_scale = time_scale;
+		}
+
+		if (sp_sps->ptr_seq_parameter_set_rbsp->sps_vui_parameters_present_flag)
+		{
+			vui_progressive_source_flag = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_progressive_source_flag;
+			vui_interlaced_source_flag  = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_interlaced_source_flag;
+			aspect_ratio_info_present_flag = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_aspect_ratio_info_present_flag;
+			if (aspect_ratio_info_present_flag)
+			{
+				aspect_ratio_idc = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_aspect_ratio_idc;
+				if (aspect_ratio_idc == 0xFF)
+				{
+					sar_width = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_sar_width;
+					sar_height = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_sar_height;
+				}
+			}
+
+			colour_description_present_flag = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_colour_description_present_flag;
+			if (colour_description_present_flag)
+			{
+				colour_primaries = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_colour_primaries;
+				transfer_characteristics = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_transfer_characteristics;
+				matrix_coeffs = sp_sps->ptr_seq_parameter_set_rbsp->vui_payload->vui_parameters.vui_matrix_coeffs;
+			}
+		}
+		else
+		{
+			vui_progressive_source_flag = 0;
+			vui_interlaced_source_flag = 0;
+		}
+
+		// check whether the same with the current sequence
+		if (nal_sequences.size() <= 0)
+			bSequenceChange = true;
+		else
+		{
+			auto& back = nal_sequences.back();
+			if (back.pic_width_in_luma_samples != pic_width_in_luma_samples ||
+				back.pic_height_in_luma_samples != pic_height_in_luma_samples)
+				bSequenceChange = true;
+			else
+			{
+				if (aspect_ratio_info_present_flag == 1 && back.aspect_ratio_info_present_flag == 1)
+				{
+					if (aspect_ratio_idc != back.aspect_ratio_idc)
+						bSequenceChange = true;
+					else if (aspect_ratio_idc == 0xFF && sar_height != 0 && back.sar_height != 0)
+						bSequenceChange = sar_height * back.sar_width != sar_width * back.sar_height ? true : false;
+				}
+
+				if (bSequenceChange == false && colour_description_present_flag == 1 && back.colour_description_present_flag == 1)
+				{
+					if (colour_primaries != back.colour_primaries ||
+						transfer_characteristics != back.transfer_characteristics ||
+						matrix_coeffs != back.matrix_coeffs)
+						bSequenceChange = true;
+				}
+
+				if (bSequenceChange == false && timing_info_present_flag == 1 && back.timing_info_present_flag == 1)
+				{
+					if (num_units_in_tick*back.time_scale != time_scale * back.num_units_in_tick)
+						bSequenceChange = true;
+				}
+			}
+		}
+	}
+
+	if (bSequenceChange)
+	{
+		nal_sequences.emplace_back();
+		auto& vvc_seq = nal_sequences.back();
+		memset(&vvc_seq, 0, sizeof(vvc_seq));
+		vvc_seq.start_byte_pos = byte_stream_nal_unit_start_pos;
+
+		vvc_seq.pic_width_in_luma_samples = pic_width_in_luma_samples;
+		vvc_seq.pic_height_in_luma_samples = pic_height_in_luma_samples;
+
+		vvc_seq.aspect_ratio_info_present_flag = aspect_ratio_info_present_flag;
+		if (aspect_ratio_info_present_flag)
+		{
+			vvc_seq.aspect_ratio_idc = aspect_ratio_idc;
+			if (aspect_ratio_idc == 0xFF)
+			{
+				vvc_seq.sar_width = sar_width;
+				vvc_seq.sar_height = sar_height;
+			}
+		}
+
+		vvc_seq.colour_description_present_flag = colour_description_present_flag;
+		if (colour_description_present_flag)
+		{
+			vvc_seq.colour_primaries = colour_primaries;
+			vvc_seq.transfer_characteristics = transfer_characteristics;
+			vvc_seq.matrix_coeffs = matrix_coeffs;
+		}
+
+		vvc_seq.timing_info_present_flag = timing_info_present_flag;
+		if (timing_info_present_flag)
+		{
+			vvc_seq.num_units_in_tick = num_units_in_tick;
+			vvc_seq.time_scale = time_scale;
+			vvc_seq.units_field_based_flag = units_field_based_flag;
+		}
+
+		// if there is no frame-rate information, don't set the presentation_start_time for the current VVC sequence
+		if (vvc_time_scale == 0 || vvc_presentation_time_code < 0)
+			vvc_seq.presentation_start_time = 0xFFFFFFFF;
+		else
+			vvc_seq.presentation_start_time = (uint32_t)(vvc_presentation_time_code / 10000LL);
+	}
+
+	// Add all related pps_pic_parameter_set_id
+	nal_sequences.back().pic_parameter_set_id_sel[slice_pic_parameter_set_id] = true;
+
+	if (vvc_time_scale != 0 && vvc_presentation_time_code >= 0)
+	{
+		bool bOnlyProgressive = vui_progressive_source_flag && !vui_interlaced_source_flag;
+		bool bOnlyInterlace = !vui_progressive_source_flag && vui_interlaced_source_flag;
+
+		if (bOnlyProgressive)
+			vvc_presentation_time_code += (int64_t)vvc_num_units_in_tick * 10000000LL / vvc_time_scale;
+		else if (bOnlyInterlace)
+			vvc_presentation_time_code += (int64_t)vvc_num_units_in_tick * 10000000LL * 2 / vvc_time_scale;
+		else
+			vvc_presentation_time_code = -1LL;
+	}
+	else
+		vvc_presentation_time_code = -1LL;
+
+	if (m_nal_enum)
+	{
+		uint8_t* pAUBuf = pAUBufStart;
+		size_t cbAUBuf = (size_t)(pAUBufEnd - pAUBufStart);
+
+		if (bSequenceChange && (m_nal_enum_options&NAL_ENUM_OPTION_VSEQ) && AMP_FAILED(m_nal_enum->EnumNewVSEQ(m_pCtx)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		if (bCVSChange && (m_nal_enum_options&NAL_ENUM_OPTION_CVS) && AMP_FAILED(m_nal_enum->EnumNewCVS(m_pCtx, represent_nal_unit_type)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		//if (pic_start->nal_unit_type != AVC_AUD_NUT)
+		//	printf("file position: %" PRIu64 "\n", pic_start->file_offset);
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUBegin(m_pCtx, pAUBuf, cbAUBuf, picture_slice_type)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+
+		for (auto iter = pic_start; iter != pic_end; iter++)
+		{
+			uint8_t* pNALUnitBuf = pEBSPBuf + iter->NU_offset;
+			pNALUnitBuf += iter->leading_bytes;
+
+			if (ParseNALUnit(pNALUnitBuf, iter->NU_length - iter->leading_bytes) == RET_CODE_ABORT)
+			{
+				iRet = RET_CODE_ABORT;
+				goto done;
+			}
+		}
+
+		if ((m_nal_enum_options&NAL_ENUM_OPTION_AU) && AMP_FAILED(m_nal_enum->EnumNALAUEnd(m_pCtx, pAUBuf, cbAUBuf)))
+		{
+			iRet = RET_CODE_ABORT;
+			goto done;
+		}
+	}
+
+done:
+	return iRet;
 }
 
 int CNALParser::CommitHEVCPicture(
@@ -1329,7 +1661,7 @@ int CNALParser::CommitHEVCPicture(
 		else if (slice_pic_parameter_set_id != iter->slice_pic_parameter_set_id)
 		{
 			// Break the spec, record it to error table
-			printf("[HEVCScanner] slice_pic_parameter_set_id of all VCL NAL Units shall be the same in a coded picture.\n");
+			printf("[NALParser] slice_pic_parameter_set_id of all VCL NAL Units shall be the same in a coded picture.\n");
 			if (m_nal_enum)
 				m_nal_enum->EnumNALError(m_pCtx, iter->file_offset - iter->leading_bytes, 3);
 			break;
@@ -1340,7 +1672,7 @@ int CNALParser::CommitHEVCPicture(
 		else if (nal_unit_type != iter->nal_unit_type_hevc)
 		{
 			// Break the spec, record it to error table
-			printf("[HEVCScanner] nal_unit_type of all VCL NAL Units shall be the same in a coded picture.\n");
+			printf("[NALParser] nal_unit_type of all VCL NAL Units shall be the same in a coded picture.\n");
 			if (m_nal_enum)
 				m_nal_enum->EnumNALError(m_pCtx, iter->file_offset - iter->leading_bytes, 4);
 		}
@@ -1391,14 +1723,14 @@ int CNALParser::CommitHEVCPicture(
 	if (slice_pic_parameter_set_id < 0 || slice_pic_parameter_set_id >= 64)
 	{
 		// Break the spec, record it to error table
-		printf("[HEVCScanner] No available slice_pic_parameter_set_id for the current coded picture.\n");
+		printf("[NALParser] No available slice_pic_parameter_set_id for the current coded picture.\n");
 		if (m_nal_enum)
 			m_nal_enum->EnumNALError(m_pCtx, pic_start->file_offset - pic_start->leading_bytes, 4);
 		goto done;
 	}
 
 	if (firstBlPicNalUnit == pic_end)
-		printf("[HEVCScanner] There is no base-layer VCL NAL Unit in the current code picture unit.\n");
+		printf("[NALParser] There is no base-layer VCL NAL Unit in the current code picture unit.\n");
 	else
 	{
 		// Check the sequence is changed or not
@@ -1408,14 +1740,14 @@ int CNALParser::CommitHEVCPicture(
 			!(sp_pps = m_pNALHEVCCtx->GetHEVCPPS((uint8_t)slice_pic_parameter_set_id)) || 
 			sp_pps->ptr_pic_parameter_set_rbsp == nullptr)
 		{
-			printf("[HEVCScanner] The current picture unit is NOT associated with an available SPS.\n");
+			printf("[NALParser] The current picture unit is NOT associated with an available SPS.\n");
 			goto done;
 		}
 
 		sp_sps = m_pNALHEVCCtx->GetHEVCSPS(sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
 		if (!sp_sps || sp_sps->ptr_seq_parameter_set_rbsp == nullptr)
 		{
-			printf("[HEVCScanner] The current picture unit is NOT associated with an available SPS.\n");
+			printf("[NALParser] The current picture unit is NOT associated with an available SPS.\n");
 			goto done;
 		}
 
@@ -1427,7 +1759,7 @@ int CNALParser::CommitHEVCPicture(
 		pic_width_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->pic_width_in_luma_samples;
 		pic_height_in_luma_samples = sp_sps->ptr_seq_parameter_set_rbsp->pic_height_in_luma_samples;
 
-		if(!sp_vps &&
+		if (sp_vps &&
 			sp_vps->ptr_video_parameter_set_rbsp != nullptr &&
 			sp_vps->ptr_video_parameter_set_rbsp->vps_timing_info_present_flag)
 		{
