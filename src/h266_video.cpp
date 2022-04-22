@@ -401,7 +401,11 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::ACCESS_UNIT_DELIMITER_RBSP)
-
+			NAV_WRITE_TAG_BEGIN_WITH_ALIAS("access_unit_delimiter_rbsp", "access_unit_delimiter_rbsp()", "the start of an AU");
+			BST_FIELD_PROP_BOOL(aud_irap_or_gdr_flag, "an IRAP or GDR AU", "NOT an IRAP or GDR AU");
+			BST_FIELD_PROP_NUMBER1(aud_pic_type, 3, aud_pic_type==0?"I":(aud_pic_type==1?"P,I":(aud_pic_type == 2?"B,P,I":"Unknown")));
+			BST_FIELD_PROP_OBJECT(rbsp_tailing_bits);
+			NAV_WRITE_TAG_END("access_unit_delimiter_rbsp");
 		DECLARE_FIELDPROP_END()
 
 		//
@@ -586,7 +590,25 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::PROFILE_TIER_LEVEL)
+			if (m_profileTierPresentFlag)
+			{
+				BST_FIELD_PROP_2NUMBER1(general_profile_idc, 7, vvc_profile_name[GetVVCProfile()]);
+				BST_FIELD_PROP_NUMBER1(general_tier_flag, 1, general_tier_flag ? "High tier" : "Main tier");
+			}
 
+			BST_FIELD_PROP_2NUMBER1_F(general_level_idc, 8, "Level %d.%d", general_level_idc / 16, general_level_idc % 16 / 3);
+			BST_FIELD_PROP_BOOL(ptl_frame_only_constraint_flag, 
+				"sps_field_seq_flag for all pictures in OlsInScope shall be equal to 0", 
+				"sps_field_seq_flag for some pictures in OlsInScope shall NOT be equal to 0");
+			BST_FIELD_PROP_BOOL(ptl_multilayer_enabled_flag, 
+				"the CVSs of OlsInScope might contain more than one layer", 
+				"all slices in OlsInScope shall have the same value of nuh_layer_id");
+			if (m_profileTierPresentFlag)
+			{
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "general_constraints_info()", "");
+				BST_FIELD_PROP_OBJECT(general_constraints_info);
+				NAV_WRITE_TAG_END("Tag0");
+			}
 		DECLARE_FIELDPROP_END()
 
 		//
@@ -1739,7 +1761,32 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP)
+		NAV_WRITE_TAG_BEGIN_WITH_ALIAS("decoding_capability_information_rbsp", "decoding_capability_information_rbsp()", "");
+		BST_FIELD_PROP_2NUMBER1(dci_reserved_zero_4bits, 4, "shall be equal to 0");
+		BST_FIELD_PROP_2NUMBER1(dci_num_ptls_minus1, 4, "plus 1 specifies the number of profile_tier_level() syntax structures");
 
+		NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;=dci_num_ptls_minus1;i++ )", "");
+		for (i = 0; i < (int)dci_num_ptls_minus1 + 1; i++) {
+			NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag00", "profile_tier_level( 1, 0 )", "no dci_extension_data_flag syntax elements are present");
+			BST_FIELD_PROP_REF(profile_tier_level[i]);
+			NAV_WRITE_TAG_END("Tag00");
+		}
+		NAV_WRITE_TAG_END("Tag0");
+
+		BST_FIELD_PROP_BOOL(dci_extension_flag, "dci_extension_data_flag syntax elements might be present", "");
+
+		if (dci_extension_flag)
+		{
+			NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "dci_extension_data_flags", "");
+			for (i = 0; i <= dci_extension_data_flag.UpperBound(); i++) {
+				BST_ARRAY_FIELD_PROP_NUMBER("dci_extension_data_flag", i, 1, dci_extension_data_flag[i], "");
+			}
+			NAV_WRITE_TAG_END("Tag1");
+		}
+
+		BST_FIELD_PROP_OBJECT(rbsp_trailing_bits);
+
+		NAV_WRITE_TAG_END("decoding_capability_information_rbsp");
 		DECLARE_FIELDPROP_END()
 
 		//
