@@ -368,6 +368,371 @@ namespace BST
 			return RET_CODE_SUCCESS;
 		}
 
+		//
+		//	access_unit_delimiter_rbsp()
+		//
+		int NAL_UNIT::ACCESS_UNIT_DELIMITER_RBSP::Map(AMBst in_bst)
+		{
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			try
+			{
+				uint8_t idx = 0;
+				MAP_BST_BEGIN(0);
+
+				bsrb1(in_bst, aud_irap_or_gdr_flag, 1);
+				bsrb1(in_bst, aud_pic_type, 3);
+
+				nal_read_obj(in_bst, rbsp_tailing_bits);
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::ACCESS_UNIT_DELIMITER_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::ACCESS_UNIT_DELIMITER_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// general_constraints_info()
+		//
+		int NAL_UNIT::GENERAL_CONSTRAINTS_INFO::Map(AMBst in_bst)
+		{
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			try
+			{
+				uint8_t idx = 0;
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, gci_present_flag, 1);
+				if (gci_present_flag) {
+					bsrb1(in_bst, gci_intra_only_constraint_flag, 1);
+					bsrb1(in_bst, gci_all_layers_independent_constraint_flag, 1);
+					bsrb1(in_bst, gci_one_au_only_constraint_flag, 1);
+					bsrb1(in_bst, gci_sixteen_minus_max_bitdepth_constraint_idc, 4);
+					bsrb1(in_bst, gci_three_minus_max_chroma_format_constraint_idc, 2);
+					bsrb1(in_bst, gci_no_mixed_nalu_types_in_pic_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_trail_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_stsa_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_rasl_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_radl_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_idr_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_cra_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_gdr_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_aps_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_idr_rpl_constraint_flag, 1);
+					bsrb1(in_bst, gci_one_tile_per_pic_constraint_flag, 1);
+					bsrb1(in_bst, gci_pic_header_in_slice_header_constraint_flag, 1);
+					bsrb1(in_bst, gci_one_slice_per_pic_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_rectangular_slice_constraint_flag, 1);
+					bsrb1(in_bst, gci_one_slice_per_subpic_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_subpic_info_constraint_flag, 1);
+					bsrb1(in_bst, gci_three_minus_max_log2_ctu_size_constraint_idc, 2);
+					bsrb1(in_bst, gci_no_partition_constraints_override_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_mtt_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_qtbtt_dual_tree_intra_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_palette_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_ibc_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_isp_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_mrl_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_mip_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_cclm_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_ref_pic_resampling_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_res_change_in_clvs_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_weighted_prediction_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_ref_wraparound_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_temporal_mvp_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_sbtmvp_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_amvr_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_bdof_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_smvd_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_dmvr_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_mmvd_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_affine_motion_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_prof_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_bcw_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_ciip_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_gpm_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_luma_transform_size_64_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_transform_skip_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_bdpcm_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_mts_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_lfnst_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_joint_cbcr_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_sbt_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_act_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_explicit_scaling_list_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_dep_quant_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_sign_data_hiding_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_cu_qp_delta_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_chroma_qp_offset_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_sao_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_alf_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_ccalf_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_lmcs_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_ladf_constraint_flag, 1);
+					bsrb1(in_bst, gci_no_virtual_boundaries_constraint_flag, 1);
+
+					bsrb1(in_bst, gci_num_reserved_bits, 8);
+					for (int i = 0; i < gci_num_reserved_bits; i++) {
+						bsrbarray(in_bst, gci_reserved_zero_bit, i);
+					}
+				}
+
+				idx = 0;
+				while (!AMBst_IsAligned(in_bst)) {
+					bsrbarray(in_bst, gci_alignment_zero_bit, idx);
+					idx++;
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::GENERAL_CONSTRAINTS_INFO::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::GENERAL_CONSTRAINTS_INFO)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// profile_tier_level()
+		//
+		int NAL_UNIT::PROFILE_TIER_LEVEL::Map(AMBst in_bst)
+		{
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+			try
+			{
+				uint8_t idx = 0;
+				MAP_BST_BEGIN(0);
+
+				if (m_profileTierPresentFlag) {
+					bsrb1(in_bst, general_profile_idc, 7);
+					bsrb1(in_bst, general_tier_flag, 1);
+				}
+
+				bsrb1(in_bst, general_level_idc, 8);
+				bsrb1(in_bst, ptl_frame_only_constraint_flag, 1);
+				bsrb1(in_bst, ptl_multilayer_enabled_flag, 1);
+
+				if (m_profileTierPresentFlag) {
+					nal_read_obj(in_bst, general_constraints_info);
+				}
+
+				for (int i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--) {
+					bsrbarray(in_bst, ptl_sublayer_level_present_flag, i);
+				}
+
+				idx = 0;
+				while (!AMBst_IsAligned(in_bst)) {
+					bsrbarray(in_bst, ptl_reserved_zero_bit, idx);
+					idx++;
+				}
+
+				if (m_MaxNumSubLayersMinus1 > 0)
+					sublayer_level_idc.resize(m_MaxNumSubLayersMinus1);
+
+				for (int i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--) {
+					if (ptl_sublayer_level_present_flag[i]) {
+						bsrb1(in_bst, sublayer_level_idc[i], 8);
+					}
+				}
+
+				if (m_profileTierPresentFlag) {
+					bsrb1(in_bst, ptl_num_sub_profiles, 8);
+					if (ptl_num_sub_profiles > 0)
+					{
+						general_sub_profile_idc.resize(ptl_num_sub_profiles);
+						for (int i = 0; i < ptl_num_sub_profiles; i++) {
+							bsrb1(in_bst, general_sub_profile_idc[i], 32);
+						}
+					}
+				}
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::PROFILE_TIER_LEVEL::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::PROFILE_TIER_LEVEL)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// dpb_parameters()
+		//
+		int NAL_UNIT::DPB_PARAMETERS::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				dpb_max_dec_pic_buffering_minus1.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
+				dpb_max_num_reorder_pics.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
+				dpb_max_latency_increase_plus1.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
+				if (m_subLayerInfoFlag)
+				{
+					for (int i = 0; i <= m_MaxSubLayersMinus1; i++) {
+						nal_read_ue(in_bst, dpb_max_dec_pic_buffering_minus1[i], uint32_t);
+						nal_read_ue(in_bst, dpb_max_num_reorder_pics[i], uint32_t);
+						nal_read_ue(in_bst, dpb_max_latency_increase_plus1[i], uint32_t);
+					}
+				}
+				else
+				{
+					nal_read_ue(in_bst, dpb_max_dec_pic_buffering_minus1[0], uint32_t);
+					nal_read_ue(in_bst, dpb_max_num_reorder_pics[0], uint32_t);
+					nal_read_ue(in_bst, dpb_max_latency_increase_plus1[0], uint32_t);
+				}
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::DPB_PARAMETERS::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::DPB_PARAMETERS)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// general_timing_hrd_parameters()
+		//
+		int NAL_UNIT::GENERAL_TIMING_HRD_PARAMETERS::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				bsrb1(in_bst, num_units_in_tick, 32);
+				bsrb1(in_bst, time_scale, 32);
+				bsrb1(in_bst, general_nal_hrd_params_present_flag, 1);
+				bsrb1(in_bst, general_vcl_hrd_params_present_flag, 1);
+				if (general_nal_hrd_params_present_flag || general_vcl_hrd_params_present_flag) {
+					bsrb1(in_bst, general_same_pic_timing_in_all_ols_flag, 1);
+					bsrb1(in_bst, general_du_hrd_params_present_flag, 1);
+
+					if (general_du_hrd_params_present_flag) {
+						bsrb1(in_bst, tick_divisor_minus2, 8);
+					}
+
+					bsrb1(in_bst, bit_rate_scale, 4);
+					bsrb1(in_bst, cpb_size_scale, 4);
+
+					if (general_du_hrd_params_present_flag) {
+						bsrb1(in_bst, cpb_size_du_scale, 4);
+					}
+
+					nal_read_ue(in_bst, hrd_cpb_cnt_minus1, uint8_t);
+				}
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::GENERAL_TIMING_HRD_PARAMETERS::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::GENERAL_TIMING_HRD_PARAMETERS)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// sublayer_hrd_parameters()
+		//
+		int NAL_UNIT::SUBLAYER_HRD_PARAMETERS::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				parameters.resize((size_t)m_pTimingHRDParameters->hrd_cpb_cnt_minus1 + 1);
+				for (int j = 0; j <= m_pTimingHRDParameters->hrd_cpb_cnt_minus1; j++) {
+					nal_read_ue(in_bst, parameters[j].bit_rate_value_minus1, uint32_t);
+					nal_read_ue(in_bst, parameters[j].cpb_size_value_minus1, uint32_t);
+
+					if (m_pTimingHRDParameters->general_du_hrd_params_present_flag)
+					{
+						nal_read_ue(in_bst, parameters[j].cpb_size_du_value_minus1, uint32_t);
+						nal_read_ue(in_bst, parameters[j].bit_rate_du_value_minus1, uint32_t);
+					}
+
+					bsrb1(in_bst, parameters[j].cbr_flag, 1);
+				}
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::SUBLAYER_HRD_PARAMETERS::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::SUBLAYER_HRD_PARAMETERS)
+
+		DECLARE_FIELDPROP_END()
+
 		REF_PIC_LIST_STRUCT::REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, void* seq_parameter_set_rbsp)
 			: ltrp_in_header_flag(1), m_listIdx(listIdx), m_rplsIdx(rplsIdx) {
 
@@ -827,6 +1192,9 @@ namespace BST
 
 		DECLARE_FIELDPROP_END()
 
+		//
+		// seq_parameter_set_rbsp()
+		//
 		NAL_UNIT::SEQ_PARAMETER_SET_RBSP::SEQ_PARAMETER_SET_RBSP()
 			: sps_res_change_in_clvs_allowed_flag(0)
 			, sps_independent_subpics_flag(1)
@@ -1309,6 +1677,13 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::SEQ_PARAMETER_SET_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// decoding_capability_information_rbsp()
+		//
 		NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP::DECODING_CAPABILITY_INFORMATION_RBSP(){
 
 		}
@@ -1363,6 +1738,13 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::DECODING_CAPABILITY_INFORMATION_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// operating_point_information_rbsp()
+		//
 		NAL_UNIT::OPERATING_POINT_INFORMATION_RBSP::OPERATING_POINT_INFORMATION_RBSP(){
 		}
 
@@ -1418,6 +1800,13 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::OPERATING_POINT_INFORMATION_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// adaptation_parameter_set_rbsp()
+		//
 		NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP::ALF_DATA::ALF_DATA(bool apsChromaPresentFlag)
 			: alf_chroma_filter_signal_flag(0)
 			, alf_cc_cb_filter_signal_flag(0)
@@ -1744,6 +2133,13 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::ADAPTATION_PARAMETER_SET_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// pic_parameter_set_rbsp()
+		//
 		NAL_UNIT::PIC_PARAMETER_SET_RBSP::PIC_PARAMETER_SET_RBSP(INALVVCContext* pCtx)
 			: pps_loop_filter_across_tiles_enabled_flag(0), pps_rect_slice_flag(1)
 			, pps_single_slice_per_subpic_flag(1), pps_tile_idx_delta_present_flag(0)
@@ -2300,6 +2696,13 @@ namespace BST
 			return RET_CODE_SUCCESS;
 		}
 
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::PIC_PARAMETER_SET_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// pred_weight_table()
+		//
 		int NAL_UNIT::PRED_WEIGHT_TABLE::Map(AMBst in_bst)
 		{
 			int iRet = RET_CODE_SUCCESS;
@@ -2451,8 +2854,9 @@ namespace BST
 
 			if (m_pCtx == nullptr ||
 				(pps = m_pCtx->GetVVCPPS(pic_parameter_set_id)) == nullptr ||
-				sps->ptr_pic_parameter_set_rbsp == nullptr ||
-				(sps = m_pCtx->GetVVCSPS(sps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr)
+				(pps->ptr_pic_parameter_set_rbsp == nullptr) ||
+				(sps = m_pCtx->GetVVCSPS(pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id)) == nullptr ||
+				(sps->ptr_seq_parameter_set_rbsp == nullptr))
 				return RET_CODE_ERROR_NOTIMPL;
 
 			try
@@ -2520,6 +2924,9 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		//
+		// picture_header_rbsp()
+		//
 		NAL_UNIT::PICTURE_HEADER_STRUCTURE::PICTURE_HEADER_STRUCTURE(VideoBitstreamCtx* pCtx)
 			: ph_gdr_pic_flag(0), ph_intra_slice_allowed_flag(1), ph_alf_enabled_flag(0)
 			, ph_alf_cb_enabled_flag(0), ph_alf_cr_enabled_flag(0), ph_alf_cc_cb_enabled_flag(0)
@@ -2875,8 +3282,15 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::PICTURE_HEADER_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
+		//
+		// slice_layer_rbsp()
+		//
 		NAL_UNIT::SLICE_HEADER::SLICE_HEADER(VideoBitstreamCtx* pCtx, int8_t nu_type)
-			: sh_num_tiles_in_slice_minus1(0), sh_cu_chroma_qp_offset_enabled_flag(0)
+			: sh_slice_address(0), sh_num_tiles_in_slice_minus1(0), sh_cu_chroma_qp_offset_enabled_flag(0)
 			, sh_deblocking_params_present_flag(0), sh_dep_quant_used_flag(0), sh_deblocking_filter_disabled_flag(0)
 			, sh_cb_qp_offset(0), sh_cr_qp_offset(0), sh_joint_cbcr_qp_offset(0)
 			, sh_sign_data_hiding_used_flag(0), sh_ts_residual_coding_disabled_flag(0), m_pCtx(pCtx), nal_unit_type(nu_type){
@@ -2968,13 +3382,16 @@ namespace BST
 				if (pps_nu->ptr_pic_parameter_set_rbsp->pps_rect_slice_flag) 
 				{
 					uint32_t picLevelSliceIdx = sh_slice_address;
-					for (int j = 0; j < CurrSubpicIdx; j++)
-						picLevelSliceIdx += pps_nu->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[j];
+					if (pps_nu->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic.size() > 0)
+					{
+						for (int j = 0; j < CurrSubpicIdx; j++)
+							picLevelSliceIdx += pps_nu->ptr_pic_parameter_set_rbsp->NumSlicesInSubpic[j];
 
-					NumCtusInCurrSlice = pps_nu->ptr_pic_parameter_set_rbsp->NumCtusInSlice[picLevelSliceIdx];
-					CtbAddrInCurrSlice.resize(NumCtusInCurrSlice);
-					for (int i = 0; i < NumCtusInCurrSlice; i++)
-						CtbAddrInCurrSlice[i] = pps_nu->ptr_pic_parameter_set_rbsp->CtbAddrInSlice[picLevelSliceIdx][i];
+						NumCtusInCurrSlice = pps_nu->ptr_pic_parameter_set_rbsp->NumCtusInSlice[picLevelSliceIdx];
+						CtbAddrInCurrSlice.resize(NumCtusInCurrSlice);
+						for (int i = 0; i < NumCtusInCurrSlice; i++)
+							CtbAddrInCurrSlice[i] = pps_nu->ptr_pic_parameter_set_rbsp->CtbAddrInSlice[picLevelSliceIdx][i];
+					}
 				}
 				else {
 					NumCtusInCurrSlice = 0;
@@ -3268,31 +3685,59 @@ namespace BST
 			return RET_CODE_ERROR_NOTIMPL;
 		}
 
+		int NAL_UNIT::SLICE_LAYER_RBSP::Map(AMBst in_bst)
+		{
+			int iRet = RET_CODE_SUCCESS;
+			SYNTAX_BITSTREAM_MAP::Map(in_bst);
+
+			int left_bits = 0;
+
+			try
+			{
+				MAP_BST_BEGIN(0);
+				nal_read_obj(in_bst, slice_header);
+
+				// TODO...
+				// read the slice_data
+
+				AMBst_Tell(in_bst, &left_bits);
+
+				MAP_BST_END();
+			}
+			catch (AMException e)
+			{
+				return e.RetCode();
+			}
+
+			return RET_CODE_SUCCESS;
+		}
+
+		int NAL_UNIT::SLICE_LAYER_RBSP::Unmap(AMBst out_bst)
+		{
+			UNREFERENCED_PARAMETER(out_bst);
+			return RET_CODE_ERROR_NOTIMPL;
+		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::SLICE_LAYER_RBSP)
+
+		DECLARE_FIELDPROP_END()
+
 		NAL_UNIT::~NAL_UNIT() {
 			switch (nal_unit_header.nal_unit_type)
 			{
 			case TRAIL_NUT:
-				break;
 			case STSA_NUT:
-				break;
 			case RADL_NUT:
-				break;
 			case RASL_NUT:
+			case IDR_W_RADL:
+			case IDR_N_LP:
+			case CRA_NUT:
+			case GDR_NUT:
+				UNMAP_STRUCT_POINTER5(ptr_slice_layer_rbsp);
 				break;
 			case RSV_VCL_4:
-				break;
 			case RSV_VCL_5:
-				break;
 			case RSV_VCL_6:
-				break;
-			case IDR_W_RADL:
-				break;
-			case IDR_N_LP:
-				break;
-			case CRA_NUT:
-				break;
-			case GDR_NUT:
-				break;
 			case RSV_IRAP_11:
 				break;
 			case OPI_NUT:
@@ -3368,27 +3813,18 @@ namespace BST
 				switch (nal_unit_header.nal_unit_type)
 				{
 				case TRAIL_NUT:
-					break;
 				case STSA_NUT:
-					break;
 				case RADL_NUT:
-					break;
 				case RASL_NUT:
+				case IDR_W_RADL:
+				case IDR_N_LP:
+				case CRA_NUT:
+				case GDR_NUT:
+					nal_read_ref(bst, ptr_slice_layer_rbsp, SLICE_LAYER_RBSP, ptr_ctx_video_bst, nal_unit_header.nal_unit_type);
 					break;
 				case RSV_VCL_4:
-					break;
 				case RSV_VCL_5:
-					break;
 				case RSV_VCL_6:
-					break;
-				case IDR_W_RADL:
-					break;
-				case IDR_N_LP:
-					break;
-				case CRA_NUT:
-					break;
-				case GDR_NUT:
-					break;
 				case RSV_IRAP_11:
 					break;
 				case OPI_NUT:
@@ -3471,6 +3907,77 @@ namespace BST
 			UNREFERENCED_PARAMETER(out_bst);
 			return RET_CODE_ERROR_NOTIMPL;
 		}
+
+		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT)
+			NAV_WRITE_TAG_BEGIN2_1("NAL_UNIT", vvc_nal_unit_type_descs[nal_unit_header.nal_unit_type]);
+			BST_FIELD_PROP_OBJECT(nal_unit_header);
+			switch (nal_unit_header.nal_unit_type)
+			{
+			case TRAIL_NUT:
+			case STSA_NUT:
+			case RADL_NUT:
+			case RASL_NUT:
+			case IDR_W_RADL:
+			case IDR_N_LP:
+			case CRA_NUT:
+			case GDR_NUT:
+				NAV_FIELD_PROP_REF(ptr_slice_layer_rbsp);
+				break;
+			case RSV_VCL_4:
+			case RSV_VCL_5:
+			case RSV_VCL_6:
+			case RSV_IRAP_11:
+				break;
+			case OPI_NUT:
+				NAV_FIELD_PROP_REF(ptr_operating_point_information_rbsp);
+				break;
+			case DCI_NUT:
+				NAV_FIELD_PROP_REF(ptr_decoding_capability_information_rbsp);
+				break;
+			case VPS_NUT:
+				NAV_FIELD_PROP_REF(ptr_video_parameter_set_rbsp);
+				break;
+			case SPS_NUT:
+				NAV_FIELD_PROP_REF(ptr_seq_parameter_set_rbsp);
+				break;
+			case PPS_NUT:
+				NAV_FIELD_PROP_REF(ptr_pic_parameter_set_rbsp);
+				break;
+			case PREFIX_APS_NUT:
+			case SUFFIX_APS_NUT:
+				NAV_FIELD_PROP_REF(ptr_adaptation_parameter_set_rbsp);
+				break;
+			case PH_NUT:
+				NAV_FIELD_PROP_REF(ptr_picture_header_rbsp);
+				break;
+			case AUD_NUT:
+				NAV_FIELD_PROP_REF(ptr_access_unit_delimiter_rbsp);
+				break;
+			case EOS_NUT:
+				break;
+			case EOB_NUT:
+				break;
+			case PREFIX_SEI_NUT:
+			case SUFFIX_SEI_NUT:
+				NAV_FIELD_PROP_REF(ptr_sei_rbsp);
+				break;
+			case FD_NUT:
+				break;
+			case RSV_NVCL_26:
+				break;
+			case RSV_NVCL_27:
+				break;
+			case UNSPEC_28:
+				break;
+			case UNSPEC_29:
+				break;
+			case UNSPEC_30:
+				break;
+			case UNSPEC_31:
+				break;
+			}
+			NAV_WRITE_TAG_END2("NAL_UNIT");
+		DECLARE_FIELDPROP_END()
 	}
 }
 

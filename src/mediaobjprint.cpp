@@ -283,6 +283,7 @@ void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALN
 	NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
 	INALAVCContext* pNALAVCCtx = nullptr;
 	INALHEVCContext* pNALHEVCCtx = nullptr;
+	INALVVCContext* pNALVVCCtx = nullptr;
 	if (nal_coding_type == NAL_CODING_AVC)
 	{
 		if (FAILED(pNALCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
@@ -297,6 +298,17 @@ void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALN
 			return;
 
 		if (FAILED(pNALCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else if (nal_coding_type == NAL_CODING_VVC)
+	{
+		if (cbLeft < 2)
+			return;
+
+		if (FAILED(pNALCtx->QueryInterface(IID_INALVVCContext, (void**)&pNALVVCCtx)))
 		{
 			iRet = RET_CODE_ERROR_NOTIMPL;
 			goto done;
@@ -325,6 +337,14 @@ void PrintNALUnitSyntaxElement(IUnknown* pCtx, uint8_t* pNALNUBuf, size_t cbNALN
 
 			PrintMediaObject(h265_nu.get(), false, indent);
 		}
+		else if (nal_coding_type == NAL_CODING_VVC)
+		{
+			auto h266_nu = pNALVVCCtx->CreateVVCNU();
+			if (AMP_FAILED(iRet = h266_nu->Map(bst)))
+				throw AMException(iRet);
+
+			PrintMediaObject(h266_nu.get(), false, indent);
+		}
 	}
 	catch (...)
 	{
@@ -336,6 +356,7 @@ done:
 	AMP_SAFERELEASE(pNALCtx);
 	AMP_SAFERELEASE(pNALAVCCtx);
 	AMP_SAFERELEASE(pNALHEVCCtx);
+	AMP_SAFERELEASE(pNALVVCCtx);
 	return;
 }
 
@@ -359,6 +380,7 @@ void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIM
 	NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
 	INALAVCContext* pNALAVCCtx = nullptr;
 	INALHEVCContext* pNALHEVCCtx = nullptr;
+	INALVVCContext* pNALVVCCtx = nullptr;
 	if (nal_coding_type == NAL_CODING_AVC)
 	{
 		if (FAILED(pNALCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
@@ -370,6 +392,14 @@ void PrintSEIMsgSyntaxElement(IUnknown* pCtx, uint8_t* pSEIMsgBuf, size_t cbSEIM
 	else if (nal_coding_type == NAL_CODING_HEVC)
 	{
 		if (FAILED(pNALCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else if (nal_coding_type == NAL_CODING_VVC)
+	{
+		if (FAILED(pNALCtx->QueryInterface(IID_INALVVCContext, (void**)&pNALVVCCtx)))
 		{
 			iRet = RET_CODE_ERROR_NOTIMPL;
 			goto done;
@@ -406,6 +436,7 @@ done:
 	AMP_SAFERELEASE(pNALCtx);
 	AMP_SAFERELEASE(pNALAVCCtx);
 	AMP_SAFERELEASE(pNALHEVCCtx);
+	AMP_SAFERELEASE(pNALVVCCtx);
 	return;
 }
 
@@ -429,6 +460,7 @@ void PrintSEIPayloadSyntaxElement(IUnknown* pCtx, uint32_t payload_type, uint8_t
 	NAL_CODING nal_coding_type = pNALCtx->GetNALCoding();
 	INALAVCContext* pNALAVCCtx = nullptr;
 	INALHEVCContext* pNALHEVCCtx = nullptr;
+	INALVVCContext* pNALVVCCtx = nullptr;
 	if (nal_coding_type == NAL_CODING_AVC)
 	{
 		if (FAILED(pNALCtx->QueryInterface(IID_INALAVCContext, (void**)&pNALAVCCtx)))
@@ -440,6 +472,14 @@ void PrintSEIPayloadSyntaxElement(IUnknown* pCtx, uint32_t payload_type, uint8_t
 	else if (nal_coding_type == NAL_CODING_HEVC)
 	{
 		if (FAILED(pNALCtx->QueryInterface(IID_INALHEVCContext, (void**)&pNALHEVCCtx)))
+		{
+			iRet = RET_CODE_ERROR_NOTIMPL;
+			goto done;
+		}
+	}
+	else if (nal_coding_type == NAL_CODING_VVC)
+	{
+		if (FAILED(pNALCtx->QueryInterface(IID_INALVVCContext, (void**)&pNALVVCCtx)))
 		{
 			iRet = RET_CODE_ERROR_NOTIMPL;
 			goto done;
@@ -478,6 +518,7 @@ done:
 	AMP_SAFERELEASE(pNALCtx);
 	AMP_SAFERELEASE(pNALAVCCtx);
 	AMP_SAFERELEASE(pNALHEVCCtx);
+	AMP_SAFERELEASE(pNALVVCCtx);
 	return;
 }
 

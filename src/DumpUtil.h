@@ -424,6 +424,9 @@ SOFTWARE.
 			memset(szOutXml, 0, cbLen);\
 		}\
 
+#define DECLARE_FIELDPROP()\
+	size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint=false, long long* bit_offset = NULL)
+
 #define BASECLASS_IMPLEMENT(baseclassname)\
 		cbRequired += baseclassname::ProduceDesc(szOutXml, cbLen, bPrint, bit_offset)
 

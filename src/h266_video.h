@@ -285,13 +285,12 @@ namespace BST {
 				}
 
 				DECLARE_FIELDPROP_BEGIN()
-					BST_FIELD_PROP_NUMBER1(forbidden_zero_bit, 1, "shall be equal to 0.");
-					BST_FIELD_PROP_NUMBER1(nuh_reserved_zero_bit, 1, "shall be equal to 0.");
-					BST_FIELD_PROP_2NUMBER1(nuh_layer_id, 6, "the identifier of the layer to which a VCL NAL unit belongs or the identifier of a layer to which a non-VCL NAL unit applies");
-					BST_FIELD_PROP_2NUMBER1(nal_unit_type, 5, vvc_nal_unit_type_descs[nal_unit_type]);
-					BST_FIELD_PROP_2NUMBER1(nuh_temporal_id_plus1, 3, (nal_unit_type >= IDR_W_RADL && nal_unit_type <= RSV_IRAP_11)
-																		?"Should be 1"
-																		:"TemporalId = nuh_temporal_id_plus1 - 1");
+					BST_FIELD_PROP_NUMBER1(forbidden_zero_bit, 1,		"shall be equal to 0.");
+					BST_FIELD_PROP_NUMBER1(nuh_reserved_zero_bit, 1,	"shall be equal to 0.");
+					BST_FIELD_PROP_2NUMBER1(nuh_layer_id, 6,			"the identifier of the layer to which a VCL NAL unit belongs or the identifier of a layer to which a non-VCL NAL unit applies");
+					BST_FIELD_PROP_2NUMBER1(nal_unit_type, 5,			vvc_nal_unit_type_descs[nal_unit_type]);
+					BST_FIELD_PROP_2NUMBER1(nuh_temporal_id_plus1, 3,	(nal_unit_type >= IDR_W_RADL && nal_unit_type <= RSV_IRAP_11)
+																		? "Should be 1" : "TemporalId = nuh_temporal_id_plus1 - 1");
 				DECLARE_FIELDPROP_END()
 
 			}PACKED;
@@ -307,37 +306,9 @@ namespace BST {
 
 				ACCESS_UNIT_DELIMITER_RBSP() : aud_irap_or_gdr_flag(0), aud_pic_type(0), byte_align0(0){}
 
-				int Map(AMBst in_bst)
-				{
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-					try
-					{
-						uint8_t idx = 0;
-						MAP_BST_BEGIN(0);
-
-						bsrb1(in_bst, aud_irap_or_gdr_flag, 1);
-						bsrb1(in_bst, aud_pic_type, 3);
-
-						nal_read_obj(in_bst, rbsp_tailing_bits);
-
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-				DECLARE_FIELDPROP_END()
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct GENERAL_CONSTRAINTS_INFO : public SYNTAX_BITSTREAM_MAP
@@ -433,112 +404,9 @@ namespace BST {
 
 				CAMBitArray	gci_alignment_zero_bit;
 
-				int Map(AMBst in_bst)
-				{
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-					try
-					{
-						uint8_t idx = 0;
-						MAP_BST_BEGIN(0);
-						bsrb1(in_bst, gci_present_flag, 1);
-						if (gci_present_flag) {
-							bsrb1(in_bst, gci_intra_only_constraint_flag, 1);
-							bsrb1(in_bst, gci_all_layers_independent_constraint_flag, 1);
-							bsrb1(in_bst, gci_one_au_only_constraint_flag, 1);
-							bsrb1(in_bst, gci_sixteen_minus_max_bitdepth_constraint_idc, 4);
-							bsrb1(in_bst, gci_three_minus_max_chroma_format_constraint_idc, 2);
-							bsrb1(in_bst, gci_no_mixed_nalu_types_in_pic_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_trail_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_stsa_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_rasl_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_radl_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_idr_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_cra_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_gdr_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_aps_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_idr_rpl_constraint_flag, 1);
-							bsrb1(in_bst, gci_one_tile_per_pic_constraint_flag, 1);
-							bsrb1(in_bst, gci_pic_header_in_slice_header_constraint_flag, 1);
-							bsrb1(in_bst, gci_one_slice_per_pic_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_rectangular_slice_constraint_flag, 1);
-							bsrb1(in_bst, gci_one_slice_per_subpic_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_subpic_info_constraint_flag, 1);
-							bsrb1(in_bst, gci_three_minus_max_log2_ctu_size_constraint_idc, 2);
-							bsrb1(in_bst, gci_no_partition_constraints_override_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_mtt_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_qtbtt_dual_tree_intra_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_palette_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_ibc_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_isp_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_mrl_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_mip_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_cclm_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_ref_pic_resampling_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_res_change_in_clvs_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_weighted_prediction_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_ref_wraparound_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_temporal_mvp_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_sbtmvp_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_amvr_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_bdof_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_smvd_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_dmvr_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_mmvd_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_affine_motion_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_prof_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_bcw_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_ciip_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_gpm_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_luma_transform_size_64_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_transform_skip_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_bdpcm_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_mts_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_lfnst_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_joint_cbcr_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_sbt_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_act_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_explicit_scaling_list_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_dep_quant_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_sign_data_hiding_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_cu_qp_delta_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_chroma_qp_offset_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_sao_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_alf_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_ccalf_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_lmcs_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_ladf_constraint_flag, 1);
-							bsrb1(in_bst, gci_no_virtual_boundaries_constraint_flag, 1);
-
-							bsrb1(in_bst, gci_num_reserved_bits, 8);
-							for (int i = 0; i < gci_num_reserved_bits; i++) {
-								bsrbarray(in_bst, gci_reserved_zero_bit, i);
-							}
-						}
-
-						idx = 0;
-						while (!AMBst_IsAligned(in_bst)) {
-							bsrbarray(in_bst, gci_alignment_zero_bit, idx);
-							idx++;
-						}
-
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-				DECLARE_FIELDPROP_END()
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct PROFILE_TIER_LEVEL : public SYNTAX_BITSTREAM_MAP
@@ -575,7 +443,7 @@ namespace BST {
 					, m_MaxNumSubLayersMinus1(MaxNumSubLayersMinus1){
 				}
 
-				VVC_PROFILE GetVVCProfile() {
+				INLINE VVC_PROFILE GetVVCProfile() {
 					if (m_profileTierPresentFlag) {
 						switch (general_profile_idc) {
 						case 1: return VVC_PROFILE_MAIN_10;
@@ -590,75 +458,9 @@ namespace BST {
 					return VVC_PROFILE_UNKNOWN;
 				}
 
-				int Map(AMBst in_bst)
-				{
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-					try
-					{
-						uint8_t idx = 0;
-						MAP_BST_BEGIN(0);
-
-						if (m_profileTierPresentFlag) {
-							bsrb1(in_bst, general_profile_idc, 7);
-							bsrb1(in_bst, general_tier_flag, 1);
-						}
-
-						bsrb1(in_bst, general_level_idc, 8);
-						bsrb1(in_bst, ptl_frame_only_constraint_flag, 1);
-						bsrb1(in_bst, ptl_multilayer_enabled_flag, 1);
-
-						if (m_profileTierPresentFlag) {
-							nal_read_obj(in_bst, general_constraints_info);
-						}
-
-						for (int i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--){
-							bsrbarray(in_bst, ptl_sublayer_level_present_flag, i);
-						}
-
-						idx = 0;
-						while (!AMBst_IsAligned(in_bst)) {
-							bsrbarray(in_bst, ptl_reserved_zero_bit, idx);
-							idx++;
-						}
-
-						if (m_MaxNumSubLayersMinus1 > 0)
-							sublayer_level_idc.resize(m_MaxNumSubLayersMinus1);
-
-						for (int i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--) {
-							if (ptl_sublayer_level_present_flag[i]) {
-								bsrb1(in_bst, sublayer_level_idc[i], 8);
-							}
-						}
-
-						if (m_profileTierPresentFlag) {
-							bsrb1(in_bst, ptl_num_sub_profiles, 8);
-							if (ptl_num_sub_profiles > 0)
-							{
-								general_sub_profile_idc.resize(ptl_num_sub_profiles);
-								for (int i = 0; i < ptl_num_sub_profiles; i++) {
-									bsrb1(in_bst, general_sub_profile_idc[i], 32);
-								}
-							}
-						}
-
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-				DECLARE_FIELDPROP_END()
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct DPB_PARAMETERS : public SYNTAX_BITSTREAM_MAP
@@ -677,50 +479,9 @@ namespace BST {
 					: m_MaxSubLayersMinus1(MaxSubLayersMinus1), m_subLayerInfoFlag(subLayerInfoFlag){
 				}
 
-				int Map(AMBst in_bst)
-				{
-					int iRet = RET_CODE_SUCCESS;
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-
-					try
-					{
-						MAP_BST_BEGIN(0);
-						dpb_max_dec_pic_buffering_minus1.resize((size_t)(m_subLayerInfoFlag?m_MaxSubLayersMinus1:0) + 1);
-						dpb_max_num_reorder_pics.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
-						dpb_max_latency_increase_plus1.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
-						if (m_subLayerInfoFlag)
-						{
-							for (int i = 0; i <= m_MaxSubLayersMinus1; i++) {
-								nal_read_ue(in_bst, dpb_max_dec_pic_buffering_minus1[i], uint32_t);
-								nal_read_ue(in_bst, dpb_max_num_reorder_pics[i], uint32_t);
-								nal_read_ue(in_bst, dpb_max_latency_increase_plus1[i], uint32_t);
-							}
-						}
-						else
-						{
-							nal_read_ue(in_bst, dpb_max_dec_pic_buffering_minus1[0], uint32_t);
-							nal_read_ue(in_bst, dpb_max_num_reorder_pics[0], uint32_t);
-							nal_read_ue(in_bst, dpb_max_latency_increase_plus1[0], uint32_t);
-						}
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-
-				DECLARE_FIELDPROP_END()
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct GENERAL_TIMING_HRD_PARAMETERS : public SYNTAX_BITSTREAM_MAP
@@ -746,54 +507,9 @@ namespace BST {
 					, general_vcl_hrd_params_present_flag(0) {
 				}
 
-				int Map(AMBst in_bst)
-				{
-					int iRet = RET_CODE_SUCCESS;
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-
-					try
-					{
-						MAP_BST_BEGIN(0);
-						bsrb1(in_bst, num_units_in_tick, 32);
-						bsrb1(in_bst, time_scale, 32);
-						bsrb1(in_bst, general_nal_hrd_params_present_flag, 1);
-						bsrb1(in_bst, general_vcl_hrd_params_present_flag, 1);
-						if (general_nal_hrd_params_present_flag || general_vcl_hrd_params_present_flag) {
-							bsrb1(in_bst, general_same_pic_timing_in_all_ols_flag, 1);
-							bsrb1(in_bst, general_du_hrd_params_present_flag, 1);
-
-							if (general_du_hrd_params_present_flag) {
-								bsrb1(in_bst, tick_divisor_minus2, 8);
-							}
-
-							bsrb1(in_bst, bit_rate_scale, 4);
-							bsrb1(in_bst, cpb_size_scale, 4);
-
-							if (general_du_hrd_params_present_flag) {
-								bsrb1(in_bst, cpb_size_du_scale, 4);
-							}
-
-							nal_read_ue(in_bst, hrd_cpb_cnt_minus1, uint8_t);
-						}
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-
-				DECLARE_FIELDPROP_END()
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct SUBLAYER_HRD_PARAMETERS : public SYNTAX_BITSTREAM_MAP
@@ -818,46 +534,9 @@ namespace BST {
 					: m_pTimingHRDParameters(pTimingHRDParameters) {
 				}
 
-				int Map(AMBst in_bst)
-				{
-					int iRet = RET_CODE_SUCCESS;
-					SYNTAX_BITSTREAM_MAP::Map(in_bst);
-
-					try
-					{
-						MAP_BST_BEGIN(0);
-						parameters.resize((size_t)m_pTimingHRDParameters->hrd_cpb_cnt_minus1 + 1);
-						for (int j = 0; j <= m_pTimingHRDParameters->hrd_cpb_cnt_minus1; j++) {
-							nal_read_ue(in_bst, parameters[j].bit_rate_value_minus1, uint32_t);
-							nal_read_ue(in_bst, parameters[j].cpb_size_value_minus1, uint32_t);
-
-							if (m_pTimingHRDParameters->general_du_hrd_params_present_flag)
-							{
-								nal_read_ue(in_bst, parameters[j].cpb_size_du_value_minus1, uint32_t);
-								nal_read_ue(in_bst, parameters[j].bit_rate_du_value_minus1, uint32_t);
-							}
-
-							bsrb1(in_bst, parameters[j].cbr_flag, 1);
-						}
-						MAP_BST_END();
-					}
-					catch (AMException e)
-					{
-						return e.RetCode();
-					}
-
-					return RET_CODE_SUCCESS;
-				}
-
-				int Unmap(AMBst out_bst)
-				{
-					UNREFERENCED_PARAMETER(out_bst);
-					return RET_CODE_ERROR_NOTIMPL;
-				}
-
-				DECLARE_FIELDPROP_BEGIN()
-
-				DECLARE_FIELDPROP_END()
+				int Map(AMBst in_bst);
+				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct OLS_TIMING_HRD_PARAMETERS : public SYNTAX_BITSTREAM_MAP
@@ -948,10 +627,7 @@ namespace BST {
 					return RET_CODE_ERROR_NOTIMPL;
 				}
 
-				DECLARE_FIELDPROP_BEGIN()
-
-				DECLARE_FIELDPROP_END()
-
+				DECLARE_FIELDPROP();
 			};
 
 			struct VUI_PARAMETERS : public SYNTAX_BITSTREAM_MAP
@@ -1058,9 +734,7 @@ namespace BST {
 					return RET_CODE_ERROR_NOTIMPL;
 				}
 
-				DECLARE_FIELDPROP_BEGIN()
-
-				DECLARE_FIELDPROP_END()
+				DECLARE_FIELDPROP();
 			};
 
 			struct VUI_PAYLOAD : public SYNTAX_BITSTREAM_MAP
@@ -1125,9 +799,7 @@ namespace BST {
 					return RET_CODE_ERROR_NOTIMPL;
 				}
 
-				DECLARE_FIELDPROP_BEGIN()
-
-				DECLARE_FIELDPROP_END()
+				DECLARE_FIELDPROP();
 			};
 
 			struct DECODING_CAPABILITY_INFORMATION_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -1149,6 +821,7 @@ namespace BST {
 				~DECODING_CAPABILITY_INFORMATION_RBSP();
 				int Map(AMBst in_bst);
 				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct OPERATING_POINT_INFORMATION_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -1172,6 +845,7 @@ namespace BST {
 				~OPERATING_POINT_INFORMATION_RBSP();
 				int Map(AMBst in_bst);
 				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct ADAPTATION_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -1279,6 +953,7 @@ namespace BST {
 				~ADAPTATION_PARAMETER_SET_RBSP();
 				int Map(AMBst in_bst);
 				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct VIDEO_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -1418,8 +1093,7 @@ namespace BST {
 				int UpdateOLSInfo();
 				int Map(AMBst in_bst);
 				int Unmap(AMBst out_bst);
-
-				size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL);
+				DECLARE_FIELDPROP();
 			};
 
 			struct SEQ_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -1627,8 +1301,7 @@ namespace BST {
 				int Map(AMBst in_bst);
 				int Unmap(AMBst out_bst);
 
-				DECLARE_FIELDPROP_BEGIN()
-				DECLARE_FIELDPROP_END()
+				DECLARE_FIELDPROP();
 			};
 
 			struct PIC_PARAMETER_SET_RBSP : public SYNTAX_BITSTREAM_MAP
@@ -1812,6 +1485,7 @@ namespace BST {
 							NumCtusInSlice[sliceIdx]++;
 						}
 				}
+				DECLARE_FIELDPROP();
 			};
 
 			struct PRED_WEIGHT_TABLE : public SYNTAX_BITSTREAM_MAP
@@ -2013,6 +1687,7 @@ namespace BST {
 
 				int Map(AMBst bst);
 				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
 			};
 
 			struct SLICE_HEADER : public SYNTAX_BITSTREAM_MAP
@@ -2116,6 +1791,30 @@ namespace BST {
 				int Unmap(AMBst out_bst);
 			};
 
+			struct SLICE_LAYER_RBSP : public SYNTAX_BITSTREAM_MAP
+			{
+				SLICE_HEADER	slice_header;
+
+				RBSP_TRAILING_BITS
+								rbsp_trailing_bits;
+
+				// If there is a valid rbsp_cabac_zero_word, the upper 16bit should be all zero.
+				uint32_t
+								rbsp_cabac_zero_word = UINT32_MAX;
+
+				VideoBitstreamCtx*
+								m_pCtx;
+				int8_t			nal_unit_type;
+
+				SLICE_LAYER_RBSP(VideoBitstreamCtx* pCtx, int8_t nu_type)
+					: slice_header(pCtx, nu_type), m_pCtx(pCtx), nal_unit_type(nu_type){
+				}
+
+				int Map(AMBst bst);
+				int Unmap(AMBst out_bst);
+				DECLARE_FIELDPROP();
+			};
+
 			NAL_UNIT_HEADER		nal_unit_header;
 			union
 			{
@@ -2132,6 +1831,7 @@ namespace BST {
 				ACCESS_UNIT_DELIMITER_RBSP*	ptr_access_unit_delimiter_rbsp;
 				PICTURE_HEADER_RBSP*		ptr_picture_header_rbsp;
 				SEI_RBSP*					ptr_sei_rbsp;
+				SLICE_LAYER_RBSP*			ptr_slice_layer_rbsp;
 			};
 
 			VideoBitstreamCtx*				ptr_ctx_video_bst = nullptr;
@@ -2145,6 +1845,8 @@ namespace BST {
 
 			int Map(AMBst bst);
 			int Unmap(AMBst out_bst);
+
+			DECLARE_FIELDPROP();
 		};
 	}
 }
