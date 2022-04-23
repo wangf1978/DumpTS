@@ -445,14 +445,20 @@ namespace BST {
 
 				INLINE VVC_PROFILE GetVVCProfile() {
 					if (m_profileTierPresentFlag) {
-						switch (general_profile_idc) {
-						case 1: return VVC_PROFILE_MAIN_10;
-						case 65: return VVC_PROFILE_MAIN_10_STILL_PICTURE;
-						case 33: return VVC_PROFILE_MAIN_10_444;
-						case 97: return VVC_PROFILE_MAIN_10_444_STILL_PICTURE;
-						case 17: return VVC_PROFILE_MULTILAYER_MAIN_10;
-						case 49: return VVC_PROFILE_MULTILAYER_MAIN_10_444;
-						}
+						return GetVVCProfile(general_profile_idc);
+					}
+
+					return VVC_PROFILE_UNKNOWN;
+				}
+
+				INLINE VVC_PROFILE GetVVCProfile(uint32_t profile_idc) {
+					switch (profile_idc) {
+					case 1: return VVC_PROFILE_MAIN_10;
+					case 65: return VVC_PROFILE_MAIN_10_STILL_PICTURE;
+					case 33: return VVC_PROFILE_MAIN_10_444;
+					case 97: return VVC_PROFILE_MAIN_10_444_STILL_PICTURE;
+					case 17: return VVC_PROFILE_MULTILAYER_MAIN_10;
+					case 49: return VVC_PROFILE_MULTILAYER_MAIN_10_444;
 					}
 
 					return VVC_PROFILE_UNKNOWN;
@@ -834,7 +840,7 @@ namespace BST {
 
 				uint8_t			bytes_align[3] = { 0 };
 
-				uint64_t		opi_ols_idx;
+				uint32_t		opi_ols_idx;
 
 				CAMBitArray		opi_extension_data_flag;
 

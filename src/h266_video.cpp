@@ -516,7 +516,103 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::GENERAL_CONSTRAINTS_INFO)
+			BST_FIELD_PROP_BOOL(gci_present_flag, "GCI syntax elements are present", "GCI fields are not present");
+			if (gci_present_flag)
+			{
+				BST_FIELD_PROP_BOOL(gci_intra_only_constraint_flag, 
+					"sh_slice_type for all slices in OlsInScope shall be equal to 2", 
+					"sh_slice_type for some slices in OlsInScope may NOT be equal to 2");
+				BST_FIELD_PROP_BOOL(gci_all_layers_independent_constraint_flag,
+					"vps_all_independent_layers_flag for all pictures in OlsInScope shall be equal to 1",
+					"vps_all_independent_layers_flag for some pictures in OlsInScope may NOT be equal to 1");
+				BST_FIELD_PROP_BOOL(gci_one_au_only_constraint_flag,
+					"only one AU in OlsInScope",
+					"More than one AU may be in OlsInScope");
+				BST_FIELD_PROP_2NUMBER1_F(gci_sixteen_minus_max_bitdepth_constraint_idc, 4, gci_sixteen_minus_max_bitdepth_constraint_idc
+					?"sps_bitdepth_minus8 plus 8 for all pictures in OlsInScope shall be in the range of 0 to %d, inclusive."
+					:"", gci_sixteen_minus_max_bitdepth_constraint_idc>0?(16 - gci_sixteen_minus_max_bitdepth_constraint_idc):0);
+				BST_FIELD_PROP_2NUMBER1_F(gci_three_minus_max_chroma_format_constraint_idc, 4, gci_three_minus_max_chroma_format_constraint_idc
+					? "sps_chroma_format_idc for all pictures in OlsInScope shall be in the range of 0 to %d, inclusive."
+					: "", gci_three_minus_max_chroma_format_constraint_idc > 0 ? (3 - gci_three_minus_max_chroma_format_constraint_idc) : 0);
+				BST_FIELD_PROP_BOOL(gci_no_mixed_nalu_types_in_pic_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_trail_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_stsa_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_rasl_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_radl_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_idr_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_cra_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_gdr_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_aps_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_idr_rpl_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_one_tile_per_pic_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_pic_header_in_slice_header_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_one_slice_per_pic_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_rectangular_slice_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_one_slice_per_subpic_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_subpic_info_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_three_minus_max_log2_ctu_size_constraint_idc, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_partition_constraints_override_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_mtt_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_qtbtt_dual_tree_intra_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_palette_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_ibc_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_isp_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_mrl_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_mip_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_cclm_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_ref_pic_resampling_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_res_change_in_clvs_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_weighted_prediction_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_ref_wraparound_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_temporal_mvp_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_sbtmvp_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_amvr_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_bdof_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_smvd_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_dmvr_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_mmvd_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_affine_motion_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_prof_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_bcw_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_ciip_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_gpm_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_luma_transform_size_64_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_transform_skip_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_bdpcm_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_mts_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_lfnst_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_joint_cbcr_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_sbt_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_act_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_explicit_scaling_list_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_dep_quant_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_sign_data_hiding_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_cu_qp_delta_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_chroma_qp_offset_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_sao_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_alf_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_ccalf_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_lmcs_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_ladf_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_no_virtual_boundaries_constraint_flag, "", "");
+				BST_FIELD_PROP_BOOL(gci_num_reserved_bits, "", "");
 
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;gci_num_reserved_bits;i++)", "");
+				for (i = 0; i < gci_num_reserved_bits; i++) {
+					BST_ARRAY_FIELD_PROP_NUMBER1(gci_reserved_zero_bit, i, 1, "");
+				}
+				NAV_WRITE_TAG_END("Tag0");
+
+				if (gci_alignment_zero_bit.UpperBound() >= 0)
+				{
+					int idx = 0;
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "gci_alignment_zero_bit", "");
+					for (idx = 0; idx <= gci_alignment_zero_bit.UpperBound(); idx++) {
+						BST_FIELD_PROP_NUMBER("gci_alignment_zero_bit", 1, gci_alignment_zero_bit[idx], "");
+					}
+					NAV_WRITE_TAG_END("Tag1");
+				}
+			}
 		DECLARE_FIELDPROP_END()
 
 		//
@@ -553,12 +649,16 @@ namespace BST
 					idx++;
 				}
 
-				if (m_MaxNumSubLayersMinus1 > 0)
-					sublayer_level_idc.resize(m_MaxNumSubLayersMinus1);
+				sublayer_level_idc.resize(m_MaxNumSubLayersMinus1 + 1);
+				sublayer_level_idc[m_MaxNumSubLayersMinus1] = general_level_idc;
 
 				for (int i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--) {
 					if (ptl_sublayer_level_present_flag[i]) {
 						bsrb1(in_bst, sublayer_level_idc[i], 8);
+					}
+					else
+					{
+						sublayer_level_idc[i] = sublayer_level_idc[i + 1];
 					}
 				}
 
@@ -590,6 +690,7 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::PROFILE_TIER_LEVEL)
+		char szLevelName[32] = { 0 };
 			if (m_profileTierPresentFlag)
 			{
 				BST_FIELD_PROP_2NUMBER1(general_profile_idc, 7, vvc_profile_name[GetVVCProfile()]);
@@ -609,6 +710,49 @@ namespace BST
 				BST_FIELD_PROP_OBJECT(general_constraints_info);
 				NAV_WRITE_TAG_END("Tag0");
 			}
+
+			if (m_MaxNumSubLayersMinus1 > 0) {
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag0", "for(i=MaxNumSubLayersMinus1(%d)-1;i&gt;=0;i--)", "", m_MaxNumSubLayersMinus1);
+				for (i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--) {
+					BST_ARRAY_FIELD_PROP_NUMBER1(ptl_sublayer_level_present_flag, i, 1, "");
+				}
+				NAV_WRITE_TAG_END("Tag0");
+			}
+
+			NAV_WRITE_TAG_BEGIN("ptl_reserved_zero_bit");
+			for (i = 0; i <= ptl_reserved_zero_bit.UpperBound(); i++) {
+				BST_ARRAY_FIELD_PROP_NUMBER1(ptl_reserved_zero_bit, i, 1, "");
+			}
+			NAV_WRITE_TAG_END("ptl_reserved_zero_bit");
+
+			MBCSPRINTF_S(szLevelName, _countof(szLevelName), "Level %d.%d", sublayer_level_idc[m_MaxNumSubLayersMinus1]/16, sublayer_level_idc[m_MaxNumSubLayersMinus1]%16/3);
+			NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag00", "sublayer_level_idc[%d]", sublayer_level_idc[m_MaxNumSubLayersMinus1], szLevelName, m_MaxNumSubLayersMinus1);
+			if (m_MaxNumSubLayersMinus1 > 0) {
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag0", "for(i=MaxNumSubLayersMinus1(%d)-1;i&gt;=0;i--)", "", m_MaxNumSubLayersMinus1);
+				for (i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--) {
+					MBCSPRINTF_S(szLevelName, _countof(szLevelName), "Level %d.%d", sublayer_level_idc[i] / 16, sublayer_level_idc[i] % 16 / 3);
+					if (ptl_sublayer_level_present_flag[i]) {
+						BST_ARRAY_FIELD_PROP_NUMBER1(sublayer_level_idc, i, 1, "");
+					}
+					else
+					{
+						NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("Tag00", "sublayer_level_idc[%d]", sublayer_level_idc[i], "", i);
+					}
+				}
+				NAV_WRITE_TAG_END("Tag0");
+			}
+
+			if (m_profileTierPresentFlag) {
+				BST_FIELD_PROP_2NUMBER1(ptl_num_sub_profiles, 8, "the number of the general_sub_profile_idc syntax elements");
+				if (ptl_num_sub_profiles > 0) {
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0;i&lt;ptl_num_sub_profiles;i++)", "");
+					for (i = 0; i < ptl_num_sub_profiles; i++) {
+						BST_ARRAY_FIELD_PROP_NUMBER1(general_sub_profile_idc, i, 32, vvc_profile_name[GetVVCProfile(general_sub_profile_idc[i])]);
+					}
+					NAV_WRITE_TAG_END("Tag0");
+				}
+			}
+
 		DECLARE_FIELDPROP_END()
 
 		//
@@ -1848,7 +1992,24 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::OPERATING_POINT_INFORMATION_RBSP)
-
+			NAV_WRITE_TAG_BEGIN_WITH_ALIAS("operating_point_information_rbsp", "operating_point_information_rbsp()", "");
+				BST_FIELD_PROP_BOOL(opi_ols_info_present_flag, "opi_ols_idx is present", "opi_ols_idx is not present");
+				BST_FIELD_PROP_BOOL(opi_htid_info_present_flag, "opi_htid_plus1 is present", "opi_htid_plus1 is not present");
+				if (opi_ols_info_present_flag) {
+					BST_FIELD_PROP_UE(opi_ols_idx, "Do not contain any other layers than those included in the OLS with OLS index equal to this op_ols_idx");
+				}
+				if (opi_htid_info_present_flag) {
+					BST_FIELD_PROP_2NUMBER1(opi_htid_plus1, 3, "provided in an OPI NAL unit have TemporalId less than opi_htid_plus1");
+				}
+				BST_FIELD_PROP_BOOL(opi_extension_flag, "opi_extension_data_flag syntax elements might be present", "no opi_extension_data_flag syntax elements are present");
+				if (opi_extension_flag) {
+					NAV_WRITE_TAG_BEGIN("opi_extension_data_flags");
+					for (i = 0; i < opi_extension_data_flag.UpperBound(); i++) {
+						BST_ARRAY_FIELD_PROP_NUMBER1(opi_extension_data_flag, i, 1, "");
+					}
+					NAV_WRITE_TAG_END("opi_extension_data_flags");
+				}
+			NAV_WRITE_TAG_END("operating_point_information_rbsp");
 		DECLARE_FIELDPROP_END()
 
 		//
