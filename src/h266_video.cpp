@@ -528,12 +528,25 @@ namespace BST
 				BST_FIELD_PROP_BOOL(gci_one_au_only_constraint_flag,
 					"only one AU in OlsInScope",
 					"More than one AU may be in OlsInScope");
-				BST_FIELD_PROP_2NUMBER1_F(gci_sixteen_minus_max_bitdepth_constraint_idc, 4, gci_sixteen_minus_max_bitdepth_constraint_idc
-					?"sps_bitdepth_minus8 plus 8 for all pictures in OlsInScope shall be in the range of 0 to %d, inclusive."
-					:"", gci_sixteen_minus_max_bitdepth_constraint_idc>0?(16 - gci_sixteen_minus_max_bitdepth_constraint_idc):0);
-				BST_FIELD_PROP_2NUMBER1_F(gci_three_minus_max_chroma_format_constraint_idc, 4, gci_three_minus_max_chroma_format_constraint_idc
-					? "sps_chroma_format_idc for all pictures in OlsInScope shall be in the range of 0 to %d, inclusive."
-					: "", gci_three_minus_max_chroma_format_constraint_idc > 0 ? (3 - gci_three_minus_max_chroma_format_constraint_idc) : 0);
+				if (gci_sixteen_minus_max_bitdepth_constraint_idc > 0) {
+					BST_FIELD_PROP_2NUMBER1_F(gci_sixteen_minus_max_bitdepth_constraint_idc, 4, 
+						"sps_bitdepth_minus8 plus 8 for all pictures in OlsInScope shall be in the range of 0 to %d, inclusive.",
+						(16 - gci_sixteen_minus_max_bitdepth_constraint_idc));
+				}
+				else
+				{
+					BST_FIELD_PROP_2NUMBER1(gci_sixteen_minus_max_bitdepth_constraint_idc, 4, "");
+				}
+
+				if (gci_three_minus_max_chroma_format_constraint_idc > 0) {
+					BST_FIELD_PROP_2NUMBER1_F(gci_three_minus_max_chroma_format_constraint_idc, 4, 
+						"sps_chroma_format_idc for all pictures in OlsInScope shall be in the range of 0 to %d, inclusive",
+						(3 - gci_three_minus_max_chroma_format_constraint_idc));
+				}
+				else
+				{
+					BST_FIELD_PROP_2NUMBER1(gci_three_minus_max_chroma_format_constraint_idc, 4, "");
+				}
 				BST_FIELD_PROP_BOOL(gci_no_mixed_nalu_types_in_pic_constraint_flag, "", "");
 				BST_FIELD_PROP_BOOL(gci_no_trail_constraint_flag, "", "");
 				BST_FIELD_PROP_BOOL(gci_no_stsa_constraint_flag, "", "");
@@ -603,15 +616,7 @@ namespace BST
 				}
 				NAV_WRITE_TAG_END("Tag0");
 
-				if (gci_alignment_zero_bit.UpperBound() >= 0)
-				{
-					int idx = 0;
-					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "gci_alignment_zero_bit", "");
-					for (idx = 0; idx <= gci_alignment_zero_bit.UpperBound(); idx++) {
-						BST_FIELD_PROP_NUMBER("gci_alignment_zero_bit", 1, gci_alignment_zero_bit[idx], "");
-					}
-					NAV_WRITE_TAG_END("Tag1");
-				}
+				BST_FIELD_PROP_NUMBER_BITARRAY1(gci_alignment_zero_bit, "");
 			}
 		DECLARE_FIELDPROP_END()
 
@@ -690,7 +695,7 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::PROFILE_TIER_LEVEL)
-		char szLevelName[32] = { 0 };
+			char szLevelName[32] = { 0 };
 			if (m_profileTierPresentFlag)
 			{
 				BST_FIELD_PROP_2NUMBER1(general_profile_idc, 7, vvc_profile_name[GetVVCProfile()]);
@@ -766,9 +771,9 @@ namespace BST
 			try
 			{
 				MAP_BST_BEGIN(0);
-				dpb_max_dec_pic_buffering_minus1.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
-				dpb_max_num_reorder_pics.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
-				dpb_max_latency_increase_plus1.resize((size_t)(m_subLayerInfoFlag ? m_MaxSubLayersMinus1 : 0) + 1);
+				dpb_max_dec_pic_buffering_minus1.resize((size_t)m_MaxSubLayersMinus1 + 1);
+				dpb_max_num_reorder_pics.resize((size_t)m_MaxSubLayersMinus1 + 1);
+				dpb_max_latency_increase_plus1.resize((size_t)m_MaxSubLayersMinus1 + 1);
 				if (m_subLayerInfoFlag)
 				{
 					for (int i = 0; i <= m_MaxSubLayersMinus1; i++) {
@@ -779,9 +784,9 @@ namespace BST
 				}
 				else
 				{
-					nal_read_ue(in_bst, dpb_max_dec_pic_buffering_minus1[0], uint32_t);
-					nal_read_ue(in_bst, dpb_max_num_reorder_pics[0], uint32_t);
-					nal_read_ue(in_bst, dpb_max_latency_increase_plus1[0], uint32_t);
+					nal_read_ue(in_bst, dpb_max_dec_pic_buffering_minus1[m_MaxSubLayersMinus1], uint32_t);
+					nal_read_ue(in_bst, dpb_max_num_reorder_pics[m_MaxSubLayersMinus1], uint32_t);
+					nal_read_ue(in_bst, dpb_max_latency_increase_plus1[m_MaxSubLayersMinus1], uint32_t);
 				}
 				MAP_BST_END();
 			}
@@ -800,7 +805,17 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::DPB_PARAMETERS)
-
+		NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=(subLayerInfoFlag?0:MaxSubLayersMinus1);i&lt;=MaxSubLayersMinus1;i++)", "");
+		for (i = (m_subLayerInfoFlag ? 0 : m_MaxSubLayersMinus1); i <= m_MaxSubLayersMinus1; i++) {
+			BST_ARRAY_FIELD_PROP_UE(dpb_max_dec_pic_buffering_minus1, i, "plus 1 specifies the maximum required size of the DPB");
+			BST_ARRAY_FIELD_PROP_UE(dpb_max_num_reorder_pics, i, "the maximum allowed number of pictures of the OLS that can precede any picture in the OLS in decoding order");
+			BST_ARRAY_FIELD_PROP_UE(dpb_max_latency_increase_plus1, i, "");
+			if (dpb_max_latency_increase_plus1[i] > 0) {
+				NAV_WRITE_TAG_WITH_ALIAS_AND_NUMBER_VALUE("MaxLatencyPictures", "MaxLatencyPictures[%d]", 
+					dpb_max_num_reorder_pics[i] + dpb_max_latency_increase_plus1[i] - 1, "", i);
+			}
+		}
+		NAV_WRITE_TAG_END("Tag0");
 		DECLARE_FIELDPROP_END()
 
 		//
@@ -852,7 +867,26 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::GENERAL_TIMING_HRD_PARAMETERS)
+			BST_FIELD_PROP_2NUMBER1(num_units_in_tick, 32, "");
+			BST_FIELD_PROP_2NUMBER1(time_scale, 32, "");
 
+			BST_FIELD_PROP_BOOL(general_nal_hrd_params_present_flag, "", "");
+			BST_FIELD_PROP_BOOL(general_vcl_hrd_params_present_flag, "", "");
+			if (general_nal_hrd_params_present_flag || general_vcl_hrd_params_present_flag) {
+				BST_FIELD_PROP_BOOL(general_same_pic_timing_in_all_ols_flag, "", "");
+				BST_FIELD_PROP_BOOL_BEGIN(general_du_hrd_params_present_flag, "", "");
+					BST_FIELD_PROP_2NUMBER1(tick_divisor_minus2, 8, "");
+				BST_FIELD_PROP_BOOL_END("general_du_hrd_params_present_flag");
+
+				BST_FIELD_PROP_2NUMBER1(bit_rate_scale, 4, "");
+				BST_FIELD_PROP_2NUMBER1(cpb_size_scale, 4, "");
+
+				if (general_du_hrd_params_present_flag) {
+					BST_FIELD_PROP_2NUMBER1(cpb_size_du_scale, 4, "");
+				}
+				
+				BST_FIELD_PROP_UE(hrd_cpb_cnt_minus1, "plus 1 specifies the number of alternative CPB delivery schedules");
+			}
 		DECLARE_FIELDPROP_END()
 
 		//
@@ -896,7 +930,26 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::SUBLAYER_HRD_PARAMETERS)
-
+		NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag0", "for(j=0;j&lt;=hrd_cpb_cnt_minus1:%d;j++ )", "", m_pTimingHRDParameters->hrd_cpb_cnt_minus1);
+		for (int j = 0; j <= m_pTimingHRDParameters->hrd_cpb_cnt_minus1; j++) {
+			BST_ARRAY_FIELD_PROP_NUMBER("bit_rate_value_minus1", j,
+				(long long)quick_log2(parameters[j].bit_rate_value_minus1 + 1) * 2 + 1, parameters[j].bit_rate_value_minus1, "")
+			NAV_WRITE_TAG_WITH_VALUEFMTSTR("BitRate", "%sbps", "", 
+				GetReadableNum(((uint64_t)parameters[j].bit_rate_value_minus1 + 1) << (6 + m_pTimingHRDParameters->bit_rate_scale)).c_str());
+			BST_ARRAY_FIELD_PROP_NUMBER("cpb_size_value_minus1", j,
+				(long long)quick_log2(parameters[j].cpb_size_value_minus1 + 1) * 2 + 1, parameters[j].cpb_size_value_minus1, "")
+			NAV_WRITE_TAG_WITH_VALUEFMTSTR("CpbSize", "%sbit", "", 
+				GetReadableNum(((uint64_t)parameters[j].cpb_size_value_minus1 + 1) << (4 + m_pTimingHRDParameters->cpb_size_scale)).c_str());
+			if (m_pTimingHRDParameters->general_du_hrd_params_present_flag)
+			{
+				BST_ARRAY_FIELD_PROP_NUMBER("cpb_size_du_value_minus1", j,
+					(long long)quick_log2(parameters[j].cpb_size_du_value_minus1 + 1) * 2 + 1, parameters[j].cpb_size_du_value_minus1, "")
+				BST_ARRAY_FIELD_PROP_NUMBER("bit_rate_du_value_minus1", j,
+					(long long)quick_log2(parameters[j].bit_rate_du_value_minus1 + 1) * 2 + 1, parameters[j].bit_rate_du_value_minus1, "")
+			}
+			BST_FIELD_PROP_BOOL1(parameters[i], cbr_flag, "", "");
+		}
+		NAV_WRITE_TAG_END("Tag0");
 		DECLARE_FIELDPROP_END()
 
 		REF_PIC_LIST_STRUCT::REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, void* seq_parameter_set_rbsp)
@@ -989,7 +1042,44 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(REF_PIC_LIST_STRUCT)
+			BST_FIELD_PROP_UE(num_ref_entries, "the number of entries in the ref_pic_list_struct");
+			if (sps_long_term_ref_pics_flag && m_rplsIdx < current_sps_num_ref_pic_list && num_ref_entries > 0) {
+				BST_FIELD_PROP_BOOL(ltrp_in_header_flag, "POC LSBs of the LTRP entries are not present", "POC LSBs of the LTRP entries are present");
+			}
+			if (num_ref_entries > 0) {
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0", "for(i=0,j=0;i&lt;num_ref_entries;i++)", "");
+				for (int i = 0, j = 0; i < num_ref_entries; i++) {
+					BST_ARRAY_FIELD_PROP_NUMBER1(inter_layer_ref_pic_flag, i, 1, inter_layer_ref_pic_flag[i] ? "an ILRP entry" : "not an ILRP entry");
+					if (!inter_layer_ref_pic_flag[i]) {
+						if (sps_long_term_ref_pics_flag) {
+							BST_ARRAY_FIELD_PROP_NUMBER1(st_ref_pic_flag, i, 1, "");
+						}
+						if (st_ref_pic_flag[i]) {
+							BST_ARRAY_FIELD_PROP_UE(abs_delta_poc_st, i, "");
+						
+							uint32_t AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i] + 1;
+							if ((sps_weighted_pred_flag || sps_weighted_bipred_flag) && i != 0)
+								AbsDeltaPocSt = (uint32_t)abs_delta_poc_st[i];
 
+							if (AbsDeltaPocSt > 0) {
+								BST_ARRAY_FIELD_PROP_NUMBER1(strp_entry_sign_flag, i, 1,
+									strp_entry_sign_flag[i] ? "DeltaPocValSt[listIdx][rplsIdx] is less than 0"
+															: "DeltaPocValSt[listIdx][rplsIdx] is greater than or equal to 0");
+							}
+						}
+						else if (!ltrp_in_header_flag) {
+							BST_ARRAY_FIELD_PROP_NUMBER1(rpls_poc_lsb_lt, j, sps_log2_max_pic_order_cnt_lsb_minus4 + 4, 
+								"the value of the picture order count modulo MaxPicOrderCntLsb of the picture referred to by the i-th entry");
+							j++;
+						}
+						else
+						{
+							BST_ARRAY_FIELD_PROP_UE(ilrp_idx, i, "the index, to the list of the direct reference layers, of the ILRP entry of the i-th entry");
+						}
+					}
+				}
+				NAV_WRITE_TAG_END("Tag0");
+			}
 		DECLARE_FIELDPROP_END()
 
 		int NAL_UNIT::VIDEO_PARAMETER_SET_RBSP::UpdateReferenceLayers()
@@ -1484,7 +1574,7 @@ namespace BST
 								sps_subpic_ctu_top_left_x[i] = 0;
 
 							if (i > 0 && sps_pic_height_max_in_luma_samples > CtbSizeY) {
-								bsrb1(in_bst, sps_subpic_ctu_top_left_y[i], quick_ceil_log2(tmpWidthVal));
+								bsrb1(in_bst, sps_subpic_ctu_top_left_y[i], quick_ceil_log2(tmpHeightVal));
 							}
 							else
 								sps_subpic_ctu_top_left_y[i] = 0;
@@ -1496,7 +1586,7 @@ namespace BST
 								sps_subpic_width_minus1[i] = tmpWidthVal - sps_subpic_ctu_top_left_x[i] - 1;
 
 							if (i < sps_num_subpics_minus1 && sps_pic_height_max_in_luma_samples > CtbSizeY) {
-								bsrb1(in_bst, sps_subpic_height_minus1[i], quick_ceil_log2(tmpWidthVal));
+								bsrb1(in_bst, sps_subpic_height_minus1[i], quick_ceil_log2(tmpHeightVal));
 							}
 							else
 								sps_subpic_height_minus1[i] = tmpHeightVal - sps_subpic_ctu_top_left_y[i] - 1;
@@ -1800,7 +1890,7 @@ namespace BST
 				if (sps_vui_parameters_present_flag) {
 					nal_read_ue1(in_bst, sps_vui_payload_size_minus1);
 					idx = 0;
-					while (AMBst_IsAligned(in_bst)) {
+					while (!AMBst_IsAligned(in_bst)) {
 						bsrbarray(in_bst, sps_vui_alignment_zero_bit, idx);
 						idx++;
 					}
@@ -1844,7 +1934,524 @@ namespace BST
 		}
 
 		DECLARE_FIELDPROP_BEGIN1(NAL_UNIT::SEQ_PARAMETER_SET_RBSP)
+		NAV_WRITE_TAG_BEGIN_WITH_ALIAS("seq_parameter_set_rbsp", "seq_parameter_set_rbsp()", "");
+			BST_FIELD_PROP_2NUMBER1(sps_seq_parameter_set_id, 4, 
+				"an identifier for the SPS for reference by other syntax elements");
+			BST_FIELD_PROP_2NUMBER1(sps_video_parameter_set_id, 4,
+				sps_video_parameter_set_id > 0 ? "the value of vps_video_parameter_set_id for the VPS referred to by the SPS" : "");
+			BST_FIELD_PROP_2NUMBER1(sps_max_sublayers_minus1, 3, 
+				"plus 1 specifies the maximum number of temporal sublayers that could be present in each CLVS referring to the SPS");
+			BST_FIELD_PROP_2NUMBER1(sps_chroma_format_idc, 2, 
+				sps_chroma_format_idc == 0 ? "Monochrome" : (
+				sps_chroma_format_idc == 1 ? "4:2:0" : (
+				sps_chroma_format_idc == 2 ? "4:2:2" : (
+				sps_chroma_format_idc == 3 ? "4:4:4" : "Unknown"))));
+			BST_FIELD_PROP_2NUMBER1(sps_log2_ctu_size_minus5, 2, "plus 5 specifies the luma coding tree block size of each CTU");
+			uint8_t CtbLog2SizeY = sps_log2_ctu_size_minus5 + 5;
+			uint32_t CtbSizeY = 1 << CtbLog2SizeY;
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE1(CtbLog2SizeY, "");
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE1(CtbSizeY, "");
+			BST_FIELD_PROP_BOOL(sps_ptl_dpb_hrd_params_present_flag, 
+				"a profile_tier_level() syntax structure and a dpb_parameters() syntax structure are present in the SPS, "
+				"and a general_timing_hrd_parameters() syntax structure and an ols_timing_hrd_parameters() syntax structure could also be present in the SPS", 
+				"none of these four syntax structures is present in the SPS");
 
+			if (sps_ptl_dpb_hrd_params_present_flag) {
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("profile_tier_level", "profile_tier_level(1, sps_max_sublayers_minus1(%d))", "", sps_max_sublayers_minus1);
+				BST_FIELD_PROP_REF(profile_tier_level);
+				NAV_WRITE_TAG_END("profile_tier_level");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_gdr_enabled_flag,
+				"GDR pictures are enabled and could be present in the CLVS",
+				"GDR pictures are disabled and not present in the CLVS");
+			BST_FIELD_PROP_BOOL(sps_ref_pic_resampling_enabled_flag, 
+				"reference picture resampling is enabled", 
+				"reference picture resampling is disabled");
+
+			if (sps_ref_pic_resampling_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_res_change_in_clvs_allowed_flag,
+					"the picture spatial resolution might change within a CLVS",
+					"the picture spatial resolution does not change within any CLVS");
+			}
+
+			BST_FIELD_PROP_UE(sps_pic_width_max_in_luma_samples, "the maximum width, in units of luma samples, of each decoded picture");
+			BST_FIELD_PROP_UE(sps_pic_height_max_in_luma_samples, "the maximum height, in units of luma samples, of each decoded picture");
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_conformance_window_flag, 
+				"the conformance cropping window offset parameters follow", 
+				"the conformance cropping window offset parameters are not present");
+
+			if (sps_conformance_window_flag) {
+				BST_FIELD_PROP_UE(sps_conf_win_left_offset, "");
+				BST_FIELD_PROP_UE(sps_conf_win_right_offset, "");
+				BST_FIELD_PROP_UE(sps_conf_win_top_offset, "");
+				BST_FIELD_PROP_UE(sps_conf_win_bottom_offset, "");
+			}
+
+			BST_FIELD_PROP_BOOL_END("sps_conformance_window_flag");
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_subpic_info_present_flag,
+				"subpicture information is present for the CLVS",
+				"subpicture information is not present for the CLVS");
+
+			if (sps_subpic_info_present_flag) {
+				BST_FIELD_PROP_UE(sps_num_subpics_minus1, "plus 1 specifies the number of subpictures in each picture in the CLVS");
+				if (sps_num_subpics_minus1 > 0) {
+					BST_FIELD_PROP_BOOL(sps_independent_subpics_flag, 
+						"all subpicture boundaries in the CLVS are treated as picture boundaries and there is no loop filtering across the subpicture boundaries", 
+						"");
+					BST_FIELD_PROP_BOOL(sps_subpic_same_size_flag, 
+						"all subpictures in the CLVS have the same width specified by sps_subpic_width_minus1[0] and the same height specified by sps_subpic_height_minus1[0]", 
+						"");
+				}
+
+				uint32_t tmpWidthVal = sps_pic_width_max_in_luma_samples + CtbSizeY - 1;
+				uint32_t tmpHeightVal = (sps_pic_height_max_in_luma_samples + CtbSizeY - 1) / CtbSizeY;
+				if (sps_num_subpics_minus1 > 0) {
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag0",
+						"for(i=0;sps_num_subpics_minus1&gt;0 && i&lt;=sps_num_subpics_minus1;i++)", "");
+					for (i = 0; sps_num_subpics_minus1 > 0 && i <= sps_num_subpics_minus1; i++) {
+						if (!sps_subpic_same_size_flag || i == 0) {
+							if (i > 0 && sps_pic_width_max_in_luma_samples > CtbSizeY) {
+								BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_ctu_top_left_x, i, quick_ceil_log2(tmpWidthVal), "");
+							}
+
+							if (i > 0 && sps_pic_height_max_in_luma_samples > CtbSizeY) {
+								BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_ctu_top_left_y, i, quick_ceil_log2(tmpHeightVal), "");
+							}
+
+							if (i < sps_num_subpics_minus1 && sps_pic_width_max_in_luma_samples > CtbSizeY) {
+								BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_width_minus1, i, quick_ceil_log2(tmpWidthVal), "");
+							}
+
+							if (i < sps_num_subpics_minus1 && sps_pic_height_max_in_luma_samples > CtbSizeY) {
+								BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_height_minus1, i, quick_ceil_log2(tmpHeightVal), "");
+							}
+						}
+
+						if (!sps_independent_subpics_flag) {
+							BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_treated_as_pic_flag, i, 1, "");
+							BST_ARRAY_FIELD_PROP_NUMBER1(sps_loop_filter_across_subpic_enabled_flag, i, 1, "");
+						}
+					}
+					NAV_WRITE_TAG_END("Tag0");
+
+					BST_FIELD_PROP_UE(sps_subpic_id_len_minus1, "plus 1 specifies the number of bits used to represent the syntax element sps_subpic_id");
+
+					BST_FIELD_PROP_BOOL_BEGIN(sps_subpic_id_mapping_explicitly_signalled_flag, 
+						"the subpicture ID mapping is explicitly signalled", 
+						"the subpicture ID mapping is not explicitly signalled for the CLVS");
+
+					if (sps_subpic_id_mapping_explicitly_signalled_flag) {
+						BST_FIELD_PROP_BOOL_BEGIN(sps_subpic_id_mapping_present_flag, 
+							"the subpicture ID mapping is signalled in the SPS", 
+							"subpicture ID mapping is signalled in the PPSs referred to by coded pictures of the CLVS");
+
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag00", "for(i=0;i&lt;=sps_num_subpics_minus1;i++)", "");
+						for (i = 0; i <= sps_num_subpics_minus1; i++) {
+							BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_id, i, sps_subpic_id_len_minus1 + 1, "");
+						}
+						NAV_WRITE_TAG_END("Tag00");
+
+						BST_FIELD_PROP_BOOL_END("sps_subpic_id_mapping_present_flag");
+					}
+
+					BST_FIELD_PROP_BOOL_END("sps_subpic_id_mapping_explicitly_signalled_flag");
+				}
+			}
+
+			BST_FIELD_PROP_UE_F(sps_bitdepth_minus8, "BitDepth: %d", sps_bitdepth_minus8 + 8);
+
+			BST_FIELD_PROP_BOOL_END("sps_subpic_info_present_flag");
+
+			BST_FIELD_PROP_BOOL(sps_entropy_coding_sync_enabled_flag, "", "");
+			BST_FIELD_PROP_BOOL(sps_entry_point_offsets_present_flag, "", "");
+			BST_FIELD_PROP_2NUMBER1_F(sps_log2_max_pic_order_cnt_lsb_minus4, 4, 
+				"MaxPicOrderCntLsb: %" PRIu32 "", (uint32_t)(1U<<(sps_log2_max_pic_order_cnt_lsb_minus4 + 4)));
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_poc_msb_cycle_flag, 
+				"the ph_poc_msb_cycle_present_flag syntax element is present in PH syntax structures", 
+				"the ph_poc_msb_cycle_present_flag syntax element is not present in PH syntax structures");
+
+			if (sps_poc_msb_cycle_flag) {
+				BST_FIELD_PROP_UE(sps_poc_msb_cycle_len_minus1, "plus 1 specifies the length, in bits, of the ph_poc_msb_cycle_val syntax elements")
+			}
+
+			BST_FIELD_PROP_BOOL_END("sps_poc_msb_cycle_flag");
+
+			BST_FIELD_PROP_NUMBER_BEGIN("sps_num_extra_ph_bytes", 2, sps_num_extra_ph_bytes, "");
+			for (i = 0; i < (int)((uint64_t)sps_num_extra_ph_bytes * 8); i++) {
+				BST_ARRAY_FIELD_PROP_NUMBER1(sps_extra_ph_bit_present_flag, i, 1, "");
+			}
+			BST_FIELD_PROP_NUMBER_END("sps_num_extra_ph_bytes");
+
+			BST_FIELD_PROP_NUMBER_BEGIN("sps_num_extra_sh_bytes", 2, sps_num_extra_sh_bytes, "");
+			for (i = 0; i < (int)((uint64_t)sps_num_extra_sh_bytes * 8); i++) {
+				BST_ARRAY_FIELD_PROP_NUMBER1(sps_extra_sh_bit_present_flag, i, 1, "");
+			}
+			BST_FIELD_PROP_NUMBER_END("sps_num_extra_sh_bytes");
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_ptl_dpb_hrd_params_present_flag, "", "");
+			if (sps_ptl_dpb_hrd_params_present_flag) {
+				if (sps_max_sublayers_minus1 > 0) {
+					BST_FIELD_PROP_BOOL(sps_sublayer_dpb_params_flag, "", "");
+				}
+
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("dpb_parameters", "dpb_parameters(sps_max_sublayers_minus1, sps_sublayer_dpb_params_flag)", "");
+				BST_FIELD_PROP_REF(dpb_parameters);
+				NAV_WRITE_TAG_END("dpb_parameters");
+			}
+			BST_FIELD_PROP_BOOL_END("sps_ptl_dpb_hrd_params_present_flag");
+
+			BST_FIELD_PROP_UE(sps_log2_min_luma_coding_block_size_minus2, "plus 2 specifies the minimum luma coding block size");
+
+			uint8_t SubWidthC = sps_chroma_format_idc == 0 && sps_chroma_format_idc == 3 ? 1 : 2;
+			uint8_t SubHeightC = sps_chroma_format_idc == 1 ? 2 : 1;
+			uint8_t MinCbLog2SizeY = sps_log2_min_luma_coding_block_size_minus2 + 2;
+			uint32_t CtbWidthC = CtbSizeY / SubWidthC;
+			uint32_t CtbHeightC = CtbSizeY / SubHeightC;
+
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("MinCbLog2SizeY", MinCbLog2SizeY, "");
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("MinCbSizeY", 1 << MinCbLog2SizeY, "");
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("IbcBufWidthY", 256 * 128 / MinCbLog2SizeY, "");
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("IbcBufWidthC", 256 * 128 / MinCbLog2SizeY / SubWidthC, "");
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("VSize", AMP_MIN(64, CtbSizeY), "");
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("CtbWidthC", CtbWidthC, "");
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("CtbHeightC", CtbHeightC, "");
+
+			BST_FIELD_PROP_BOOL(sps_partition_constraints_override_enabled_flag, "", "");
+			BST_FIELD_PROP_UE(sps_log2_diff_min_qt_min_cb_intra_slice_luma, "");
+
+			uint32_t MinQtLog2SizeIntraY = sps_log2_diff_min_qt_min_cb_intra_slice_luma + MinCbLog2SizeY;
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("MinQtLog2SizeIntraY", MinQtLog2SizeIntraY, "");
+
+			BST_FIELD_PROP_UE(sps_max_mtt_hierarchy_depth_intra_slice_luma, "");
+			if (sps_max_mtt_hierarchy_depth_intra_slice_luma != 0) {
+				BST_FIELD_PROP_UE(sps_log2_diff_max_bt_min_qt_intra_slice_luma, "");
+				BST_FIELD_PROP_UE(sps_log2_diff_max_tt_min_qt_intra_slice_luma, "");
+			}
+
+			if (sps_chroma_format_idc != 0) {
+				BST_FIELD_PROP_BOOL(sps_qtbtt_dual_tree_intra_flag, "", "");
+			}
+
+			if (sps_qtbtt_dual_tree_intra_flag) {
+				BST_FIELD_PROP_UE(sps_log2_diff_min_qt_min_cb_intra_slice_chroma, "");
+				uint32_t MinQtLog2SizeIntraC = sps_log2_diff_min_qt_min_cb_intra_slice_chroma + MinCbLog2SizeY;
+				NAV_WRITE_TAG_WITH_NUMBER_VALUE("MinQtLog2SizeIntraC", MinQtLog2SizeIntraC, "");
+
+				BST_FIELD_PROP_UE(sps_max_mtt_hierarchy_depth_intra_slice_chroma, "");
+				if (sps_max_mtt_hierarchy_depth_intra_slice_chroma != 0) {
+					BST_FIELD_PROP_UE(sps_log2_diff_max_bt_min_qt_intra_slice_chroma, "");
+					BST_FIELD_PROP_UE(sps_log2_diff_max_tt_min_qt_intra_slice_chroma, "");
+				}
+			}
+
+			BST_FIELD_PROP_UE(sps_log2_diff_min_qt_min_cb_inter_slice, "");
+			uint32_t MinQtLog2SizeInterY = sps_log2_diff_min_qt_min_cb_inter_slice + MinCbLog2SizeY;
+			NAV_WRITE_TAG_WITH_NUMBER_VALUE("MinQtLog2SizeInterY", MinQtLog2SizeInterY, "");
+
+			BST_FIELD_PROP_UE(sps_max_mtt_hierarchy_depth_inter_slice, "");
+			if (sps_max_mtt_hierarchy_depth_inter_slice != 0) {
+				BST_FIELD_PROP_UE(sps_log2_diff_max_bt_min_qt_inter_slice, "");
+				BST_FIELD_PROP_UE(sps_log2_diff_max_tt_min_qt_inter_slice, "");
+			}
+
+			if (CtbSizeY > 32) {
+				BST_FIELD_PROP_BOOL(sps_max_luma_transform_size_64_flag, "", "");
+			}
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_transform_skip_enabled_flag, "", "");
+			if (sps_transform_skip_enabled_flag) {
+				BST_FIELD_PROP_UE(sps_log2_transform_skip_max_size_minus2, "");
+				BST_FIELD_PROP_BOOL(sps_bdpcm_enabled_flag, "", "");
+			}
+			BST_FIELD_PROP_BOOL_END("sps_transform_skip_enabled_flag");
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_mts_enabled_flag, "", "");
+			if (sps_mts_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_explicit_mts_intra_enabled_flag, 
+					"mts_idx could be present in the intra coding unit syntax of the CLVS", 
+					"mts_idx is not present in the intra coding unit syntax of the CLVS");
+				BST_FIELD_PROP_BOOL(sps_explicit_mts_inter_enabled_flag, 
+					"mts_idx could be present in the inter coding unit syntax of the CLVS", 
+					"mts_idx is not present in the inter coding unit syntax of the CLVS");
+			}
+			BST_FIELD_PROP_BOOL_END("sps_mts_enabled_flag");
+
+			BST_FIELD_PROP_BOOL(sps_lfnst_enabled_flag, 
+				"lfnst_idx could be present in intra coding unit syntax", 
+				"lfnst_idx is not present in intra coding unit syntax");
+			if (sps_chroma_format_idc != 0) {
+				BST_FIELD_PROP_BOOL(sps_joint_cbcr_enabled_flag, "the joint coding of chroma residuals is enabled for the CLVS", 
+					"the joint coding of chroma residuals is disabled for the CLVS");
+				BST_FIELD_PROP_BOOL(sps_same_qp_table_for_chroma_flag, 
+					"only one chroma QP mapping table is signalled and this table applies to Cb and Cr residuals and additionally to joint Cb-Cr residuals", 
+					"chroma QP mapping tables, two for Cb and Cr, and one additional for joint Cb-Cr");
+				uint8_t numQpTables = sps_same_qp_table_for_chroma_flag ? 1 : (sps_joint_cbcr_enabled_flag ? 3 : 2);
+				NAV_WRITE_TAG_WITH_NUMBER_VALUE("numQpTables", numQpTables, "");
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag1", "for(i=0;i&lt;numQpTables;i++)", "");
+				for (i = 0; i < numQpTables; i++) {
+					BST_ARRAY_FIELD_PROP_SE(sps_qp_table_start_minus26, i, 
+						"plus 26 specifies the starting luma and chroma QP used to describe the i-th chroma QP mapping table");
+					BST_ARRAY_FIELD_PROP_SE(sps_num_points_in_qp_table_minus1, i, 
+						"plus 1 specifies the number of points used to describe the i-th chroma QP mapping table");
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag10", "for(j=0;j&lt;=sps_num_points_in_qp_table_minus1[ i ];j++)", "");
+					for (uint32_t j = 0; j <= sps_num_points_in_qp_table_minus1[i]; j++) {
+						BST_2ARRAY_FIELD_PROP_UE(sps_delta_qp_in_val_minus1, i, j, 
+							"a delta value used to derive the input coordinate of the j-th pivot point of the i-th chroma QP mapping table");
+						BST_2ARRAY_FIELD_PROP_UE(sps_delta_qp_diff_val, i, j, 
+							"a delta value used to derive the output coordinate of the j-th pivot point of the i-th chroma QP mapping table");
+					}
+					NAV_WRITE_TAG_END("Tag10");
+				}
+				NAV_WRITE_TAG_END("Tag1");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_sao_enabled_flag, "SAO is enabled for the CLVS", "SAO is disabled for the CLVS");
+			BST_FIELD_PROP_BOOL(sps_alf_enabled_flag, "ALF is enabled for the CLVS", "ALF is disabled for the CLVS");
+			if (sps_alf_enabled_flag && sps_chroma_format_idc != 0) {
+				BST_FIELD_PROP_BOOL(sps_ccalf_enabled_flag, "CCALF is enabled for the CLVS", "CCALF is disabled for the CLVS");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_lmcs_enabled_flag, "LMCS is enabled for the CLVS", "LMCS is disabled for the CLVS");
+			BST_FIELD_PROP_BOOL(sps_weighted_pred_flag, "weighted prediction might be applied to P slices", "weighted prediction is not applied to P slices");
+			BST_FIELD_PROP_BOOL(sps_weighted_bipred_flag, 
+				"explicit weighted prediction might be applied to B slices", 
+				"explicit weighted prediction is not applied to B slices");
+			BST_FIELD_PROP_BOOL(sps_long_term_ref_pics_flag, 
+				"LTRPs might be used for inter prediction of one or more coded pictures in the CLVS", 
+				"no LTRP is used for inter prediction of any coded picture in the CLVS");
+
+			if (sps_video_parameter_set_id > 0) {
+				BST_FIELD_PROP_BOOL(sps_inter_layer_prediction_enabled_flag, 
+					"inter-layer prediction is enabled for the CLVS and ILRPs might be used for inter prediction of one or more coded pictures in the CLVS", 
+					"inter-layer prediction is disabled for the CLVS and no ILRP is used for inter prediction of any coded picture in the CLVS");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_idr_rpl_present_flag, 
+				"RPL syntax elements could be present in slice headers of slices with nal_unit_type equal to IDR_N_LP or IDR_W_RADL", 
+				"RPL syntax elements are not present in slice headers of slices with nal_unit_type equal to IDR_N_LP or IDR_W_RADL");
+			BST_FIELD_PROP_BOOL(sps_rpl1_same_as_rpl0_flag, 
+				"the syntax element sps_num_ref_pic_lists[1] and the syntax structure ref_pic_list_struct(1, rplsIdx) are not present", 
+				"");
+
+			NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag2", "for(i=0;i&lt;(sps_rpl1_same_as_rpl0_flag?1:2);i++)", "");
+			for (i = 0; i < (sps_rpl1_same_as_rpl0_flag ? 1 : 2); i++) {
+				BST_ARRAY_FIELD_PROP_UE(sps_num_ref_pic_lists, i, "");
+				for (int j = 0; j < sps_num_ref_pic_lists[i]; j++) {
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag20", "ref_pic_list_struct(%d, %d)", "", i, j);
+					BST_FIELD_PROP_REF(ref_pic_list_struct[i][j]);
+					NAV_WRITE_TAG_END("Tag20");
+				}
+			}
+			NAV_WRITE_TAG_END("Tag2");
+
+			BST_FIELD_PROP_BOOL(sps_ref_wraparound_enabled_flag, 
+				"horizontal wrap-around motion compensation is enabled for the CLVS", 
+				"horizontal wrap-around motion compensation is disabled for the CLVS");
+			BST_FIELD_PROP_BOOL(sps_temporal_mvp_enabled_flag, 
+				"temporal motion vector predictors are enabled for the CLVS", 
+				"temporal motion vector predictors are disabled for the CLVS");
+			if (sps_temporal_mvp_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_sbtmvp_enabled_flag,
+					"temporal motion vector predictors are enabled for the CLVS",
+					"temporal motion vector predictors are disabled for the CLVS");
+			}
+			else
+			{
+				NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sps_sbtmvp_enabled_flag,
+					sps_sbtmvp_enabled_flag ? "temporal motion vector predictors are enabled for the CLVS"
+											: "temporal motion vector predictors are disabled for the CLVS");
+			}
+			BST_FIELD_PROP_BOOL(sps_amvr_enabled_flag,
+				"adaptive motion vector difference resolution is enabled for the CVLS",
+				"adaptive motion vector difference resolution is disabled for the CLVS");
+			BST_FIELD_PROP_BOOL(sps_bdof_enabled_flag,
+				"the bi-directional optical flow inter prediction is enabled for the CLVS",
+				"the bi-directional optical flow inter prediction is disabled for the CLVS");
+			if (sps_bdof_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_bdof_control_present_in_ph_flag, "ph_bdof_disabled_flag could be present in PH", "ph_bdof_disabled_flag is not present in PH");
+			}
+			else {
+				NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sps_bdof_control_present_in_ph_flag, 
+					sps_bdof_control_present_in_ph_flag ? "ph_bdof_disabled_flag could be present in PH":"ph_bdof_disabled_flag is not present in PH");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_smvd_enabled_flag, "symmetric motion vector difference is enabled for the CLVS", 
+				"symmetric motion vector difference is disabled for the CLVS");
+			BST_FIELD_PROP_BOOL(sps_dmvr_enabled_flag, "decoder motion vector refinement based inter bi-prediction is enabled for the CLVS", 
+				"decoder motion vector refinement based inter bi-prediction is disabled for the CLVS");
+			if (sps_dmvr_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_dmvr_control_present_in_ph_flag, "ph_dmvr_disabled_flag could be present in PH", "ph_dmvr_disabled_flag is not present in PH");
+			}
+			else
+			{
+				NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sps_dmvr_control_present_in_ph_flag, 
+					sps_dmvr_control_present_in_ph_flag?"ph_dmvr_disabled_flag could be present in PH":"ph_dmvr_disabled_flag is not present in PH");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_mmvd_enabled_flag, 
+				"merge mode with motion vector difference is enabled for the CLVS",
+				"merge mode with motion vector difference is disabled for the CLVS");
+			if (sps_mmvd_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_mmvd_fullpel_only_enabled_flag, 
+					"the merge mode with motion vector difference using only integer sample precision is enabled for the CLVS", 
+					"the merge mode with motion vector difference using only integer sample precision is disabled for the CLVS");
+			}
+			else
+			{
+				NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sps_mmvd_fullpel_only_enabled_flag,
+					sps_mmvd_fullpel_only_enabled_flag ? "the merge mode with motion vector difference using only integer sample precision is enabled for the CLVS"
+														: "the merge mode with motion vector difference using only integer sample precision is disabled for the CLVS");
+			}
+
+			BST_FIELD_PROP_UE(sps_six_minus_max_num_merge_cand, "the maximum number of MVP candidates supported in the SPS subtracted from 6");
+			BST_FIELD_PROP_BOOL(sps_sbt_enabled_flag, "", "");
+			BST_FIELD_PROP_BOOL_BEGIN(sps_affine_enabled_flag, "", "");
+				BST_FIELD_PROP_UE(sps_five_minus_max_num_subblock_merge_cand, 
+						"the maximum number of subblock-based merging motion vector prediction candidates supported in the SPS subtracted from 5");
+				BST_FIELD_PROP_BOOL(sps_6param_affine_enabled_flag, "", "");
+				if (sps_amvr_enabled_flag) {
+					BST_FIELD_PROP_BOOL(sps_affine_amvr_enabled_flag, "", "");
+				}
+				else
+				{
+					NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sps_affine_amvr_enabled_flag, "");
+				}
+				BST_FIELD_PROP_BOOL(sps_affine_prof_enabled_flag, "", "");
+				if (sps_affine_prof_enabled_flag) {
+					BST_FIELD_PROP_BOOL(sps_prof_control_present_in_ph_flag, "", "");
+				}
+				else
+				{
+					NAV_WRITE_TAG_WITH_NUMBER_VALUE1(sps_prof_control_present_in_ph_flag, "");
+				}
+			BST_FIELD_PROP_BOOL_END("sps_affine_enabled_flag");
+
+			BST_FIELD_PROP_BOOL(sps_bcw_enabled_flag, "", "");
+			BST_FIELD_PROP_BOOL(sps_ciip_enabled_flag, "", "");
+
+			uint8_t MaxNumMergeCand = (uint8_t)(6 - sps_six_minus_max_num_merge_cand);
+			if (MaxNumMergeCand >= 2) {
+				BST_FIELD_PROP_BOOL(sps_gpm_enabled_flag, "", "");
+				if (sps_gpm_enabled_flag && MaxNumMergeCand >= 3) {
+					BST_FIELD_PROP_UE(sps_max_num_merge_cand_minus_max_num_gpm_cand, "");
+				}
+			}
+
+			BST_FIELD_PROP_UE(sps_log2_parallel_merge_level_minus2, "");
+			BST_FIELD_PROP_BOOL(sps_isp_enabled_flag, "", "");
+			BST_FIELD_PROP_BOOL(sps_mrl_enabled_flag, "", "");
+			BST_FIELD_PROP_BOOL(sps_mip_enabled_flag, "", "");
+
+			if (sps_chroma_format_idc != 0) {
+				BST_FIELD_PROP_BOOL(sps_cclm_enabled_flag, "", "");
+			}
+			if (sps_chroma_format_idc == 1) {
+				BST_FIELD_PROP_BOOL(sps_chroma_horizontal_collocated_flag, "", "");
+				BST_FIELD_PROP_BOOL(sps_chroma_vertical_collocated_flag, "", "");
+			}
+			BST_FIELD_PROP_BOOL(sps_palette_enabled_flag, "", "");
+			if (sps_chroma_format_idc == 3 && !sps_max_luma_transform_size_64_flag) {
+				BST_FIELD_PROP_BOOL(sps_act_enabled_flag, "", "");
+			}
+
+			if (sps_transform_skip_enabled_flag || sps_palette_enabled_flag) {
+				BST_FIELD_PROP_UE(sps_min_qp_prime_ts, "");
+			}
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_ibc_enabled_flag, "", "");
+				BST_FIELD_PROP_UE(sps_six_minus_max_num_ibc_merge_cand, "");
+			BST_FIELD_PROP_BOOL_END("sps_ibc_enabled_flag");
+
+			BST_FIELD_PROP_BOOL_BEGIN(sps_ladf_enabled_flag, "", "");
+			if (sps_ladf_enabled_flag) {
+				BST_FIELD_PROP_2NUMBER1(sps_num_ladf_intervals_minus2, 3, "");
+				BST_FIELD_PROP_SE(sps_ladf_lowest_interval_qp_offset, "");
+
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag3", "for(i=0;i&lt;sps_num_ladf_intervals_minus2+1;i++)", "");
+				for (i = 0; i < (int)((int64_t)sps_num_ladf_intervals_minus2 + 1); i++) {
+					BST_ARRAY_FIELD_PROP_SE(sps_ladf_qp_offset, i, "");
+					BST_ARRAY_FIELD_PROP_UE(sps_ladf_delta_threshold_minus1, i, "");
+				}
+				NAV_WRITE_TAG_END("Tag3");
+			}
+			BST_FIELD_PROP_BOOL_END("sps_ladf_enabled_flag");
+
+			BST_FIELD_PROP_BOOL(sps_explicit_scaling_list_enabled_flag, "", "");
+			if (sps_lfnst_enabled_flag && sps_explicit_scaling_list_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_scaling_matrix_for_lfnst_disabled_flag, "", "");
+			}
+
+			if (sps_act_enabled_flag && sps_explicit_scaling_list_enabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_scaling_matrix_for_alternative_colour_space_disabled_flag, "", "");
+			}
+
+			if (sps_scaling_matrix_for_alternative_colour_space_disabled_flag) {
+				BST_FIELD_PROP_BOOL(sps_scaling_matrix_designated_colour_space_flag, "", "");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_dep_quant_enabled_flag, "", "");
+			BST_FIELD_PROP_BOOL(sps_sign_data_hiding_enabled_flag, "", "");
+			BST_FIELD_PROP_BOOL_BEGIN(sps_virtual_boundaries_enabled_flag, "", "");
+				BST_FIELD_PROP_BOOL_BEGIN(sps_virtual_boundaries_present_flag, "", "");
+					BST_FIELD_PROP_UE(sps_num_ver_virtual_boundaries, "");
+					if (sps_num_ver_virtual_boundaries > 0) {
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag4", "for(i=0; i&lt;sps_num_ver_virtual_boundaries;i++)", "");
+						for (i = 0; i < sps_num_ver_virtual_boundaries; i++) {
+							BST_ARRAY_FIELD_PROP_UE(sps_virtual_boundary_pos_x_minus1, i, "");
+						}
+						NAV_WRITE_TAG_END("Tag4");
+					}
+
+					BST_FIELD_PROP_UE(sps_num_hor_virtual_boundaries, "");
+					if (sps_num_hor_virtual_boundaries > 0) {
+						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag5", "for(i=0; i&lt;sps_num_hor_virtual_boundaries;i++)", "");
+						for (i = 0; i < sps_num_hor_virtual_boundaries; i++) {
+							BST_ARRAY_FIELD_PROP_UE(sps_virtual_boundary_pos_y_minus1, i, "");
+						}
+						NAV_WRITE_TAG_END("Tag5");
+					}
+				BST_FIELD_PROP_BOOL_END("sps_virtual_boundaries_present_flag");
+			BST_FIELD_PROP_BOOL_END("sps_virtual_boundaries_enabled_flag");
+
+			if (sps_ptl_dpb_hrd_params_present_flag) {
+				BST_FIELD_PROP_BOOL_BEGIN(sps_timing_hrd_params_present_flag, "", "");
+				if (sps_timing_hrd_params_present_flag) {
+					BST_FIELD_PROP_REF1_1(general_timing_hrd_parameters, "");
+					if (sps_max_sublayers_minus1 > 0) {
+						BST_FIELD_PROP_BOOL(sps_sublayer_cpb_params_present_flag, "", "");
+					}
+					uint8_t firstSubLayer = sps_sublayer_cpb_params_present_flag ? 0 : sps_max_sublayers_minus1;
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag6", 
+						"ols_timing_hrd_parameters(firstSubLayer:%d, sps_max_sublayers_minus1:%d)", "",
+						firstSubLayer, sps_max_sublayers_minus1);
+					BST_FIELD_PROP_REF(ols_timing_hrd_parameters);
+					NAV_WRITE_TAG_END("Tag6");
+				}
+				BST_FIELD_PROP_BOOL_END("sps_timing_hrd_params_present_flag");
+			}
+
+			BST_FIELD_PROP_BOOL(sps_field_seq_flag, "the CLVS conveys pictures that represent fields", "the CLVS conveys pictures that represent frames");
+			BST_FIELD_PROP_BOOL_BEGIN(sps_vui_parameters_present_flag, "", "");
+			BST_FIELD_PROP_UE(sps_vui_payload_size_minus1, "plus 1 specifies the number of RBSP bytes in the vui_payload");
+			BST_FIELD_PROP_NUMBER_BITARRAY1(sps_vui_alignment_zero_bit, "");
+			NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag8", "vui_payload( sps_vui_payload_size_minus1 + 1: %d)", "", (int)sps_vui_payload_size_minus1 + 1);
+				BST_FIELD_PROP_REF(vui_payload);
+			NAV_WRITE_TAG_END("Tag8");
+
+			BST_FIELD_PROP_BOOL_END("sps_vui_parameters_present_flag");
+
+			BST_FIELD_PROP_BOOL(sps_extension_flag, "", "");
+			if (sps_extension_flag) {
+				BST_FIELD_PROP_NUMBER_BITARRAY1(sps_extension_data_flag, "");
+			}
+
+			BST_FIELD_PROP_OBJECT(rbsp_trailing_bits);
+
+		NAV_WRITE_TAG_END("seq_parameter_set_rbsp");
 		DECLARE_FIELDPROP_END()
 
 		//

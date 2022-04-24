@@ -51,6 +51,7 @@ extern const char* vvc_profile_name[6];
 extern const char* vvc_nal_unit_type_names[64];
 extern const char* vvc_nal_unit_type_short_names[32];
 extern const char* vvc_nal_unit_type_descs[32];
+extern const char* sample_aspect_ratio_descs[256];
 
 namespace BST {
 
@@ -240,7 +241,7 @@ namespace BST {
 			REF_PIC_LIST_STRUCT(uint8_t listIdx, uint8_t rplsIdx, void* seq_parameter_set_rbsp);
 			int Map(AMBst in_bst);
 			int Unmap(AMBst out_bst);
-			size_t ProduceDesc(_Out_writes_(cbLen) char* szOutXml, size_t cbLen, bool bPrint = false, long long* bit_offset = NULL);
+			DECLARE_FIELDPROP();
 		};
 
 		struct NAL_UNIT : public SYNTAX_BITSTREAM_MAP
@@ -566,7 +567,7 @@ namespace BST {
 					}
 				};
 
-				std::vector< OLS_TIMING_HRD_PARAMETER>
+				std::vector<OLS_TIMING_HRD_PARAMETER>
 									parameters;
 
 				uint8_t				m_firstSubLayer;
@@ -633,7 +634,35 @@ namespace BST {
 					return RET_CODE_ERROR_NOTIMPL;
 				}
 
-				DECLARE_FIELDPROP();
+				DECLARE_FIELDPROP_BEGIN()
+				NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag0", "for(i=firstSubLayer(%d);i&lt;=MaxSubLayersVal(%d);i++)", "", m_firstSubLayer, m_MaxSubLayersVal);
+				for (i = 0; i <= m_MaxSubLayersVal - m_firstSubLayer; i++) {
+					NAV_WRITE_TAG_BEGIN_WITH_ALIAS_F("Tag00", "ols_timing_hrd_parameter[%d]", "", i);
+						BST_FIELD_PROP_BOOL1(parameters[i], fixed_pic_rate_general_flag, "", "");
+						if (!parameters[i].fixed_pic_rate_general_flag) {
+							BST_FIELD_PROP_BOOL1(parameters[i], fixed_pic_rate_within_cvs_flag, "", "");
+						}
+						if (parameters[i].fixed_pic_rate_within_cvs_flag) {
+							BST_FIELD_PROP_2NUMBER("elemental_duration_in_tc_minus1", 
+								(long long)quick_log2(parameters[i].elemental_duration_in_tc_minus1 + 1) * 2 + 1, parameters[i].elemental_duration_in_tc_minus1, "")
+						}
+						else if ((m_pTimingHRDParameters->general_nal_hrd_params_present_flag || 
+								  m_pTimingHRDParameters->general_vcl_hrd_params_present_flag) && m_pTimingHRDParameters->hrd_cpb_cnt_minus1 == 0) {
+							BST_FIELD_PROP_BOOL1(parameters[i], low_delay_hrd_flag, "", "");
+						}
+
+						if (m_pTimingHRDParameters->general_nal_hrd_params_present_flag) {
+							NAV_FIELD_PROP_REF2_1(parameters[i].sublayer_nal_hrd_parameters, "sublayer_nal_hrd_parameters", "");
+						}
+
+						if (m_pTimingHRDParameters->general_vcl_hrd_params_present_flag) {
+							NAV_FIELD_PROP_REF2_1(parameters[i].sublayer_vcl_hrd_parameters, "sublayer_vcl_hrd_parameters", "");
+						}
+
+					NAV_WRITE_TAG_END("Tag00");
+				}
+				NAV_WRITE_TAG_END("Tag0");
+				DECLARE_FIELDPROP_END()
 			};
 
 			struct VUI_PARAMETERS : public SYNTAX_BITSTREAM_MAP
@@ -650,7 +679,6 @@ namespace BST {
 				uint8_t			vui_aspect_ratio_idc;
 				uint16_t		vui_sar_width;
 				uint16_t		vui_sar_height;
-
 
 				uint8_t			vui_colour_description_present_flag : 1;
 				uint8_t			vui_full_range_flag : 1;
@@ -740,7 +768,55 @@ namespace BST {
 					return RET_CODE_ERROR_NOTIMPL;
 				}
 
-				DECLARE_FIELDPROP();
+				DECLARE_FIELDPROP_BEGIN()
+					BST_FIELD_PROP_BOOL(vui_progressive_source_flag, "", "");
+					BST_FIELD_PROP_BOOL(vui_interlaced_source_flag, "", "");
+					BST_FIELD_PROP_BOOL(vui_non_packed_constraint_flag, "", "");
+					BST_FIELD_PROP_BOOL(vui_non_projected_constraint_flag, "", "");
+					BST_FIELD_PROP_BOOL_BEGIN(vui_aspect_ratio_info_present_flag, "", "");
+						BST_FIELD_PROP_BOOL(vui_aspect_ratio_constant_flag, "", "");
+						BST_FIELD_PROP_2NUMBER1(vui_aspect_ratio_idc, 8, sample_aspect_ratio_descs[vui_aspect_ratio_idc]);
+						if (vui_aspect_ratio_idc == 255) {
+							BST_FIELD_PROP_2NUMBER1(vui_sar_width, 16, "the horizontal size of the sample aspect ratio (in arbitrary units)");
+							BST_FIELD_PROP_2NUMBER1(vui_sar_height, 16, "the vertical size of the sample aspect ratio (in the same arbitrary units as sar_width).");
+						}
+					BST_FIELD_PROP_BOOL_END("vui_aspect_ratio_info_present_flag");
+
+					BST_FIELD_PROP_NUMBER1(vui_overscan_info_present_flag, 1, 
+						vui_overscan_info_present_flag ? "the overscan_appropriate_flag is present" : "the preferred display method for the video signal is unspecified");
+					if (vui_overscan_info_present_flag) {
+						BST_FIELD_PROP_NUMBER1(vui_overscan_appropriate_flag, 1, vui_overscan_appropriate_flag 
+							? "indicates that the cropped decoded pictures output are suitable for display using overscan"
+							: "indicates that the cropped decoded pictures output contain visually important information in the entire region");
+					}
+
+					BST_FIELD_PROP_BOOL_BEGIN(vui_colour_description_present_flag, 
+						"specifies that colour_primaries, transfer_characteristics and matrix_coeffs are present",
+						"specifies that colour_primaries, transfer_characteristics and matrix_coeffs are not present.");
+
+					if (vui_colour_description_present_flag)
+					{
+						BST_FIELD_PROP_2NUMBER1(vui_colour_primaries, 8, vui_colour_primaries_names[vui_colour_primaries]);
+						BST_FIELD_PROP_2NUMBER1(vui_transfer_characteristics, 8, vui_transfer_characteristics_names[vui_transfer_characteristics]);
+						BST_FIELD_PROP_2NUMBER1(vui_matrix_coeffs, 8, vui_matrix_coeffs_descs[vui_matrix_coeffs]);
+						BST_FIELD_PROP_BOOL(vui_full_range_flag, "", "");
+					}
+
+					BST_FIELD_PROP_BOOL_END("vui_colour_description_present_flag");
+
+					BST_FIELD_PROP_BOOL_BEGIN(vui_chroma_loc_info_present_flag, "", "");
+					if (vui_chroma_loc_info_present_flag) {
+						if (vui_progressive_source_flag && !vui_interlaced_source_flag) {
+							BST_FIELD_PROP_UE(vui_chroma_sample_loc_type_frame, "");
+						}
+						else
+						{
+							BST_FIELD_PROP_UE(vui_chroma_sample_loc_type_top_field, "");
+							BST_FIELD_PROP_UE(vui_chroma_sample_loc_type_bottom_field, "");
+						}
+					}
+					BST_FIELD_PROP_BOOL_END("vui_chroma_loc_info_present_flag");
+				DECLARE_FIELDPROP_END()
 			};
 
 			struct VUI_PAYLOAD : public SYNTAX_BITSTREAM_MAP
@@ -780,6 +856,7 @@ namespace BST {
 					if (bst == nullptr)
 						return RET_CODE_OUTOFMEMORY;
 
+					MAP_BST_BEGIN(0);
 					nal_read_obj(bst, vui_parameters);
 
 					int left_bits_in_bst = 0;
@@ -795,6 +872,7 @@ namespace BST {
 					for (int i = 0; i < nPayloadZeroBits; i++) {
 						bsrbarray(bst, vui_payload_bit_equal_to_zero, i);
 					}
+					MAP_BST_END();
 
 					return RET_CODE_SUCCESS;
 				}
@@ -805,7 +883,12 @@ namespace BST {
 					return RET_CODE_ERROR_NOTIMPL;
 				}
 
-				DECLARE_FIELDPROP();
+				DECLARE_FIELDPROP_BEGIN()
+					BST_FIELD_PROP_OBJECT(vui_parameters);
+					BST_FIELD_PROP_NUMBER_BITARRAY1(vui_reserved_payload_extension_data, "");
+					BST_FIELD_PROP_BOOL(vui_payload_bit_equal_to_one, "Should be 1", "Should be 1")
+					BST_FIELD_PROP_NUMBER_BITARRAY1(vui_payload_bit_equal_to_zero, "Should be all 0");
+				DECLARE_FIELDPROP_END()
 			};
 
 			struct DECODING_CAPABILITY_INFORMATION_RBSP : public SYNTAX_BITSTREAM_MAP

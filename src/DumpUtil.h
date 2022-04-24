@@ -739,6 +739,19 @@ SOFTWARE.
 		printf("%s\n", szTemp);\
 	if (bit_offset)*bit_offset += Field_Bits;\
 
+#define NAV_FIELD_PROP_WITH_ALIAS_VALUEFMT(Field_Name, Field_Alias, Field_Bits, Field_Value_FmtStr, Field_Desc, Field_Bit_Offset, Type, ...)\
+	if(szOutXml != 0 && cbLen > 0)\
+		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, \
+			"<%s Alias=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\" Value=\"" Field_Value_FmtStr "\"/>", \
+			Field_Name, Field_Alias, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type, ##__VA_ARGS__);\
+	else\
+		cbRequired += MBCSPRINTF_S(szTemp, TEMP_SIZE, \
+			"<%s Alias=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\" Value=\"" Field_Value_FmtStr "\"/>", \
+			Field_Name, Field_Alias, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type, ##__VA_ARGS__);\
+	if(bPrint)\
+		printf("%s\n", szTemp);\
+	if (bit_offset)*bit_offset += Field_Bits;\
+
 #define NAV_FIELD_PROP_WITH_ALIAS_BEGIN(Field_Name, Field_Alias, Field_Bits, Field_Value, Field_Desc, Field_Bit_Offset, Type)\
 	if(szOutXml != 0 && cbLen > 0)\
 		cbRequired += MBCSPRINTF_S(szOutXml + cbRequired, cbLen - cbRequired, "<%s Alias=\"%s\" Value=\"%s\" Bits=\"%lu\" Desc=\"%s\" Offset=\"%lld\" Type=\"%s\">", Field_Name, Field_Alias, Field_Value, (unsigned long)(Field_Bits), Field_Desc, Field_Bit_Offset, Type);\
@@ -863,8 +876,16 @@ SOFTWARE.
 	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, Value_FmtStr, Field_Value);\
 	NAV_FIELD_PROP_WITH_ALIAS(Field_Name, szTagName, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
 
+#define NAV_ARRAY_FIELD_PROP_NUMBER_WITH_ALIAS_VALUEFMT(Field_Name, Prefix_array, Prefix_Idx, Idx, Field_Bits, Value_FmtStr, Field_Desc,...)\
+	MBCSPRINTF_S(szTagName, TAGNAME_SIZE, "%s[%s%d]", Prefix_array, Prefix_Idx, (int)Idx);\
+	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, Value_FmtStr, Field_Value);\
+	NAV_FIELD_PROP_WITH_ALIAS(Field_Name, szTagName, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
+
 #define NAV_ARRAY_FIELD_PROP_NUMBER(Field_Name, Idx, Field_Bits, Field_Value, Field_Desc)\
 	NAV_ARRAY_FIELD_PROP_NUMBER_(Field_Name, "", Idx, Field_Bits, Field_Value, Field_Desc)
+
+#define NAV_ARRAY_FIELD_PROP_SIGNNUMBER(Field_Name, Idx, Field_Bits, Field_Value, Field_Desc)\
+	NAV_ARRAY_FIELD_PROP_SIGNNUMBER_(Field_Name, "", Idx, false, Field_Bits, Field_Value, Field_Desc)
 
 #define NAV_ARRAY_FIELD_PROP_2NUMBER(Field_Name, Idx, Field_Bits, Field_Value, Field_Desc)\
 	MBCSPRINTF_S(szTagName, TAGNAME_SIZE, "%s[%d]", Field_Name, (int)Idx);\
@@ -884,7 +905,7 @@ SOFTWARE.
 
 #define NAV_ARRAY_FIELD_PROP_SIGNNUMBER_(Field_Name, Prefix_Idx, Idx, Simple, Field_Bits, Field_Value, Field_Desc)\
 	MBCSPRINTF_S(szTagName, TAGNAME_SIZE, "%s[%s%d]", Simple?"":Field_Name, Prefix_Idx, (int)Idx);\
-	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%ld", Field_Value);\
+	MBCSPRINTF_S(szTemp3, TEMP3_SIZE, "%" PRId64 "", (int64_t)Field_Value);\
 	NAV_FIELD_PROP_WITH_ALIAS(Field_Name, szTagName, Field_Bits, szTemp3, Field_Desc, bit_offset?*bit_offset:-1LL, "I");\
 
 #define NAV_ARRAY_FIELD_PROP_2NUMBER64_(Field_Name, Prefix_Idx, Idx, Simple, Field_Bits, Field_Value, Field_Desc)\
@@ -930,6 +951,28 @@ SOFTWARE.
 		NAV_ARRAY_FIELD_PROP_NUMBER__(Field_Name, Prefix_array, Prefix_Idx, Idx, Field_Bits, Field_Value, Field_Desc)\
 		field_prop_idx++;}\
 
+#define BST_ARRAY_FIELD_PROP_NUMBERS_WITH_ALIAS_VALUEFMT(Field_Name, Prefix_Array, Prefix_Idx, Idx, Field_Bits, Field_Value_FmtStr, Field_Desc, ...)\
+	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		MBCSPRINTF_S(szTagName, TAGNAME_SIZE, "%s[%s%d]", Prefix_Array, Prefix_Idx, Idx);\
+		NAV_FIELD_PROP_WITH_ALIAS_VALUEFMT(Field_Name, szTagName, Field_Bits, Field_Value_FmtStr, Field_Desc, ##__VA_ARGS__)\
+		field_prop_idx++;}\
+
+#define BST_FIELD_PROP_NUMBER_BITARRAY(Field_Name, Field_BitArray, Field_Desc, start_idx)\
+	if (Field_BitArray.UpperBound() >= start_idx){\
+	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		int ccWritten = 0, bitarray_idx = start_idx;\
+		int ccWrittenOnce = MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "%d", Field_BitArray[bitarray_idx++]);\
+		while(ccWrittenOnce > 0 && bitarray_idx <= Field_BitArray.UpperBound()){\
+			ccWritten += ccWrittenOnce;\
+			if (TEMP2_SIZE - 1 <= ccWritten)break;\
+			ccWrittenOnce = MBCSPRINTF_S(szTemp2 + ccWritten, TEMP2_SIZE - ccWritten, ",%d", Field_BitArray[bitarray_idx++]);\
+		}\
+		NAV_FIELD_PROP(Field_Name, Field_BitArray.UpperBound() + 1, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "IA");\
+		field_prop_idx++;}}\
+
+#define BST_FIELD_PROP_NUMBER_BITARRAY1(Field_Name, Field_Desc)\
+		BST_FIELD_PROP_NUMBER_BITARRAY(#Field_Name, Field_Name, Field_Desc, 0)
+
 #define BST_ARRAY_FIELD_PROP_NUMBER(Field_Name, Idx, Field_Bits, Field_Value, Field_Desc)\
 		BST_ARRAY_FIELD_PROP_NUMBER_(Field_Name, "", Idx, Field_Bits, Field_Value, Field_Desc)
 
@@ -938,8 +981,25 @@ SOFTWARE.
 
 #define BST_ARRAY_FIELD_PROP_NUMBER_F(Field_Name, Idx, Field_Bits, Field_Value, Field_Desc, ...)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
-		MBCSPRINTF_S(szTemp2, TEMP4_SIZE, Field_Desc, ##__VA_ARGS__); \
+		MBCSPRINTF_S(szTemp2, TEMP2_SIZE, Field_Desc, ##__VA_ARGS__); \
 		NAV_ARRAY_FIELD_PROP_NUMBER(Field_Name, Idx, Field_Bits, Field_Value, szTemp2)\
+		field_prop_idx++;}\
+
+#define BST_ARRAY_FIELD_PROP_SIGNNUMBER_(Field_Name, Prefix_Idx, Idx, Field_Bits, Field_Value, Field_Desc)\
+	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		NAV_ARRAY_FIELD_PROP_SIGNNUMBER_(Field_Name, Prefix_Idx, Idx, false, Field_Bits, Field_Value, Field_Desc)\
+		field_prop_idx++;}\
+
+#define BST_ARRAY_FIELD_PROP_SIGNNUMBER(Field_Name, Idx, Field_Bits, Field_Value, Field_Desc)\
+		BST_ARRAY_FIELD_PROP_SIGNNUMBER_(Field_Name, "", Idx, Field_Bits, Field_Value, Field_Desc)
+
+#define BST_ARRAY_FIELD_PROP_SIGNNUMBER1(Field_Name, Idx, Field_Bits, Field_Desc)\
+		BST_ARRAY_FIELD_PROP_SIGNNUMBER(#Field_Name, Idx, Field_Bits, Field_Name[Idx], Field_Desc)
+
+#define BST_ARRAY_FIELD_PROP_SIGNNUMBER_F(Field_Name, Idx, Field_Bits, Field_Value, Field_Desc, ...)\
+	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
+		MBCSPRINTF_S(szTemp2, TEMP4_SIZE, Field_Desc, ##__VA_ARGS__); \
+		NAV_ARRAY_FIELD_PROP_SIGNNUMBER(Field_Name, Idx, Field_Bits, Field_Value, szTemp2)\
 		field_prop_idx++;}\
 
 #define BST_ARRAY_FIELD_PROP_NUMBER1_F(Field_Name, Idx, Field_Bits, Field_Desc, ...)\
@@ -968,13 +1028,15 @@ SOFTWARE.
 		field_prop_idx++;}\
 
 #define BST_ARRAY_FIELD_PROP_SE(Field_Name, Idx, Field_Desc)\
-	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2((Field_Name[Idx]>=0?Field_Name[Idx]:((-Field_Name[Idx]) + 1)) + 1)*2 + 1, Field_Name[Idx], Field_Desc)
+	BST_ARRAY_FIELD_PROP_SIGNNUMBER(#Field_Name, Idx, \
+									(long long)quick_log2((Field_Name[Idx]>=0?Field_Name[Idx]:((-Field_Name[Idx]) + 1)) + 1)*2 + 1, \
+									Field_Name[Idx], Field_Desc)
 
 #define BST_ARRAY_FIELD_PROP_UE(Field_Name, Idx, Field_Desc)\
 	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2(Field_Name[Idx] + 1)*2 + 1, Field_Name[Idx], Field_Desc)
 
 #define BST_ARRAY_FIELD_PROP_SE1(Object, Field_Name, Idx, Field_Desc)\
-	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2((Object[Idx].Field_Name>=0?Object[Idx].Field_Name:((-Object[Idx].Field_Name) + 1)) + 1)*2 + 1, Object[Idx].Field_Name, Field_Desc)
+	BST_ARRAY_FIELD_PROP_SIGNNUMBER(#Field_Name, Idx, (long long)quick_log2((Object[Idx].Field_Name>=0?Object[Idx].Field_Name:((-Object[Idx].Field_Name) + 1)) + 1)*2 + 1, Object[Idx].Field_Name, Field_Desc)
 
 #define BST_ARRAY_FIELD_PROP_UE1(Object, Field_Name, Idx, Field_Desc)\
 	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2(Object[Idx].Field_Name + 1)*2 + 1, Object[Idx].Field_Name, Field_Desc)
@@ -983,7 +1045,12 @@ SOFTWARE.
 	BST_ARRAY_FIELD_PROP_NUMBER(#Field_Name, Idx, (long long)quick_log2(Field_Value + 1)*2 + 1, Field_Value, Field_Desc)
 
 #define BST_ARRAY_ARRAY_FIELD_PROP_SE(Field_Name, Sub_Field_Name, Idx, Field_Value, Field_Desc)\
-	BST_ARRAY_ARRAY_FIELD_PROP_NUMBER(#Field_Name, #Sub_Field_Name, Idx, (long long)quick_log2((Field_Value>=0?Field_Value:((-Field_Value) + 1)) + 1)*2 + 1, Field_Value, Field_Desc)
+	BST_ARRAY_ARRAY_FIELD_PROP_NUMBER(#Field_Name, #Sub_Field_Name, Idx, \
+	(long long)quick_log2((Field_Value>=0?Field_Value:((-Field_Value) + 1)) + 1)*2 + 1, Field_Value, Field_Desc)
+
+#define BST_ARRAY_ARRAY_FIELD_PROP_UE(Field_Name, Sub_Field_Name, Idx, Field_Value, Field_Desc)\
+	BST_ARRAY_ARRAY_FIELD_PROP_NUMBER(#Field_Name, #Sub_Field_Name, Idx, \
+	(long long)quick_log2(Field_Value + 1)*2 + 1, Field_Value, Field_Desc)
 
 #define BST_2ARRAY_FIELD_PROP_NUMBER_(Field_Name, Prefix_Idx1, Idx1, Prefix_Idx2, Idx2, Field_Bits, Field_Value, Field_Desc)\
 	if (map_status.status == 0 || (map_status.error == 0 &&  map_status.number_of_fields > 0 && field_prop_idx < map_status.number_of_fields) ){\
@@ -1131,6 +1198,7 @@ SOFTWARE.
 		field_prop_idx++;}\
 
 #define BST_FIELD_PROP_UE(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)
+#define BST_FIELD_PROP_UE_F(Field_Name, Field_Desc, ...)				BST_FIELD_PROP_2NUMBER1_F(Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Desc, ##__VA_ARGS__)
 #define BST_FIELD_PROP_UE1(Field_Name, AliasName, Field_Desc)			BST_FIELD_PROP_2NUMBER_ALIAS_F_(#Field_Name, "%s", (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc, AliasName)
 #define BST_FIELD_PROP_SE(Field_Name, Field_Desc)						BST_FIELD_PROP_SIGNNUMBER(#Field_Name, (long long)quick_log2((Field_Name>=0?Field_Name:((-Field_Name) + 1)) + 1)*2 + 1, Field_Name, Field_Desc)
 #define BST_FIELD_PROP_UVLC(Field_Name, Field_Desc)						BST_FIELD_PROP_2NUMBER(#Field_Name, (long long)quick_log2(Field_Name + 1)*2 + 1, Field_Name, Field_Desc)

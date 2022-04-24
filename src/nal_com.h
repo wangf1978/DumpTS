@@ -253,10 +253,7 @@ namespace BST {
 		DECLARE_FIELDPROP_BEGIN()
 			NAV_WRITE_TAG_BEGIN2("rbsp_trailing_bits");
 			BST_FIELD_PROP_NUMBER("rbsp_stop_one_bit", 1, rbsp_trailing_bits[i], "Should be 1");
-			for (i = 1; i <= rbsp_trailing_bits.UpperBound(); i++)
-			{
-				BST_FIELD_PROP_NUMBER("rbsp_alignment_zero_bit", 1, rbsp_trailing_bits[i], "Should be 0")
-			}
+			BST_FIELD_PROP_NUMBER_BITARRAY("rbsp_alignment_zero_bit", rbsp_trailing_bits, "Should be all 0", 1);
 			NAV_WRITE_TAG_END2("rbsp_trailing_bits");
 		DECLARE_FIELDPROP_END()
 	};
