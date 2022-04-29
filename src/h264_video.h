@@ -31,6 +31,7 @@ SOFTWARE.
 #include <vector>
 #include <map>
 #include <math.h>
+#include "DataUtil.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -569,8 +570,11 @@ namespace BST {
 					BST_ARRAY_FIELD_PROP_UE(cpb_size_value_minus1, i, "is used together with cpb_size_scale to specify the SchedSelIdx-th CPB size.");
 					BST_ARRAY_FIELD_PROP_NUMBER("cbr_flag", i, 1, cbr_flag[i] ? 1 : 0, cbr_flag[i] ? "specifies that the HSS operates in a constant bit rate (CBR) mode." :
 						"specifies that to decode this bitstream by the HRD using the SchedSelIdx-th CPB specification, the hypothetical stream delivery scheduler (HSS) operates in an intermittent bit rate mode.");
-					NAV_WRITE_TAG_WITH_1NUMBER_VALUE("BitRate", ((bit_rate_value_minus1[i] + 1) << (6 + bit_rate_scale)), "The bit rate in bits per second");
-					NAV_WRITE_TAG_WITH_1NUMBER_VALUE("CpbSize", ((cpb_size_value_minus1[i] + 1) << (4 + cpb_size_scale)), "The CPB size in bits");
+					
+					NAV_WRITE_TAG_WITH_VALUEFMTSTR("BitRate", "%sbps", "The bit rate in bits per second",
+						GetReadableNum(((uint64_t)bit_rate_value_minus1[i] + 1) << (6 + bit_rate_scale)).c_str());
+					NAV_WRITE_TAG_WITH_VALUEFMTSTR("CpbSize", "%sbit", "The CPB size in bits",
+						GetReadableNum(((uint64_t)cpb_size_value_minus1[i] + 1) << (4 + cpb_size_scale)).c_str());
 				}
 				NAV_WRITE_TAG_END("Tag0");
 

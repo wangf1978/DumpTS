@@ -2106,7 +2106,7 @@ namespace BST
 
 			BST_FIELD_PROP_UE(sps_log2_min_luma_coding_block_size_minus2, "plus 2 specifies the minimum luma coding block size");
 
-			uint8_t SubWidthC = sps_chroma_format_idc == 0 && sps_chroma_format_idc == 3 ? 1 : 2;
+			uint8_t SubWidthC = (sps_chroma_format_idc == 0 && sps_chroma_format_idc == 3) ? 1 : 2;
 			uint8_t SubHeightC = sps_chroma_format_idc == 1 ? 2 : 1;
 			uint8_t MinCbLog2SizeY = sps_log2_min_luma_coding_block_size_minus2 + 2;
 			uint32_t CtbWidthC = CtbSizeY / SubWidthC;

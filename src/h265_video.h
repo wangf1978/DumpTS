@@ -29,6 +29,7 @@ SOFTWARE.
 #include "sei.h"
 #include <vector>
 #include <unordered_map>
+#include "DataUtil.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -369,8 +370,10 @@ namespace BST {
 								{
 									uint8_t bit_rate_scale = m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->bit_rate_scale;
 									uint8_t cpb_size_scale = m_ptr_sub_layer_hrd_parameters->m_sub_layer_info->m_ptr_hdr_parameters->cpb_size_scale;
-									NAV_WRITE_TAG_WITH_1NUMBER_VALUE("BitRate", ((bit_rate_value_minus1 + 1) << (6 + bit_rate_scale)), "The bit rate in bits per second");
-									NAV_WRITE_TAG_WITH_1NUMBER_VALUE("CpbSize", ((cpb_size_value_minus1 + 1) << (4 + cpb_size_scale)), "The CPB size in bits");
+									NAV_WRITE_TAG_WITH_VALUEFMTSTR("BitRate", "%sbps", "The bit rate in bits per second", 
+										GetReadableNum(((uint64_t)bit_rate_value_minus1 + 1) << (6 + bit_rate_scale)).c_str());
+									NAV_WRITE_TAG_WITH_VALUEFMTSTR("CpbSize", "%sbit", "The CPB size in bits", 
+										GetReadableNum(((uint64_t)cpb_size_value_minus1 + 1) << (4 + cpb_size_scale)).c_str());
 								}
 							DECLARE_FIELDPROP_END()
 						}PACKED;
