@@ -213,4 +213,81 @@ protected:
 					mpv_supported_authority_components;
 };
 
+
+//
+// MPEG2 video enumerator for MSE nav operation
+//
+class IMPVContext;
+class CMPVNavEnumerator : public CComUnknown, public IMPVEnumerator
+{
+public:
+	CMPVNavEnumerator(IMPVContext* pCtx, uint32_t options, MSENav* pMSENav);
+	virtual ~CMPVNavEnumerator();
+
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj);
+
+public:
+	RET_CODE			EnumVSEQStart(IUnknown* pCtx);
+	RET_CODE			EnumNewGOP(IUnknown* pCtx, bool closed_gop, bool broken_link);
+	RET_CODE			EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType);
+	RET_CODE			EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode);
+	RET_CODE			EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType);
+	RET_CODE			EnumVSEQEnd(IUnknown* pCtx);
+	RET_CODE			EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code);
+
+protected:
+	virtual RET_CODE	OnProcessVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessGOP(IUnknown* pCtx, bool closed_gop, bool broken_link) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessAU(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode) { return RET_CODE_SUCCESS; }
+
+protected:
+	int					m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+	int64_t				m_unit_index[16] = { 0 };
+	int64_t				m_curr_slice_count = 0;
+
+	std::string			GetURI(int level_id);
+	RET_CODE			CheckFilter(int level_id, uint8_t start_code = 0);
+	const char*			GetSEName(uint8_t* pBufWithStartCode, size_t cbBufWithStartCode);
+	bool				OnlySliceSE();
+	int					AppendURI(char* szItem, size_t& ccWritten, int level_id);
+
+protected:
+	IMPVContext*		m_pMPVContext;
+	MSENav*				m_pMSENav;
+	int					m_nLastLevel = -1;
+	uint32_t			m_options = 0;
+	const size_t		column_width_name = 47;
+	const size_t		column_width_len = 13;
+	const size_t		column_width_URI = 27;
+	const size_t		right_padding = 1;
+};
+
+inline bool CMPVNavEnumerator::OnlySliceSE()
+{
+	if (m_pMSENav == nullptr)
+		return false;
+
+	return (m_pMSENav->MPV.se.IsAllUnspecfied()) &&
+		(m_pMSENav->MPV.slice.IsAllUnspecfied() || (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR())) &&
+		!(m_pMSENav->MPV.slice.IsAllExcluded());;
+}
+
+inline int CMPVNavEnumerator::AppendURI(char* szItem, size_t& ccWritten, int level_id)
+{
+	std::string szFormattedURI = GetURI(level_id);
+	if (szFormattedURI.length() < column_width_URI)
+	{
+		memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
+		ccWritten += column_width_URI - szFormattedURI.length();
+	}
+
+	memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
+	ccWritten += szFormattedURI.length();
+
+	return RET_CODE_SUCCESS;
+}
+
+
 #endif

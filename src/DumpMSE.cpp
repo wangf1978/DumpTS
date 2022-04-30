@@ -48,58 +48,15 @@ const char* g_szHorizon = "-----------------------------------------------------
 //
 // MPEG2 video enumerator for MSE operation
 //
-class CMPVSEEnumerator : public CComUnknown, public IMPVEnumerator
+class CMPVSEEnumerator : public CMPVNavEnumerator
 {
 public:
 	CMPVSEEnumerator(IMPVContext* pCtx, uint32_t options, MSENav* pMSENav) 
-		: m_pMPVContext(pCtx), m_pMSENav(pMSENav) {
-		if (m_pMPVContext != nullptr)
-			m_pMPVContext->AddRef();
-
-		int next_level = 0;
-		for (size_t i = 0; i < _countof(m_level); i++){
-			if (options&(1ULL << i)){
-				m_level[i] = next_level;
-
-				// GOP and VSEQ are the point, not a range
-				if (i == MPV_LEVEL_GOP || i == MPV_LEVEL_VSEQ)
-					m_unit_index[next_level] = -1;
-				else
-					m_unit_index[next_level] = 0;
-
-				m_nLastLevel = (int)i;
-				next_level++;
-			}
-		}
-
-		m_options = options;
-	}
-
-	virtual ~CMPVSEEnumerator() {
-		AMP_SAFERELEASE(m_pMPVContext);
-	}
-
-	DECLARE_IUNKNOWN
-	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
-	{
-		if (ppvObj == NULL)
-			return E_POINTER;
-
-		if (uuid == IID_IMPVEnumerator)
-			return GetCOMInterface((IMPVEnumerator*)this, ppvObj);
-
-		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
-	}
+		: CMPVNavEnumerator(pCtx, options, pMSENav) {}
 
 public:
-	RET_CODE EnumVSEQStart(IUnknown* pCtx) 
+	RET_CODE OnProcessVSEQ(IUnknown* pCtx)
 	{ 
-		m_unit_index[m_level[MPV_LEVEL_VSEQ]]++;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(MPV_LEVEL_VSEQ)) != RET_CODE_SUCCESS)
-			return iRet;
-
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 
@@ -129,14 +86,10 @@ public:
 		return RET_CODE_SUCCESS; 
 	}
 
-	RET_CODE EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
+	RET_CODE OnProcessAU(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(MPV_LEVEL_AU)) != RET_CODE_SUCCESS)
-			return iRet;
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sAU#%" PRId64 " (%s)", 
 			(m_level[MPV_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_AU]],
@@ -165,23 +118,10 @@ public:
 		return RET_CODE_SUCCESS; 
 	}
 
-	virtual RET_CODE EnumNewGOP(IUnknown* pCtx, bool closed_gop, bool broken_link)
+	RET_CODE OnProcessGOP(IUnknown* pCtx, bool closed_gop, bool broken_link)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-
-		m_unit_index[m_level[MPV_LEVEL_GOP]]++;
-		if (m_level[MPV_LEVEL_AU] > 0)
-			m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
-		if (m_level[MPV_LEVEL_SE] > 0)
-			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
-		m_curr_slice_count = 0;
-		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(MPV_LEVEL_GOP)) != RET_CODE_SUCCESS)
-			return iRet;
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sGOP#%" PRId64 " (%s%s)",
 			(m_level[MPV_LEVEL_GOP]) * 4, g_szRule, m_unit_index[m_level[MPV_LEVEL_GOP]], closed_gop?"closed":"open", broken_link?",broken-link":"");
@@ -209,7 +149,7 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+	RET_CODE OnProcessObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
 	{
 		if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
 			return RET_CODE_NOTHING_TODO;
@@ -218,231 +158,53 @@ public:
 		size_t ccWritten = 0;
 		int ccWrittenOnce = 0;
 
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(MPV_LEVEL_SE, pBufWithStartCode[3])) == RET_CODE_SUCCESS)
+		if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 		{
-			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
-			{
-				bool onlyShowSlice = OnlySliceSE();
-				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
-					(m_level[MPV_LEVEL_SE]) * 4, g_szRule, onlyShowSlice?"Slice": "SE",
-					onlyShowSlice?m_curr_slice_count:m_unit_index[m_level[MPV_LEVEL_SE]],
-					GetSEName(pBufWithStartCode, cbBufWithStartCode));
+			bool onlyShowSlice = OnlySliceSE();
+			ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
+				(m_level[MPV_LEVEL_SE]) * 4, g_szRule, onlyShowSlice?"Slice": "SE",
+				onlyShowSlice?m_curr_slice_count:m_unit_index[m_level[MPV_LEVEL_SE]],
+				GetSEName(pBufWithStartCode, cbBufWithStartCode));
 
-				if (ccWrittenOnce <= 0)
-					return RET_CODE_NOTHING_TODO;
+			if (ccWrittenOnce <= 0)
+				return RET_CODE_NOTHING_TODO;
 
-				if ((size_t)ccWrittenOnce < column_width_name)
-					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+			if ((size_t)ccWrittenOnce < column_width_name)
+				memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
 
-				szItem[column_width_name] = '|';
-				ccWritten = column_width_name + 1;
+			szItem[column_width_name] = '|';
+			ccWritten = column_width_name + 1;
 
-				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbBufWithStartCode).c_str())) <= 0)
-					return RET_CODE_NOTHING_TODO;
+			if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbBufWithStartCode).c_str())) <= 0)
+				return RET_CODE_NOTHING_TODO;
 
-				ccWritten += ccWrittenOnce;
+			ccWritten += ccWrittenOnce;
 
-				AppendURI(szItem, ccWritten, MPV_LEVEL_SE);
+			AppendURI(szItem, ccWritten, MPV_LEVEL_SE);
 
-				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+			szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-				printf("%s\n", szItem);
-			}
+			printf("%s\n", szItem);
+		}
 			
-			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
-			{
-				if (m_nLastLevel == MPV_LEVEL_SE)
-				{
-					int indent = 4 * m_level[MPV_LEVEL_SE];
-					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
-
-					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					if (m_options&MSE_ENUM_SYNTAX_VIEW)
-						PrintMPVSyntaxElement(pCtx, pBufWithStartCode, cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
-					else if (m_options&MSE_ENUM_HEX_VIEW)
-						print_mem(pBufWithStartCode, (int)cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
-					printf("\n");
-				}
-			}
-		}
-
-		m_unit_index[m_level[MPV_LEVEL_SE]]++;
-		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
-
-		// This syntax element is a slice
-		if (pBufWithStartCode[3] >= 0x01 && pBufWithStartCode[3] <= 0xAF)
-			m_curr_slice_count++;
-
-		return iRet;
-	}
-
-	RET_CODE EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
-	{
-		m_unit_index[m_level[MPV_LEVEL_AU]]++;
-		if (m_level[MPV_LEVEL_SE] > 0)
-			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
-		m_curr_slice_count = 0;
-		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumVSEQEnd(IUnknown* pCtx)
-	{
-		if (m_level[MPV_LEVEL_GOP] > 0)
-			m_unit_index[m_level[MPV_LEVEL_GOP]] = 0;
-		if (m_level[MPV_LEVEL_AU] > 0)
-			m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
-		if (m_level[MPV_LEVEL_SE] > 0)
-			m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
-		m_curr_slice_count = 0;
-		if (m_level[MPV_LEVEL_MB] > 0)
-			m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
-
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
-
-protected:
-	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-	int64_t					m_unit_index[16] = { 0 };
-	int64_t					m_curr_slice_count = 0;
-
-	inline bool OnlySliceSE()
-	{
-		if (m_pMSENav == nullptr)
-			return false;
-
-		return (m_pMSENav->MPV.se.IsAllUnspecfied()) && 
-			   (m_pMSENav->MPV.slice.IsAllUnspecfied() || (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR())) &&
-			  !(m_pMSENav->MPV.slice.IsAllExcluded());;
-	}
-
-	std::string	GetURI(int level_id)
-	{
-		std::string strURI;
-		strURI.reserve(128);
-		for (int i = level_id; i >= 0; i--)
+		if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
 		{
-			if (m_level[i] >= 0)
+			if (m_nLastLevel == MPV_LEVEL_SE)
 			{
-				if (strURI.length() > 0)
-					strURI += ".";
-				if (i == MPV_LEVEL_SE && OnlySliceSE())
-				{
-					strURI += "SLICE" + std::to_string(m_curr_slice_count);
-				}
-				else
-				{
-					strURI += MPV_LEVEL_NAME(i);
-					strURI += std::to_string(m_unit_index[m_level[i]]);
-				}
-			}
-		}
+				int indent = 4 * m_level[MPV_LEVEL_SE];
+				int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
-		return strURI;
-	}
-
-	RET_CODE CheckFilter(int level_id, uint8_t start_code=0)
-	{
-		if (m_pMSENav == nullptr)
-			return RET_CODE_SUCCESS;
-
-		MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->MPV.vseq, m_pMSENav->MPV.gop, m_pMSENav->MPV.au, m_pMSENav->MPV.se, m_pMSENav->MPV.mb,
-			MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() };
-
-		bool bNullParent = true;
-		for (int i = 0; i <= level_id; i++)
-		{
-			if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
-				continue;
-
-			if (filter[i].Ahead(m_unit_index[m_level[i]]))
-				return RET_CODE_NOTHING_TODO;
-			else if (filter[i].Behind(m_unit_index[m_level[i]]))
-			{
-				if (bNullParent)
-					return RET_CODE_ABORT;
-				else
-					return RET_CODE_NOTHING_TODO;
-			}
-			/*
-				In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
-				____________                      ______________________________
-				            \                    /
-			    |///////////f0xxxxxxxxxidxxxxxxxxxf1\\\\\\\\\\\\\\\\\\\\\\\\....
-			*/
-			else if (!filter[i].Contain(m_unit_index[m_level[i]]))
-				return RET_CODE_NOTHING_TODO;
-
-			if (!filter[i].IsNull() && !filter[i].IsNaR())
-				bNullParent = false;
-		}
-
-		// Do some special processing since SLICE is a subset of SE
-		if (level_id == MPV_LEVEL_SE && m_pMSENav->MPV.se.IsAllUnspecfied())
-		{
-			if (start_code >= 0x1 && start_code <= 0xAF)
-			{
-				if (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.Contain(m_curr_slice_count))
-				{
-					if (m_pMSENav->MPV.slice.Behind(m_curr_slice_count))
-						return RET_CODE_ABORT;
-					return RET_CODE_NOTHING_TODO;
-				}
-			}
-			else
-			{
-				if (!m_pMSENav->MPV.slice.IsAllExcluded() && !m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR())
-					return RET_CODE_NOTHING_TODO;
+				printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+				if (m_options&MSE_ENUM_SYNTAX_VIEW)
+					PrintMPVSyntaxElement(pCtx, pBufWithStartCode, cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
+				else if (m_options&MSE_ENUM_HEX_VIEW)
+					print_mem(pBufWithStartCode, (int)cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
+				printf("\n");
 			}
 		}
 
 		return RET_CODE_SUCCESS;
 	}
-
-	const char* GetSEName(uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
-	{
-		uint8_t* p = pBufWithStartCode;
-		size_t cbLeft = cbBufWithStartCode;
-
-		uint8_t start_code = p[3];
-		if (start_code == EXTENSION_START_CODE || start_code == USER_DATA_START_CODE)
-		{
-			uint8_t extension_start_code_identifier = (p[4] >> 4) & 0xF;
-			return mpv_extension_syntax_element_names[extension_start_code_identifier];
-		}
-
-		return mpv_syntax_element_names[start_code];
-	}
-
-	inline int AppendURI(char* szItem, size_t& ccWritten, int level_id)
-	{
-		std::string szFormattedURI = GetURI(level_id);
-		if (szFormattedURI.length() < column_width_URI)
-		{
-			memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
-			ccWritten += column_width_URI - szFormattedURI.length();
-		}
-
-		memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
-		ccWritten += szFormattedURI.length();
-
-		return RET_CODE_SUCCESS;
-	}
-
-protected:
-	IMPVContext*			m_pMPVContext;
-	MSENav*					m_pMSENav;
-	int						m_nLastLevel = -1;
-	uint32_t				m_options = 0;
-	const size_t			column_width_name = 47;
-	const size_t			column_width_len  = 13;
-	const size_t			column_width_URI  = 27;
-	const size_t			right_padding = 1;
 };
 
 //

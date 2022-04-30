@@ -26,6 +26,8 @@ SOFTWARE.
 #include "platcomm.h"
 #include "MSEnav.h"
 #include "DataUtil.h"
+#include "mpeg2_video.h"
+#include "nal_com.h"
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
@@ -642,5 +644,244 @@ int	MSENav::LoadMP4AuthorityPart(const char* szURI, std::vector<URI_Segment>& ur
 	}
 
 	return RET_CODE_SUCCESS;
+}
+
+//
+// MPEG2 Video navigation enumerator
+//
+CMPVNavEnumerator::CMPVNavEnumerator(IMPVContext* pCtx, uint32_t options, MSENav* pMSENav)
+	: m_pMPVContext(pCtx), m_pMSENav(pMSENav) 
+{
+	if (m_pMPVContext != nullptr)
+		m_pMPVContext->AddRef();
+
+	int next_level = 0;
+	for (size_t i = 0; i < _countof(m_level); i++) {
+		if (options&(1ULL << i)) {
+			m_level[i] = next_level;
+
+			// GOP and VSEQ are the point, not a range
+			if (i == MPV_LEVEL_GOP || i == MPV_LEVEL_VSEQ)
+				m_unit_index[next_level] = -1;
+			else
+				m_unit_index[next_level] = 0;
+
+			m_nLastLevel = (int)i;
+			next_level++;
+		}
+	}
+
+	m_options = options;
+}
+
+CMPVNavEnumerator::~CMPVNavEnumerator()
+{
+	AMP_SAFERELEASE(m_pMPVContext);
+}
+
+HRESULT CMPVNavEnumerator::NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+{
+	if (ppvObj == NULL)
+		return E_POINTER;
+
+	if (uuid == IID_IMPVEnumerator)
+		return GetCOMInterface((IMPVEnumerator*)this, ppvObj);
+
+	return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+}
+
+RET_CODE CMPVNavEnumerator::EnumVSEQStart(IUnknown* pCtx)
+{
+	m_unit_index[m_level[MPV_LEVEL_VSEQ]]++;
+
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(MPV_LEVEL_VSEQ)) != RET_CODE_SUCCESS)
+		return iRet;
+
+	OnProcessVSEQ(pCtx);
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CMPVNavEnumerator::EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
+{
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(MPV_LEVEL_AU)) != RET_CODE_SUCCESS)
+		return iRet;
+
+	OnProcessAU(pCtx, pAUBuf, cbAUBuf, picCodingType);
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CMPVNavEnumerator::EnumNewGOP(IUnknown* pCtx, bool closed_gop, bool broken_link)
+{
+	m_unit_index[m_level[MPV_LEVEL_GOP]]++;
+	if (m_level[MPV_LEVEL_AU] > 0)
+		m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
+	if (m_level[MPV_LEVEL_SE] > 0)
+		m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+	m_curr_slice_count = 0;
+	if (m_level[MPV_LEVEL_MB] > 0)
+		m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
+
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(MPV_LEVEL_GOP)) != RET_CODE_SUCCESS)
+		return iRet;
+
+	OnProcessGOP(pCtx, closed_gop, broken_link);
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CMPVNavEnumerator::EnumObject(IUnknown* pCtx, uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+{
+	if (cbBufWithStartCode < 4 || cbBufWithStartCode > INT32_MAX)
+		return RET_CODE_NOTHING_TODO;
+
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(MPV_LEVEL_SE, pBufWithStartCode[3])) == RET_CODE_SUCCESS)
+	{
+		OnProcessObject(pCtx, pBufWithStartCode, cbBufWithStartCode);
+	}
+
+	m_unit_index[m_level[MPV_LEVEL_SE]]++;
+	if (m_level[MPV_LEVEL_MB] > 0)
+		m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
+
+	// This syntax element is a slice
+	if (pBufWithStartCode[3] >= 0x01 && pBufWithStartCode[3] <= 0xAF)
+		m_curr_slice_count++;
+
+	return iRet;
+}
+
+RET_CODE CMPVNavEnumerator::EnumAUEnd(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
+{
+	m_unit_index[m_level[MPV_LEVEL_AU]]++;
+	if (m_level[MPV_LEVEL_SE] > 0)
+		m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+	m_curr_slice_count = 0;
+	if (m_level[MPV_LEVEL_MB] > 0)
+		m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CMPVNavEnumerator::EnumVSEQEnd(IUnknown* pCtx)
+{
+	if (m_level[MPV_LEVEL_GOP] > 0)
+		m_unit_index[m_level[MPV_LEVEL_GOP]] = 0;
+	if (m_level[MPV_LEVEL_AU] > 0)
+		m_unit_index[m_level[MPV_LEVEL_AU]] = 0;
+	if (m_level[MPV_LEVEL_SE] > 0)
+		m_unit_index[m_level[MPV_LEVEL_SE]] = 0;
+	m_curr_slice_count = 0;
+	if (m_level[MPV_LEVEL_MB] > 0)
+		m_unit_index[m_level[MPV_LEVEL_MB]] = 0;
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CMPVNavEnumerator::EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code)
+{
+	return RET_CODE_SUCCESS;
+}
+
+std::string CMPVNavEnumerator::GetURI(int level_id)
+{
+	std::string strURI;
+	strURI.reserve(128);
+	for (int i = level_id; i >= 0; i--)
+	{
+		if (m_level[i] >= 0)
+		{
+			if (strURI.length() > 0)
+				strURI += ".";
+			if (i == MPV_LEVEL_SE && OnlySliceSE())
+			{
+				strURI += "SLICE" + std::to_string(m_curr_slice_count);
+			}
+			else
+			{
+				strURI += MPV_LEVEL_NAME(i);
+				strURI += std::to_string(m_unit_index[m_level[i]]);
+			}
+		}
+	}
+
+	return strURI;
+}
+
+RET_CODE CMPVNavEnumerator::CheckFilter(int level_id, uint8_t start_code)
+{
+	if (m_pMSENav == nullptr)
+		return RET_CODE_SUCCESS;
+
+	MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->MPV.vseq, m_pMSENav->MPV.gop, m_pMSENav->MPV.au, m_pMSENav->MPV.se, m_pMSENav->MPV.mb,
+		MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() };
+
+	bool bNullParent = true;
+	for (int i = 0; i <= level_id; i++)
+	{
+		if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
+			continue;
+
+		if (filter[i].Ahead(m_unit_index[m_level[i]]))
+			return RET_CODE_NOTHING_TODO;
+		else if (filter[i].Behind(m_unit_index[m_level[i]]))
+		{
+			if (bNullParent)
+				return RET_CODE_ABORT;
+			else
+				return RET_CODE_NOTHING_TODO;
+		}
+		/*
+			In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
+			____________                      ______________________________
+						\                    /
+			|///////////f0xxxxxxxxxidxxxxxxxxxf1\\\\\\\\\\\\\\\\\\\\\\\\....
+		*/
+		else if (!filter[i].Contain(m_unit_index[m_level[i]]))
+			return RET_CODE_NOTHING_TODO;
+
+		if (!filter[i].IsNull() && !filter[i].IsNaR())
+			bNullParent = false;
+	}
+
+	// Do some special processing since SLICE is a subset of SE
+	if (level_id == MPV_LEVEL_SE && m_pMSENav->MPV.se.IsAllUnspecfied())
+	{
+		if (start_code >= 0x1 && start_code <= 0xAF)
+		{
+			if (!m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.Contain(m_curr_slice_count))
+			{
+				if (m_pMSENav->MPV.slice.Behind(m_curr_slice_count))
+					return RET_CODE_ABORT;
+				return RET_CODE_NOTHING_TODO;
+			}
+		}
+		else
+		{
+			if (!m_pMSENav->MPV.slice.IsAllExcluded() && !m_pMSENav->MPV.slice.IsNull() && !m_pMSENav->MPV.slice.IsNaR())
+				return RET_CODE_NOTHING_TODO;
+		}
+	}
+
+	return RET_CODE_SUCCESS;
+}
+
+const char* CMPVNavEnumerator::GetSEName(uint8_t* pBufWithStartCode, size_t cbBufWithStartCode)
+{
+	uint8_t* p = pBufWithStartCode;
+	size_t cbLeft = cbBufWithStartCode;
+
+	uint8_t start_code = p[3];
+	if (start_code == EXTENSION_START_CODE || start_code == USER_DATA_START_CODE)
+	{
+		uint8_t extension_start_code_identifier = (p[4] >> 4) & 0xF;
+		return mpv_extension_syntax_element_names[extension_start_code_identifier];
+	}
+
+	return mpv_syntax_element_names[start_code];
 }
 
