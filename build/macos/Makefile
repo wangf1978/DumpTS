@@ -58,7 +58,7 @@ SOURCES := \
 	$(SOURCEDIR)/descriptors_13818_1.cpp \
 	$(SOURCEDIR)/descriptors_hdmv.cpp \
 	$(SOURCEDIR)/system_13818_1.cpp \
-	$(SOURCEDIR)/MSENav.cpp \
+	$(SOURCEDIR)/MSEnav.cpp \
 	$(SOURCEDIR)/RefactorTS.cpp \
 	$(SOURCEDIR)/DumpMKV.cpp \
 	$(SOURCEDIR)/DumpMMT.cpp \
