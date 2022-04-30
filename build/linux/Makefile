@@ -21,6 +21,8 @@ PREPROC := -D__int64="long long"
 EXECUTABLE := DumpTS
 
 SOURCES := \
+	$(SOURCEDIR)/platcomm.cpp \
+	$(SOURCEDIR)/combase.cpp \
 	$(SOURCEDIR)/AIFF.cpp \
 	$(SOURCEDIR)/AMRingBuffer.cpp \
 	$(SOURCEDIR)/AMBitArray.cpp \
@@ -29,16 +31,6 @@ SOURCES := \
 	$(SOURCEDIR)/AudChMap.cpp \
 	$(SOURCEDIR)/Bitstream.cpp \
 	$(SOURCEDIR)/AMBitStream.cpp \
-	$(SOURCEDIR)/DumpMKV.cpp \
-	$(SOURCEDIR)/DumpMMT.cpp \
-	$(SOURCEDIR)/DumpMP4.cpp \
-	$(SOURCEDIR)/DumpStream.cpp \
-	$(SOURCEDIR)/DumpTS.cpp \
-	$(SOURCEDIR)/DumpPS.cpp \
-	$(SOURCEDIR)/DumpNAL.cpp \
-	$(SOURCEDIR)/DumpAAC.cpp \
-	$(SOURCEDIR)/DumpAV1.cpp \
-	$(SOURCEDIR)/DumpMSE.cpp \
 	$(SOURCEDIR)/nal_com.cpp \
 	$(SOURCEDIR)/nal_parser.cpp \
 	$(SOURCEDIR)/mpeg2_video_parser.cpp \
@@ -56,17 +48,28 @@ SOURCES := \
 	$(SOURCEDIR)/ISO14496_3.cpp \
 	$(SOURCEDIR)/ISO14496_12.cpp \
 	$(SOURCEDIR)/ISO14496_15.cpp \
+	$(SOURCEDIR)/PayloadBuf.cpp \
 	$(SOURCEDIR)/MMT.cpp \
 	$(SOURCEDIR)/Matroska.cpp \
 	$(SOURCEDIR)/PartitialTS.cpp \
-	$(SOURCEDIR)/PayloadBuf.cpp \
 	$(SOURCEDIR)/QTFF.cpp \
-	$(SOURCEDIR)/RefactorTS.cpp \
-	$(SOURCEDIR)/platcomm.cpp \
-	$(SOURCEDIR)/combase.cpp \
-	$(SOURCEDIR)/system_13818_1.cpp \
 	$(SOURCEDIR)/descriptors_13818_1.cpp \
 	$(SOURCEDIR)/descriptors_hdmv.cpp \
+	$(SOURCEDIR)/system_13818_1.cpp \
+	$(SOURCEDIR)/MSENav.cpp \
+	$(SOURCEDIR)/RefactorTS.cpp \
+	$(SOURCEDIR)/DumpMKV.cpp \
+	$(SOURCEDIR)/DumpMMT.cpp \
+	$(SOURCEDIR)/DumpMP4.cpp \
+	$(SOURCEDIR)/DumpStream.cpp \
+	$(SOURCEDIR)/DumpTS.cpp \
+	$(SOURCEDIR)/DumpPS.cpp \
+	$(SOURCEDIR)/DumpNAL.cpp \
+	$(SOURCEDIR)/DumpAAC.cpp \
+	$(SOURCEDIR)/DumpAV1.cpp \
+	$(SOURCEDIR)/DumpMSE.cpp \
+	$(SOURCEDIR)/transcode.cpp \
+	$(SOURCEDIR)/transcode_es.cpp \
 	$(SOURCEDIR)/Syncer.cpp \
 	$(SOURCEDIR)/TSTD.cpp \
 	$(SOURCEDIR)/crc.cpp \

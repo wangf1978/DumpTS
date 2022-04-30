@@ -71,6 +71,7 @@ const char* dumpparam[] = {"raw", "m2ts", "pes", "ptsview"};
 
 const int   dumpoption[] = {1<<0, 1<<1, 1<<2, 1<<3};
 
+extern int	Transcode();
 extern int	ShowAV1Info();
 extern int	ShowMSEHex();
 extern int	ShowMSE();
@@ -191,6 +192,7 @@ void ParseCommandLine(int argc, char* argv[])
 	}
 
 	const char* str_arg_prefixes[] = {
+		"bitrate",
 		"output", 
 		"pid", 
 		"CID",
@@ -1142,6 +1144,7 @@ int main(int argc, char* argv[])
 
 	auto iter_srcfmt = g_params.find("srcfmt");
 	auto iter_dstfmt = g_params.find("outputfmt");
+	auto iter_bitrate = g_params.find("bitrate");
 
 	// If the output format is ES/PES, and PID is also specified, go into the DumpOneStream mode
 	if (g_params.find("crc") != g_params.end())
@@ -1154,6 +1157,10 @@ int main(int argc, char* argv[])
 		{
 			CalculateCRC();
 		}
+	}
+	else if (iter_bitrate != g_params.end() && iter_bitrate->second.length() > 0)
+	{
+		nDumpRet = Transcode();
 	}
 	else if (iter_srcfmt != g_params.end() && iter_srcfmt->second.compare("mp4") == 0)
 	{

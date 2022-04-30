@@ -597,3 +597,10 @@ Picture Timing(payloadLength: 3):
 ...
 ```
 [Top](#contents)
+
+## Transcode NAL video to AVC with the specified bitrate
+At present, only support it in the windows platform
+```
+DumpTS FILEZ058.h264 --bitrate=2000000 --output=FILEZ058_2M.h264
+```
+It will convert the current AVC video clip into 2Mbps
