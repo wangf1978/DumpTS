@@ -157,8 +157,9 @@ public:
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = 0;
+		int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
 
-		if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+		if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 		{
 			bool onlyShowSlice = OnlySliceSE();
 			ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
@@ -413,7 +414,9 @@ public:
 		if ((iRet = CheckFilter(NAL_LEVEL_NU, nal_unit_type)) == RET_CODE_SUCCESS)
 		{
 			m_curr_nu_type = nal_unit_type;
-			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+
+			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				bool bSpecifiedNUFilter = false;
 				for (int i = 0; i < NU_FILTER_MAX; i++)
@@ -458,7 +461,7 @@ public:
 				printf("%s\n", szItem);
 			}
 
-			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				if (m_nLastLevel == NAL_LEVEL_NU)
 				{
@@ -487,7 +490,8 @@ public:
 		int iRet = RET_CODE_SUCCESS;
 		if ((iRet = CheckFilter(NAL_LEVEL_SEI_MSG)) == RET_CODE_SUCCESS)
 		{
-			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " ",
 					(m_level[NAL_LEVEL_SEI_MSG]) * 4, g_szRule, "SEI message",
@@ -514,7 +518,7 @@ public:
 				printf("%s\n", szItem);
 			}
 
-			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				if (m_nLastLevel == NAL_LEVEL_SEI_MSG)
 				{
@@ -543,7 +547,8 @@ public:
 		int iRet = RET_CODE_SUCCESS;
 		if ((iRet = CheckFilter(NAL_LEVEL_SEI_PAYLOAD)) == RET_CODE_SUCCESS)
 		{
-			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s#%" PRId64 " %s ",
 					(m_level[NAL_LEVEL_SEI_PAYLOAD]) * 4, g_szRule,
@@ -570,7 +575,7 @@ public:
 				printf("%s\n", szItem);
 			}
 
-			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				if (m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD)
 				{
@@ -1254,7 +1259,8 @@ public:
 		int iRet = RET_CODE_SUCCESS;
 		if ((iRet = CheckFilter(AV1_LEVEL_OBU, obu_type)) == RET_CODE_SUCCESS)
 		{
-			if (m_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				bool bOnlyFrameOBU = OnlyFrameOBU();
 				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
@@ -1283,7 +1289,7 @@ public:
 					printf("%s\n", szItem);
 			}
 
-			if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 			{
 				if (m_nLastLevel == AV1_LEVEL_OBU)
 				{
@@ -1472,7 +1478,6 @@ protected:
 	const size_t			right_padding = 1;
 };
 
-
 int CreateMSEParser(IMSEParser** ppMSEParser)
 {
 	int iRet = RET_CODE_SUCCESS;
@@ -1640,7 +1645,8 @@ int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_opti
 #define MAX_MSE_SYNTAX_VIEW_HEADER_WIDTH	100
 void PrintMSEHeader(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* fp)
 {
-	if (enum_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+	int enum_cmd = enum_options & MSE_ENUM_CMD_MASK;
+	if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 	{
 		MEDIA_SCHEME_TYPE scheme_type = pMSEParser->GetSchemeType();
 		if (scheme_type == MEDIA_SCHEME_MPV)

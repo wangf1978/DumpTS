@@ -406,6 +406,15 @@ SOFTWARE.
 #define IVF_HDR_SIZE				32
 #define IVF_PIC_HDR_SIZE			12
 
+#ifndef _WIN32
+#define HMODULE												void*
+#define LoadLibrary(szPath)									dlopen(szPath,RTLD_NOW)
+#define LoadLibraryEx(szPath, hFile, dwFlags)				dlopen(szPath,RTLD_NOW)
+#define LoadPackagedLibrary(szPath, Reserved)				dlopen(szPath,RTLD_NOW)
+#define GetProcAddress(hModule,lpProcName)					dlsym(hModule,lpProcName)
+#define FreeLibrary(hModule)								dlclose(hModule)
+#endif
+
 enum FLAG_VALUE
 {
 	FLAG_UNSET = 0,

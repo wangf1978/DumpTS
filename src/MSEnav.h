@@ -75,6 +75,12 @@ enum NU_FILTER_TYPE
 	(ft) == NU_FILTER_IDR?"IDR":(\
 	(ft) == NU_FILTER_FIL?"FIL":"NU"))))))))
 
+struct MSENav;
+
+extern int	CreateMSEParser(IMSEParser** ppMSEParser);
+extern void	PrintMSEHeader(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* fp);
+extern void	LocateMSEParseStartPosition(IUnknown* pCtx, FILE* rfp);
+
 using MSEID = int64_t;
 
 struct MSEID_RANGE

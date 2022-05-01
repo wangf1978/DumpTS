@@ -98,7 +98,7 @@ all: $(EXECUTABLE) $(EXTRATARGETS)
 
 $(EXECUTABLE): $(OBJECTS)
 	@if [ ! -d $(BINDIR)/ ]; then mkdir $(BINDIR)/ ; fi
-	$(CXX) -L$(BINDIR) -o $@ $^ $(LDFLAGS) -Wl
+	$(CXX) -L$(BINDIR) -o $@ $^ $(LDFLAGS) -ldl -Wl
 ifneq ($(OPT_DEBUG),true)
 	$(STRIP) $(EXECUTABLE)
 endif

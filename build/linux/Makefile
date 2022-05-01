@@ -96,7 +96,7 @@ all: $(EXECUTABLE) $(EXTRATARGETS)
 
 $(EXECUTABLE): $(OBJECTS)
 	@if [ ! -d $(BINDIR)/ ]; then mkdir $(BINDIR)/ ; fi
-	$(CXX) -L$(BINDIR) -o $@ $^ -static-libgcc -static-libstdc++ -static -Wl,-Bsymbolic
+	$(CXX) -L$(BINDIR) -o $@ $^ -static-libgcc -static-libstdc++ -static -ldl -Wl,-Bsymbolic
 ifneq ($(OPT_DEBUG),true)
 	$(STRIP) $(EXECUTABLE)
 endif

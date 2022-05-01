@@ -160,20 +160,22 @@ int MSENav::Load(uint32_t enum_options)
 {
 	int iRet = RET_CODE_SUCCESS;
 
-	if (!(enum_options&(MSE_ENUM_LIST_VIEW | MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW)))
+	int enum_cmd = enum_options & MSE_ENUM_CMD_MASK;
+	if (!(enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW || enum_cmd == MSE_ENUM_AU_RANGE))
 		return RET_CODE_INVALID_PARAMETER;
 
-	const char* szCmdOption = (enum_options&MSE_ENUM_LIST_VIEW) ? "listMSE" : (
-							  (enum_options&MSE_ENUM_SYNTAX_VIEW) ? "showMSE":(
-							  (enum_options&MSE_ENUM_HEX_VIEW) ? "showMSEHex" : nullptr));
+	const char* szCmdOption = (enum_cmd == MSE_ENUM_LIST_VIEW)   ? "listMSE" : (
+							  (enum_cmd == MSE_ENUM_SYNTAX_VIEW) ? "showMSE":(
+							  (enum_cmd == MSE_ENUM_HEX_VIEW)    ? "showMSEHex" : (
+							  (enum_cmd == MSE_ENUM_AU_RANGE)    ? "AU": nullptr)));
 
 	if (szCmdOption == nullptr)
 		return RET_CODE_ERROR_NOTIMPL;
 
-	auto iterShowMSE = g_params.find(szCmdOption);
-	if (iterShowMSE == g_params.end() || iterShowMSE->second.length() == 0)
+	auto iterMSEOption = g_params.find(szCmdOption);
+	if (iterMSEOption == g_params.end() || iterMSEOption->second.length() == 0)
 	{
-		if (enum_options&MSE_ENUM_LIST_VIEW)
+		if (enum_cmd == MSE_ENUM_LIST_VIEW)
 		{
 			InitAs(MSE_UNSPECIFIED);
 			if (scheme_type == MEDIA_SCHEME_MPV)
@@ -193,11 +195,42 @@ int MSENav::Load(uint32_t enum_options)
 				AV1.obu_frame.Reset(MSE_UNSELECTED);
 			return RET_CODE_SUCCESS;
 		}
+		else if (enum_cmd == MSE_ENUM_AU_RANGE)
+		{
+			InitAs(MSE_UNSELECTED);
+			if (scheme_type == MEDIA_SCHEME_MPV)
+			{
+				MPV.slice.Reset(MSE_UNSELECTED);
+				MPV.mb.Reset(MSE_UNSELECTED);
+				MPV.se.Reset(MSE_UNSELECTED);
+			}
+			else if (scheme_type == MEDIA_SCHEME_NAL)
+			{
+				NAL.nu.Reset(MSE_UNSELECTED);
+				NAL.vcl_nu.Reset(MSE_UNSELECTED);
+				NAL.sei_nu.Reset(MSE_UNSELECTED);
+				NAL.aud_nu.Reset(MSE_UNSELECTED);
+				NAL.vps_nu.Reset(MSE_UNSELECTED);
+				NAL.sps_nu.Reset(MSE_UNSELECTED);
+				NAL.pps_nu.Reset(MSE_UNSELECTED);
+				NAL.IDR_nu.Reset(MSE_UNSELECTED);
+				NAL.FIL_nu.Reset(MSE_UNSELECTED);
+				NAL.sei_msg.Reset(MSE_UNSELECTED);
+				NAL.sei_pl.Reset(MSE_UNSELECTED);
+			}
+			else if (scheme_type == MEDIA_SCHEME_AV1)
+			{
+				AV1.obu.Reset(MSE_UNSELECTED);
+				AV1.obu_frame.Reset(MSE_UNSELECTED);
+				AV1.obu.Reset(MSE_UNSELECTED);
+			}
+			return RET_CODE_SUCCESS;
+		}
 
 		return RET_CODE_ERROR;
 	}
 
-	std::string strMSEURI = iterShowMSE->second;
+	std::string strMSEURI = iterMSEOption->second;
 
 	const char* szMSEURI = strMSEURI.c_str();
 	if (szMSEURI == nullptr)

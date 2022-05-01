@@ -347,6 +347,38 @@ VTC_API int video_transcoder_get_halt_error(vtc_handle* vtc_handle, int* code_of
 /*!	@brief close the specified video transcoder, and release the related resource. */
 VTC_API	void video_transcoder_close(vtc_handle* vtc_handle);
 
+//
+// For loading and export I/F dynamically
+//
+typedef void					(*PFUNC_VTC_PARAMS_INIT)(vtc_param_t*);
+typedef int						(*PFUNC_VTC_PARAMS_PARSE)(vtc_param_t*, const char*, const char*);
+typedef void					(*PFUNC_VTC_PARAMS_CLEANUP)(vtc_param_t*);
+typedef void					(*PFUNC_VTC_PICTURE_ES_INIT)(vtc_picture_es_t*);
+typedef void					(*PFUNC_VTC_PICTURE_ES_CLEANUP)(vtc_picture_es_t*);
+typedef vtc_handle*				(*PFUNC_VTC_OPEN)(vtc_param_t*);
+typedef int						(*PFUNC_VTC_INPUT)(vtc_handle*, vtc_picture_es_t);
+typedef int						(*PFUNC_VTC_OUTPUT)(vtc_handle*, vtc_picture_es_t*, uint32_t);
+typedef VTC_STATE				(*PFUNC_VTC_GET_STATE)(vtc_handle*);
+typedef int						(*PFUNC_VTC_GET_HALT_ERROR)(vtc_handle*, int*);
+typedef void					(*PFUNC_VTC_CLOSE)(vtc_handle*);
+
+typedef	struct VTC_EXPORT
+{
+	void*						hModule;
+	PFUNC_VTC_PARAMS_INIT		fn_params_init;
+	PFUNC_VTC_PARAMS_PARSE		fn_params_parse;
+	PFUNC_VTC_PARAMS_CLEANUP	fn_params_cleanup;
+	PFUNC_VTC_PICTURE_ES_INIT	fn_picture_es_init;
+	PFUNC_VTC_PICTURE_ES_CLEANUP
+								fn_picture_es_cleanup;
+	PFUNC_VTC_OPEN				fn_open;
+	PFUNC_VTC_INPUT				fn_input;
+	PFUNC_VTC_OUTPUT			fn_output;
+	PFUNC_VTC_GET_STATE			fn_get_state;
+	PFUNC_VTC_GET_HALT_ERROR	fn_get_halt_error;
+	PFUNC_VTC_CLOSE				fn_close;
+}VTC_EXPORT;
+
 #ifdef __cplusplus
 }
 #endif

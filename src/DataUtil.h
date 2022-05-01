@@ -204,7 +204,7 @@ inline bool ConvertToInt(char* ps, char* pe, int64_t& ret_val, INT_VALUE_LITERAL
 
 inline bool ConvertToInt(const std::string& str, int64_t& ret_val, INT_VALUE_LITERAL_FORMAT literal_fmt = FMT_AUTO)
 {
-	return ConvertToInt((char*)str.c_str(), (char*)str.c_str() + str.length(), ret_val, literal_fmt);
+	return ConvertToInt(str.c_str(), str.c_str() + str.length(), ret_val, literal_fmt);
 }
 
 inline int isLeapYear(int year) {
@@ -370,22 +370,22 @@ inline std::string GetFixedWidthStrWithEllipsis(const char* szStr, size_t max_wi
 	return strRet;
 }
 
-inline bool splitstr(const char* szStr, const char* delimiters, std::vector<std::string>& substrs)
+inline bool splitstr(const char* s, const char* e, const char* delimiters, std::vector<std::string>& substrs)
 {
-	if (szStr == nullptr || delimiters == nullptr)
+	if (s == nullptr || delimiters == nullptr || (s >= e && e))
 		return false;
 
 	size_t dlen = strlen(delimiters);
 	if (dlen == 0)
 	{
-		substrs.emplace_back(szStr);
+		substrs.emplace_back(s, e);
 		return true;
 	}
 
 	size_t i = 0;
-	const char* p = szStr;
-	const char* ps = szStr;
-	while (*p != '\0')
+	const char* p = s;
+	const char* ps = s;
+	while ((e && p != e) || (!e && *p != '\0'))
 	{
 		for (i = 0; i < dlen; i++)
 		{
@@ -397,7 +397,6 @@ inline bool splitstr(const char* szStr, const char* delimiters, std::vector<std:
 			}
 		}
 
-
 		p++;
 	}
 
@@ -405,6 +404,11 @@ inline bool splitstr(const char* szStr, const char* delimiters, std::vector<std:
 		substrs.emplace_back(ps, p - ps);
 
 	return true;
+}
+
+inline bool splitstr(const char* szStr, const char* delimiters, std::vector<std::string>& substrs)
+{
+	return splitstr(szStr, NULL, delimiters, substrs);
 }
 
 inline std::string GetHumanReadNumber(uint64_t n, bool base10241K = false, uint8_t fraction_keep = 2, uint8_t integer_keep = 0, bool fixed_width=false)
@@ -567,3 +571,42 @@ inline bool ConvertToInclusiveNNRange(const char* ps, const char* pe, int64_t& r
 
 	return true;
 }
+
+inline bool ConvertToRationalNumber(const char* s, const char* e, int64_t& num, int64_t& den)
+{
+	std::vector<std::string> substrs;
+	if (splitstr(s, e, "/:", substrs) == false)
+		return false;
+
+	int64_t pick_num[2] = { 1, 1 };
+	if (ConvertToInt(substrs[0], pick_num[0]) == false) {
+		return false;
+	}
+
+	if (substrs.size() > 1) {
+		if (ConvertToInt(substrs[1], pick_num[1]) == false) {
+			return false;
+		}
+	}
+
+	num = pick_num[0];
+	den = pick_num[1];
+
+	return true;
+}
+
+inline bool ConvertToRationalNumber(const char* s, int64_t& num, int64_t& den)
+{
+	return ConvertToRationalNumber(s, nullptr, num, den);
+}
+
+inline bool ConvertToRationalNumber(char* s, int64_t& num, int64_t& den)
+{
+	return ConvertToRationalNumber((const char*)s, nullptr, num, den);
+}
+
+inline bool ConvertToRationalNumber(const std::string& str, int64_t& num, int64_t& den)
+{
+	return ConvertToRationalNumber(str.c_str(), str.c_str() + str.length(), num, den);
+}
+

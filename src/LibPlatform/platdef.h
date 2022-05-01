@@ -27,6 +27,7 @@
 #include <basetyps.h>
 #include <wtypes.h>
 #include <Unknwn.h>
+#include <dlfcn.h>
 
 #if __cplusplus > 199711L
 #define register      // Deprecated in C++11.

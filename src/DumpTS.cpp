@@ -247,6 +247,7 @@ void ParseCommandLine(int argc, char* argv[])
 		"dashinitmp4", 
 		"VLCTypes",
 		"video",
+		"AU",
 		"MFU",
 		"progseq",
 		"start",
