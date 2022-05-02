@@ -405,7 +405,7 @@ RET_CODE CNALParser::ProcessAnnexBOutput(bool bDrain)
 
 	if (bDrain)
 	{
-		if (m_nal_enum_options&(NAL_ENUM_OPTION_AU|NAL_ENUM_OPTION_CVS|NAL_ENUM_OPTION_VSEQ| MSE_ENUM_SYNTAX_VIEW))
+		if ((m_nal_enum_options&(NAL_ENUM_OPTION_AU|NAL_ENUM_OPTION_CVS|NAL_ENUM_OPTION_VSEQ)) || ((m_nal_enum_options&MSE_ENUM_CMD_MASK) == MSE_ENUM_SYNTAX_VIEW))
 			CommitSliceInfo(true);
 
 		AM_LRB_Reset(m_rbRawBuf);
@@ -988,7 +988,7 @@ int CNALParser::CommitNALUnit(uint8_t number_of_leading_bytes)
 		return RET_CODE_NEEDMOREINPUT;
 
 	// Don't need analyze the Access-Unit
-	if (!(m_nal_enum_options&(NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_CVS | NAL_ENUM_OPTION_VSEQ | MSE_ENUM_SYNTAX_VIEW)))
+	if (!((m_nal_enum_options&(NAL_ENUM_OPTION_AU | NAL_ENUM_OPTION_CVS | NAL_ENUM_OPTION_VSEQ)) || ((m_nal_enum_options&MSE_ENUM_CMD_MASK) == MSE_ENUM_SYNTAX_VIEW)))
 	{
 		uint8_t* pNUBuf = pEBSPBuf;
 		size_t cbNUBuf = (size_t)read_buf_len;
@@ -1412,7 +1412,7 @@ int CNALParser::CommitVVCPicture(
 			goto done;
 		}
 
-		if (m_nal_enum_options&MSE_ENUM_SYNTAX_VIEW)
+		if ((m_nal_enum_options&MSE_ENUM_CMD_MASK) == MSE_ENUM_SYNTAX_VIEW)
 			m_pNALVVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
 
 		sp_vps = m_pNALVVCCtx->GetVVCVPS(sp_sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id);
@@ -1750,7 +1750,7 @@ int CNALParser::CommitHEVCPicture(
 			goto done;
 		}
 
-		if (m_nal_enum_options&MSE_ENUM_SYNTAX_VIEW)
+		if ((m_nal_enum_options&MSE_ENUM_CMD_MASK) == MSE_ENUM_SYNTAX_VIEW)
 			m_pNALHEVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
 		
 		sp_vps = m_pNALHEVCCtx->GetHEVCVPS(sp_sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id);
