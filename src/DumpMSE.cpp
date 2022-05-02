@@ -188,7 +188,7 @@ public:
 			printf("%s\n", szItem);
 		}
 			
-		if (m_options&(MSE_ENUM_SYNTAX_VIEW | MSE_ENUM_HEX_VIEW))
+		if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 		{
 			if (m_nLastLevel == MPV_LEVEL_SE)
 			{
@@ -196,9 +196,9 @@ public:
 				int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
 				printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-				if (m_options&MSE_ENUM_SYNTAX_VIEW)
+				if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
 					PrintMPVSyntaxElement(pCtx, pBufWithStartCode, cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
-				else if (m_options&MSE_ENUM_HEX_VIEW)
+				else if (enum_cmd == MSE_ENUM_HEX_VIEW)
 					print_mem(pBufWithStartCode, (int)cbBufWithStartCode, 4 * m_level[MPV_LEVEL_SE]);
 				printf("\n");
 			}
@@ -469,9 +469,9 @@ public:
 					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
 					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
 						PrintNALUnitSyntaxElement(pCtx, pEBSPNUBuf, cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
-					else if (m_options&MSE_ENUM_HEX_VIEW)
+					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
 						print_mem(pEBSPNUBuf, (int)cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
 					printf("\n");
 				}
@@ -526,9 +526,9 @@ public:
 					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
 					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
 						PrintSEIMsgSyntaxElement(pCtx, pRBSPSEIMsgRBSPBuf, cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
-					else if (m_options&MSE_ENUM_HEX_VIEW)
+					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
 						print_mem(pRBSPSEIMsgRBSPBuf, (int)cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
 					printf("\n");
 				}
@@ -583,9 +583,9 @@ public:
 					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
 					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
 						PrintSEIPayloadSyntaxElement(pCtx, payload_type, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
-					else if (m_options&MSE_ENUM_HEX_VIEW)
+					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
 						print_mem(pRBSPSEIPayloadBuf, (int)cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
 					printf("\n");
 				}
@@ -1299,9 +1299,9 @@ public:
 					if (!g_silent_output)
 						printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
 
-					if (m_options&MSE_ENUM_SYNTAX_VIEW)
+					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
 						PrintOBUSyntaxElement(pCtx, pOBUBuf, cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
-					else if (m_options&MSE_ENUM_HEX_VIEW)
+					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
 					{
 						if (!g_silent_output)
 							print_mem(pOBUBuf, (int)cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
@@ -1570,7 +1570,7 @@ int CreateMSEParser(IMSEParser** ppMSEParser)
 	return iRet;
 }
 
-int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* fp)
+int BindMSEEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav)
 {
 	if (pMSEParser == nullptr || pCtx == nullptr)
 		return RET_CODE_ERROR_NOTIMPL;
@@ -1743,7 +1743,7 @@ int	MSEParse(uint32_t enum_options)
 		goto done;
 	}
 
-	if (AMP_FAILED(iRet = BindMSEEnumerator(pMediaParser, pCtx, enum_options, mse_nav, rfp)))
+	if (AMP_FAILED(iRet = BindMSEEnumerator(pMediaParser, pCtx, enum_options, mse_nav)))
 	{
 		printf("Failed to bind the media syntax element enumerator {error: %d}\n", iRet);
 		goto done;
