@@ -59,6 +59,9 @@ int LoadVTCExport(VTC_EXPORT& vtc_exports)
 
 	vtc_exports.fn_params_init		= (PFUNC_VTC_PARAMS_INIT)GetProcAddress((HMODULE)vtc_exports.hModule, "vtc_params_init");
 	vtc_exports.fn_params_parse		= (PFUNC_VTC_PARAMS_PARSE)GetProcAddress((HMODULE)vtc_exports.hModule, "vtc_params_parse");
+	vtc_exports.fn_params_clone		= (PFUNC_VTC_PARAMS_CLONE)GetProcAddress((HMODULE)vtc_exports.hModule, "vtc_params_clone");
+	vtc_exports.fn_param_autoselect_profile_tier_level
+									= (PFUNC_VTC_PARAMS_AUTOSELECT_PROFILE_TIER_LEVEL)GetProcAddress((HMODULE)vtc_exports.hModule, "vtc_params_autoselect_profile_tier_level");
 	vtc_exports.fn_params_cleanup	= (PFUNC_VTC_PARAMS_CLEANUP)GetProcAddress((HMODULE)vtc_exports.hModule, "vtc_params_cleanup");
 	vtc_exports.fn_picture_es_init	= (PFUNC_VTC_PICTURE_ES_INIT)GetProcAddress((HMODULE)vtc_exports.hModule, "vtc_picture_es_init");
 	vtc_exports.fn_picture_es_cleanup 

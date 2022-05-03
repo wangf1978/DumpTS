@@ -44,6 +44,7 @@
 #define VTC_RET_INVALID_PARAMETER		   -7
 #define VTC_RET_OUTOFMEMORY				   -8
 
+#define VTC_RET_NOT_INITIALIZED			 -500
 #define VTC_RET_TIME_OUT				 -512
 #define VTC_RET_ERROR_STATE_TRANSITION	 -541
 #define VTC_RET_NO_MORE_DATA			 -546
@@ -54,6 +55,7 @@
 #define VTC_RET_VDEC_FAILURE			-4002
 #define VTC_RET_VBUF_FAILURE			-4003
 #define VTC_RET_VENC_FAILURE			-4004
+#define VTC_RET_PIPEFULL				-4005
 
 #define VTC_SUCCEEDED(ret)				((ret) >= 0)
 #define VTC_FAILED(ret)					((ret) <  0)
@@ -78,7 +80,7 @@ typedef enum VTC_V_PROFILE
 	//
 	// For MPEG2 Video Profile
 	//
-	VTC_MPV_PROFILE_UNKNOWN = 0,
+	VTC_MPV_PROFILE_UNKNOWN = -1,
 	VTC_MPV_PROFILE_HIGH,
 	VTC_MPV_PROFILE_SPATIALLY_SCALABLE,
 	VTC_MPV_PROFILE_SNR_SCALABLE,
@@ -173,11 +175,11 @@ typedef enum VTC_V_LEVEL
 	//
 	// For MPEG2 Video Level
 	//
-	VTC_MPV_LEVEL_UNKNOWN	= 0,
-	VTC_MPV_LEVEL_HIGHP		= 2,
-	VTC_MPV_LEVEL_HIGH		= 4,
-	VTC_MPV_LEVEL_HIGH_1440 = 6,
-	VTC_MPV_LEVEL_MAIN		= 8,
+	VTC_MPV_LEVEL_UNKNOWN	= -1,
+	VTC_MPV_LEVEL_HIGHP		=  2,
+	VTC_MPV_LEVEL_HIGH		=  4,
+	VTC_MPV_LEVEL_HIGH_1440 =  6,
+	VTC_MPV_LEVEL_MAIN		=  8,
 	VTC_MPV_LEVEL_LOW		= 10,
 
 	//
@@ -245,6 +247,7 @@ typedef enum VTC_STATE
 				ISOBMFF normally used it
 	avc3/avc4	AVC/H.264 which is provided in ITU-T Recommendation H.264(Which includes SPS, PPS in video stream or video sample entry)
 				MPEG-TS and MMT normally used it, recommended it
+	av01		AV1 video
 */
 typedef struct vtc_param_t
 {
@@ -320,6 +323,12 @@ VTC_API void vtc_params_init(vtc_param_t* params);
 /*!	@brief parse the name/value property pair, and update the parameters */
 VTC_API int vtc_params_parse(vtc_param_t* params, const char* name, const char* value);
 
+/*!	@brief clone the video transcoder parameters from the current */
+VTC_API int vtc_params_clone(const vtc_param_t* params, vtc_param_t* clone_params);
+
+/*!	@brief According to the fields of current video transcoder parameter, select profile, tier and level */
+VTC_API int vtc_params_autoselect_profile_tier_level(vtc_param_t* params);
+
 /*!	@brief clean the resource hold in the params */
 VTC_API void vtc_params_cleanup(vtc_param_t* params);
 
@@ -330,43 +339,48 @@ VTC_API void vtc_picture_es_init(vtc_picture_es_t* picture_es);
 VTC_API void vtc_picture_es_cleanup(vtc_picture_es_t* picture_es);
 
 /*!	@brief Create a video transcoder */
-VTC_API vtc_handle* video_transcoder_open(vtc_param_t* vtc_params);
+VTC_API vtc_handle video_transcoder_open(vtc_param_t* vtc_params);
 
 /*!	@brief Feed the picture elementary stream payload */
-VTC_API int video_transcoder_input(vtc_handle* vtc_handle, vtc_picture_es_t pic_es);
+VTC_API int video_transcoder_input(vtc_handle vtc_handle, vtc_picture_es_t pic_es);
 
 /*!	@brief Get the re-encoded video picture elementary stream payload */
-VTC_API int video_transcoder_output(vtc_handle* vtc_handle, vtc_picture_es_t* pic_es, uint32_t wait_ms);
+VTC_API int video_transcoder_output(vtc_handle vtc_handle, vtc_picture_es_t* pic_es, uint32_t wait_ms);
 
 /*!	@brief Get the video transcoder state */
-VTC_API VTC_STATE video_transcoder_get_state(vtc_handle* vtc_handle);
+VTC_API VTC_STATE video_transcoder_get_state(vtc_handle vtc_handle);
 
 /*!	@brief Get the error code which caused video transcoder to enter into halt-by-error 'state'*/
-VTC_API int video_transcoder_get_halt_error(vtc_handle* vtc_handle, int* code_of_halt_by_error);
+VTC_API int video_transcoder_get_halt_error(vtc_handle vtc_handle, int* code_of_halt_by_error);
 
 /*!	@brief close the specified video transcoder, and release the related resource. */
-VTC_API	void video_transcoder_close(vtc_handle* vtc_handle);
+VTC_API	void video_transcoder_close(vtc_handle vtc_handle);
 
 //
 // For loading and export I/F dynamically
 //
 typedef void					(*PFUNC_VTC_PARAMS_INIT)(vtc_param_t*);
 typedef int						(*PFUNC_VTC_PARAMS_PARSE)(vtc_param_t*, const char*, const char*);
+typedef int						(*PFUNC_VTC_PARAMS_CLONE)(const vtc_param_t*, vtc_param_t*);
+typedef int						(*PFUNC_VTC_PARAMS_AUTOSELECT_PROFILE_TIER_LEVEL)(vtc_param_t*);
 typedef void					(*PFUNC_VTC_PARAMS_CLEANUP)(vtc_param_t*);
 typedef void					(*PFUNC_VTC_PICTURE_ES_INIT)(vtc_picture_es_t*);
 typedef void					(*PFUNC_VTC_PICTURE_ES_CLEANUP)(vtc_picture_es_t*);
-typedef vtc_handle*				(*PFUNC_VTC_OPEN)(vtc_param_t*);
-typedef int						(*PFUNC_VTC_INPUT)(vtc_handle*, vtc_picture_es_t);
-typedef int						(*PFUNC_VTC_OUTPUT)(vtc_handle*, vtc_picture_es_t*, uint32_t);
-typedef VTC_STATE				(*PFUNC_VTC_GET_STATE)(vtc_handle*);
-typedef int						(*PFUNC_VTC_GET_HALT_ERROR)(vtc_handle*, int*);
-typedef void					(*PFUNC_VTC_CLOSE)(vtc_handle*);
+typedef vtc_handle				(*PFUNC_VTC_OPEN)(vtc_param_t*);
+typedef int						(*PFUNC_VTC_INPUT)(vtc_handle, vtc_picture_es_t);
+typedef int						(*PFUNC_VTC_OUTPUT)(vtc_handle, vtc_picture_es_t*, uint32_t);
+typedef VTC_STATE				(*PFUNC_VTC_GET_STATE)(vtc_handle);
+typedef int						(*PFUNC_VTC_GET_HALT_ERROR)(vtc_handle, int*);
+typedef void					(*PFUNC_VTC_CLOSE)(vtc_handle);
 
 typedef	struct VTC_EXPORT
 {
 	void*						hModule;
 	PFUNC_VTC_PARAMS_INIT		fn_params_init;
 	PFUNC_VTC_PARAMS_PARSE		fn_params_parse;
+	PFUNC_VTC_PARAMS_CLONE		fn_params_clone;
+	PFUNC_VTC_PARAMS_AUTOSELECT_PROFILE_TIER_LEVEL
+								fn_param_autoselect_profile_tier_level;
 	PFUNC_VTC_PARAMS_CLEANUP	fn_params_cleanup;
 	PFUNC_VTC_PICTURE_ES_INIT	fn_picture_es_init;
 	PFUNC_VTC_PICTURE_ES_CLEANUP

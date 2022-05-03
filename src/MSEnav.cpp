@@ -197,7 +197,7 @@ int MSENav::Load(uint32_t enum_options)
 		}
 		else if (enum_cmd == MSE_ENUM_AU_RANGE)
 		{
-			InitAs(MSE_UNSELECTED);
+			InitAs(MSE_UNSPECIFIED);
 			if (scheme_type == MEDIA_SCHEME_MPV)
 			{
 				MPV.slice.Reset(MSE_UNSELECTED);
@@ -742,9 +742,7 @@ RET_CODE CMPVNavEnumerator::EnumAUStart(IUnknown* pCtx, uint8_t* pAUBuf, size_t 
 	if ((iRet = CheckFilter(MPV_LEVEL_AU)) != RET_CODE_SUCCESS)
 		return iRet;
 
-	OnProcessAU(pCtx, pAUBuf, cbAUBuf, picCodingType);
-
-	return RET_CODE_SUCCESS;
+	return OnProcessAU(pCtx, pAUBuf, cbAUBuf, picCodingType);
 }
 
 RET_CODE CMPVNavEnumerator::EnumNewGOP(IUnknown* pCtx, bool closed_gop, bool broken_link)

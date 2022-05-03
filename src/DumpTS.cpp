@@ -1095,9 +1095,14 @@ int CheckFixedFeature(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-#if defined(_WIN32) && defined(_DEBUG)
+#ifdef _WIN32
+#ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
+	CoInitializeEx(0, COINIT_MULTITHREADED);
+#endif
+
+
 	int nDumpRet = 0;
 	auto tm_prog_start = std::chrono::system_clock::now();
 
