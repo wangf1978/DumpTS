@@ -283,7 +283,7 @@ protected:
 
 		if (VTC_SUCCEEDED(iRetVTC))
 		{
-			if (output_es.es_buf != nullptr && output_es.es_buf > 0)
+			if (output_es.es_buf != nullptr && output_es.es_buf_size > 0)
 			{
 				if (m_fpw != NULL)
 					fwrite(output_es.es_buf, 1, output_es.es_buf_size, m_fpw);
