@@ -654,7 +654,7 @@ namespace BST
 					idx++;
 				}
 
-				sublayer_level_idc.resize(m_MaxNumSubLayersMinus1 + 1);
+				sublayer_level_idc.resize((size_t)((int64_t)m_MaxNumSubLayersMinus1 + 1));
 				sublayer_level_idc[m_MaxNumSubLayersMinus1] = general_level_idc;
 
 				for (int i = m_MaxNumSubLayersMinus1 - 1; i >= 0; i--) {
@@ -1068,7 +1068,7 @@ namespace BST
 							}
 						}
 						else if (!ltrp_in_header_flag) {
-							BST_ARRAY_FIELD_PROP_NUMBER1(rpls_poc_lsb_lt, j, sps_log2_max_pic_order_cnt_lsb_minus4 + 4, 
+							BST_ARRAY_FIELD_PROP_NUMBER1(rpls_poc_lsb_lt, j, (long long)sps_log2_max_pic_order_cnt_lsb_minus4 + 4, 
 								"the value of the picture order count modulo MaxPicOrderCntLsb of the picture referred to by the i-th entry");
 							j++;
 						}
@@ -2050,7 +2050,7 @@ namespace BST
 
 						NAV_WRITE_TAG_BEGIN_WITH_ALIAS("Tag00", "for(i=0;i&lt;=sps_num_subpics_minus1;i++)", "");
 						for (i = 0; i <= sps_num_subpics_minus1; i++) {
-							BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_id, i, sps_subpic_id_len_minus1 + 1, "");
+							BST_ARRAY_FIELD_PROP_NUMBER1(sps_subpic_id, i, (long long)sps_subpic_id_len_minus1 + 1, "");
 						}
 						NAV_WRITE_TAG_END("Tag00");
 
@@ -3102,7 +3102,7 @@ namespace BST
 							else if (SliceTopLeftTileIdx[i] / NumTileColumns == NumTileRows - 1)
 								pps_slice_height_in_tiles_minus1[i] = 0;
 							else if (i > 0)
-								pps_slice_height_in_tiles_minus1[i] = pps_slice_height_in_tiles_minus1[(size_t)(i - 1)];
+								pps_slice_height_in_tiles_minus1[i] = pps_slice_height_in_tiles_minus1[(size_t)i - 1];
 
 							if (pps_slice_width_in_tiles_minus1[i] == 0 && pps_slice_height_in_tiles_minus1[i] == 0 &&
 								RowHeightVal[SliceTopLeftTileIdx[i] / NumTileColumns] > 1) {

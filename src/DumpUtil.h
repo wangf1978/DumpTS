@@ -964,8 +964,8 @@ SOFTWARE.
 		int ccWrittenOnce = MBCSPRINTF_S(szTemp2, TEMP2_SIZE, "%d", Field_BitArray[bitarray_idx++]);\
 		while(ccWrittenOnce > 0 && bitarray_idx <= Field_BitArray.UpperBound()){\
 			ccWritten += ccWrittenOnce;\
-			if (TEMP2_SIZE - 1 <= ccWritten)break;\
-			ccWrittenOnce = MBCSPRINTF_S(szTemp2 + ccWritten, TEMP2_SIZE - ccWritten, ",%d", Field_BitArray[bitarray_idx++]);\
+			if (TEMP2_SIZE <= ccWritten + 1)break;\
+			ccWrittenOnce = MBCSPRINTF_S(szTemp2 + ccWritten, (size_t)TEMP2_SIZE - ccWritten, ",%d", Field_BitArray[bitarray_idx++]);\
 		}\
 		NAV_FIELD_PROP(Field_Name, Field_BitArray.UpperBound() + 1, szTemp2, Field_Desc, bit_offset?*bit_offset:-1LL, "IA");\
 		field_prop_idx++;}}\
