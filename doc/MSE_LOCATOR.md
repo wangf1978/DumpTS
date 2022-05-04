@@ -21,7 +21,7 @@
 			* [9. List all access-units in a specified GOP](#list-all-access-units-in-a-specified-gop)
 			* [10. List some syntax elements in a/some specified GOP(s) or/and Access Unit(s)](#list-some-syntax-elements-in-a-or-some-specified-gops-orand-access-units)
 		* [NAL Video](#nal-video)
-			* [1. List all video sequences](#list-all-video-sequences)
+			* [1. List all NAL video sequences](#list-all-nal-video-sequences)
 			* [2. List all GOPs(CVSes)](#list-all-gopscvses)
 			* [3. List all access units](#list-all-access-units)
 			* [4. List NAL Units](#list-nal-units)
@@ -34,8 +34,8 @@
 			* [11. List SEI payloads in a specified access unit of a specified GOP](#list-sei-payloads-in-a-specified-access-unit-of-a-specified-gop)
 			* [12. Other complex cases](#Other-complex-cases)
 		* [AV1 Video](#av1-video)
-			* [1. List all Video Sequences](#List-all-Video-Sequences)
-			* [2.-List-all GOPs(CVSes)](#List-all-GOPsCVSes)
+			* [1. List all AV1 video sequences](#List-all-av1-video-sequences)
+			* [2.-List-all AV1 GOPs(CVSes)](#List-all-AV1-GOPsCVSes)
 			* [3.-List-all Temporal Units](#List-all-Temporal-Units)
 			* [4.-List-all Frame Units](#List-all-Frame-Units)
 			* [5.-List-all OBUs](#List-all-OBUs)
@@ -580,7 +580,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 [Top](#contents)
 #### NAL Video
 
-1. ##### List all video sequences
+1. ##### List all NAL video sequences
 	```
 	DumpTS 02021_interlaced.hevc --listmse=vseq
 	```
@@ -795,7 +795,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 
 12. ##### Other complex cases
 	```
-	DumpTS 00005.h264 --listmse=~seinu.~au0-14.cvs0-1.vseq0
+	DumpTS 00005.h264 --listmse=~seinu.~au0-17.cvs0-1.vseq0
 	```
 	And then non SEI NAL units in access unit except access-unit 0~17 in the first and second CVS of the first video sequence
 	```
@@ -833,7 +833,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 #### AV1 Video
 
 
-1. ##### List all Video Sequences
+1. ##### List all AV1 Video Sequences
 	```
 	DumpTS Stream3_AV1_720p_3.9mbps.av1 --listmse=vseq
 	```
@@ -843,7 +843,7 @@ At present, support 3 kinds of command, they are `listMSE` , `showMSE` and `show
 	------------Name-------------------------------|-----len-----|------------URI-----------------
 	Video Sequence#0                               |             |                          VSEQ0
 	```
-2. ##### List all GOPs(CVSes)
+2. ##### List all AV1 GOPs(CVSes)
 	```
 	DumpTS Stream3_AV1_720p_3.9mbps.av1 --listmse=cvs
 	```
