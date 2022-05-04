@@ -563,7 +563,8 @@ namespace BST {
 									sublayer_vcl_hrd_parameters = nullptr;
 
 					OLS_TIMING_HRD_PARAMETER()
-						:fixed_pic_rate_general_flag(0), fixed_pic_rate_within_cvs_flag(1), low_delay_hrd_flag(0) {
+						:fixed_pic_rate_general_flag(0), fixed_pic_rate_within_cvs_flag(1)
+						, elemental_duration_in_tc_minus1(0), low_delay_hrd_flag(0), word_align_0(0){
 					}
 				};
 
@@ -828,7 +829,7 @@ namespace BST {
 				CAMBitArray		vui_reserved_payload_extension_data;
 				CAMBitArray		vui_payload_bit_equal_to_zero;
 
-				VUI_PAYLOAD(uint16_t payloadSize) : vui_parameters(payloadSize), byte_align0(0){}
+				VUI_PAYLOAD(uint16_t payloadSize) : vui_parameters(payloadSize), vui_payload_bit_equal_to_one(0), byte_align0(0){}
 
 				int Map(AMBst in_bst) {
 					return SYNTAX_BITSTREAM_MAP::Map(in_bst);

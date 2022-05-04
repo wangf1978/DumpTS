@@ -4214,10 +4214,10 @@ namespace BST
 						uint16_t tileX = tileIdx % pps_nu->ptr_pic_parameter_set_rbsp->NumTileColumns;
 						uint16_t tileY = tileIdx / pps_nu->ptr_pic_parameter_set_rbsp->NumTileColumns;
 						for (uint32_t ctbY = pps_nu->ptr_pic_parameter_set_rbsp->TileRowBdVal[tileY]; 
-									  ctbY < pps_nu->ptr_pic_parameter_set_rbsp->TileRowBdVal[tileY + 1]; ctbY++)
+									  ctbY < pps_nu->ptr_pic_parameter_set_rbsp->TileRowBdVal[(size_t)tileY + 1]; ctbY++)
 						{
 							for (uint32_t ctbX = pps_nu->ptr_pic_parameter_set_rbsp->TileColBdVal[tileX];
-										  ctbX < pps_nu->ptr_pic_parameter_set_rbsp->TileColBdVal[tileX + 1]; ctbX++) 
+										  ctbX < pps_nu->ptr_pic_parameter_set_rbsp->TileColBdVal[(size_t)tileX + 1]; ctbX++) 
 							{
 								CtbAddrInCurrSlice.push_back(ctbY * pps_nu->ptr_pic_parameter_set_rbsp->PicWidthInCtbsY + ctbX);
 								NumCtusInCurrSlice++;
