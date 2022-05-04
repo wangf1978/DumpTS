@@ -41,6 +41,8 @@ extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern MEDIA_SCHEME_TYPE			g_source_media_scheme_type;
 extern MEDIA_SCHEME_TYPE			g_output_media_scheme_type;
 
+extern MEDIA_SCHEME_TYPE			CheckAndUpdateFileFormat(std::string& filepath, const char* param_name);
+
 extern int LoadVTCExport(VTC_EXPORT& vtc_exports);
 extern int UnloadVTCExport(VTC_EXPORT& vtc_exports);
 
@@ -48,7 +50,7 @@ int32_t get_video_stream_fourcc(const char* srcfmt)
 {
 	if (_stricmp(srcfmt, "h264") == 0)
 		return 'avc3';
-	else if (_stricmp(srcfmt, "h266") == 0)
+	else if (_stricmp(srcfmt, "h265") == 0)
 		return 'hev1';
 	else if (_stricmp(srcfmt, "mpv") == 0)
 		return 'mp2v';
@@ -472,6 +474,7 @@ int TranscodeFromESToES()
 	CAUESTranscoder* pAUTranscoder = nullptr;
 
 	auto iter_dstfmt = g_params.find("outputfmt");
+	auto iter_srcfmt = g_params.find("srcfmt");
 	auto iter_bitrate = g_params.find("bitrate");
 	if (iter_bitrate == g_params.end())
 		return RET_CODE_ERROR_NOTIMPL;
@@ -488,6 +491,25 @@ int TranscodeFromESToES()
 	{
 		printf("Please specify an input ES file to transcode.\n");
 		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (iter_dstfmt == g_params.end())
+	{
+		// check the file extension
+		if (g_params.find("output") != g_params.end())
+		{
+			std::string& str_output_file_name = g_params["output"];
+			// "outputfmt" is used by container to es, don't modify it
+			// If want to know its detailed output format, need use g_output_media_sheme_type
+			CheckAndUpdateFileFormat(str_output_file_name, "outputfmt");
+			iter_dstfmt = g_params.find("outputfmt");
+		}
+
+		if (iter_dstfmt == g_params.end() && g_params.find("copy") != g_params.end() && iter_srcfmt != g_params.end())
+		{
+			g_params["outputfmt"] = iter_srcfmt->second;
+			iter_dstfmt = g_params.find("outputfmt");
+		}
 	}
 
 	if (AMP_FAILED(iRet = CreateMSEParser(&pMediaParser)))

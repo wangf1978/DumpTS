@@ -529,27 +529,32 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 		std::string file_name_ext = file_name.substr(file_ext_start_pos);
 		if (_stricmp(file_name_ext.c_str(), ".m2ts") == 0)
 		{
-			g_params[param_name] = "m2ts";
+			if (param_name)
+				g_params[param_name] = "m2ts";
 			media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".ts") == 0)
 		{
-			g_params[param_name] = "ts";
+			if (param_name)
+				g_params[param_name] = "ts";
 			media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".tts") == 0)
 		{
-			g_params[param_name] = "tts";
+			if (param_name)
+				g_params[param_name] = "tts";
 			media_scheme_fmt = MEDIA_SCHEME_TRANSPORT_STREAM;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".vob") == 0)
 		{
-			g_params[param_name] = "vob";
+			if (param_name)
+				g_params[param_name] = "vob";
 			media_scheme_fmt = MEDIA_SCHEME_PROGRAM_STREAM;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".mpg") == 0 || _stricmp(file_name_ext.c_str(), ".mpeg") == 0)
 		{
-			g_params[param_name] = "mpg";
+			if (param_name)
+				g_params[param_name] = "mpg";
 			media_scheme_fmt = MEDIA_SCHEME_PROGRAM_STREAM;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".mp4") == 0 ||
@@ -561,7 +566,8 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 			_stricmp(file_name_ext.c_str(), ".heic") == 0 ||
 			_stricmp(file_name_ext.c_str(), ".avif") == 0)
 		{
-			g_params[param_name] = "mp4";
+			if (param_name)
+				g_params[param_name] = "mp4";
 			media_scheme_fmt = MEDIA_SCHEME_ISOBMFF;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".mkv") == 0 ||
@@ -569,59 +575,69 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 			_stricmp(file_name_ext.c_str(), ".mk3d") == 0 ||
 			_stricmp(file_name_ext.c_str(), ".webm") == 0)
 		{
-			g_params[param_name] = "mkv";
+			if (param_name)
+				g_params[param_name] = "mkv";
 			media_scheme_fmt = MEDIA_SCHEME_MATROSKA;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".aiff") == 0 ||
 			_stricmp(file_name_ext.c_str(), ".aif") == 0 ||
 			_stricmp(file_name_ext.c_str(), ".aifc") == 0)
 		{
-			g_params[param_name] = "aiff";
+			if (param_name)
+				g_params[param_name] = "aiff";
 			media_scheme_fmt = MEDIA_SCHEME_AIFF;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".mmts") == 0)
 		{
-			g_params[param_name] = "mmt";
+			if (param_name)
+				g_params[param_name] = "mmt";
 			media_scheme_fmt = MEDIA_SCHEME_MMT;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".h264") == 0 || _stricmp(file_name_ext.c_str(), ".avc") == 0)
 		{
-			g_params[param_name] = "h264";
+			if (param_name)
+				g_params[param_name] = "h264";
 			media_scheme_fmt = MEDIA_SCHEME_NAL;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".h265") == 0 || _stricmp(file_name_ext.c_str(), ".hevc") == 0)
 		{
-			g_params[param_name] = "h265";
+			if (param_name)
+				g_params[param_name] = "h265";
 			media_scheme_fmt = MEDIA_SCHEME_NAL;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".h266") == 0 || _stricmp(file_name_ext.c_str(), ".vvc") == 0)
 		{
-			g_params[param_name] = "h266";
+			if (param_name)
+				g_params[param_name] = "h266";
 			media_scheme_fmt = MEDIA_SCHEME_NAL;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".m2v") == 0 || _stricmp(file_name_ext.c_str(), ".mpv") == 0 || _stricmp(file_name_ext.c_str(), ".mp2v") == 0)
 		{
-			g_params[param_name] = "mpv";
+			if (param_name)
+				g_params[param_name] = "mpv";
 			media_scheme_fmt = MEDIA_SCHEME_MPV;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".adts") == 0)
 		{
-			g_params[param_name] = "adts";
+			if (param_name)
+				g_params[param_name] = "adts";
 			media_scheme_fmt = MEDIA_SCHEME_ADTS;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".loas") == 0)
 		{
-			g_params[param_name] = "loas";
+			if (param_name)
+				g_params[param_name] = "loas";
 			media_scheme_fmt = MEDIA_SCHEME_LOAS_LATM;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".av1") == 0 || _stricmp(file_name_ext.c_str(), ".obu") == 0)
 		{
-			g_params[param_name] = "av1";
+			if (param_name)
+				g_params[param_name] = "av1";
 			media_scheme_fmt = MEDIA_SCHEME_AV1;
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".ivf") == 0)
 		{
-			if (_stricmp(param_name, "srcfmt"))
+			if (param_name && _stricmp(param_name, "srcfmt"))
 			{
 				g_params["container"] = "ivf";
 
@@ -646,7 +662,8 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 				uint32_t codec_fourcc = ((uint32_t)ivf_header[8] << 24) | ((uint32_t)ivf_header[9] << 16) | ((uint32_t)ivf_header[10] << 8) | ivf_header[11];
 				if (codec_fourcc == 'AV01')
 				{
-					g_params[param_name] = "av1";
+					if (param_name)
+						g_params[param_name] = "av1";
 					media_scheme_fmt = MEDIA_SCHEME_AV1;
 				}
 				else
@@ -657,7 +674,8 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 			else
 			{
 				// for the output file
-				g_params[param_name] = "ivf";
+				if (param_name)
+					g_params[param_name] = "ivf";
 				media_scheme_fmt = MEDIA_SCHEME_IVF;
 			}
 		}
@@ -768,7 +786,9 @@ int PrepareParams()
 		if (g_params.find("output") != g_params.end())
 		{
 			std::string& str_output_file_name = g_params["output"];
-			g_output_media_scheme_type = CheckAndUpdateFileFormat(str_output_file_name, "outputfmt");
+			// "outputfmt" is used by container to es, don't modify it
+			// If want to know its detailed output format, need use g_output_media_sheme_type
+			g_output_media_scheme_type = CheckAndUpdateFileFormat(str_output_file_name, NULL/*"outputfmt"*/);
 			iterDstFmt = g_params.find("outputfmt");
 		}
 

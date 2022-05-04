@@ -96,7 +96,6 @@ int UnloadVTCExport(VTC_EXPORT& vtc_exports)
 int Transcode()
 {
 	int nDumpRet = 0;
-	auto iter_dstfmt = g_params.find("outputfmt");
 	auto iter_bitrate = g_params.find("bitrate");
 	if (iter_bitrate == g_params.end())
 		return RET_CODE_ERROR_NOTIMPL;
