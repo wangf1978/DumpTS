@@ -29,6 +29,7 @@ SOFTWARE.
 #include "AMRFC3986.h"
 #include "systemdef.h"
 #include "MSE.h"
+#include "nal_com.h"
 
 #define MSE_UNSPECIFIED				INT64_MAX
 #define MSE_UNSELECTED				INT64_MIN
@@ -295,5 +296,161 @@ inline int CMPVNavEnumerator::AppendURI(char* szItem, size_t& ccWritten, int lev
 	return RET_CODE_SUCCESS;
 }
 
+//
+// NAL video enumerator for MSE operation
+//
+class INALContext;
+class CNALNavEnumerator : public CComUnknown, public INALEnumerator
+{
+public:
+	CNALNavEnumerator(INALContext* pCtx, uint32_t options, MSENav* pMSENav);
+	virtual ~CNALNavEnumerator();
+
+	DECLARE_IUNKNOWN
+	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj);
+
+public:
+	RET_CODE			EnumNewVSEQ(IUnknown* pCtx);
+	RET_CODE			EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type);
+	RET_CODE			EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type);
+	RET_CODE			EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf);
+	RET_CODE			EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf);
+	RET_CODE			EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf);
+	RET_CODE			EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf);
+	RET_CODE			EnumNALSEIMessageEnd(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf);
+	RET_CODE			EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf);
+	RET_CODE			EnumNALAUEnd(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf);
+	RET_CODE			EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code);
+
+protected:
+	virtual RET_CODE	OnProcessVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessCVS(IUnknown* pCtx, int8_t represent_nal_unit_type) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessAU(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessNU(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessSEIMessage(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessSEIPayload(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf) { return RET_CODE_SUCCESS; }
+
+protected:
+	int					m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+	int64_t				m_unit_index[16] = { 0 };
+	int64_t				m_filtered_nu_count[NU_FILTER_MAX] = { 0 };
+	int8_t				m_curr_nu_type = -1;
+	NAL_CODING			m_curr_nal_coding = NAL_CODING_UNKNOWN;
+
+	inline bool			OnlyFilterNU(NU_FILTER_TYPE nu_filter_type);
+
+	std::string			GetURI(int level_id);
+
+	RET_CODE			CheckFilter(int level_id, uint8_t nal_unit_type = 0xFF);
+	const char*			GetNUName(uint8_t nal_unit_type);
+	const char*			GetSEIPayoadTypeName(uint32_t payload_type);
+
+	inline int			AppendURI(char* szItem, size_t& ccWritten, int level_id);
+	inline int			CheckNALUnitEBSP(uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf, uint8_t& nalUnitHeaderBytes, uint8_t& nal_unit_type);
+
+protected:
+	INALContext*		m_pNALContext;
+	MSENav*				m_pMSENav;
+	int					m_nLastLevel = -1;
+	uint32_t			m_options = 0;
+	const size_t		column_width_name = 47;
+	const size_t		column_width_len = 13;
+	const size_t		column_width_URI = 36;
+	const size_t		right_padding = 1;
+};
+
+inline bool CNALNavEnumerator::OnlyFilterNU(NU_FILTER_TYPE nu_filter_type)
+{
+	if (m_pMSENav == nullptr)
+		return false;
+
+	MSEID_RANGE* subset_nu[] = {
+		&m_pMSENav->NAL.vcl_nu, &m_pMSENav->NAL.sei_nu, &m_pMSENav->NAL.aud_nu, &m_pMSENav->NAL.vps_nu,
+		&m_pMSENav->NAL.sps_nu, &m_pMSENav->NAL.pps_nu, &m_pMSENav->NAL.IDR_nu, &m_pMSENav->NAL.FIL_nu };
+
+	return (m_pMSENav->NAL.nu.IsAllUnspecfied()) && 
+			(subset_nu[nu_filter_type]->IsAllUnspecfied() || (!subset_nu[nu_filter_type]->IsNull() && !subset_nu[nu_filter_type]->IsNaR())) &&
+			!(subset_nu[nu_filter_type]->IsAllExcluded());
+}
+
+inline int CNALNavEnumerator::AppendURI(char* szItem, size_t& ccWritten, int level_id)
+{
+	std::string szFormattedURI = GetURI(level_id);
+	if (szFormattedURI.length() < column_width_URI)
+	{
+		memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
+		ccWritten += column_width_URI - szFormattedURI.length();
+	}
+
+	memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
+	ccWritten += szFormattedURI.length();
+
+	return RET_CODE_SUCCESS;
+}
+
+inline int CNALNavEnumerator::CheckNALUnitEBSP(uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf, uint8_t& nalUnitHeaderBytes, uint8_t& nal_unit_type)
+{
+	if (pEBSPNUBuf == nullptr || cbEBSPNUBuf < 1)
+		return RET_CODE_INVALID_PARAMETER;
+
+	if (m_curr_nal_coding == NAL_CODING_AVC)
+	{
+		nalUnitHeaderBytes = 1;
+
+		int8_t forbidden_zero_bit = (pEBSPNUBuf[0] >> 7) & 0x01;
+		int8_t nal_ref_idc = (pEBSPNUBuf[0] >> 5) & 0x3;
+		nal_unit_type = pEBSPNUBuf[0] & 0x1F;
+
+		int8_t svc_extension_flag = 0;
+		int8_t avc_3d_extension_flag = 0;
+
+		if (nal_unit_type == 14 || nal_unit_type == 20 || nal_unit_type == 21)
+		{
+			if (nal_unit_type != 21)
+				svc_extension_flag = (pEBSPNUBuf[1] >> 7) & 0x01;
+			else
+				avc_3d_extension_flag = (pEBSPNUBuf[1] >> 7) & 0x01;
+
+			if (svc_extension_flag)
+			{
+				nalUnitHeaderBytes += 3;
+				if (cbEBSPNUBuf < 5)
+					return RET_CODE_NEEDMOREINPUT;
+			}
+			else if (avc_3d_extension_flag)
+			{
+				nalUnitHeaderBytes += 2;
+				if (cbEBSPNUBuf < 4)
+					return RET_CODE_NEEDMOREINPUT;
+			}
+			else
+			{
+				nalUnitHeaderBytes += 3;
+				if (cbEBSPNUBuf < 5)
+					return RET_CODE_NEEDMOREINPUT;
+			}
+		}
+	}
+	else if (m_curr_nal_coding == NAL_CODING_HEVC)
+	{
+		nalUnitHeaderBytes = 2;
+		if (cbEBSPNUBuf < 2)
+			return RET_CODE_NEEDMOREINPUT;
+
+		nal_unit_type = (pEBSPNUBuf[0] >> 1) & 0x3F;;
+	}
+	else if (m_curr_nal_coding == NAL_CODING_VVC)
+	{
+		nalUnitHeaderBytes = 2;
+		if (cbEBSPNUBuf < 2)
+			return RET_CODE_NEEDMOREINPUT;
+
+		nal_unit_type = (pEBSPNUBuf[1] >> 3) & 0x1F;
+	}
+	else
+		return RET_CODE_ERROR_NOTIMPL;
+		
+	return RET_CODE_SUCCESS;
+}
 
 #endif

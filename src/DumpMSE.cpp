@@ -211,71 +211,15 @@ public:
 //
 // NAL video enumerator for MSE operation
 //
-class CNALSEEnumerator : public CComUnknown, public INALEnumerator
+class CNALSEEnumerator : public CNALNavEnumerator
 {
 public:
 	CNALSEEnumerator(INALContext* pCtx, uint32_t options, MSENav* pMSENav)
-		: m_pNALContext(pCtx), m_pMSENav(pMSENav) {
-		if (m_pNALContext != nullptr) {
-			m_pNALContext->AddRef();
-			m_curr_nal_coding = m_pNALContext->GetNALCoding();
-		}
-
-		int next_level = 0;
-		for (size_t i = 0; i < _countof(m_level); i++) {
-			if (options&(1ULL << i)) {
-				m_level[i] = next_level;
-
-				// CVS is the point, not a range
-				if (i == NAL_LEVEL_VSEQ || i == NAL_LEVEL_CVS)
-					m_unit_index[next_level] = -1;
-				else
-					m_unit_index[next_level] = 0;
-
-				m_nLastLevel = (int)i;
-				next_level++;
-			}
-		}
-
-		m_options = options;
-	}
-
-	virtual ~CNALSEEnumerator() {
-		AMP_SAFERELEASE(m_pNALContext);
-	}
-
-	DECLARE_IUNKNOWN
-	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
-	{
-		if (ppvObj == NULL)
-			return E_POINTER;
-
-		if (uuid == IID_INALEnumerator)
-			return GetCOMInterface((INALEnumerator*)this, ppvObj);
-
-		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
-	}
+		: CNALNavEnumerator(pCtx, options, pMSENav) {}
 
 public:
-	RET_CODE EnumNewVSEQ(IUnknown* pCtx)
+	RET_CODE OnProcessVSEQ(IUnknown* pCtx)
 	{
-		m_unit_index[m_level[NAL_LEVEL_VSEQ]]++;
-		if (m_level[NAL_LEVEL_CVS] > 0)
-			m_unit_index[m_level[NAL_LEVEL_CVS]] = -1;
-		if (m_level[NAL_LEVEL_AU] > 0)
-			m_unit_index[m_level[NAL_LEVEL_AU]] = 0;
-		if (m_level[NAL_LEVEL_NU] > 0)
-			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
-		memset(m_filtered_nu_count, 0, sizeof(m_filtered_nu_count));
-		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
-		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(NAL_LEVEL_VSEQ)) != RET_CODE_SUCCESS)
-			return iRet;
-
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 
@@ -305,25 +249,10 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t represent_nal_unit_type)
+	RET_CODE OnProcessCVS(IUnknown* pCtx, int8_t represent_nal_unit_type)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-
-		m_unit_index[m_level[NAL_LEVEL_CVS]]++;
-		if (m_level[NAL_LEVEL_AU] > 0)
-			m_unit_index[m_level[NAL_LEVEL_AU]] = 0;
-		if (m_level[NAL_LEVEL_NU] > 0)
-			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
-		memset(m_filtered_nu_count, 0, sizeof(m_filtered_nu_count));
-		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
-		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(NAL_LEVEL_CVS)) != RET_CODE_SUCCESS)
-			return iRet;
 
 		const char* szCVSType = "";
 		if (m_curr_nal_coding == NAL_CODING_HEVC)
@@ -362,14 +291,10 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumNALAUBegin(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type)
+	RET_CODE OnProcessAU(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf, int picture_slice_type)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(NAL_LEVEL_AU)) != RET_CODE_SUCCESS)
-			return iRet;
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sAU#%" PRId64 " (%s)",
 			(m_level[NAL_LEVEL_AU]) * 4, g_szRule, m_unit_index[m_level[NAL_LEVEL_AU]],
@@ -400,631 +325,182 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumNALUnitBegin(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
-	{
-		uint8_t cbNALUnitHdr = 0, nal_unit_type = 0;
-		int iRet = CheckNALUnitEBSP(pEBSPNUBuf, cbEBSPNUBuf, cbNALUnitHdr, nal_unit_type);
-		if (AMP_FAILED(iRet))
-			return iRet;
-
-		char szItem[256] = { 0 };
-		size_t ccWritten = 0;
-		int ccWrittenOnce = 0;
-
-		if ((iRet = CheckFilter(NAL_LEVEL_NU, nal_unit_type)) == RET_CODE_SUCCESS)
-		{
-			m_curr_nu_type = nal_unit_type;
-
-			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
-			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
-			{
-				bool bSpecifiedNUFilter = false;
-				for (int i = 0; i < NU_FILTER_MAX; i++)
-				{
-					if (OnlyFilterNU((NU_FILTER_TYPE)i))
-					{
-						bSpecifiedNUFilter = true;
-						ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
-							(m_level[NAL_LEVEL_NU]) * 4, g_szRule, NU_FILTER_NAME(i), m_filtered_nu_count[i], GetNUName(nal_unit_type));
-						break;
-					}
-				}
-
-				if (!bSpecifiedNUFilter)
-				{
-					ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s::%s",
-						(m_level[NAL_LEVEL_NU]) * 4, g_szRule, "NU", m_unit_index[m_level[NAL_LEVEL_NU]],
-						m_curr_nal_coding == NAL_CODING_AVC ?  (IS_AVC_VCL_NAL(nal_unit_type)  ? "VCL" : "non-VCL") : (
-						m_curr_nal_coding == NAL_CODING_HEVC ? (IS_HEVC_VCL_NAL(nal_unit_type) ? "VCL" : "non-VCL") : (
-						m_curr_nal_coding == NAL_CODING_VVC ?  (IS_VVC_VCL_NAL(nal_unit_type)  ? "VCL" : "non-VCL") : "")),
-						GetNUName(nal_unit_type));
-				}
-
-				if (ccWrittenOnce <= 0)
-					return RET_CODE_NOTHING_TODO;
-
-				if ((size_t)ccWrittenOnce < column_width_name)
-					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
-
-				szItem[column_width_name] = '|';
-				ccWritten = column_width_name + 1;
-
-				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbEBSPNUBuf).c_str())) <= 0)
-					return RET_CODE_NOTHING_TODO;
-
-				ccWritten += ccWrittenOnce;
-
-				AppendURI(szItem, ccWritten, NAL_LEVEL_NU);
-
-				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
-
-				printf("%s\n", szItem);
-			}
-
-			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
-			{
-				if (m_nLastLevel == NAL_LEVEL_NU)
-				{
-					int indent = 4 * m_level[NAL_LEVEL_NU];
-					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
-
-					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
-						PrintNALUnitSyntaxElement(pCtx, pEBSPNUBuf, cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
-					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
-						print_mem(pEBSPNUBuf, (int)cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
-					printf("\n");
-				}
-			}
-		}
-
-		return iRet;
-	}
-
-	RET_CODE EnumNALSEIMessageBegin(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
+	RET_CODE OnProcessNU(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = 0;
 
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(NAL_LEVEL_SEI_MSG)) == RET_CODE_SUCCESS)
+		int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+		if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 		{
-			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
-			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
+			bool bSpecifiedNUFilter = false;
+			for (int i = 0; i < NU_FILTER_MAX; i++)
 			{
-				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " ",
-					(m_level[NAL_LEVEL_SEI_MSG]) * 4, g_szRule, "SEI message",
-					m_unit_index[m_level[NAL_LEVEL_SEI_MSG]]);
-
-				if (ccWrittenOnce <= 0)
-					return RET_CODE_NOTHING_TODO;
-
-				if ((size_t)ccWrittenOnce < column_width_name)
-					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
-
-				szItem[column_width_name] = '|';
-				ccWritten = column_width_name + 1;
-
-				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbRBSPSEIMsgBuf).c_str())) <= 0)
-					return RET_CODE_NOTHING_TODO;
-
-				ccWritten += ccWrittenOnce;
-
-				AppendURI(szItem, ccWritten, NAL_LEVEL_SEI_MSG);
-
-				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
-
-				printf("%s\n", szItem);
+				if (OnlyFilterNU((NU_FILTER_TYPE)i))
+				{
+					bSpecifiedNUFilter = true;
+					ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
+						(m_level[NAL_LEVEL_NU]) * 4, g_szRule, NU_FILTER_NAME(i), m_filtered_nu_count[i], GetNUName(m_curr_nu_type));
+					break;
+				}
 			}
 
-			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
+			if (!bSpecifiedNUFilter)
 			{
-				if (m_nLastLevel == NAL_LEVEL_SEI_MSG)
-				{
-					int indent = 4 * m_level[NAL_LEVEL_SEI_MSG];
-					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s::%s",
+					(m_level[NAL_LEVEL_NU]) * 4, g_szRule, "NU", m_unit_index[m_level[NAL_LEVEL_NU]],
+					m_curr_nal_coding == NAL_CODING_AVC ?  (IS_AVC_VCL_NAL(m_curr_nu_type)  ? "VCL" : "non-VCL") : (
+					m_curr_nal_coding == NAL_CODING_HEVC ? (IS_HEVC_VCL_NAL(m_curr_nu_type) ? "VCL" : "non-VCL") : (
+					m_curr_nal_coding == NAL_CODING_VVC ?  (IS_VVC_VCL_NAL(m_curr_nu_type)  ? "VCL" : "non-VCL") : "")),
+					GetNUName(m_curr_nu_type));
+			}
 
-					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
-						PrintSEIMsgSyntaxElement(pCtx, pRBSPSEIMsgRBSPBuf, cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
-					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
-						print_mem(pRBSPSEIMsgRBSPBuf, (int)cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
-					printf("\n");
-				}
+			if (ccWrittenOnce <= 0)
+				return RET_CODE_NOTHING_TODO;
+
+			if ((size_t)ccWrittenOnce < column_width_name)
+				memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+			szItem[column_width_name] = '|';
+			ccWritten = column_width_name + 1;
+
+			if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbEBSPNUBuf).c_str())) <= 0)
+				return RET_CODE_NOTHING_TODO;
+
+			ccWritten += ccWrittenOnce;
+
+			AppendURI(szItem, ccWritten, NAL_LEVEL_NU);
+
+			szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+			printf("%s\n", szItem);
+		}
+
+		if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
+		{
+			if (m_nLastLevel == NAL_LEVEL_NU)
+			{
+				int indent = 4 * m_level[NAL_LEVEL_NU];
+				int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+
+				printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+				if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
+					PrintNALUnitSyntaxElement(pCtx, pEBSPNUBuf, cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
+				else if (enum_cmd == MSE_ENUM_HEX_VIEW)
+					print_mem(pEBSPNUBuf, (int)cbEBSPNUBuf, 4 * m_level[NAL_LEVEL_NU]);
+				printf("\n");
 			}
 		}
 
-		return iRet;
+		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumNALSEIPayloadBegin(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+	RET_CODE OnProcessSEIMessage(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = 0;
 
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(NAL_LEVEL_SEI_PAYLOAD)) == RET_CODE_SUCCESS)
+		int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+		if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 		{
-			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
-			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
-			{
-				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s#%" PRId64 " %s ",
-					(m_level[NAL_LEVEL_SEI_PAYLOAD]) * 4, g_szRule,
-					m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]], GetSEIPayoadTypeName(payload_type));
+			ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " ",
+				(m_level[NAL_LEVEL_SEI_MSG]) * 4, g_szRule, "SEI message",
+				m_unit_index[m_level[NAL_LEVEL_SEI_MSG]]);
 
-				if (ccWrittenOnce <= 0)
-					return RET_CODE_NOTHING_TODO;
-
-				if ((size_t)ccWrittenOnce < column_width_name)
-					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
-
-				szItem[column_width_name] = '|';
-				ccWritten = column_width_name + 1;
-
-				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbRBSPPayloadBuf).c_str())) <= 0)
-					return RET_CODE_NOTHING_TODO;
-
-				ccWritten += ccWrittenOnce;
-
-				AppendURI(szItem, ccWritten, NAL_LEVEL_SEI_PAYLOAD);
-
-				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
-
-				printf("%s\n", szItem);
-			}
-
-			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
-			{
-				if (m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD)
-				{
-					int indent = 4 * m_level[NAL_LEVEL_SEI_PAYLOAD];
-					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
-
-					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
-						PrintSEIPayloadSyntaxElement(pCtx, payload_type, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
-					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
-						print_mem(pRBSPSEIPayloadBuf, (int)cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
-					printf("\n");
-				}
-			}
-		}
-
-		return iRet;
-	}
-
-	RET_CODE EnumNALSEIPayloadEnd(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
-	{
-		m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]]++;
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumNALSEIMessageEnd(IUnknown* pCtx, uint8_t* pRBSPSEIMsgRBSPBuf, size_t cbRBSPSEIMsgBuf)
-	{
-		m_unit_index[m_level[NAL_LEVEL_SEI_MSG]]++;
-		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumNALUnitEnd(IUnknown* pCtx, uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf)
-	{
-		if (m_curr_nal_coding == NAL_CODING_AVC)
-		{
-			if (IS_AVC_VCL_NAL(m_curr_nu_type)){
-				if (m_curr_nu_type == AVC_CS_IDR_PIC)
-					m_filtered_nu_count[NU_FILTER_IDR]++;
-				m_filtered_nu_count[NU_FILTER_VCL]++;
-			}
-			else if (m_curr_nu_type == AVC_SEI_NUT) m_filtered_nu_count[NU_FILTER_SEI]++;
-			else if (m_curr_nu_type == AVC_AUD_NUT) m_filtered_nu_count[NU_FILTER_AUD]++;
-			else if (m_curr_nu_type == AVC_SPS_NUT) m_filtered_nu_count[NU_FILTER_SPS]++;
-			else if (m_curr_nu_type == AVC_PPS_NUT) m_filtered_nu_count[NU_FILTER_PPS]++;
-			else if (m_curr_nu_type == AVC_FD_NUT)  m_filtered_nu_count[NU_FILTER_FIL]++;
-		}
-		else if (m_curr_nal_coding == NAL_CODING_HEVC)
-		{
-			if (IS_HEVC_VCL_NAL(m_curr_nu_type)){
-				if (IS_IDR(m_curr_nu_type))
-					m_filtered_nu_count[NU_FILTER_IDR]++;
-				m_filtered_nu_count[NU_FILTER_VCL]++;
-			}
-			else if (m_curr_nu_type == HEVC_PREFIX_SEI_NUT || m_curr_nu_type == HEVC_SUFFIX_SEI_NUT)
-				m_filtered_nu_count[NU_FILTER_SEI]++;
-			else if (m_curr_nu_type == HEVC_AUD_NUT) m_filtered_nu_count[NU_FILTER_AUD]++;
-			else if (m_curr_nu_type == HEVC_VPS_NUT) m_filtered_nu_count[NU_FILTER_VPS]++;
-			else if (m_curr_nu_type == HEVC_SPS_NUT) m_filtered_nu_count[NU_FILTER_SPS]++;
-			else if (m_curr_nu_type == HEVC_PPS_NUT) m_filtered_nu_count[NU_FILTER_PPS]++;
-			else if (m_curr_nu_type == HEVC_FD_NUT)  m_filtered_nu_count[NU_FILTER_FIL]++;
-		}
-		else if (m_curr_nal_coding == NAL_CODING_VVC)
-		{
-			if (IS_VVC_VCL_NAL(m_curr_nu_type)) {
-				if (IS_VVC_IDR(m_curr_nu_type))
-					m_filtered_nu_count[NU_FILTER_IDR]++;
-				m_filtered_nu_count[NU_FILTER_VCL]++;
-			}
-			else if (m_curr_nu_type == VVC_PREFIX_SEI_NUT || m_curr_nu_type == VVC_SUFFIX_SEI_NUT)
-				m_filtered_nu_count[NU_FILTER_SEI]++;
-			else if (m_curr_nu_type == VVC_AUD_NUT) m_filtered_nu_count[NU_FILTER_AUD]++;
-			else if (m_curr_nu_type == VVC_VPS_NUT) m_filtered_nu_count[NU_FILTER_VPS]++;
-			else if (m_curr_nu_type == VVC_SPS_NUT) m_filtered_nu_count[NU_FILTER_SPS]++;
-			else if (m_curr_nu_type == VVC_PPS_NUT) m_filtered_nu_count[NU_FILTER_PPS]++;
-			else if (m_curr_nu_type == VVC_FD_NUT)  m_filtered_nu_count[NU_FILTER_FIL]++;
-		}
-
-		m_unit_index[m_level[NAL_LEVEL_NU]]++;
-		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
-		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
-
-		m_curr_nu_type = -1;
-
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumNALAUEnd(IUnknown* pCtx, uint8_t* pEBSPAUBuf, size_t cbEBSPAUBuf)
-	{
-		m_unit_index[m_level[NAL_LEVEL_AU]]++;
-		if (m_level[NAL_LEVEL_NU] > 0)
-			m_unit_index[m_level[NAL_LEVEL_NU]] = 0;
-		memset(m_filtered_nu_count, 0, sizeof(m_filtered_nu_count));
-		if (m_level[NAL_LEVEL_SEI_MSG] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_MSG]] = 0;
-		if (m_level[NAL_LEVEL_SEI_PAYLOAD] > 0)
-			m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]] = 0;
-
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumNALError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
-
-protected:
-	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-	int64_t					m_unit_index[16] = { 0 };
-	int64_t					m_filtered_nu_count[NU_FILTER_MAX] = { 0 };
-	int8_t					m_curr_nu_type = -1;
-	NAL_CODING				m_curr_nal_coding = NAL_CODING_UNKNOWN;
-
-	inline bool OnlyFilterNU(NU_FILTER_TYPE nu_filter_type)
-	{
-		if (m_pMSENav == nullptr)
-			return false;
-
-		MSEID_RANGE* subset_nu[] = {
-			&m_pMSENav->NAL.vcl_nu, &m_pMSENav->NAL.sei_nu, &m_pMSENav->NAL.aud_nu, &m_pMSENav->NAL.vps_nu,
-			&m_pMSENav->NAL.sps_nu, &m_pMSENav->NAL.pps_nu, &m_pMSENav->NAL.IDR_nu, &m_pMSENav->NAL.FIL_nu };
-
-		return (m_pMSENav->NAL.nu.IsAllUnspecfied()) && 
-			   (subset_nu[nu_filter_type]->IsAllUnspecfied() || (!subset_nu[nu_filter_type]->IsNull() && !subset_nu[nu_filter_type]->IsNaR())) &&
-			  !(subset_nu[nu_filter_type]->IsAllExcluded());
-	}
-
-	std::string	GetURI(int level_id)
-	{
-		std::string strURI;
-		strURI.reserve(128);
-		for (int i = level_id; i >= 0; i--)
-		{
-			if (m_level[i] >= 0)
-			{
-				if (strURI.length() > 0)
-					strURI += ".";
-		
-				bool bSpecifiedNUFilter = false;
-				if (i == NAL_LEVEL_NU)
-				{
-					for (int i = 0; i < NU_FILTER_MAX; i++)
-					{
-						if (OnlyFilterNU((NU_FILTER_TYPE)i))
-						{
-							bSpecifiedNUFilter = true;
-							strURI += NU_FILTER_URI_NAME(i) + std::to_string(m_filtered_nu_count[i]);
-							break;
-						}
-					}
-				}
-				if (!bSpecifiedNUFilter)
-				{
-					strURI += NAL_LEVEL_NAME(i);
-					strURI += std::to_string(m_unit_index[m_level[i]]);
-				}
-			}
-		}
-
-		return strURI;
-	}
-
-	RET_CODE CheckFilter(int level_id, uint8_t nal_unit_type=0xFF)
-	{
-		if (m_pMSENav == nullptr)
-			return RET_CODE_SUCCESS;
-
-		if ((m_nLastLevel == NAL_LEVEL_SEI_MSG || m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD) && level_id == NAL_LEVEL_NU && m_level[level_id] < 0)
-		{
-			if (nal_unit_type != 0xFF && !(
-				(m_curr_nal_coding == NAL_CODING_AVC  && (nal_unit_type == BST::H264Video::SEI_NUT)) ||
-				(m_curr_nal_coding == NAL_CODING_HEVC && (nal_unit_type >= BST::H265Video::PREFIX_SEI_NUT || nal_unit_type == BST::H265Video::SUFFIX_SEI_NUT)) ||
-				(m_curr_nal_coding == NAL_CODING_VVC  && (nal_unit_type >= BST::H266Video::PREFIX_SEI_NUT || nal_unit_type == BST::H266Video::SUFFIX_SEI_NUT))))
-			{
-				return RET_CODE_NOTHING_TODO;
-			}
-		}
-
-		MSEID_RANGE filter[] = { MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->NAL.vseq, m_pMSENav->NAL.cvs, m_pMSENav->NAL.au, m_pMSENav->NAL.nu, m_pMSENav->NAL.sei_msg,
-			m_pMSENav->NAL.sei_pl, MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() };
-
-		bool bNullParent = true;
-		for (int i = 0; i <= level_id; i++)
-		{
-			if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
-				continue;
-
-			if (filter[i].Ahead(m_unit_index[m_level[i]]))
-				return RET_CODE_NOTHING_TODO;
-			else if (filter[i].Behind(m_unit_index[m_level[i]]))
-			{
-				if (bNullParent)
-					return RET_CODE_ABORT;
-				else
-					return RET_CODE_NOTHING_TODO;
-			}
-			/*
-				In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
-				____________                      ______________________________
-							\                    /
-				|///////////f0xxxxxxxxxidxxxxxxxxxf1\\\\\\\\\\\\\\\\\\\\\\\\....
-			*/
-			else if (!filter[i].Contain(m_unit_index[m_level[i]]))
+			if (ccWrittenOnce <= 0)
 				return RET_CODE_NOTHING_TODO;
 
-			if (!filter[i].IsNull() && !filter[i].IsNaR())
-			{
-				if (i == NAL_LEVEL_NU)
-				{
-					if ((m_nLastLevel == NAL_LEVEL_SEI_MSG || m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD) && m_pMSENav->NAL.sei_nu.IsAllExcluded())
-					{
+			if ((size_t)ccWrittenOnce < column_width_name)
+				memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
 
-					}
-					else
-						bNullParent = false;
-				}
-				else
-				bNullParent = false;
-			}
-		}
+			szItem[column_width_name] = '|';
+			ccWritten = column_width_name + 1;
 
-		// Do some special processing since VCL_NU or SEI_NU is a subset of NU
-		if (level_id == NAL_LEVEL_NU && m_pMSENav->NAL.nu.IsAllUnspecfied())
-		{
-			// Since NU has sub-set, and if it is all unspecified, it means one of sub-set is applied
-			uint8_t bExcludeAllFilter[NU_FILTER_MAX] = { 0 };
-			MSEID_RANGE* subset_nu[] = {
-				&m_pMSENav->NAL.vcl_nu, &m_pMSENav->NAL.sei_nu, &m_pMSENav->NAL.aud_nu, &m_pMSENav->NAL.vps_nu,
-				&m_pMSENav->NAL.sps_nu, &m_pMSENav->NAL.pps_nu, &m_pMSENav->NAL.IDR_nu, &m_pMSENav->NAL.FIL_nu };
-			bool bExcludeAllFilters = true;
-			bool bExcludeAllFiltersExcept[NU_FILTER_MAX];
-			for (int ft = 0; ft < NU_FILTER_MAX; ft++)
-				bExcludeAllFiltersExcept[ft] = true;
-
-			for (int ft = 0; ft < NU_FILTER_MAX; ft++)
-			{
-				bExcludeAllFilter[ft] = subset_nu[ft]->IsAllExcluded() || subset_nu[ft]->IsNull() || subset_nu[ft]->IsNaR();
-				if (!bExcludeAllFilter[ft])
-				{
-					bExcludeAllFilters = false;
-					for (int other = 0; other < NU_FILTER_MAX; other++) {
-						if (other != ft)
-							bExcludeAllFiltersExcept[other] = false;
-					}
-				}
-			}
-
-			for (int ft = 0; ft < NU_FILTER_MAX; ft++)
-			{
-				bool bHit = false;
-				if (subset_nu[ft]->IsNull() || subset_nu[ft]->IsNaR())
-					continue;
-				if (m_curr_nal_coding == NAL_CODING_AVC)
-				{
-					if (IS_AVC_VCL_NAL(nal_unit_type) && ft == NU_FILTER_VCL) bHit = true;
-					else if (nal_unit_type == AVC_CS_IDR_PIC && ft == NU_FILTER_IDR) bHit = true;
-					else if (nal_unit_type == AVC_SEI_NUT && ft == NU_FILTER_SEI) bHit = true;
-					else if (nal_unit_type == AVC_AUD_NUT && ft == NU_FILTER_AUD) bHit = true;
-					else if (nal_unit_type == AVC_SPS_NUT && ft == NU_FILTER_SPS) bHit = true;
-					else if (nal_unit_type == AVC_PPS_NUT && ft == NU_FILTER_PPS) bHit = true;
-					else if (nal_unit_type == AVC_FD_NUT  && ft == NU_FILTER_FIL) bHit = true;
-				}
-				else if (m_curr_nal_coding == NAL_CODING_HEVC)
-				{
-					if (IS_HEVC_VCL_NAL(nal_unit_type) && ft == NU_FILTER_VCL) bHit = true;
-					else if (IS_IDR(nal_unit_type) && ft == NU_FILTER_IDR) bHit = true;
-					else if ((nal_unit_type == HEVC_PREFIX_SEI_NUT || nal_unit_type == HEVC_SUFFIX_SEI_NUT) && ft == NU_FILTER_IDR) bHit = true;
-					else if (nal_unit_type == HEVC_AUD_NUT && ft == NU_FILTER_AUD) bHit = true;
-					else if (nal_unit_type == HEVC_VPS_NUT && ft == NU_FILTER_VPS) bHit = true;
-					else if (nal_unit_type == HEVC_SPS_NUT && ft == NU_FILTER_SPS) bHit = true;
-					else if (nal_unit_type == HEVC_PPS_NUT && ft == NU_FILTER_PPS) bHit = true;
-					else if (nal_unit_type == HEVC_FD_NUT  && ft == NU_FILTER_FIL) bHit = true;
-				}
-				else if (m_curr_nal_coding == NAL_CODING_VVC)
-				{
-					if (IS_VVC_VCL_NAL(nal_unit_type) && ft == NU_FILTER_VCL) bHit = true;
-					else if (IS_VVC_IDR(nal_unit_type) && ft == NU_FILTER_IDR) bHit = true;
-					else if ((nal_unit_type == VVC_PREFIX_SEI_NUT || nal_unit_type == VVC_SUFFIX_SEI_NUT) && ft == NU_FILTER_IDR) bHit = true;
-					else if (nal_unit_type == VVC_AUD_NUT && ft == NU_FILTER_AUD) bHit = true;
-					else if (nal_unit_type == VVC_VPS_NUT && ft == NU_FILTER_VPS) bHit = true;
-					else if (nal_unit_type == VVC_SPS_NUT && ft == NU_FILTER_SPS) bHit = true;
-					else if (nal_unit_type == VVC_PPS_NUT && ft == NU_FILTER_PPS) bHit = true;
-					else if (nal_unit_type == VVC_FD_NUT  && ft == NU_FILTER_FIL) bHit = true;
-				}
-
-				if (!bHit)
-					continue;
-
-				if (!subset_nu[ft]->IsNull() && !subset_nu[ft]->Contain(m_filtered_nu_count[ft]))
-				{
-					if (subset_nu[ft]->Behind(m_filtered_nu_count[NU_FILTER_VCL]))
-						return RET_CODE_ABORT;
-					return RET_CODE_NOTHING_TODO;
-				}
-				else if (subset_nu[ft]->IsNull() && !bExcludeAllFiltersExcept[ft])	// Other filter(s) is(are) available
-					return RET_CODE_NOTHING_TODO;
-				else
-					return RET_CODE_SUCCESS;
-			}
-
-#if  0
-			if ((m_curr_nal_coding == NAL_CODING_AVC && IS_AVC_VCL_NAL(nal_unit_type)) ||
-				(m_curr_nal_coding == NAL_CODING_HEVC && IS_HEVC_VCL_NAL(nal_unit_type)))
-			{
-				if (!m_pMSENav->NAL.vcl_nu.IsNull() && !m_pMSENav->NAL.vcl_nu.Contain(m_filtered_nu_count[NU_FILTER_VCL]))
-				{
-					if (m_pMSENav->NAL.vcl_nu.Behind(m_filtered_nu_count[NU_FILTER_VCL]))
-						return RET_CODE_ABORT;
-					return RET_CODE_NOTHING_TODO;
-				}
-				else if(m_pMSENav->NAL.vcl_nu.IsNull() && (!bExcludeAllSEINU))
-					return RET_CODE_NOTHING_TODO;
-				else
-					return RET_CODE_SUCCESS;
-			}
-			
-			if ((m_curr_nal_coding == NAL_CODING_AVC && AVC_SEI_NUT == nal_unit_type) ||
-				(m_curr_nal_coding == NAL_CODING_HEVC && (HEVC_PREFIX_SEI_NUT == nal_unit_type || HEVC_SUFFIX_SEI_NUT == nal_unit_type)))
-			{
-				if (!m_pMSENav->NAL.sei_nu.IsNull() && !m_pMSENav->NAL.sei_nu.Contain(m_filtered_nu_count[NU_FILTER_SEI]))
-				{
-					if (m_pMSENav->NAL.sei_nu.Behind(m_filtered_nu_count[NU_FILTER_SEI]))
-						return RET_CODE_ABORT;
-					return RET_CODE_NOTHING_TODO;
-				}
-				else if (m_pMSENav->NAL.sei_nu.IsNull() && (!bExcludeAllVCLNU))
-					return RET_CODE_NOTHING_TODO;
-				else
-					return RET_CODE_SUCCESS;
-			}
-#endif
-
-			// If VCL or SEI filter is active, other NAL unit will be skipped
-			if (!bExcludeAllFilters)
+			if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbRBSPSEIMsgBuf).c_str())) <= 0)
 				return RET_CODE_NOTHING_TODO;
-		}
-		else if (level_id > NAL_LEVEL_NU && (OnlyFilterNU(NU_FILTER_VCL) || OnlyFilterNU(NU_FILTER_AUD) 
-			|| OnlyFilterNU(NU_FILTER_VPS) || OnlyFilterNU(NU_FILTER_SPS) || OnlyFilterNU(NU_FILTER_VCL) 
-			|| OnlyFilterNU(NU_FILTER_IDR) || OnlyFilterNU(NU_FILTER_FIL) || m_pMSENav->NAL.sei_nu.IsAllExcluded()))
-			return RET_CODE_NOTHING_TODO;
 
-		return RET_CODE_SUCCESS;
-	}
+			ccWritten += ccWrittenOnce;
 
-	const char* GetNUName(uint8_t nal_unit_type)
-	{
-		if (m_curr_nal_coding == NAL_CODING_AVC)
-			return nal_unit_type >= 0 && nal_unit_type < _countof(avc_nal_unit_type_short_names) ? avc_nal_unit_type_short_names[nal_unit_type] : "";
-		else if (m_curr_nal_coding == NAL_CODING_HEVC)
-			return nal_unit_type >= 0 && nal_unit_type < _countof(hevc_nal_unit_type_short_names) ? hevc_nal_unit_type_short_names[nal_unit_type] : "";
-		else if (m_curr_nal_coding == NAL_CODING_VVC)
-			return nal_unit_type >= 0 && nal_unit_type < _countof(vvc_nal_unit_type_short_names) ? vvc_nal_unit_type_short_names[nal_unit_type] : "";
-		return "";
-	}
+			AppendURI(szItem, ccWritten, NAL_LEVEL_SEI_MSG);
 
-	const char* GetSEIPayoadTypeName(uint32_t payload_type)
-	{
-		return payload_type < _countof(sei_payload_type_names) ? sei_payload_type_names[payload_type] : "";
-	}
+			szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-	inline int AppendURI(char* szItem, size_t& ccWritten, int level_id)
-	{
-		std::string szFormattedURI = GetURI(level_id);
-		if (szFormattedURI.length() < column_width_URI)
-		{
-			memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
-			ccWritten += column_width_URI - szFormattedURI.length();
+			printf("%s\n", szItem);
 		}
 
-		memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
-		ccWritten += szFormattedURI.length();
-
-		return RET_CODE_SUCCESS;
-	}
-
-	inline int CheckNALUnitEBSP(uint8_t* pEBSPNUBuf, size_t cbEBSPNUBuf, uint8_t& nalUnitHeaderBytes, uint8_t& nal_unit_type)
-	{
-		if (pEBSPNUBuf == nullptr || cbEBSPNUBuf < 1)
-			return RET_CODE_INVALID_PARAMETER;
-
-		if (m_curr_nal_coding == NAL_CODING_AVC)
+		if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 		{
-			nalUnitHeaderBytes = 1;
-
-			int8_t forbidden_zero_bit = (pEBSPNUBuf[0] >> 7) & 0x01;
-			int8_t nal_ref_idc = (pEBSPNUBuf[0] >> 5) & 0x3;
-			nal_unit_type = pEBSPNUBuf[0] & 0x1F;
-
-			int8_t svc_extension_flag = 0;
-			int8_t avc_3d_extension_flag = 0;
-
-			if (nal_unit_type == 14 || nal_unit_type == 20 || nal_unit_type == 21)
+			if (m_nLastLevel == NAL_LEVEL_SEI_MSG)
 			{
-				if (nal_unit_type != 21)
-					svc_extension_flag = (pEBSPNUBuf[1] >> 7) & 0x01;
-				else
-					avc_3d_extension_flag = (pEBSPNUBuf[1] >> 7) & 0x01;
+				int indent = 4 * m_level[NAL_LEVEL_SEI_MSG];
+				int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
 
-				if (svc_extension_flag)
-				{
-					nalUnitHeaderBytes += 3;
-					if (cbEBSPNUBuf < 5)
-						return RET_CODE_NEEDMOREINPUT;
-				}
-				else if (avc_3d_extension_flag)
-				{
-					nalUnitHeaderBytes += 2;
-					if (cbEBSPNUBuf < 4)
-						return RET_CODE_NEEDMOREINPUT;
-				}
-				else
-				{
-					nalUnitHeaderBytes += 3;
-					if (cbEBSPNUBuf < 5)
-						return RET_CODE_NEEDMOREINPUT;
-				}
+				printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+				if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
+					PrintSEIMsgSyntaxElement(pCtx, pRBSPSEIMsgRBSPBuf, cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
+				else if (enum_cmd == MSE_ENUM_HEX_VIEW)
+					print_mem(pRBSPSEIMsgRBSPBuf, (int)cbRBSPSEIMsgBuf, 4 * m_level[NAL_LEVEL_SEI_MSG]);
+				printf("\n");
 			}
 		}
-		else if (m_curr_nal_coding == NAL_CODING_HEVC)
-		{
-			nalUnitHeaderBytes = 2;
-			if (cbEBSPNUBuf < 2)
-				return RET_CODE_NEEDMOREINPUT;
 
-			nal_unit_type = (pEBSPNUBuf[0] >> 1) & 0x3F;;
-		}
-		else if (m_curr_nal_coding == NAL_CODING_VVC)
-		{
-			nalUnitHeaderBytes = 2;
-			if (cbEBSPNUBuf < 2)
-				return RET_CODE_NEEDMOREINPUT;
-
-			nal_unit_type = (pEBSPNUBuf[1] >> 3) & 0x1F;
-		}
-		else
-			return RET_CODE_ERROR_NOTIMPL;
-		
 		return RET_CODE_SUCCESS;
 	}
 
-protected:
-	INALContext*			m_pNALContext;
-	MSENav*					m_pMSENav;
-	int						m_nLastLevel = -1;
-	uint32_t				m_options = 0;
-	const size_t			column_width_name = 47;
-	const size_t			column_width_len = 13;
-	const size_t			column_width_URI = 36;
-	const size_t			right_padding = 1;
+	RET_CODE OnProcessSEIPayload(IUnknown* pCtx, uint32_t payload_type, uint8_t* pRBSPSEIPayloadBuf, size_t cbRBSPPayloadBuf)
+	{
+		char szItem[256] = { 0 };
+		size_t ccWritten = 0;
+		int ccWrittenOnce = 0;
+
+		int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+		if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
+		{
+			ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s#%" PRId64 " %s ",
+				(m_level[NAL_LEVEL_SEI_PAYLOAD]) * 4, g_szRule,
+				m_unit_index[m_level[NAL_LEVEL_SEI_PAYLOAD]], GetSEIPayoadTypeName(payload_type));
+
+			if (ccWrittenOnce <= 0)
+				return RET_CODE_NOTHING_TODO;
+
+			if ((size_t)ccWrittenOnce < column_width_name)
+				memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+
+			szItem[column_width_name] = '|';
+			ccWritten = column_width_name + 1;
+
+			if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbRBSPPayloadBuf).c_str())) <= 0)
+				return RET_CODE_NOTHING_TODO;
+
+			ccWritten += ccWrittenOnce;
+
+			AppendURI(szItem, ccWritten, NAL_LEVEL_SEI_PAYLOAD);
+
+			szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+
+			printf("%s\n", szItem);
+		}
+
+		if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
+		{
+			if (m_nLastLevel == NAL_LEVEL_SEI_PAYLOAD)
+			{
+				int indent = 4 * m_level[NAL_LEVEL_SEI_PAYLOAD];
+				int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+
+				printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+				if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
+					PrintSEIPayloadSyntaxElement(pCtx, payload_type, pRBSPSEIPayloadBuf, cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
+				else if (enum_cmd == MSE_ENUM_HEX_VIEW)
+					print_mem(pRBSPSEIPayloadBuf, (int)cbRBSPPayloadBuf, 4 * m_level[NAL_LEVEL_SEI_PAYLOAD]);
+				printf("\n");
+			}
+		}
+
+		return RET_CODE_SUCCESS;
+	}
 };
 
 //
