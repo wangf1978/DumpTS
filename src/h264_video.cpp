@@ -264,6 +264,174 @@ namespace BST
 {
 	namespace H264Video
 	{
+		AVC_PROFILE NAL_UNIT::SEQ_PARAMETER_SET_DATA::GetH264Profile()
+		{
+			if (profile_idc == 66) {
+				if (constraint_set1_flag)
+					return AVC_PROFILE_CONSTRAINED_BASELINE;
+
+				return AVC_PROFILE_BASELINE;
+			}
+			else if (profile_idc == 77)
+			{
+				return AVC_PROFILE_MAIN;
+			}
+			else if (profile_idc == 88)
+			{
+				return AVC_PROFILE_EXTENDED;
+			}
+			else if (profile_idc == 100)
+			{
+				if (constraint_set4_flag && constraint_set5_flag)
+					return AVC_PROFILE_CONSTRAINED_HIGH;
+				if (constraint_set4_flag)
+					return AVC_PROFILE_PROGRESSIVE_HIGH;
+
+				return AVC_PROFILE_HIGH;
+			}
+			else if (profile_idc == 110)
+			{
+				if (constraint_set3_flag)
+					return AVC_PROFILE_HIGH_10_INTRA;
+				else if (constraint_set4_flag)
+					return AVC_PROFILE_PROGRESSIVE_HIGH_10;
+
+				return AVC_PROFILE_HIGH_10;
+			}
+			else if (profile_idc == 122)
+			{
+				if (constraint_set3_flag)
+					return AVC_PROFILE_HIGH_422_INTRA;
+				return AVC_PROFILE_HIGH_422;
+			}
+			else if (profile_idc == 244)
+			{
+				if (constraint_set3_flag)
+					return AVC_PROFILE_HIGH_444_INTRA;
+				return AVC_PROFILE_HIGH_444_PREDICTIVE;
+			}
+			else if (profile_idc == 44)
+			{
+				return AVC_PROFILE_CAVLC_444_INTRA_PROFIILE;
+			}
+			else if (profile_idc == 118)
+			{
+				return AVC_PROFILE_MULTIVIEW_HIGH;
+			}
+			else if (profile_idc == 128)
+			{
+				return AVC_PROFILE_STEREO_HIGH;
+			}
+			else if (profile_idc == 83)
+			{
+				if (constraint_set5_flag)
+					return AVC_PROFILE_SCALABLE_CONSTRAINED_BASELINE;
+
+				return AVC_PROFILE_SCALABLE_BASELINE;
+			}
+			else if (profile_idc == 86)
+			{
+				if (constraint_set5_flag)
+					return AVC_PROFILE_SCALABLE_CONSTRAINED_HIGH;
+				else if (constraint_set3_flag)
+					return AVC_PROFILE_SCALABLE_HIGH_INTRA;
+				return AVC_PROFILE_SCALABLE_HIGH;
+			}
+			else if (profile_idc == 138)
+				return AVC_PROFILE_MULTIVIEW_DEPTH_HIGH;
+
+			return AVC_PROFILE_UNKNOWN;
+		}
+
+		AVC_LEVEL NAL_UNIT::SEQ_PARAMETER_SET_DATA::GetH264Level()
+		{
+			AVC_PROFILE profile = GetH264Profile();
+			if (profile == AVC_PROFILE_BASELINE || profile == AVC_PROFILE_CONSTRAINED_BASELINE ||
+				profile == AVC_PROFILE_MAIN || profile == AVC_PROFILE_EXTENDED)
+			{
+				if (level_idc == 11 && constraint_set3_flag)
+					return AVC_LEVEL_1b;
+				else
+					return (AVC_LEVEL)(level_idc * 10);
+			}
+			else if (profile == AVC_PROFILE_HIGH || profile == AVC_PROFILE_PROGRESSIVE_HIGH || profile == AVC_PROFILE_CONSTRAINED_HIGH ||
+				profile == AVC_PROFILE_HIGH_10 || profile == AVC_PROFILE_HIGH_10_INTRA || profile == AVC_PROFILE_PROGRESSIVE_HIGH_10 ||
+				profile == AVC_PROFILE_HIGH_422 || profile == AVC_PROFILE_HIGH_422_INTRA ||
+				profile == AVC_PROFILE_HIGH_444_PREDICTIVE || profile == AVC_PROFILE_HIGH_444_INTRA ||
+				profile == AVC_PROFILE_CAVLC_444_INTRA_PROFIILE ||
+				profile == AVC_PROFILE_MULTIVIEW_HIGH || profile == AVC_PROFILE_STEREO_HIGH ||
+				profile == AVC_PROFILE_SCALABLE_BASELINE || profile == AVC_PROFILE_SCALABLE_CONSTRAINED_BASELINE ||
+				profile == AVC_PROFILE_SCALABLE_HIGH || profile == AVC_PROFILE_SCALABLE_CONSTRAINED_HIGH || profile == AVC_PROFILE_SCALABLE_HIGH_INTRA ||
+				profile == AVC_PROFILE_MULTIVIEW_DEPTH_HIGH)
+			{
+				if (level_idc == 9)
+					return AVC_LEVEL_1b;
+				else
+					return (AVC_LEVEL)(level_idc * 10);
+			}
+
+			return AVC_LEVEL_UNKNOWN;
+		}
+
+		void NAL_UNIT::SEQ_PARAMETER_SET_DATA::UpdateConcludedValues()
+		{
+			SubWidthC = (chroma_format_idc == 1 || chroma_format_idc == 2) ? 2 : (chroma_format_idc == 3 && separate_colour_plane_flag == 0 ? 1 : 0);
+			SubHeightC = (chroma_format_idc == 2 || (chroma_format_idc == 3 && separate_colour_plane_flag == 0)) ? 1 : (chroma_format_idc == 1 ? 2 : 0);
+			BitDepthY = 8 + bit_depth_luma_minus8;
+			BitDepthC = 8 + bit_depth_chroma_minus8;
+			QpBdOffsetY = 6 * bit_depth_luma_minus8;
+			QpBdOffsetC = 6 * bit_depth_chroma_minus8;
+			MbWidthC = SubWidthC ? 16 / SubWidthC : 0;
+			MbHeightC = SubHeightC ? 16 / SubHeightC : 0;
+			RawMbBits = 256 * BitDepthY + 2 * MbWidthC*MbHeightC*BitDepthC;
+			MaxFrameNum = 2 ^ (log2_max_frame_num_minus4 + 4);
+			MaxPicOrderCntLsb = 2 ^ (log2_max_pic_order_cnt_lsb_minus4 + 4);
+			PicWidthInMbs = pic_width_in_mbs_minus1 + 1;
+			PicWidthInSamplesL = PicWidthInMbs * 16;
+			PicWidthInSamplesC = PicWidthInMbs * MbWidthC;
+			PicHeightInMapUnits = pic_height_in_map_units_minus1 + 1;
+			PicSizeInMapUnits = PicWidthInMbs * PicHeightInMapUnits;
+			FrameHeightInMbs = (2 - frame_mbs_only_flag) * PicHeightInMapUnits;
+			ChromaArrayType = separate_colour_plane_flag == 0 ? chroma_format_idc : 0;
+			CropUnitX = ChromaArrayType == 0 ? 1 : SubWidthC;
+			CropUnitY = ChromaArrayType == 0 ? (2 - frame_mbs_only_flag) : SubHeightC * (2 - frame_mbs_only_flag);
+
+			frame_buffer_width = PicWidthInSamplesL;
+			frame_buffer_height = FrameHeightInMbs * 16;
+			display_width = frame_buffer_width;
+			display_height = frame_buffer_height;
+
+			if (frame_cropping_flag)
+			{
+				uint32_t crop_unit_x = 0, crop_unit_y = 0;
+				if (0 == chroma_format_idc)	// monochrome
+				{
+					crop_unit_x = 1;
+					crop_unit_y = 2 - frame_mbs_only_flag;
+				}
+				else if (1 == chroma_format_idc)	// 4:2:0
+				{
+					crop_unit_x = 2;
+					crop_unit_y = 2 * (2 - frame_mbs_only_flag);
+				}
+				else if (2 == chroma_format_idc)	// 4:2:2
+				{
+					crop_unit_x = 2;
+					crop_unit_y = 2 - frame_mbs_only_flag;
+				}
+				else if (3 == chroma_format_idc)
+				{
+					crop_unit_x = 1;
+					crop_unit_y = 2 - frame_mbs_only_flag;
+				}
+
+				display_width -= crop_unit_x * (frame_crop_left_offset + frame_crop_right_offset);
+				display_height -= crop_unit_y * (frame_crop_top_offset + frame_crop_bottom_offset);
+
+				return;
+			}
+		}
+
 		int NAL_UNIT::PIC_PARAMETER_SET_RBSP::Map(AMBst in_bst)
 		{
 			int iRet = RET_CODE_SUCCESS;

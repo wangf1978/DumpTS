@@ -32,6 +32,9 @@ SOFTWARE.
 #include "MSE.h"
 #include "nal_com.h"
 #include "mpeg2_video.h"
+#include "h264_video.h"
+#include "h265_video.h"
+#include "h266_video.h"
 #include "MSEnav.h"
 
 #define INITIAL_PTS_VALUE			(10LL*90000LL)
@@ -333,12 +336,9 @@ class CMPVAUEnumerator : public CMPVNavEnumerator, public CAUESTranscoder
 public:
 	CMPVAUEnumerator(IMPVContext* pCtx, uint32_t options, MSENav* pMSENav, FILE* wfp, VTC_EXPORT& vtc_export, int* pRet)
 		: CMPVNavEnumerator(pCtx, options, pMSENav)
-		, CAUESTranscoder(wfp, vtc_export, pRet)
-	{
-	}
+		, CAUESTranscoder(wfp, vtc_export, pRet){}
 
-	~CMPVAUEnumerator() {
-	}
+	~CMPVAUEnumerator() {}
 
 public:
 	RET_CODE OnProcessAU(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
@@ -378,6 +378,96 @@ public:
 	RET_CODE FinalizeVTCParams(SEQHDR seq_hdr, SEQEXT seq_ext, vtc_param_t& params);
 };
 
+class CNALAUEnumerator : public CNALNavEnumerator, public CAUESTranscoder
+{
+public:
+	CNALAUEnumerator(INALContext* pCtx, uint32_t options, MSENav* pMSENav, FILE* wfp, VTC_EXPORT& vtc_export, int* pRet)
+		: CNALNavEnumerator(pCtx, options, pMSENav)
+		, CAUESTranscoder(wfp, vtc_export, pRet){}
+
+	~CNALAUEnumerator() {}
+
+public:
+	RET_CODE OnProcessAU(IUnknown* pCtx, uint8_t* pAUBuf, size_t cbAUBuf, int picCodingType)
+	{
+		if (cbAUBuf > INT32_MAX || cbAUBuf == 0)
+			return RET_CODE_NOTHING_TODO;
+
+		// Check whether the sequence header is ready or not
+		if (m_vtc_handle == nullptr)
+		{
+			vtc_param_t params;
+			m_vtc_export->fn_params_clone(&m_vtc_params, &params);
+
+			if (m_curr_nal_coding == NAL_CODING_AVC)
+			{
+				INALAVCContext* pAVCCtx = nullptr;
+				if (FAILED(pCtx->QueryInterface(IID_INALAVCContext, (void**)&pAVCCtx))) {
+					return RET_CODE_NOTHING_TODO;
+				}
+
+				int8_t sps_id = pAVCCtx->GetActiveSPSID();
+				if (sps_id < 0)
+					return RET_CODE_NOTHING_TODO;
+
+				H264_NU sps_nu = pAVCCtx->GetAVCSPS(sps_id);
+				if (sps_nu == nullptr)
+					return RET_CODE_NOTHING_TODO;
+
+				FinalizeVTCParamsForAVCSource(pAVCCtx, sps_nu, params);
+			}
+			else if (m_curr_nal_coding == NAL_CODING_HEVC)
+			{
+				INALHEVCContext* pHEVCCtx = nullptr;
+				if (FAILED(pCtx->QueryInterface(IID_INALHEVCContext, (void**)&pHEVCCtx))) {
+					return RET_CODE_NOTHING_TODO;
+				}
+
+				int8_t sps_id = pHEVCCtx->GetActiveSPSID();
+				if (sps_id < 0)
+					return RET_CODE_NOTHING_TODO;
+
+				H265_NU sps_nu = pHEVCCtx->GetHEVCSPS(sps_id);
+				if (sps_nu == nullptr)
+					return RET_CODE_NOTHING_TODO;
+
+				FinalizeVTCParamsForHEVCSource(pHEVCCtx, sps_nu, params);
+			}
+			else if (m_curr_nal_coding == NAL_CODING_VVC)
+			{
+				INALVVCContext* pVVCCtx = nullptr;
+				if (FAILED(pCtx->QueryInterface(IID_INALVVCContext, (void**)&pVVCCtx))) {
+					return RET_CODE_NOTHING_TODO;
+				}
+
+				int8_t sps_id = pVVCCtx->GetActiveSPSID();
+				if (sps_id < 0)
+					return RET_CODE_NOTHING_TODO;
+
+				H266_NU sps_nu = pVVCCtx->GetVVCSPS(sps_id);
+				if (sps_nu == nullptr)
+					return RET_CODE_NOTHING_TODO;
+
+				FinalizeVTCParamsForVVCSource(pVVCCtx, sps_nu, params);
+			}
+			else
+				return RET_CODE_ERROR_NOTIMPL;
+
+			if ((m_vtc_handle = m_vtc_export->fn_open(&params)) == nullptr)
+			{
+				printf("Failed to open the video transcoder.\n");
+				return RET_CODE_ABORT;
+			}
+		}
+
+		return TranscodeAUESBuffer(pAUBuf, cbAUBuf, false);
+	}
+
+	RET_CODE FinalizeVTCParamsForAVCSource(INALAVCContext* pAVCCtx, H264_NU sps_nu, vtc_param_t& params);
+	RET_CODE FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVCCtx, H265_NU sps_nu, vtc_param_t& params);
+	RET_CODE FinalizeVTCParamsForVVCSource(INALVVCContext* pVVCCtx, H266_NU sps_nu, vtc_param_t& params);
+};
+
 int BindAUTranscodeEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* wfp, VTC_EXPORT& vtc_export, CAUESTranscoder** ppAUTranscoder)
 {
 	if (pMSEParser == nullptr || pCtx == nullptr)
@@ -386,24 +476,35 @@ int BindAUTranscodeEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t e
 	int iRet = RET_CODE_ERROR_NOTIMPL;
 	MEDIA_SCHEME_TYPE scheme_type = pMSEParser->GetSchemeType();
 
-/*	if (scheme_type == MEDIA_SCHEME_NAL)
+	if (scheme_type == MEDIA_SCHEME_NAL)
 	{
 		INALContext* pNALCtx = nullptr;
 		if (SUCCEEDED(pCtx->QueryInterface(IID_INALContext, (void**)&pNALCtx)))
 		{
 			IUnknown* pMSEEnumerator = nullptr;
 			uint32_t options = mse_nav.GetEnumOptions();
-			CNALSEEnumerator* pNALSEEnumerator = new CNALSEEnumerator(pNALCtx, enum_options | options, &mse_nav);
-			if (SUCCEEDED(iRet = pNALSEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
+
+			CNALAUEnumerator* pNALAUEnumerator = new CNALAUEnumerator(pNALCtx, enum_options | options, &mse_nav, wfp, vtc_export, &iRet);
+
+			if (AMP_FAILED(iRet)) {
+				AMP_SAFERELEASE(pNALCtx);
+				AMP_SAFEDEL(pNALAUEnumerator);
+				goto done;
+			}
+
+			if (SUCCEEDED(iRet = pNALAUEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
 			{
 				iRet = pMSEParser->SetEnumerator(pMSEEnumerator, enum_options | options);
 				AMP_SAFERELEASE(pMSEEnumerator);
 			}
 
 			AMP_SAFERELEASE(pNALCtx);
+
+			if (ppAUTranscoder)
+				*ppAUTranscoder = (CAUESTranscoder*)pNALAUEnumerator;
 		}
 	}
-	else if (scheme_type == MEDIA_SCHEME_AV1)
+	/*else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
 		IAV1Context* pAV1Ctx = nullptr;
 		if (SUCCEEDED(pCtx->QueryInterface(IID_IAV1Context, (void**)&pAV1Ctx)))
@@ -419,8 +520,8 @@ int BindAUTranscodeEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t e
 
 			AMP_SAFERELEASE(pAV1Ctx);
 		}
-	}
-	else */if (scheme_type == MEDIA_SCHEME_MPV)
+	}*/
+	else if (scheme_type == MEDIA_SCHEME_MPV)
 	{
 		IMPVContext* pMPVCtx = nullptr;
 		if (SUCCEEDED(pCtx->QueryInterface(IID_IMPVContext, (void**)&pMPVCtx)))
@@ -702,4 +803,174 @@ RET_CODE CMPVAUEnumerator::FinalizeVTCParams(SEQHDR seq_hdr, SEQEXT seq_ext, vtc
 
 	return RET_CODE_SUCCESS;
 }
+
+RET_CODE CNALAUEnumerator::FinalizeVTCParamsForAVCSource(INALAVCContext* pAVCCtx, H264_NU sps_nu, vtc_param_t& params)
+{
+	if (params.width <= 0)
+		params.width = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.display_width;;
+
+	if (params.height <= 0)
+		params.height = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.display_height;
+
+	if (params.width <= 0 || params.height <= 0)
+	{
+		printf("The specified width(%d) or height(%d) is out of range.\n", params.width, params.height);
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (params.sar_den == 0 && params.sar_num == 0)
+	{
+		// Check the display aspect ratio
+		auto iter_dar = g_params.find("DAR");
+		if (iter_dar != g_params.end())
+		{
+			int64_t dar_num = -1, dar_den = -1;
+			if (ConvertToRationalNumber(iter_dar->second, dar_num, dar_den) == false ||
+				dar_num <= 0 || dar_num > UINT32_MAX ||
+				dar_den <= 0 || dar_den > UINT32_MAX)
+			{
+				printf("The 'DAR' parameter \"--DAR=%s\" can't be parsed, ignore it.\n", iter_dar->second.c_str());
+			}
+			else
+			{
+				uint64_t common_divisor = gcd((uint64_t)(dar_num*params.height), (uint64_t)(dar_den*params.width));
+				params.sar_num = (uint32_t)(dar_num*params.height / common_divisor);
+				params.sar_den = (uint32_t)(dar_den*params.width / common_divisor);
+			}
+		}
+	}
+
+	if (sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters_present_flag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters)
+	{
+		auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
+
+		if (params.fps_den == 0 && params.fps_num == 0 && vui_parameters->timing_info_present_flag)
+		{
+			params.fps_num = vui_parameters->time_scale;
+			params.fps_den = vui_parameters->num_units_in_tick * 2;
+
+			uint64_t common_divisor = gcd(params.fps_num, params.fps_den);
+			params.fps_num = (uint32_t)((uint64_t)params.fps_num / common_divisor);
+			params.fps_den = (uint32_t)((uint64_t)params.fps_den / common_divisor);
+		}
+
+		if (params.sar_den == 0 && params.sar_num == 0 && vui_parameters->aspect_ratio_info_present_flag)
+		{
+			if (vui_parameters->aspect_ratio_idc == 0xFF)
+			{
+				params.sar_num = vui_parameters->sar_width;
+				params.sar_den = vui_parameters->sar_height;
+			}
+			else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < _countof(sample_aspect_ratios))
+			{
+				params.sar_num = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+				params.sar_den = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+			}
+
+			if (params.sar_den > 0 && params.sar_num > 0)
+			{
+				uint64_t common_divisor = gcd(params.sar_num, params.sar_den);
+				params.sar_num = (uint32_t)(params.sar_num / common_divisor);
+				params.sar_den = (uint32_t)(params.sar_den / common_divisor);
+			}
+			else
+			{
+				printf("Unexpected SAR is found from AVC VUI information.\n");
+			}
+		}
+	}
+
+	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CNALAUEnumerator::FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVCCtx, H265_NU sps_nu, vtc_param_t& params)
+{
+	if (params.width <= 0)
+		params.width = sps_nu->ptr_seq_parameter_set_rbsp->display_width;;
+
+	if (params.height <= 0)
+		params.height = sps_nu->ptr_seq_parameter_set_rbsp->display_height;
+
+	if (params.width <= 0 || params.height <= 0)
+	{
+		printf("The specified width(%d) or height(%d) is out of range.\n", params.width, params.height);
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (params.sar_den == 0 && params.sar_num == 0)
+	{
+		// Check the display aspect ratio
+		auto iter_dar = g_params.find("DAR");
+		if (iter_dar != g_params.end())
+		{
+			int64_t dar_num = -1, dar_den = -1;
+			if (ConvertToRationalNumber(iter_dar->second, dar_num, dar_den) == false ||
+				dar_num <= 0 || dar_num > UINT32_MAX ||
+				dar_den <= 0 || dar_den > UINT32_MAX)
+			{
+				printf("The 'DAR' parameter \"--DAR=%s\" can't be parsed, ignore it.\n", iter_dar->second.c_str());
+			}
+			else
+			{
+				uint64_t common_divisor = gcd((uint64_t)(dar_num*params.height), (uint64_t)(dar_den*params.width));
+				params.sar_num = (uint32_t)(dar_num*params.height / common_divisor);
+				params.sar_den = (uint32_t)(dar_den*params.width / common_divisor);
+			}
+		}
+	}
+
+	if (sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters_present_flag &&
+		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters)
+	{
+		auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters;
+
+		if (params.fps_den == 0 && params.fps_num == 0 && vui_parameters->vui_timing_info_present_flag)
+		{
+			params.fps_num = vui_parameters->vui_time_scale;
+			params.fps_den = vui_parameters->vui_num_units_in_tick * (vui_parameters->field_seq_flag + 1);
+
+			uint64_t common_divisor = gcd(params.fps_num, params.fps_den);
+			params.fps_num = (uint32_t)((uint64_t)params.fps_num / common_divisor);
+			params.fps_den = (uint32_t)((uint64_t)params.fps_den / common_divisor);
+		}
+
+		if (params.sar_den == 0 && params.sar_num == 0 && vui_parameters->aspect_ratio_info_present_flag)
+		{
+			if (vui_parameters->aspect_ratio_idc == 0xFF)
+			{
+				params.sar_num = vui_parameters->sar_width;
+				params.sar_den = vui_parameters->sar_height;
+			}
+			else if (vui_parameters->aspect_ratio_idc >= 0 && vui_parameters->aspect_ratio_idc < _countof(sample_aspect_ratios))
+			{
+				params.sar_num = std::get<0>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+				params.sar_den = std::get<1>(sample_aspect_ratios[vui_parameters->aspect_ratio_idc]);
+			}
+
+			if (params.sar_den > 0 && params.sar_num > 0)
+			{
+				uint64_t common_divisor = gcd(params.sar_num, params.sar_den);
+				params.sar_num = (uint32_t)(params.sar_num / common_divisor);
+				params.sar_den = (uint32_t)(params.sar_den / common_divisor);
+			}
+			else
+			{
+				printf("Unexpected SAR is found from AVC VUI information.\n");
+			}
+		}
+	}
+
+	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CNALAUEnumerator::FinalizeVTCParamsForVVCSource(INALVVCContext* pVVCCtx, H266_NU sps_nu, vtc_param_t& params)
+{
+	return RET_CODE_ERROR_NOTIMPL;
+}
+
 

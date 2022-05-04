@@ -1412,8 +1412,7 @@ int CNALParser::CommitVVCPicture(
 			goto done;
 		}
 
-		if ((m_nal_enum_options&MSE_ENUM_CMD_MASK) == MSE_ENUM_SYNTAX_VIEW)
-			m_pNALVVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
+		m_pNALVVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
 
 		sp_vps = m_pNALVVCCtx->GetVVCVPS(sp_sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id);
 
@@ -1750,8 +1749,7 @@ int CNALParser::CommitHEVCPicture(
 			goto done;
 		}
 
-		if ((m_nal_enum_options&MSE_ENUM_CMD_MASK) == MSE_ENUM_SYNTAX_VIEW)
-			m_pNALHEVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
+		m_pNALHEVCCtx->ActivateSPS((int8_t)sp_pps->ptr_pic_parameter_set_rbsp->pps_seq_parameter_set_id);
 		
 		sp_vps = m_pNALHEVCCtx->GetHEVCVPS(sp_sps->ptr_seq_parameter_set_rbsp->sps_video_parameter_set_id);
 

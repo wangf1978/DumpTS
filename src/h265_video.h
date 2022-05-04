@@ -2297,6 +2297,8 @@ namespace BST {
 				uint8_t		SubHeightC = 0;
 				uint32_t	CtbWidthC = 0;
 				uint32_t	CtbHeightC = 0;
+				uint32_t	display_width = 0;
+				uint32_t	display_height = 0;
 
 				SEQ_PARAMETER_SET_RBSP(VideoBitstreamCtx* ctx = NULL)
 					: profile_tier_level(NULL)
@@ -2363,12 +2365,20 @@ namespace BST {
 						nal_read_ue(in_bst, pic_height_in_luma_samples, uint32_t);
 
 						nal_read_u(in_bst, conformance_window_flag, 1, uint8_t);
+
+						display_width = pic_width_in_luma_samples;
+						display_height = pic_height_in_luma_samples;
 						if (conformance_window_flag)
 						{
 							nal_read_ue(in_bst, conf_win_left_offset, uint32_t);
 							nal_read_ue(in_bst, conf_win_right_offset, uint32_t);
 							nal_read_ue(in_bst, conf_win_top_offset, uint32_t);
 							nal_read_ue(in_bst, conf_win_bottom_offset, uint32_t);
+
+							uint32_t sub_width_c = ((1 == chroma_format_idc) || (2 == chroma_format_idc)) && (0 == separate_colour_plane_flag) ? 2 : 1;
+							uint32_t sub_height_c = (1 == chroma_format_idc) && (0 == separate_colour_plane_flag) ? 2 : 1;
+							display_width -= sub_width_c * (conf_win_left_offset + conf_win_right_offset);
+							display_height -= sub_height_c * (conf_win_top_offset + conf_win_bottom_offset);
 						}
 
 						nal_read_ue(in_bst, bit_depth_luma_minus8, uint8_t);
