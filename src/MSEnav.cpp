@@ -31,6 +31,7 @@ SOFTWARE.
 #include "h265_video.h"
 #include "h266_video.h"
 #include "NAL.h"
+#include "av1.h"
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 
@@ -1374,5 +1375,250 @@ const char* CNALNavEnumerator::GetNUName(uint8_t nal_unit_type)
 const char* CNALNavEnumerator::GetSEIPayoadTypeName(uint32_t payload_type)
 {
 	return payload_type < _countof(sei_payload_type_names) ? sei_payload_type_names[payload_type] : "";
+}
+
+//
+// AV1 video navigation enumerator
+//
+CAV1NavEnumerator::CAV1NavEnumerator(IAV1Context* pCtx, uint32_t options, MSENav* pMSENav)
+	: m_pAV1Context(pCtx), m_pMSENav(pMSENav) 
+{
+	if (m_pAV1Context != nullptr)
+	{
+		m_bAnnexB = m_pAV1Context->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
+		m_pAV1Context->AddRef();
+	}
+
+	int next_level = 0;
+	for (size_t i = 0; i < _countof(m_level); i++) {
+		if (options&(1ULL << i)) {
+			m_level[i] = next_level;
+
+			// CVS is the point, not a range
+			if (i == AV1_LEVEL_VSEQ || i == AV1_LEVEL_CVS)
+				m_unit_index[next_level] = -1;
+			else
+				m_unit_index[next_level] = 0;
+
+			m_nLastLevel = (int)i;
+			next_level++;
+		}
+	}
+
+	m_options = options;
+}
+
+CAV1NavEnumerator::~CAV1NavEnumerator() {
+	AMP_SAFERELEASE(m_pAV1Context);
+}
+
+HRESULT CAV1NavEnumerator::NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
+{
+	if (ppvObj == NULL)
+		return E_POINTER;
+
+	if (uuid == IID_IAV1Enumerator)
+		return GetCOMInterface((IAV1Enumerator*)this, ppvObj);
+
+	return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
+}
+
+RET_CODE CAV1NavEnumerator::EnumNewVSEQ(IUnknown* pCtx)
+{
+	m_unit_index[m_level[AV1_LEVEL_VSEQ]]++;
+	if (m_level[AV1_LEVEL_CVS] > 0)
+		m_unit_index[m_level[AV1_LEVEL_CVS]] = -1;
+	if (m_level[AV1_LEVEL_TU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_TU]] = 0;
+	if (m_level[AV1_LEVEL_FU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_FU]] = 0;
+	m_curr_frameobu_count = 0;
+	if (m_level[AV1_LEVEL_OBU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
+
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(AV1_LEVEL_VSEQ)) != RET_CODE_SUCCESS)
+		return iRet;
+
+	return OnProcessVSEQ(pCtx);
+}
+
+RET_CODE CAV1NavEnumerator::EnumNewCVS(IUnknown* pCtx, int8_t reserved)
+{
+	m_unit_index[m_level[AV1_LEVEL_CVS]]++;
+	if (m_level[AV1_LEVEL_TU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_TU]] = 0;
+	if (m_level[AV1_LEVEL_FU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_FU]] = 0;
+	m_curr_frameobu_count = 0;
+	if (m_level[AV1_LEVEL_OBU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
+
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(AV1_LEVEL_CVS)) != RET_CODE_SUCCESS)
+		return iRet;
+
+	return OnProcessCVS(pCtx, reserved);
+}
+
+/*
+	For the Annex-B byte-stream:
+	The first OBU in the first frame_unit of each temporal_unit must be a temporal delimiter OBU
+	(and this is the only place temporal delimiter OBUs can appear).
+*/
+RET_CODE CAV1NavEnumerator::EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type)
+{
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(AV1_LEVEL_TU)) != RET_CODE_SUCCESS)
+		return iRet;
+
+	return OnProcessTU(pCtx, ptr_TU_buf, TU_size, frame_type);
+}
+
+RET_CODE CAV1NavEnumerator::EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type)
+{
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(AV1_LEVEL_FU)) != RET_CODE_SUCCESS)
+		return iRet;
+
+	return OnProcessFU(pCtx, pFrameUnitBuf, cbFrameUnitBuf, frame_type);
+}
+
+RET_CODE CAV1NavEnumerator::EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size)
+{
+	char szItem[256] = { 0 };
+	size_t ccWritten = 0;
+	int ccWrittenOnce = 0;
+
+	int iRet = RET_CODE_SUCCESS;
+	if ((iRet = CheckFilter(AV1_LEVEL_OBU, obu_type)) == RET_CODE_SUCCESS)
+	{
+		iRet = OnProcessOBU(pCtx, pOBUBuf, cbOBUBuf, obu_type, obu_size);
+	}
+
+	m_unit_index[m_level[AV1_LEVEL_OBU]]++;
+	// This syntax element is a slice
+	if (IS_OBU_FRAME(obu_type))
+		m_curr_frameobu_count++;
+
+	return iRet;
+}
+
+RET_CODE CAV1NavEnumerator::EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf)
+{
+	m_unit_index[m_level[AV1_LEVEL_FU]]++;
+	if (m_level[AV1_LEVEL_OBU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CAV1NavEnumerator::EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size)
+{
+	m_unit_index[m_level[AV1_LEVEL_TU]]++;
+	if (m_level[AV1_LEVEL_FU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_FU]] = 0;
+	if (m_level[AV1_LEVEL_OBU] > 0)
+		m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
+	m_curr_frameobu_count = 0;
+
+	return RET_CODE_SUCCESS;
+}
+
+RET_CODE CAV1NavEnumerator::EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code)
+{
+	return RET_CODE_SUCCESS;
+}
+
+std::string	CAV1NavEnumerator::GetURI(int level_id)
+{
+	std::string strURI;
+	strURI.reserve(128);
+	for (int i = level_id; i >= 0; i--)
+	{
+		if (m_level[i] >= 0)
+		{
+			if (strURI.length() > 0)
+				strURI += ".";
+			if (i == AV1_LEVEL_OBU && OnlyFrameOBU())
+			{
+				strURI += "FRAME" + std::to_string(m_curr_frameobu_count);
+			}
+			else
+			{
+				strURI += AV1_LEVEL_NAME(i);
+				strURI += std::to_string(m_unit_index[m_level[i]]);
+			}
+		}
+	}
+
+	return strURI;
+}
+
+const char* CAV1NavEnumerator::GetOBUName(uint8_t obu_type)
+{
+	return (obu_type >= 0 && obu_type < _countof(obu_type_short_names)) ? obu_type_short_names[obu_type] : "";
+}
+
+RET_CODE CAV1NavEnumerator::CheckFilter(int level_id, uint8_t obu_type)
+{
+	if (m_pMSENav == nullptr)
+		return RET_CODE_SUCCESS;
+
+	MSEID_RANGE filter[] = { 
+		MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->AV1.vseq, m_pMSENav->AV1.cvs, m_pMSENav->AV1.tu, m_pMSENav->AV1.fu, m_pMSENav->AV1.obu,
+		MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() 
+	};
+
+	bool bNullParent = true;
+	for (int i = 0; i <= level_id; i++)
+	{
+		if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
+			continue;
+
+		if (filter[i].Ahead(m_unit_index[m_level[i]]))
+			return RET_CODE_NOTHING_TODO;
+		else if (filter[i].Behind(m_unit_index[m_level[i]]))
+		{
+			if (bNullParent)
+				return RET_CODE_ABORT;
+			else
+				return RET_CODE_NOTHING_TODO;
+		}
+		/*
+			In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
+			____________                      ______________________________
+						\                    /
+			|///////////f0xxxxxxxxxidxxxxxxxxxf1\\\\\\\\\\\\\\\\\\\\\\\\....
+		*/
+		else if (!filter[i].Contain(m_unit_index[m_level[i]]))
+			return RET_CODE_NOTHING_TODO;
+
+		if (!filter[i].IsNull() && !filter[i].IsNaR())
+			bNullParent = false;
+	}
+
+	// Do some special processing since SLICE is a subset of SE
+	if (level_id == AV1_LEVEL_OBU && m_pMSENav->AV1.obu.IsAllUnspecfied())
+	{
+		if (IS_OBU_FRAME(obu_type))
+		{
+			if (!m_pMSENav->AV1.obu_frame.IsNull() && !m_pMSENav->AV1.obu_frame.Contain(m_curr_frameobu_count))
+			{
+				if (m_pMSENav->AV1.obu_frame.Behind(m_curr_frameobu_count))
+					return RET_CODE_ABORT;
+				return RET_CODE_NOTHING_TODO;
+			}
+		}
+		else
+		{
+			if (!m_pMSENav->AV1.obu_frame.IsAllExcluded() && !m_pMSENav->AV1.obu_frame.IsNull() && !m_pMSENav->AV1.obu_frame.IsNaR())
+				return RET_CODE_NOTHING_TODO;
+		}
+	}
+	else if (level_id > AV1_LEVEL_OBU && OnlyFrameOBU())
+		return RET_CODE_NOTHING_TODO;
+
+	return RET_CODE_SUCCESS;
 }
 

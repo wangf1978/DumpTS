@@ -453,4 +453,87 @@ inline int CNALNavEnumerator::CheckNALUnitEBSP(uint8_t* pEBSPNUBuf, size_t cbEBS
 	return RET_CODE_SUCCESS;
 }
 
+//
+// AV1 video enumerator for MSE operation
+//
+class IAV1Context;
+class CAV1NavEnumerator : public CComUnknown, public IAV1Enumerator
+{
+public:
+	CAV1NavEnumerator(IAV1Context* pCtx, uint32_t options, MSENav* pMSENav);
+	virtual ~CAV1NavEnumerator();
+
+	DECLARE_IUNKNOWN
+	HRESULT				NonDelegatingQueryInterface(REFIID uuid, void** ppvObj);
+
+public:
+	RET_CODE			EnumNewVSEQ(IUnknown* pCtx);
+	RET_CODE			EnumNewCVS(IUnknown* pCtx, int8_t reserved);
+	/*
+		For the Annex-B byte-stream:
+		The first OBU in the first frame_unit of each temporal_unit must be a temporal delimiter OBU 
+		(and this is the only place temporal delimiter OBUs can appear).
+	*/
+	RET_CODE			EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type);
+	RET_CODE			EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type);
+	RET_CODE			EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size);
+	RET_CODE			EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf);
+	RET_CODE			EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size);
+	RET_CODE			EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code);
+
+protected:
+	virtual RET_CODE	OnProcessVSEQ(IUnknown* pCtx) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessCVS(IUnknown* pCtx, int8_t reserved) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessTU(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessFU(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type) { return RET_CODE_SUCCESS; }
+	virtual RET_CODE	OnProcessOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size){ return RET_CODE_SUCCESS; }
+
+protected:
+	int					m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+	int64_t				m_unit_index[16] = { 0 };
+	int64_t				m_curr_frameobu_count = 0;
+	bool				m_bAnnexB = false;
+
+	bool				OnlyFrameOBU();
+	std::string			GetURI(int level_id);
+	RET_CODE			CheckFilter(int level_id, uint8_t obu_type = 0xFF);
+	const char*			GetOBUName(uint8_t obu_type);
+	int					AppendURI(char* szItem, size_t& ccWritten, int level_id);
+
+protected:
+	IAV1Context*		m_pAV1Context;
+	MSENav*				m_pMSENav;
+	int					m_nLastLevel = -1;
+	uint32_t			m_options = 0;
+	const size_t		column_width_name = 47;
+	const size_t		column_width_len = 13;
+	const size_t		column_width_URI = 31;
+	const size_t		right_padding = 1;
+};
+
+inline bool CAV1NavEnumerator::OnlyFrameOBU()
+{
+	if (m_pMSENav == nullptr)
+		return false;
+
+	return (m_pMSENav->AV1.obu.IsAllUnspecfied()) &&
+		(m_pMSENav->AV1.obu_frame.IsAllUnspecfied() || (!m_pMSENav->AV1.obu_frame.IsNull() && !m_pMSENav->AV1.obu_frame.IsNaR())) &&
+		!(m_pMSENav->AV1.obu_frame.IsAllExcluded());
+}
+
+inline int CAV1NavEnumerator::AppendURI(char* szItem, size_t& ccWritten, int level_id)
+{
+	std::string szFormattedURI = GetURI(level_id);
+	if (szFormattedURI.length() < column_width_URI)
+	{
+		memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
+		ccWritten += column_width_URI - szFormattedURI.length();
+	}
+
+	memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
+	ccWritten += szFormattedURI.length();
+
+	return RET_CODE_SUCCESS;
+}
+
 #endif

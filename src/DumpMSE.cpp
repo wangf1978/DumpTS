@@ -506,70 +506,15 @@ public:
 //
 // AV1 video enumerator for MSE operation
 //
-class CAV1SEEnumerator : public CComUnknown, public IAV1Enumerator
+class CAV1SEEnumerator : public CAV1NavEnumerator
 {
 public:
 	CAV1SEEnumerator(IAV1Context* pCtx, uint32_t options, MSENav* pMSENav)
-		: m_pAV1Context(pCtx), m_pMSENav(pMSENav) {
-		if (m_pAV1Context != nullptr)
-		{
-			m_bAnnexB = m_pAV1Context->GetByteStreamFormat() == AV1_BYTESTREAM_LENGTH_DELIMITED ? true : false;
-			m_pAV1Context->AddRef();
-		}
-
-		int next_level = 0;
-		for (size_t i = 0; i < _countof(m_level); i++) {
-			if (options&(1ULL << i)) {
-				m_level[i] = next_level;
-
-				// CVS is the point, not a range
-				if (i == AV1_LEVEL_VSEQ || i == AV1_LEVEL_CVS)
-					m_unit_index[next_level] = -1;
-				else
-					m_unit_index[next_level] = 0;
-
-				m_nLastLevel = (int)i;
-				next_level++;
-			}
-		}
-
-		m_options = options;
-	}
-
-	virtual ~CAV1SEEnumerator() {
-		AMP_SAFERELEASE(m_pAV1Context);
-	}
-
-	DECLARE_IUNKNOWN
-	HRESULT NonDelegatingQueryInterface(REFIID uuid, void** ppvObj)
-	{
-		if (ppvObj == NULL)
-			return E_POINTER;
-
-		if (uuid == IID_IAV1Enumerator)
-			return GetCOMInterface((IAV1Enumerator*)this, ppvObj);
-
-		return CComUnknown::NonDelegatingQueryInterface(uuid, ppvObj);
-	}
+		: CAV1NavEnumerator(pCtx, options, pMSENav){}
 
 public:
-	RET_CODE EnumNewVSEQ(IUnknown* pCtx)
+	RET_CODE OnProcessVSEQ(IUnknown* pCtx)
 	{
-		m_unit_index[m_level[AV1_LEVEL_VSEQ]]++;
-		if (m_level[AV1_LEVEL_CVS] > 0)
-			m_unit_index[m_level[AV1_LEVEL_CVS]] = -1;
-		if (m_level[AV1_LEVEL_TU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_TU]] = 0;
-		if (m_level[AV1_LEVEL_FU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_FU]] = 0;
-		m_curr_frameobu_count = 0;
-		if (m_level[AV1_LEVEL_OBU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(AV1_LEVEL_VSEQ)) != RET_CODE_SUCCESS)
-			return iRet;
-
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 
@@ -600,23 +545,10 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumNewCVS(IUnknown* pCtx, int8_t reserved)
+	RET_CODE OnProcessCVS(IUnknown* pCtx, int8_t reserved)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-
-		m_unit_index[m_level[AV1_LEVEL_CVS]]++;
-		if (m_level[AV1_LEVEL_TU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_TU]] = 0;
-		if (m_level[AV1_LEVEL_FU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_FU]] = 0;
-		m_curr_frameobu_count = 0;
-		if (m_level[AV1_LEVEL_OBU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(AV1_LEVEL_CVS)) != RET_CODE_SUCCESS)
-			return iRet;
 
 		const char* szGOPType = "";
 
@@ -652,14 +584,10 @@ public:
 		The first OBU in the first frame_unit of each temporal_unit must be a temporal delimiter OBU 
 		(and this is the only place temporal delimiter OBUs can appear).
 	*/
-	RET_CODE EnumTemporalUnitStart(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type)
+	RET_CODE OnProcessTU(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(AV1_LEVEL_TU)) != RET_CODE_SUCCESS)
-			return iRet;
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sTU#%" PRId64 " (%s)",
 			(m_level[AV1_LEVEL_TU]) * 4, g_szRule, m_unit_index[m_level[AV1_LEVEL_TU]],
@@ -689,14 +617,10 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumFrameUnitStart(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type)
+	RET_CODE OnProcessFU(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf, int frame_type)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
-
-		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(AV1_LEVEL_FU)) != RET_CODE_SUCCESS)
-			return iRet;
 
 		int ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*sFU#%" PRId64 " (%s)",
 			(m_level[AV1_LEVEL_FU]) * 4, g_szRule, m_unit_index[m_level[AV1_LEVEL_FU]],
@@ -726,232 +650,68 @@ public:
 		return RET_CODE_SUCCESS;
 	}
 
-	RET_CODE EnumOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size)
+	RET_CODE OnProcessOBU(IUnknown* pCtx, uint8_t* pOBUBuf, size_t cbOBUBuf, uint8_t obu_type, uint32_t obu_size)
 	{
 		char szItem[256] = { 0 };
 		size_t ccWritten = 0;
 		int ccWrittenOnce = 0;
 
 		int iRet = RET_CODE_SUCCESS;
-		if ((iRet = CheckFilter(AV1_LEVEL_OBU, obu_type)) == RET_CODE_SUCCESS)
+		int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
+		if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
 		{
-			int enum_cmd = m_options & MSE_ENUM_CMD_MASK;
-			if (enum_cmd == MSE_ENUM_LIST_VIEW || enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
-			{
-				bool bOnlyFrameOBU = OnlyFrameOBU();
-				ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
-					(m_level[AV1_LEVEL_OBU]) * 4, g_szRule, bOnlyFrameOBU?"Frame":"OBU",
-					bOnlyFrameOBU?m_curr_frameobu_count:m_unit_index[m_level[AV1_LEVEL_OBU]], GetOBUName(obu_type));
+			bool bOnlyFrameOBU = OnlyFrameOBU();
+			ccWrittenOnce = MBCSPRINTF_S(szItem, _countof(szItem), "%.*s%s#%" PRId64 " %s",
+				(m_level[AV1_LEVEL_OBU]) * 4, g_szRule, bOnlyFrameOBU?"Frame":"OBU",
+				bOnlyFrameOBU?m_curr_frameobu_count:m_unit_index[m_level[AV1_LEVEL_OBU]], GetOBUName(obu_type));
 
-				if (ccWrittenOnce <= 0)
-					return RET_CODE_NOTHING_TODO;
+			if (ccWrittenOnce <= 0)
+				return RET_CODE_NOTHING_TODO;
 
-				if ((size_t)ccWrittenOnce < column_width_name)
-					memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
+			if ((size_t)ccWrittenOnce < column_width_name)
+				memset(szItem + ccWritten + ccWrittenOnce, ' ', column_width_name - ccWrittenOnce);
 
-				szItem[column_width_name] = '|';
-				ccWritten = column_width_name + 1;
+			szItem[column_width_name] = '|';
+			ccWritten = column_width_name + 1;
 
-				if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbOBUBuf).c_str())) <= 0)
-					return RET_CODE_NOTHING_TODO;
+			if ((ccWrittenOnce = MBCSPRINTF_S(szItem + ccWritten, _countof(szItem) - ccWritten, "%10s B |", GetReadableNum(cbOBUBuf).c_str())) <= 0)
+				return RET_CODE_NOTHING_TODO;
 
-				ccWritten += ccWrittenOnce;
+			ccWritten += ccWrittenOnce;
 
-				AppendURI(szItem, ccWritten, AV1_LEVEL_OBU);
+			AppendURI(szItem, ccWritten, AV1_LEVEL_OBU);
 
-				szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
+			szItem[ccWritten < _countof(szItem) ? ccWritten : _countof(szItem) - 1] = '\0';
 
-				if (!g_silent_output)
-					printf("%s\n", szItem);
-			}
-
-			if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
-			{
-				if (m_nLastLevel == AV1_LEVEL_OBU)
-				{
-					int indent = 4 * m_level[AV1_LEVEL_OBU];
-					int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
-
-					if (!g_silent_output)
-						printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
-
-					if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
-						PrintOBUSyntaxElement(pCtx, pOBUBuf, cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
-					else if (enum_cmd == MSE_ENUM_HEX_VIEW)
-					{
-						if (!g_silent_output)
-							print_mem(pOBUBuf, (int)cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
-					}
-
-					if (!g_silent_output)
-						printf("\n");
-				}
-			}
+			if (!g_silent_output)
+				printf("%s\n", szItem);
 		}
 
-		m_unit_index[m_level[AV1_LEVEL_OBU]]++;
-		// This syntax element is a slice
-		if (IS_OBU_FRAME(obu_type))
-			m_curr_frameobu_count++;
+		if (enum_cmd == MSE_ENUM_SYNTAX_VIEW || enum_cmd == MSE_ENUM_HEX_VIEW)
+		{
+			if (m_nLastLevel == AV1_LEVEL_OBU)
+			{
+				int indent = 4 * m_level[AV1_LEVEL_OBU];
+				int right_part_len = int(column_width_name + 1 + column_width_len + 1 + column_width_URI + 1);
+
+				if (!g_silent_output)
+					printf("%.*s%.*s\n", indent, g_szRule, right_part_len - indent, g_szHorizon);
+
+				if (enum_cmd == MSE_ENUM_SYNTAX_VIEW)
+					PrintOBUSyntaxElement(pCtx, pOBUBuf, cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
+				else if (enum_cmd == MSE_ENUM_HEX_VIEW)
+				{
+					if (!g_silent_output)
+						print_mem(pOBUBuf, (int)cbOBUBuf, 4 * m_level[AV1_LEVEL_OBU]);
+				}
+
+				if (!g_silent_output)
+					printf("\n");
+			}
+		}
 
 		return iRet;
 	}
-
-	RET_CODE EnumFrameUnitEnd(IUnknown* pCtx, uint8_t* pFrameUnitBuf, uint32_t cbFrameUnitBuf)
-	{
-		m_unit_index[m_level[AV1_LEVEL_FU]]++;
-		if (m_level[AV1_LEVEL_OBU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
-
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumTemporalUnitEnd(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size)
-	{
-		m_unit_index[m_level[AV1_LEVEL_TU]]++;
-		if (m_level[AV1_LEVEL_FU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_FU]] = 0;
-		if (m_level[AV1_LEVEL_OBU] > 0)
-			m_unit_index[m_level[AV1_LEVEL_OBU]] = 0;
-		m_curr_frameobu_count = 0;
-
-		return RET_CODE_SUCCESS;
-	}
-
-	RET_CODE EnumError(IUnknown* pCtx, uint64_t stream_offset, int error_code) { return RET_CODE_SUCCESS; }
-
-protected:
-	int						m_level[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-	int64_t					m_unit_index[16] = { 0 };
-	int64_t					m_curr_frameobu_count = 0;
-	bool					m_bAnnexB = false;
-
-	inline bool OnlyFrameOBU()
-	{
-		if (m_pMSENav == nullptr)
-			return false;
-
-		return (m_pMSENav->AV1.obu.IsAllUnspecfied()) &&
-			(m_pMSENav->AV1.obu_frame.IsAllUnspecfied() || (!m_pMSENav->AV1.obu_frame.IsNull() && !m_pMSENav->AV1.obu_frame.IsNaR())) &&
-			!(m_pMSENav->AV1.obu_frame.IsAllExcluded());
-	}
-
-	std::string	GetURI(int level_id)
-	{
-		std::string strURI;
-		strURI.reserve(128);
-		for (int i = level_id; i >= 0; i--)
-		{
-			if (m_level[i] >= 0)
-			{
-				if (strURI.length() > 0)
-					strURI += ".";
-				if (i == AV1_LEVEL_OBU && OnlyFrameOBU())
-				{
-					strURI += "FRAME" + std::to_string(m_curr_frameobu_count);
-				}
-				else
-				{
-					strURI += AV1_LEVEL_NAME(i);
-					strURI += std::to_string(m_unit_index[m_level[i]]);
-				}
-			}
-		}
-
-		return strURI;
-	}
-
-	RET_CODE CheckFilter(int level_id, uint8_t obu_type = 0xFF)
-	{
-		if (m_pMSENav == nullptr)
-			return RET_CODE_SUCCESS;
-
-		MSEID_RANGE filter[] = { 
-			MSEID_RANGE(), MSEID_RANGE(), m_pMSENav->AV1.vseq, m_pMSENav->AV1.cvs, m_pMSENav->AV1.tu, m_pMSENav->AV1.fu, m_pMSENav->AV1.obu,
-			MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE(), MSEID_RANGE() 
-		};
-
-		bool bNullParent = true;
-		for (int i = 0; i <= level_id; i++)
-		{
-			if (m_level[i] < 0 || filter[i].IsAllUnspecfied())
-				continue;
-
-			if (filter[i].Ahead(m_unit_index[m_level[i]]))
-				return RET_CODE_NOTHING_TODO;
-			else if (filter[i].Behind(m_unit_index[m_level[i]]))
-			{
-				if (bNullParent)
-					return RET_CODE_ABORT;
-				else
-					return RET_CODE_NOTHING_TODO;
-			}
-			/*
-				In this case, although filter is not ahead of or behind the id, but it also does NOT include the id
-				____________                      ______________________________
-							\                    /
-				|///////////f0xxxxxxxxxidxxxxxxxxxf1\\\\\\\\\\\\\\\\\\\\\\\\....
-			*/
-			else if (!filter[i].Contain(m_unit_index[m_level[i]]))
-				return RET_CODE_NOTHING_TODO;
-
-			if (!filter[i].IsNull() && !filter[i].IsNaR())
-				bNullParent = false;
-		}
-
-		// Do some special processing since SLICE is a subset of SE
-		if (level_id == AV1_LEVEL_OBU && m_pMSENav->AV1.obu.IsAllUnspecfied())
-		{
-			if (IS_OBU_FRAME(obu_type))
-			{
-				if (!m_pMSENav->AV1.obu_frame.IsNull() && !m_pMSENav->AV1.obu_frame.Contain(m_curr_frameobu_count))
-				{
-					if (m_pMSENav->AV1.obu_frame.Behind(m_curr_frameobu_count))
-						return RET_CODE_ABORT;
-					return RET_CODE_NOTHING_TODO;
-				}
-			}
-			else
-			{
-				if (!m_pMSENav->AV1.obu_frame.IsAllExcluded() && !m_pMSENav->AV1.obu_frame.IsNull() && !m_pMSENav->AV1.obu_frame.IsNaR())
-					return RET_CODE_NOTHING_TODO;
-			}
-		}
-		else if (level_id > AV1_LEVEL_OBU && OnlyFrameOBU())
-			return RET_CODE_NOTHING_TODO;
-
-		return RET_CODE_SUCCESS;
-	}
-
-	const char* GetOBUName(uint8_t obu_type)
-	{
-		return (obu_type >= 0 && obu_type < _countof(obu_type_short_names)) ? obu_type_short_names[obu_type] : "";
-	}
-
-	inline int AppendURI(char* szItem, size_t& ccWritten, int level_id)
-	{
-		std::string szFormattedURI = GetURI(level_id);
-		if (szFormattedURI.length() < column_width_URI)
-		{
-			memset(szItem + ccWritten, ' ', column_width_URI - szFormattedURI.length());
-			ccWritten += column_width_URI - szFormattedURI.length();
-		}
-
-		memcpy(szItem + ccWritten, szFormattedURI.c_str(), szFormattedURI.length());
-		ccWritten += szFormattedURI.length();
-
-		return RET_CODE_SUCCESS;
-	}
-
-protected:
-	IAV1Context*			m_pAV1Context;
-	MSENav*					m_pMSENav;
-	int						m_nLastLevel = -1;
-	uint32_t				m_options = 0;
-	const size_t			column_width_name = 47;
-	const size_t			column_width_len = 13;
-	const size_t			column_width_URI = 31;
-	const size_t			right_padding = 1;
 };
 
 int CreateMSEParser(IMSEParser** ppMSEParser)
