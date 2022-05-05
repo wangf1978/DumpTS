@@ -304,8 +304,11 @@ protected:
 			}
 			else
 			{
-				// There may be still transcoded ES in the transcoder, pick up all
-				goto repick;
+				if (bTranscodePipelineFull)
+					goto reinput;
+				else
+					// There may be still transcoded ES in the transcoder, pick up all
+					goto repick;
 			}
 		}
 		else if (iRetVTC == VTC_RET_NEEDMOREINPUT || iRetVTC == VTC_RET_TIME_OUT)
