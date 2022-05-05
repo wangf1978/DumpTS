@@ -235,6 +235,57 @@ typedef enum VTC_STATE
 	VTC_STATE_CLOSE							// Released VTC resource
 }VTC_STATE;
 
+typedef enum VTC_COLOUR_PRIMARIES
+{
+	VTC_CP_UNKNOWN = -1,
+	VTC_CP_BT_709 = 1,						// BT.709
+	VTC_CP_UNSPECIFIED = 2,					// Unspecified
+	VTC_CP_BT_470_B_G = 5,					// Rec. ITU-R BT.470-6 System B, G (historical)
+											// Rec. ITU-R BT.601-7 625
+											// Rec. ITU-R BT.1358-0 625 (historical)
+											// Rec. ITU-R BT.1700-0 625 PAL and 625 SECAM
+	VTC_CP_BT_601 = 6,						// Rec. ITU-R BT.601-7 525
+											// Rec. ITU-R BT.1358-1 525 or 625 (historical)
+											// Rec. ITU-R BT.1700-0 NTSC
+											// SMPTE ST 170 (2004)
+	VTC_CP_BT_2020 = 9,						// BT.2020, BT.2100
+	VTC_CP_XYZ = 10,						// SMPTE 428 (CIE 1921 XYZ)
+} VTC_COLOUR_PRIMARIES;
+
+typedef enum VTC_TRANSFER_CHARACTERISTICS
+{
+	VTC_TC_UNKNOWN = -1,
+	VTC_TC_BT_709 = 1,						// BT.709
+	VTC_TC_UNSPECIFIED = 2,					// Unspecified
+	VTC_TC_BT_470_B_G = 5,					// Rec. ITU-R BT.470-6 System B, G (historical)
+											// Rec. ITU-R BT.601-7 625
+											// Rec. ITU-R BT.1358-0 625 (historical)
+											// Rec. ITU-R BT.1700-0 625 PAL and 625 SECAM
+											// The previous PAL SD video, for example, PAL DVD-Video
+	VTC_TC_BT_601 = 6,						// Rec. ITU-R BT.601-7 525
+											// Rec. ITU-R BT.1358-1 525 or 625 (historical)
+											// Rec. ITU-R BT.1700-0 NTSC
+											// SMPTE ST 170 (2004)
+											// The legacy NTSC SD-Video, for example, NTSC DVD-Video
+	VTC_TC_SRGB = 13,						// sRGB or sYCC
+	VTC_TC_BT_2020_10_BIT = 14,				// BT.2020 10-bit systems
+	VTC_TC_BT_2020_12_BIT = 15,				// BT.2020 12-bit systems
+	VTC_TC_SMPTE_2084 = 16,					// SMPTE ST 2084, ITU BT.2100 PQ and BDMV-HDR
+	VTC_TC_HLG = 18							// ARIB STD-B67 (2015)
+											// Rec. ITU-R BT.2100-2 hybrid log-gamma (HLG) system
+} VTC_TRANSFER_CHARACTERISTICS;
+
+typedef enum VTC_MATRIX_COEFFICIENTS
+{
+	VTC_MC_UNKNOWN = -1,
+	VTC_MC_BT_709 = 1,						// BT.709
+	VTC_MC_UNSPECIFIED = 2,					// Unspecified
+	VTC_MC_BT_470_B_G = 5,					// BT.470 System B, G (historical)
+	VTC_MC_BT_601 = 6,						// BT.601
+	VTC_MC_BT_2020_NCL = 9,					// BT.2020 non-constant luminance, BT.2100 YCbCr
+	VTC_MC_BT_2020_CL = 10,					// BT.2020 constant luminance
+} VTC_MATRIX_COEFFICIENTS;
+
 /*
 	Codec FourCC List
 	mp2v		mpeg2 video
@@ -263,6 +314,14 @@ typedef struct vtc_param_t
 	// sar_num/sar_den are all zeros, it means the SAR is not specified;
 	uint32_t			sar_num;			// SAR numerator
 	uint32_t			sar_den;			// SAR denominator
+
+	// transfer information
+	VTC_COLOUR_PRIMARIES
+						src_colour_primaries;
+	VTC_TRANSFER_CHARACTERISTICS
+						src_transfer_characteristics;
+	VTC_MATRIX_COEFFICIENTS
+						src_matrix_coefficients;
 
 	// if the bitrate is zero, it means the target bitrate is not specified
 	uint32_t			bitrate;			// in unit of bps

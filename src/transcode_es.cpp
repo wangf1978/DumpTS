@@ -961,6 +961,42 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVC
 				printf("Unexpected SAR is found from AVC VUI information.\n");
 			}
 		}
+
+		if (params.src_colour_primaries == VTC_CP_UNSPECIFIED || params.src_colour_primaries == VTC_CP_UNKNOWN)
+		{
+			if (vui_parameters->video_signal_type_present_flag && vui_parameters->colour_description_present_flag)
+			{
+				switch (vui_parameters->colour_primaries)
+				{
+				case 1: params.src_colour_primaries = VTC_CP_BT_709; break;
+				case 5: params.src_colour_primaries = VTC_CP_BT_470_B_G; break;
+				case 6: params.src_colour_primaries = VTC_CP_BT_601; break;
+				case 9: params.src_colour_primaries = VTC_CP_BT_2020; break;
+				case 10: params.src_colour_primaries = VTC_CP_XYZ; break;
+				}
+
+				switch (vui_parameters->transfer_characteristics)
+				{
+				case 1: params.src_transfer_characteristics = VTC_TC_BT_709; break;
+				case 5: params.src_transfer_characteristics = VTC_TC_BT_470_B_G; break;
+				case 6: params.src_transfer_characteristics = VTC_TC_BT_601; break;
+				case 13: params.src_transfer_characteristics = VTC_TC_SRGB; break;
+				case 14: params.src_transfer_characteristics = VTC_TC_BT_2020_10_BIT; break;
+				case 15: params.src_transfer_characteristics = VTC_TC_BT_2020_12_BIT; break;
+				case 16: params.src_transfer_characteristics = VTC_TC_SMPTE_2084; break;
+				case 18: params.src_transfer_characteristics = VTC_TC_HLG; break;
+				}
+
+				switch (vui_parameters->matrix_coeffs)
+				{
+				case 1: params.src_matrix_coefficients = VTC_MC_BT_709; break;
+				case 5: params.src_matrix_coefficients = VTC_MC_BT_470_B_G; break;
+				case 6: params.src_matrix_coefficients = VTC_MC_BT_601; break;
+				case 9: params.src_matrix_coefficients = VTC_MC_BT_2020_NCL; break;
+				case 10: params.src_matrix_coefficients = VTC_MC_BT_2020_CL; break;
+				}
+			}
+		}
 	}
 
 	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
