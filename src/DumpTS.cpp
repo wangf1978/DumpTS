@@ -637,7 +637,7 @@ MEDIA_SCHEME_TYPE CheckAndUpdateFileFormat(std::string& filepath, const char* pa
 		}
 		else if (_stricmp(file_name_ext.c_str(), ".ivf") == 0)
 		{
-			if (param_name && _stricmp(param_name, "srcfmt"))
+			if (param_name && _stricmp(param_name, "srcfmt") == 0)
 			{
 				g_params["container"] = "ivf";
 
