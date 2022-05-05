@@ -35,6 +35,7 @@ SOFTWARE.
 #include "h264_video.h"
 #include "h265_video.h"
 #include "h266_video.h"
+#include "av1.h"
 #include "MSEnav.h"
 
 #define INITIAL_PTS_VALUE			(10LL*90000LL)
@@ -468,6 +469,52 @@ public:
 	RET_CODE FinalizeVTCParamsForVVCSource(INALVVCContext* pVVCCtx, H266_NU sps_nu, vtc_param_t& params);
 };
 
+class CAV1AUEnumerator : public CAV1NavEnumerator, public CAUESTranscoder
+{
+public:
+	CAV1AUEnumerator(IAV1Context* pCtx, uint32_t options, MSENav* pMSENav, FILE* wfp, VTC_EXPORT& vtc_export, int* pRet)
+		: CAV1NavEnumerator(pCtx, options, pMSENav)
+		, CAUESTranscoder(wfp, vtc_export, pRet){}
+
+	~CAV1AUEnumerator() {}
+
+public:
+	RET_CODE OnProcessTU(IUnknown* pCtx, uint8_t* ptr_TU_buf, uint32_t TU_size, int frame_type)
+	{
+		if (TU_size > INT32_MAX || TU_size == 0)
+			return RET_CODE_NOTHING_TODO;
+
+		// Check whether the sequence header is ready or not
+		if (m_vtc_handle == nullptr)
+		{
+			IAV1Context* pAV1Ctx = nullptr;
+			if (FAILED(pCtx->QueryInterface(IID_IAV1Context, (void**)&pAV1Ctx))) {
+				return RET_CODE_NOTHING_TODO;
+			}
+
+			AV1_OBU seq_hdr_obu = pAV1Ctx->GetSeqHdrOBU();
+
+			if (seq_hdr_obu == nullptr)
+				return RET_CODE_NOTHING_TODO;
+
+			vtc_param_t params;
+			m_vtc_export->fn_params_clone(&m_vtc_params, &params);
+
+			FinalizeVTCParamsForAV1(seq_hdr_obu, params);
+
+			if ((m_vtc_handle = m_vtc_export->fn_open(&params)) == nullptr)
+			{
+				printf("Failed to open the video transcoder.\n");
+				return RET_CODE_ABORT;
+			}
+		}
+
+		return TranscodeAUESBuffer(ptr_TU_buf, TU_size, false);
+	}
+
+	RET_CODE FinalizeVTCParamsForAV1(AV1_OBU seq_hdr_obu, vtc_param_t& params);
+};
+
 int BindAUTranscodeEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t enum_options, MSENav& mse_nav, FILE* wfp, VTC_EXPORT& vtc_export, CAUESTranscoder** ppAUTranscoder)
 {
 	if (pMSEParser == nullptr || pCtx == nullptr)
@@ -504,23 +551,33 @@ int BindAUTranscodeEnumerator(IMSEParser* pMSEParser, IUnknown* pCtx, uint32_t e
 				*ppAUTranscoder = (CAUESTranscoder*)pNALAUEnumerator;
 		}
 	}
-	/*else if (scheme_type == MEDIA_SCHEME_AV1)
+	else if (scheme_type == MEDIA_SCHEME_AV1)
 	{
 		IAV1Context* pAV1Ctx = nullptr;
 		if (SUCCEEDED(pCtx->QueryInterface(IID_IAV1Context, (void**)&pAV1Ctx)))
 		{
 			IUnknown* pMSEEnumerator = nullptr;
 			uint32_t options = mse_nav.GetEnumOptions();
-			CAV1SEEnumerator* pAV1SEEnumerator = new CAV1SEEnumerator(pAV1Ctx, enum_options | options, &mse_nav);
-			if (SUCCEEDED(iRet = pAV1SEEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
+			CAV1AUEnumerator* pAV1AUEnumerator = new CAV1AUEnumerator(pAV1Ctx, enum_options | options, &mse_nav, wfp, vtc_export, &iRet);
+
+			if (AMP_FAILED(iRet)) {
+				AMP_SAFERELEASE(pAV1Ctx);
+				AMP_SAFEDEL(pAV1AUEnumerator);
+				goto done;
+			}
+
+			if (SUCCEEDED(iRet = pAV1AUEnumerator->QueryInterface(__uuidof(IUnknown), (void**)&pMSEEnumerator)))
 			{
 				iRet = pMSEParser->SetEnumerator(pMSEEnumerator, enum_options | options);
 				AMP_SAFERELEASE(pMSEEnumerator);
 			}
 
 			AMP_SAFERELEASE(pAV1Ctx);
+
+			if (ppAUTranscoder)
+				*ppAUTranscoder = (CAUESTranscoder*)pAV1AUEnumerator;
 		}
-	}*/
+	}
 	else if (scheme_type == MEDIA_SCHEME_MPV)
 	{
 		IMPVContext* pMPVCtx = nullptr;
@@ -1007,6 +1064,107 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVC
 RET_CODE CNALAUEnumerator::FinalizeVTCParamsForVVCSource(INALVVCContext* pVVCCtx, H266_NU sps_nu, vtc_param_t& params)
 {
 	return RET_CODE_ERROR_NOTIMPL;
+}
+
+RET_CODE CAV1AUEnumerator::FinalizeVTCParamsForAV1(AV1_OBU seq_hdr_obu, vtc_param_t& params)
+{
+	if (params.width <= 0)
+		params.width = seq_hdr_obu->ptr_sequence_header_obu->max_frame_width_minus_1 + 1;
+
+	if (params.height <= 0)
+		params.height = seq_hdr_obu->ptr_sequence_header_obu->max_frame_height_minus_1 + 1;
+
+	if (params.width <= 0 || params.height <= 0)
+	{
+		printf("The specified width(%d) or height(%d) is out of range.\n", params.width, params.height);
+		return RET_CODE_ERROR_NOTIMPL;
+	}
+
+	if (params.sar_den == 0 && params.sar_num == 0)
+	{
+		// Check the display aspect ratio
+		auto iter_dar = g_params.find("DAR");
+		if (iter_dar != g_params.end())
+		{
+			int64_t dar_num = -1, dar_den = -1;
+			if (ConvertToRationalNumber(iter_dar->second, dar_num, dar_den) == false ||
+				dar_num <= 0 || dar_num > UINT32_MAX ||
+				dar_den <= 0 || dar_den > UINT32_MAX)
+			{
+				printf("The 'DAR' parameter \"--DAR=%s\" can't be parsed, ignore it.\n", iter_dar->second.c_str());
+			}
+			else
+			{
+				uint64_t common_divisor = gcd((uint64_t)(dar_num*params.height), (uint64_t)(dar_den*params.width));
+				params.sar_num = (uint32_t)(dar_num*params.height / common_divisor);
+				params.sar_den = (uint32_t)(dar_den*params.width / common_divisor);
+			}
+		}
+	}
+
+	if (seq_hdr_obu->ptr_sequence_header_obu->timing_info_present_flag && seq_hdr_obu->ptr_sequence_header_obu->ptr_timing_info != nullptr)
+	{
+		if (seq_hdr_obu->ptr_sequence_header_obu->ptr_timing_info->equal_picture_interval)
+		{
+			if (params.fps_den == 0 && params.fps_num == 0 && 
+				seq_hdr_obu->ptr_sequence_header_obu->ptr_timing_info->time_scale > 0 &&
+				seq_hdr_obu->ptr_sequence_header_obu->ptr_timing_info->num_units_in_display_tick > 0)
+			{
+				params.fps_num = seq_hdr_obu->ptr_sequence_header_obu->ptr_timing_info->time_scale;
+				params.fps_den = seq_hdr_obu->ptr_sequence_header_obu->ptr_timing_info->num_units_in_display_tick;
+
+				uint64_t common_divisor = gcd(params.fps_num, params.fps_den);
+				params.fps_num = (uint32_t)((uint64_t)params.fps_num / common_divisor);
+				params.fps_den = (uint32_t)((uint64_t)params.fps_den / common_divisor);
+			}
+		}
+		else
+			printf("Not an AV1 video stream with fixed frame-rate.\n");
+	}
+
+	// Process SAR...
+	// TODO...
+
+	if (params.src_colour_primaries == VTC_CP_UNSPECIFIED || params.src_colour_primaries == VTC_CP_UNKNOWN)
+	{
+		if (seq_hdr_obu->ptr_sequence_header_obu->color_config &&
+			seq_hdr_obu->ptr_sequence_header_obu->color_config->color_description_present_flag)
+		{
+			switch (seq_hdr_obu->ptr_sequence_header_obu->color_config->color_primaries)
+			{
+			case 1: params.src_colour_primaries = VTC_CP_BT_709; break;
+			case 5: params.src_colour_primaries = VTC_CP_BT_470_B_G; break;
+			case 6: params.src_colour_primaries = VTC_CP_BT_601; break;
+			case 9: params.src_colour_primaries = VTC_CP_BT_2020; break;
+			case 10: params.src_colour_primaries = VTC_CP_XYZ; break;
+			}
+
+			switch (seq_hdr_obu->ptr_sequence_header_obu->color_config->transfer_characteristics)
+			{
+			case 1: params.src_transfer_characteristics = VTC_TC_BT_709; break;
+			case 5: params.src_transfer_characteristics = VTC_TC_BT_470_B_G; break;
+			case 6: params.src_transfer_characteristics = VTC_TC_BT_601; break;
+			case 13: params.src_transfer_characteristics = VTC_TC_SRGB; break;
+			case 14: params.src_transfer_characteristics = VTC_TC_BT_2020_10_BIT; break;
+			case 15: params.src_transfer_characteristics = VTC_TC_BT_2020_12_BIT; break;
+			case 16: params.src_transfer_characteristics = VTC_TC_SMPTE_2084; break;
+			case 18: params.src_transfer_characteristics = VTC_TC_HLG; break;
+			}
+
+			switch (seq_hdr_obu->ptr_sequence_header_obu->color_config->matrix_coefficients)
+			{
+			case 1: params.src_matrix_coefficients = VTC_MC_BT_709; break;
+			case 5: params.src_matrix_coefficients = VTC_MC_BT_470_B_G; break;
+			case 6: params.src_matrix_coefficients = VTC_MC_BT_601; break;
+			case 9: params.src_matrix_coefficients = VTC_MC_BT_2020_NCL; break;
+			case 10: params.src_matrix_coefficients = VTC_MC_BT_2020_CL; break;
+			}
+		}
+	}
+
+	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
+
+	return RET_CODE_SUCCESS;
 }
 
 
