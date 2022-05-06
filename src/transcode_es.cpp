@@ -46,6 +46,11 @@ extern MEDIA_SCHEME_TYPE			g_source_media_scheme_type;
 extern MEDIA_SCHEME_TYPE			g_output_media_scheme_type;
 
 extern MEDIA_SCHEME_TYPE			CheckAndUpdateFileFormat(std::string& filepath, const char* param_name);
+extern const std::map<int, AVC_LEVEL_LIMIT> 
+									avc_level_limits;
+extern const std::map<uint8_t, GENERAL_TIER_AND_LEVEL_LIMIT> 
+									general_tier_and_level_limits;
+extern const HEVC_PROFILE_FACTOR	hevc_profile_factors[36];
 
 extern int LoadVTCExport(VTC_EXPORT& vtc_exports);
 extern int UnloadVTCExport(VTC_EXPORT& vtc_exports);
@@ -177,7 +182,7 @@ int InitVideoTranscodeParams(VTC_EXPORT& vtc_export, vtc_param_t& vtc_params)
 			goto done;
 		}
 
-		vtc_params.bitrate = (uint32_t)target_bitrate;
+		vtc_params.target_bitrate = (uint32_t)target_bitrate;
 	}
 
 	if (iter_profile != g_params.end())
@@ -235,6 +240,38 @@ public:
 	RET_CODE TranscodeDrain()
 	{
 		return _InternalTranscoeProcess(NULL, 0, TRUE, VTC_INFINITE);
+	}
+
+	RET_CODE ValiddateAndUpdateParams(vtc_param_t& vtc_params)
+	{
+		if (IS_AVC_FOURCC(vtc_params.dst_stream_fourcc))
+		{
+			auto iter_limits = avc_level_limits.find(vtc_params.output_level);
+			if (iter_limits != avc_level_limits.end())
+			{
+				uint32_t cpbBrNalFactor = 1200;
+				if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH ||
+					vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH,
+					vtc_params.output_profile == VTC_AVC_PROFILE_CONSTRAINED_HIGH)
+					cpbBrNalFactor = 1500;
+				else if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_10 ||
+					vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH_10 ||
+					vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_10_INTRA)
+					cpbBrNalFactor = 3600;
+				else if(vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_422 ||
+					vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_422_INTRA)
+					cpbBrNalFactor = 4800;
+				else if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_444_PREDICTIVE ||
+					vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_444_INTRA ||
+					vtc_params.output_profile == VTC_AVC_PROFILE_CAVLC_444_INTRA_PROFIILE)
+					cpbBrNalFactor = 4800;
+
+				vtc_params.target_max_bitrate = cpbBrNalFactor * iter_limits->second.MaxBR;			// NAL HRD
+				vtc_params.target_cpb_buffer_size = cpbBrNalFactor * iter_limits->second.MaxCPB;	// NAL CPB
+			}
+		}
+
+		return RET_CODE_SUCCESS;
 	}
 
 protected:
@@ -861,7 +898,7 @@ RET_CODE CMPVAUEnumerator::FinalizeVTCParams(SEQHDR seq_hdr, SEQEXT seq_ext, vtc
 
 	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
 
-	return RET_CODE_SUCCESS;
+	return ValiddateAndUpdateParams(params);
 }
 
 RET_CODE CNALAUEnumerator::FinalizeVTCParamsForAVCSource(INALAVCContext* pAVCCtx, H264_NU sps_nu, vtc_param_t& params)
@@ -943,7 +980,7 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForAVCSource(INALAVCContext* pAVCCtx
 
 	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
 
-	return RET_CODE_SUCCESS;
+	return ValiddateAndUpdateParams(params);
 }
 
 RET_CODE CNALAUEnumerator::FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVCCtx, H265_NU sps_nu, vtc_param_t& params)
@@ -1061,7 +1098,7 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVC
 
 	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
 
-	return RET_CODE_SUCCESS;
+	return ValiddateAndUpdateParams(params);
 }
 
 RET_CODE CNALAUEnumerator::FinalizeVTCParamsForVVCSource(INALVVCContext* pVVCCtx, H266_NU sps_nu, vtc_param_t& params)
@@ -1167,7 +1204,7 @@ RET_CODE CAV1AUEnumerator::FinalizeVTCParamsForAV1(AV1_OBU seq_hdr_obu, vtc_para
 
 	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
 
-	return RET_CODE_SUCCESS;
+	return ValiddateAndUpdateParams(params);
 }
 
 

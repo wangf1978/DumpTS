@@ -69,6 +69,16 @@
 //
 #define VTC_INFINITE				0xFFFFFFFF	// specified the wait time is infinite
 
+#define IS_AVC_FOURCC(fourcc)		((fourcc) == 'avc1' || (fourcc) == 'avc2' || (fourcc) == 'avc3' || (fourcc) == 'avc4' ||\
+									 (fourcc) == 'H264' || (fourcc) == 'h264')
+
+#define IS_HEVC_FOURCC(fourcc)		((fourcc) == 'hvc1' || (fourcc) == 'hev1' ||\
+									 (fourcc) == 'HEVC' || (fourcc) == 'hevc' || (fourcc) == 'H265' || (fourcc) == 'h265')
+
+#define IS_MP2V_FOURCC(fourcc)		((fourcc) == 'mp2v')
+
+#define IS_AV1_FOURCC(fourcc)		((fourcc) == 'av01' || (fourcc) == 'AV01')
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -324,7 +334,10 @@ typedef struct vtc_param_t
 						src_matrix_coefficients;
 
 	// if the bitrate is zero, it means the target bitrate is not specified
-	uint32_t			bitrate;			// in unit of bps
+	uint32_t			target_bitrate;		// in unit of bps
+	uint32_t			target_max_bitrate;	// In unit of bps
+	uint32_t			target_cpb_buffer_size;
+											// In unit of bits
 
 	union {
 		VTC_V_PROFILE	output_profile;
