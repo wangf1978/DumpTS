@@ -832,6 +832,12 @@ RET_CODE CMPVAUEnumerator::FinalizeVTCParams(SEQHDR seq_hdr, SEQEXT seq_ext, vtc
 		return RET_CODE_ERROR_NOTIMPL;
 	}
 
+	if (params.src_pulldown == VTC_SWITCH_AUTO && seq_ext && seq_ext->progressive_sequence)
+		params.src_pulldown = VTC_SWITCH_OFF;
+
+	if (params.target_interlace == VTC_SWITCH_AUTO && seq_ext && seq_ext->progressive_sequence)
+		params.target_interlace = VTC_SWITCH_OFF;
+
 	if (params.fps_den == 0 && params.fps_num == 0)
 	{
 		uint8_t frame_rate_extension_d = 0, frame_rate_extension_n = 0;
@@ -937,6 +943,12 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForAVCSource(INALAVCContext* pAVCCtx
 		}
 	}
 
+	if (params.src_pulldown == VTC_SWITCH_AUTO && sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.frame_mbs_only_flag)
+		params.src_pulldown = VTC_SWITCH_OFF;
+
+	if (params.target_interlace == VTC_SWITCH_AUTO && sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.frame_mbs_only_flag)
+		params.target_interlace = VTC_SWITCH_OFF;
+
 	if (sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters_present_flag &&
 		sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters)
 	{
@@ -1017,6 +1029,22 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVC
 				params.sar_den = (uint32_t)(dar_den*params.width / common_divisor);
 			}
 		}
+	}
+
+	if (params.src_pulldown == VTC_SWITCH_AUTO &&
+		sps_nu->ptr_seq_parameter_set_rbsp->profile_tier_level &&
+		sps_nu->ptr_seq_parameter_set_rbsp->profile_tier_level->general_profile_level.progressive_source_flag == 1 &&
+		sps_nu->ptr_seq_parameter_set_rbsp->profile_tier_level->general_profile_level.interlaced_source_flag == 0)
+	{
+		params.src_pulldown = VTC_SWITCH_OFF;
+	}
+
+	if (params.target_interlace == VTC_SWITCH_AUTO &&
+		sps_nu->ptr_seq_parameter_set_rbsp->profile_tier_level &&
+		sps_nu->ptr_seq_parameter_set_rbsp->profile_tier_level->general_profile_level.progressive_source_flag == 1 &&
+		sps_nu->ptr_seq_parameter_set_rbsp->profile_tier_level->general_profile_level.interlaced_source_flag == 0)
+	{
+		params.target_interlace = VTC_SWITCH_OFF;
 	}
 
 	if (sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters_present_flag &&
@@ -1201,6 +1229,10 @@ RET_CODE CAV1AUEnumerator::FinalizeVTCParamsForAV1(AV1_OBU seq_hdr_obu, vtc_para
 			}
 		}
 	}
+
+	// AV1 only support progressive
+	params.src_pulldown = VTC_SWITCH_OFF;
+	params.target_interlace = VTC_SWITCH_OFF;
 
 	m_vtc_export->fn_param_autoselect_profile_tier_level(&params);
 

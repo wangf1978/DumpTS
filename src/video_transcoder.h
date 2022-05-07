@@ -84,8 +84,16 @@ extern "C" {
 #endif
 
 typedef void* vtc_handle;
+typedef int32_t VTC_BOOL;
 
-typedef enum VTC_V_PROFILE
+typedef enum _VTC_3STATE_SWITCH
+{
+	VTC_SWITCH_AUTO = -1,
+	VTC_SWITCH_OFF	=  0,
+	VTC_SWITCH_ON	=  1,
+} VTC_3STATE_SWITCH;
+
+typedef enum _VTC_V_PROFILE
 {
 	//
 	// For MPEG2 Video Profile
@@ -170,7 +178,7 @@ typedef enum VTC_V_PROFILE
 	VTC_HEVC_PROFILE_HIGH_THROUGHPUT_444_16_INTRA,
 } VTC_V_PROFILE;
 
-typedef enum VTC_V_TIER
+typedef enum _VTC_V_TIER
 {
 	//
 	// For HEVC/H.265 Video Tier
@@ -180,7 +188,7 @@ typedef enum VTC_V_TIER
 	VTC_HEVC_TIER_HIGH
 } VTC_V_TIER;
 
-typedef enum VTC_V_LEVEL
+typedef enum _VTC_V_LEVEL
 {
 	//
 	// For MPEG2 Video Level
@@ -236,16 +244,16 @@ typedef enum VTC_V_LEVEL
 	VTC_HEVC_LEVEL_6_2		= 186,			// 6.2
 } VTC_V_LEVEL;
 
-typedef enum VTC_STATE
+typedef enum _VTC_STATE
 {
 	VTC_STATE_INVALID = -1,					// VTC is just created, and does not open
 	VTC_STATE_RUNNING,						// VTC is running
 	VTC_STATE_HALT,							// Halt the VTC regularly
 	VTC_STATE_HALT_BY_ERROR,				// Halt the VTC by unrecoverable error
 	VTC_STATE_CLOSE							// Released VTC resource
-}VTC_STATE;
+} VTC_STATE;
 
-typedef enum VTC_COLOUR_PRIMARIES
+typedef enum _VTC_COLOUR_PRIMARIES
 {
 	VTC_CP_UNKNOWN = -1,
 	VTC_CP_BT_709 = 1,						// BT.709
@@ -262,7 +270,7 @@ typedef enum VTC_COLOUR_PRIMARIES
 	VTC_CP_XYZ = 10,						// SMPTE 428 (CIE 1921 XYZ)
 } VTC_COLOUR_PRIMARIES;
 
-typedef enum VTC_TRANSFER_CHARACTERISTICS
+typedef enum _VTC_TRANSFER_CHARACTERISTICS
 {
 	VTC_TC_UNKNOWN = -1,
 	VTC_TC_BT_709 = 1,						// BT.709
@@ -285,7 +293,7 @@ typedef enum VTC_TRANSFER_CHARACTERISTICS
 											// Rec. ITU-R BT.2100-2 hybrid log-gamma (HLG) system
 } VTC_TRANSFER_CHARACTERISTICS;
 
-typedef enum VTC_MATRIX_COEFFICIENTS
+typedef enum _VTC_MATRIX_COEFFICIENTS
 {
 	VTC_MC_UNKNOWN = -1,
 	VTC_MC_BT_709 = 1,						// BT.709
@@ -295,6 +303,28 @@ typedef enum VTC_MATRIX_COEFFICIENTS
 	VTC_MC_BT_2020_NCL = 9,					// BT.2020 non-constant luminance, BT.2100 YCbCr
 	VTC_MC_BT_2020_CL = 10,					// BT.2020 constant luminance
 } VTC_MATRIX_COEFFICIENTS;
+
+typedef enum _VTC_PIC_STRUCT
+{
+	VTC_PIC_STRUCT_UNKNOWN = -1,
+	VTC_PIC_STRUCT_PROGRESSIVE = 0,			// (progressive) Frame
+	VTC_PIC_STRUCT_TOP,						// Top field
+	VTC_PIC_STRUCT_BOTTOM,					// Bottom field
+	VTC_PIC_STRUCT_TOP_BOTTOM,				// Top field, bottom field, in that order
+	VTC_PIC_STRUCT_BOTTOM_TOP,				// Bottom field, top field, in that order
+	VTC_PIC_STRUCT_TOP_BOTTOM_TOP,			// Top field, bottom field, top field repeated, in that order
+	VTC_PIC_STRUCT_BOTTOM_TOP_BOTTOM,		// Bottom field, top field, bottom field repeated, in that order
+	VTC_PIC_STRUCT_FRAME_DOUBLING,			// Frame doubling
+	VTC_PIC_STRUCT_FRAME_TRIPLING,			// Frame tripling
+	VTC_PIC_STRUCT_TOP_PAIRD_WITH_PREV_BOTTOM,							
+											// Top field paired with previous bottom field in output order
+	VTC_PIC_STRUCT_BOTTOM_PAIRED_WITH_PREV_TOP,
+											// Bottom field paired with previous top field in output order
+	VTC_PIC_STRUCT_TOP_PAIRED_WITH_NEXT_BOTTOM,	
+											// Top field paired with next bottom field in output order
+	VTC_PIC_STRUCT_BOTTOM_PAIRED_WITH_NEXT_TOP,				
+											// Bottom field paired with next top field in output order
+} VTC_PIC_STRUCT;
 
 /*
 	Codec FourCC List
@@ -315,17 +345,33 @@ typedef struct vtc_param_t
 	int32_t				src_stream_fourcc;	// specify the input video stream type
 	int32_t				dst_stream_fourcc;	// specify the output video stream type
 	int32_t				width;				// specify the input video width
+											// If a value is not greater than 0 is assigned, will use the width of decoded picture
+											// Otherwise, the specified width will be used, 
+											// if the decoded video frame is not equal to it, the video scale will be done in transcoder side
 	int32_t				height;				// specify the output video width
+											// If a value is not greater than 0 is assigned, will use the height of decoded picture
+											// Otherwise, the specified height will be used, 
+											// if the decoded video frame is not equal to it, the video scale will be done in transcoder side
 
+	//
+	// Frames per second/frame-rate
+	//
 	// fps_num/fps_den are all zeros, it means the fps is not specified
 	uint32_t			fps_num;			// fps numerator
 	uint32_t			fps_den;			// fps denominator
 
+	//
+	// Sample-Aspect-Ratio
+	//
 	// sar_num/sar_den are all zeros, it means the SAR is not specified;
-	uint32_t			sar_num;			// SAR numerator
-	uint32_t			sar_den;			// SAR denominator
+	uint32_t			sar_num;			// Sample-Aspect-Ratio numerator
+	uint32_t			sar_den;			// Sample-Aspect-Ratio denominator
 
-	// transfer information
+	//
+	// signal transfer information
+	//
+	// If the decoder can parse the below values, the underlying decoded value will be applied
+	// If the decoder can not parse the below values, these values will be used
 	VTC_COLOUR_PRIMARIES
 						src_colour_primaries;
 	VTC_TRANSFER_CHARACTERISTICS
@@ -333,11 +379,23 @@ typedef struct vtc_param_t
 	VTC_MATRIX_COEFFICIENTS
 						src_matrix_coefficients;
 
+	VTC_3STATE_SWITCH	src_pulldown;		// for example, 3:2 pulldown, 1 field may be repeat
+											// Auto(-1): decoder will detect the source content pull-down mode
+											// OFF ( 0): no pull-down
+											// ON  ( 1): pull-down
+
 	// if the bitrate is zero, it means the target bitrate is not specified
-	uint32_t			target_bitrate;		// in unit of bps
-	uint32_t			target_max_bitrate;	// In unit of bps
+	uint32_t			target_bitrate;		// in unit of bps, 0 means unknown
+	uint32_t			target_max_bitrate;	// In unit of bps, 0 means unknown
 	uint32_t			target_cpb_buffer_size;
-											// In unit of bits
+											// In unit of bits, 0 means unknown
+
+	// target picture struct
+	VTC_3STATE_SWITCH	target_interlace;	// Auto(-1): decoder will detect the target content;
+											// OFF ( 0): progressive; 
+											// If client side turns off interlace, and the source content is interlace
+											// Video transcoder should do de-interlace, and convert interlace content to progressive content
+											// ON  ( 1): interlaced
 
 	union {
 		VTC_V_PROFILE	output_profile;
@@ -362,7 +420,7 @@ typedef struct vtc_picture_es_t
 {
 	int64_t				ctx;				// internal state which is used by vtc_out_picture_es_init/vtc_out_picture_es_cleanup,
 											// don't modify it explicitly; If client don't use the internal method, this field has no meaning, 
-										
+	
 	int64_t				pts;				// [in/out] the picture pts
 	int64_t				dts;				// [in/out] the picture dts
 
@@ -380,7 +438,7 @@ typedef struct vtc_picture_es_t
 	int32_t				es_buf_size;		// [in/out] the ES buffer size
 
 	int32_t				pic_type;			// [out] for example, I, P and B frame
-	int32_t				pic_struct;			// [out] progressive, top/bottom field and so on
+	VTC_PIC_STRUCT		pic_struct;			// [in/out] the picture structure, progressive, top/bottom field and so on
 	int32_t				key_frame;			// [out] key frame
 
 	// When inputting the ES, can place this flag together with or without ES buffer 
