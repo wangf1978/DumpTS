@@ -372,6 +372,9 @@ typedef struct vtc_param_t
 	//
 	// If the decoder can parse the below values, the underlying decoded value will be applied
 	// If the decoder can not parse the below values, these values will be used
+	VTC_3STATE_SWITCH	src_overscan;
+	int32_t				src_video_format;
+	VTC_3STATE_SWITCH	src_video_full_range;
 	VTC_COLOUR_PRIMARIES
 						src_colour_primaries;
 	VTC_TRANSFER_CHARACTERISTICS

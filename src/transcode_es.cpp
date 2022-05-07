@@ -251,7 +251,7 @@ public:
 			{
 				uint32_t cpbBrNalFactor = 1200;
 				if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH,
+					vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH ||
 					vtc_params.output_profile == VTC_AVC_PROFILE_CONSTRAINED_HIGH)
 					cpbBrNalFactor = 1500;
 				else if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_10 ||
@@ -404,7 +404,7 @@ public:
 			vtc_param_t params;
 			m_vtc_export->fn_params_clone(&m_vtc_params, &params);
 
-			FinalizeVTCParams(seq_hdr, seq_ext, params);
+			FinalizeVTCParamsForM2V(seq_hdr, seq_ext, params);
 
 			if ((m_vtc_handle = m_vtc_export->fn_open(&params)) == nullptr)
 			{
@@ -416,7 +416,7 @@ public:
 		return TranscodeAUESBuffer(pAUBuf, cbAUBuf, false);
 	}
 
-	RET_CODE FinalizeVTCParams(SEQHDR seq_hdr, SEQEXT seq_ext, vtc_param_t& params);
+	RET_CODE FinalizeVTCParamsForM2V(SEQHDR seq_hdr, SEQEXT seq_ext, vtc_param_t& params);
 };
 
 class CNALAUEnumerator : public CNALNavEnumerator, public CAUESTranscoder
@@ -814,7 +814,7 @@ done:
 	return iRet;
 }
 
-RET_CODE CMPVAUEnumerator::FinalizeVTCParams(SEQHDR seq_hdr, SEQEXT seq_ext, vtc_param_t& params)
+RET_CODE CMPVAUEnumerator::FinalizeVTCParamsForM2V(SEQHDR seq_hdr, SEQEXT seq_ext, vtc_param_t& params)
 {
 	if (params.width <= 0) {
 		params.width = seq_ext == nullptr ? seq_hdr->horizontal_size_value
@@ -954,6 +954,21 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForAVCSource(INALAVCContext* pAVCCtx
 	{
 		auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->seq_parameter_set_data.vui_parameters;
 
+		if (vui_parameters->overscan_info_present_flag)
+			params.src_overscan = (VTC_3STATE_SWITCH)vui_parameters->overscan_appropriate_flag;
+
+		if (vui_parameters->video_signal_type_present_flag)
+		{
+			params.src_video_format = vui_parameters->video_format;
+			params.src_video_full_range = (VTC_3STATE_SWITCH)vui_parameters->video_full_range_flag;
+			if (vui_parameters->colour_description_present_flag)
+			{
+				params.src_colour_primaries = (VTC_COLOUR_PRIMARIES)vui_parameters->colour_primaries;
+				params.src_transfer_characteristics = (VTC_TRANSFER_CHARACTERISTICS)vui_parameters->transfer_characteristics;
+				params.src_matrix_coefficients = (VTC_MATRIX_COEFFICIENTS)vui_parameters->matrix_coeffs;
+			}
+		}
+
 		if (params.fps_den == 0 && params.fps_num == 0 && vui_parameters->timing_info_present_flag)
 		{
 			params.fps_num = vui_parameters->time_scale;
@@ -1051,6 +1066,21 @@ RET_CODE CNALAUEnumerator::FinalizeVTCParamsForHEVCSource(INALHEVCContext* pHEVC
 		sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters)
 	{
 		auto vui_parameters = sps_nu->ptr_seq_parameter_set_rbsp->vui_parameters;
+
+		if (vui_parameters->overscan_info_present_flag)
+			params.src_overscan = (VTC_3STATE_SWITCH)vui_parameters->overscan_appropriate_flag;
+
+		if (vui_parameters->video_signal_type_present_flag)
+		{
+			params.src_video_format = vui_parameters->video_format;
+			params.src_video_full_range = (VTC_3STATE_SWITCH)vui_parameters->video_full_range_flag;
+			if (vui_parameters->colour_description_present_flag)
+			{
+				params.src_colour_primaries = (VTC_COLOUR_PRIMARIES)vui_parameters->colour_primaries;
+				params.src_transfer_characteristics = (VTC_TRANSFER_CHARACTERISTICS)vui_parameters->transfer_characteristics;
+				params.src_matrix_coefficients = (VTC_MATRIX_COEFFICIENTS)vui_parameters->matrix_coeffs;
+			}
+		}
 
 		if (params.fps_den == 0 && params.fps_num == 0 && vui_parameters->vui_timing_info_present_flag)
 		{
