@@ -678,7 +678,15 @@ namespace BST {
 						seq_parameter_set_data;
 
 					VUI_PARAMETERS(SEQ_PARAMETER_SET_DATA* ptr_seq_parameter_set_data)
-						: nal_hrd_parameters(NULL)
+						: aspect_ratio_info_present_flag(0)
+						, overscan_info_present_flag(0)
+						, video_signal_type_present_flag(0)
+						, colour_description_present_flag(0)
+						, chroma_loc_info_present_flag(0)
+						, timing_info_present_flag(0)
+						, nal_hrd_parameters_present_flag(0)
+						, vcl_hrd_parameters_present_flag(0)
+						, nal_hrd_parameters(NULL)
 						, vcl_hrd_parameters(NULL)
 						, seq_parameter_set_data(ptr_seq_parameter_set_data) {}
 
