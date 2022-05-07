@@ -471,6 +471,8 @@ namespace BST {
 
 	struct CSequenceDisplayExtension: public SYNTAX_BITSTREAM_MAP
 	{
+		unsigned char		extension_start_code[4] = { 0 };
+
 		unsigned char		extension_start_code_identifier:4;
 		unsigned char		video_format:3;
 		unsigned char		colour_description:1;
@@ -493,11 +495,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				MAP_BST_BITS(in_bst, video_format, 3);
 				MAP_BST_BITS(in_bst, colour_description, 1);
 
@@ -572,6 +575,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER1(extension_start_code_identifier, 4, "should be 2")
 			BST_FIELD_PROP_2NUMBER1(video_format, 3, mpeg2_video_format_names[video_format])
 			BST_FIELD_PROP_NUMBER1 (colour_description, 1, colour_description?"the presence of colour_primaries, transfer_characteristics and matrix_coefficients in the bitstream":"")
@@ -590,6 +594,8 @@ namespace BST {
 
 	struct CSequenceScalableExtension: public SYNTAX_BITSTREAM_MAP
 	{
+		unsigned char		extension_start_code[4] = { 0 };
+
 		unsigned char		extension_start_code_identifier:4;
 		unsigned char		scalable_mode:2;
 		unsigned char		unused_padding_0:2;
@@ -636,11 +642,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				MAP_BST_BITS(in_bst, scalable_mode, 2);
 				MAP_BST_BITS(in_bst, layer_id, 4);
 
@@ -682,6 +689,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER1(extension_start_code_identifier, 4, "Should be 5")
 			BST_FIELD_PROP_2NUMBER1(scalable_mode, 2, mpeg2_video_scalable_mode[scalable_mode])
 			BST_FIELD_PROP_NUMBER1 (layer_id, 4	, "an integer which identifies the layers in a scalable hierarchy. The base layer always has layer_id = 0.")
@@ -987,6 +995,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			BST_FIELD_PROP_2NUMBER("f_code_0_0", 4, f_code_0_0, "forward horizontal")
 			BST_FIELD_PROP_2NUMBER("f_code_0_1", 4, f_code_0_1, "forward vertical")
@@ -1025,6 +1034,8 @@ namespace BST {
 
 	struct CQuantMatrixExtension: public SYNTAX_BITSTREAM_MAP
 	{
+		unsigned char	extension_start_code[4] = { 0 };
+
 		unsigned char	extension_start_code_identifier:4;
 		unsigned char	load_intra_quantiser_matrix:1;
 		unsigned char	load_non_intra_quantiser_matrix:1;
@@ -1045,11 +1056,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				MAP_BST_BITS(in_bst, load_intra_quantiser_matrix, 1);
 				if (load_intra_quantiser_matrix){
 					MAP_BST_BYTES(in_bst, intra_quantiser_matrix, 64);
@@ -1088,6 +1100,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			NAV_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			NAV_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			NAV_FIELD_PROP_NUMBER("load_intra_quantiser_matrix", 1, load_intra_quantiser_matrix, load_intra_quantiser_matrix?"intra_quantiser_matrix follows":"there is no change in the values that shall be used")
 			if (load_intra_quantiser_matrix){
@@ -1113,6 +1126,7 @@ namespace BST {
 
 	struct CPictureDisplayExtension: public SYNTAX_BITSTREAM_MAP
 	{
+		unsigned char	extension_start_code[4] = { 0 };
 		unsigned char	extension_start_code_identifier:4;
 		/*
 		if ( progressive_sequence = = 1) {
@@ -1181,11 +1195,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				if (number_of_frame_centre_offsets == 0)
 				{
 					do
@@ -1240,6 +1255,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			for(i=0;i<number_of_frame_centre_offsets;i++)
 			{
@@ -1255,13 +1271,15 @@ namespace BST {
 
 	struct CTemporalScalableExtension: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned short	extension_start_code_identifier:4;
-		unsigned short	reference_select_code:2;
-		unsigned short	forward_temporal_reference:10;
+		unsigned char		extension_start_code[4] = { 0 };
+
+		unsigned short		extension_start_code_identifier:4;
+		unsigned short		reference_select_code:2;
+		unsigned short		forward_temporal_reference:10;
 		
-		unsigned short	marker_bit:1;
-		unsigned short	backward_temporal_reference:10;
-		unsigned short	unused_padding:5;
+		unsigned short		marker_bit:1;
+		unsigned short		backward_temporal_reference:10;
+		unsigned short		unused_padding:5;
 
 		CTemporalScalableExtension()
 			: extension_start_code_identifier(0), reference_select_code(0), forward_temporal_reference(0)
@@ -1272,11 +1290,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				MAP_BST_BITS(in_bst, reference_select_code, 2);
 				MAP_BST_BITS(in_bst, forward_temporal_reference, 10);
 			
@@ -1301,6 +1320,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			BST_FIELD_PROP_2NUMBER("reference_select_code", 2, reference_select_code, "This is a 2-bit code that identifies reference frames or reference fields for prediction depending on the picture type.")
 			BST_FIELD_PROP_2NUMBER("forward_temporal_reference", 10, forward_temporal_reference, "A 10 bit unsigned integer value which indicates temporal reference of the lower layer frame to be used to provide the forward prediction.")
@@ -1311,20 +1331,22 @@ namespace BST {
 
 	struct CPictureSpatialScalableExtension: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned short	extension_start_code_identifier:4;
-		unsigned short	lower_layer_temporal_reference:10;
-		unsigned short	unused_padding_0:2;
+		unsigned char		extension_start_code[4] = { 0 };
 
-		unsigned short	marker_bit_0:1;
-		unsigned short	lower_layer_horizontal_offset:15;
+		unsigned short		extension_start_code_identifier:4;
+		unsigned short		lower_layer_temporal_reference:10;
+		unsigned short		unused_padding_0:2;
 
-		unsigned short	marker_bit_1:1;
-		unsigned short	lower_layer_vertical_offset:15;
+		unsigned short		marker_bit_0:1;
+		unsigned short		lower_layer_horizontal_offset:15;
 
-		unsigned char	spatial_temporal_weight_code_table_index:2;
-		unsigned char	lower_layer_progressive_frame:1;
-		unsigned char	lower_layer_deinterlaced_field_select:1;
-		unsigned char	unused_padding_1:4;
+		unsigned short		marker_bit_1:1;
+		unsigned short		lower_layer_vertical_offset:15;
+
+		unsigned char		spatial_temporal_weight_code_table_index:2;
+		unsigned char		lower_layer_progressive_frame:1;
+		unsigned char		lower_layer_deinterlaced_field_select:1;
+		unsigned char		unused_padding_1:4;
 
 		CPictureSpatialScalableExtension()
 			: extension_start_code_identifier(0), lower_layer_temporal_reference(0), unused_padding_0(0)
@@ -1340,11 +1362,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				MAP_BST_BITS(in_bst, lower_layer_temporal_reference, 10);
 			
 				MAP_BST_BITS(in_bst, marker_bit_0, 1);
@@ -1375,6 +1398,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			BST_FIELD_PROP_2NUMBER("lower_layer_temporal_reference", 10, lower_layer_temporal_reference, "A 10 bit unsigned integer value which indicates temporal reference of the lower layer frame to be used to provide the prediction.")
 			BST_FIELD_PROP_NUMBER("marker_bit", 1, marker_bit_0, "")
@@ -1389,26 +1413,28 @@ namespace BST {
 
 	struct CCopyrightExtension: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char	extension_start_code_identifier:4;
-		unsigned char	copyright_flag:1;
-		unsigned char	unused_padding_0:3;
+		unsigned char		extension_start_code[4] = { 0 };
 
-		unsigned char	copyright_identifier = 0;
+		unsigned char		extension_start_code_identifier:4;
+		unsigned char		copyright_flag:1;
+		unsigned char		unused_padding_0:3;
 
-		unsigned char	original_or_copy:1;
-		unsigned char	reserved:7;
+		unsigned char		copyright_identifier = 0;
 
-		unsigned long	marker_bit_0:1;
-		unsigned long	copyright_number_1:20;
-		unsigned long	unused_padding_1:11;
+		unsigned char		original_or_copy:1;
+		unsigned char		reserved:7;
 
-		unsigned long	marker_bit_1:1;
-		unsigned long	copyright_number_2:22;
-		unsigned long	unused_padding_2:9;
+		unsigned long		marker_bit_0:1;
+		unsigned long		copyright_number_1:20;
+		unsigned long		unused_padding_1:11;
 
-		unsigned long	marker_bit_2:1;
-		unsigned long	copyright_number_3:22;
-		unsigned long	unused_padding_3:9;
+		unsigned long		marker_bit_1:1;
+		unsigned long		copyright_number_2:22;
+		unsigned long		unused_padding_2:9;
+
+		unsigned long		marker_bit_2:1;
+		unsigned long		copyright_number_3:22;
+		unsigned long		unused_padding_3:9;
 
 		CCopyrightExtension()
 			: extension_start_code_identifier(0), copyright_flag(0), unused_padding_0(0)
@@ -1422,11 +1448,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				MAP_BST_BITS(in_bst, copyright_flag, 1);
 
 				MAP_BST_BYTE(in_bst, copyright_identifier);
@@ -1461,6 +1488,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			BST_FIELD_PROP_NUMBER("copyright_flag", 1, copyright_flag, copyright_flag?"it indicates that the source video material encoded in all the coded pictures following the copyright extension, in coding order, up to the next copyright extension or end of sequence code, is copyrighted.":
 																						"it does not indicate whether the source video material encoded in all the coded pictures following the copyright extension, in coding order, is copyrighted or not")
@@ -1478,6 +1506,7 @@ namespace BST {
 
 	struct CCameraParametersExtension: public SYNTAX_BITSTREAM_MAP
 	{
+		unsigned char		extension_start_code[4] = { 0 };
 		union
 		{
 			uint8_t		Bytes[72] = { 0 };
@@ -1564,11 +1593,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 				MAP_BST_BITS(in_bst, reserved_0, 1);
 
 				MAP_BST_BITS(in_bst, camera_id, 7);
@@ -1640,6 +1670,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			BST_FIELD_PROP_NUMBER ("reserved", 1, reserved_0, "")
 			
@@ -1699,9 +1730,10 @@ namespace BST {
 
 	struct CITUTExtension: public SYNTAX_BITSTREAM_MAP
 	{
-		unsigned char	extension_start_code_identifier:4;
-		unsigned char	unused_padding:4;
-		CAMBitArray		ITUTdata;
+		unsigned char		extension_start_code[4] = { 0 };
+		unsigned char		extension_start_code_identifier:4;
+		unsigned char		unused_padding:4;
+		CAMBitArray			ITUTdata;
 
 		CITUTExtension()
 			: extension_start_code_identifier(0), unused_padding(0) {
@@ -1711,11 +1743,12 @@ namespace BST {
 		{
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
 
-			extension_start_code_identifier = AMBst_GetBits(in_bst, 4);
+			AMBst_GetBytes(in_bst, extension_start_code, 4);
 
 			try
 			{
 				MAP_BST_BEGIN(1);
+				MAP_BST_BITS(in_bst, extension_start_code_identifier, 4);
 
 				int idx = 0;
 				while (AMBst_PeekBits(in_bst, 24) != 1)
@@ -1744,6 +1777,7 @@ namespace BST {
 		}
 
 		DECLARE_FIELDPROP_BEGIN()
+			BST_FIELD_PROP_FIXSIZE_BINSTR("extension_start_code", 32, extension_start_code, 4, "should be 00 00 01 B5");
 			BST_FIELD_PROP_2NUMBER("extension_start_code_identifier", 4, extension_start_code_identifier, "")
 			for(i=0;i<=ITUTdata.UpperBound();i++)
 			{
@@ -2634,10 +2668,11 @@ namespace BST {
 		{
 			int iRet = RET_CODE_IGNORE_REQUEST;
 			SYNTAX_BITSTREAM_MAP::Map(in_bst);
-			extension_start_code = AMBst_GetDWord(in_bst);
+
+			uint64_t peek_hdr_value = AMBst_PeekBits(in_bst, 36);
 
 			MAP_BST_BEGIN(1);
-			extension_id = (unsigned char)AMBst_PeekBits(in_bst, 4);
+			extension_id = peek_hdr_value & 0xF;
 
 			if (extension_id == SEQUENCE_EXTENSION_ID)
 			{
