@@ -249,22 +249,23 @@ public:
 			auto iter_limits = avc_level_limits.find(vtc_params.output_level);
 			if (iter_limits != avc_level_limits.end())
 			{
-				uint32_t cpbBrNalFactor = 1200;
-				if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_CONSTRAINED_HIGH)
-					cpbBrNalFactor = 1500;
-				else if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_10 ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH_10 ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_10_INTRA)
-					cpbBrNalFactor = 3600;
-				else if(vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_422 ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_422_INTRA)
-					cpbBrNalFactor = 4800;
-				else if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_444_PREDICTIVE ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_444_INTRA ||
-					vtc_params.output_profile == VTC_AVC_PROFILE_CAVLC_444_INTRA_PROFIILE)
-					cpbBrNalFactor = 4800;
+				uint32_t cpbBrNalFactor = 1000;
+				//uint32_t cpbBrNalFactor = 1200;
+				//if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH ||
+				//	vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH ||
+				//	vtc_params.output_profile == VTC_AVC_PROFILE_CONSTRAINED_HIGH)
+				//	cpbBrNalFactor = 1500;
+				//else if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_10 ||
+				//	vtc_params.output_profile == VTC_AVC_PROFILE_PROGRESSIVE_HIGH_10 ||
+				//	vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_10_INTRA)
+				//	cpbBrNalFactor = 3600;
+				//else if(vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_422 ||
+				//	vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_422_INTRA)
+				//	cpbBrNalFactor = 4800;
+				//else if (vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_444_PREDICTIVE ||
+				//	vtc_params.output_profile == VTC_AVC_PROFILE_HIGH_444_INTRA ||
+				//	vtc_params.output_profile == VTC_AVC_PROFILE_CAVLC_444_INTRA_PROFIILE)
+				//	cpbBrNalFactor = 4800;
 
 				vtc_params.target_max_bitrate = cpbBrNalFactor * iter_limits->second.MaxBR;			// NAL HRD
 				vtc_params.target_cpb_buffer_size = cpbBrNalFactor * iter_limits->second.MaxCPB;	// NAL CPB
