@@ -399,6 +399,8 @@ public:
 			SEQHDR seq_hdr = pMPVCtx->GetSeqHdr();
 			SEQEXT seq_ext = pMPVCtx->GetSeqExt();
 
+			AMP_SAFERELEASE(pMPVCtx);
+
 			if (seq_hdr == nullptr)
 				return RET_CODE_NOTHING_TODO;
 
@@ -449,14 +451,19 @@ public:
 				}
 
 				int8_t sps_id = pAVCCtx->GetActiveSPSID();
-				if (sps_id < 0)
+				if (sps_id < 0) {
+					AMP_SAFERELEASE(pAVCCtx);
 					return RET_CODE_NOTHING_TODO;
+				}
 
 				H264_NU sps_nu = pAVCCtx->GetAVCSPS(sps_id);
-				if (sps_nu == nullptr)
+				if (sps_nu == nullptr) {
+					AMP_SAFERELEASE(pAVCCtx);
 					return RET_CODE_NOTHING_TODO;
+				}
 
 				FinalizeVTCParamsForAVCSource(pAVCCtx, sps_nu, params);
+				AMP_SAFERELEASE(pAVCCtx);
 			}
 			else if (m_curr_nal_coding == NAL_CODING_HEVC)
 			{
@@ -466,14 +473,19 @@ public:
 				}
 
 				int8_t sps_id = pHEVCCtx->GetActiveSPSID();
-				if (sps_id < 0)
+				if (sps_id < 0) {
+					AMP_SAFERELEASE(pHEVCCtx);
 					return RET_CODE_NOTHING_TODO;
+				}
 
 				H265_NU sps_nu = pHEVCCtx->GetHEVCSPS(sps_id);
-				if (sps_nu == nullptr)
+				if (sps_nu == nullptr) {
+					AMP_SAFERELEASE(pHEVCCtx);
 					return RET_CODE_NOTHING_TODO;
+				}
 
 				FinalizeVTCParamsForHEVCSource(pHEVCCtx, sps_nu, params);
+				AMP_SAFERELEASE(pHEVCCtx);
 			}
 			else if (m_curr_nal_coding == NAL_CODING_VVC)
 			{
@@ -483,14 +495,19 @@ public:
 				}
 
 				int8_t sps_id = pVVCCtx->GetActiveSPSID();
-				if (sps_id < 0)
+				if (sps_id < 0) {
+					AMP_SAFERELEASE(pVVCCtx);
 					return RET_CODE_NOTHING_TODO;
+				}
 
 				H266_NU sps_nu = pVVCCtx->GetVVCSPS(sps_id);
-				if (sps_nu == nullptr)
+				if (sps_nu == nullptr) {
+					AMP_SAFERELEASE(pVVCCtx);
 					return RET_CODE_NOTHING_TODO;
+				}
 
 				FinalizeVTCParamsForVVCSource(pVVCCtx, sps_nu, params);
+				AMP_SAFERELEASE(pVVCCtx);
 			}
 			else
 				return RET_CODE_ERROR_NOTIMPL;
@@ -785,13 +802,13 @@ int TranscodeFromESToES()
 
 	} while (!feof(rfp));
 
+	// Drain the left data in the parser, if --AU is specified, feof(rfp) will not equal to true 
+	// because the parser is abort in the middle of parsing
 	if (feof(rfp))
-	{
 		iRet = pMediaParser->ProcessOutput(true);
 
-		if (iRet != RET_CODE_ABORT && pAUTranscoder) {
-			pAUTranscoder->TranscodeDrain();
-		}
+	if (pAUTranscoder) {
+		pAUTranscoder->TranscodeDrain();
 	}
 
 done:
