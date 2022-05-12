@@ -352,11 +352,14 @@ typedef struct vtc_param_t
 											// If a value is not greater than 0 is assigned, will use the height of decoded picture
 											// Otherwise, the specified height will be used, 
 											// if the decoded video frame is not equal to it, the video scale will be done in transcoder side
+	VTC_BOOL			keep_DAR;			// when video scale happened, whether to keep the display aspect-ratio or not
 
 	//
 	// Frames per second/frame-rate
 	//
 	// fps_num/fps_den are all zeros, it means the fps is not specified
+	// When the specified fps is different with the original fps, frame-rate conversion will 
+	// be triggered in the transcode side
 	uint32_t			fps_num;			// fps numerator
 	uint32_t			fps_den;			// fps denominator
 
