@@ -266,7 +266,7 @@ typedef uint32_t crc;
 #endif
 crc			F_CRC_CalculaCheckSum(uint8_t const AF_Datos[], size_t VF_nBytes);
 
-uint64_t	CalcCRC(CRC_TYPE type, const uint8_t* pBuf, size_t cbSize);
+uint64_t	CalcCRC(CRC_TYPE type, uint8_t* pBuf, size_t cbSize);
 
 CRC_HANDLE	BeginCRC(CRC_TYPE type);
 void		ProcessCRC(CRC_HANDLE handle, const uint8_t* pBuf, size_t cbSize);

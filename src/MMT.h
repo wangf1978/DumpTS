@@ -3150,6 +3150,53 @@ namespace MMT
 		}
 	};
 
+	struct MessageCRC : public Message
+	{
+		uint8_t		table_id = 0;
+		uint16_t	data_length = 0;
+		uint8_t*	section_field = nullptr;
+
+		MessageCRC(uint32_t cbPayload = 0) : Message(cbPayload) {
+		}
+
+		// Always assume the message information bitstream is complete
+		int Unpack(CBitstream& bs)
+		{
+			int iRet = Message::Unpack(bs);
+			if (iRet < 0)
+				return iRet;
+
+			uint64_t left_bits = 0;
+			bs.Tell(&left_bits);
+
+			if (left_bits < 24ULL)
+				return RET_CODE_BOX_TOO_SMALL;
+
+			section_field = new uint8_t[length];
+			bs.Peek(section_field, length);
+
+			table_id = bs.GetByte();
+			data_length = length;//added for CRC calculation. Note section_field includes CRC32 data
+
+			return RET_CODE_SUCCESS;
+		}
+
+		uint8_t* getCRC()
+		{
+			return section_field;
+		}
+
+		void deleteCRC()
+		{
+			delete section_field;
+		}
+
+		virtual void Print(FILE* fp = nullptr, int indent = 0)
+		{
+			Message::Print(fp, indent);
+		}
+	};
+
 	// MPEG Media Transport Protocol packet
 	struct MMTPPacket
 	{
@@ -3581,6 +3628,10 @@ namespace MMT
 			std::vector<uint8_t>
 								payload;
 
+			uint8_t*			signaling_data_byte = nullptr;
+			uint8_t				table_id = 0;
+			uint16_t			data_length = 0;
+
 			ControlMessages(MMTPPacket* pMMTPpkt, int nPayloadDataLen) 
 				: fragmentation_indicator(0)
 				, reserved(0)
@@ -3677,6 +3728,43 @@ namespace MMT
 				}
 
 				return iRet;
+			}
+
+			void ProcessCRC(FILE* fp = nullptr, int indent = 0)
+			{
+				if (fragmentation_indicator == 0)
+				{
+					for (auto& v : messages)
+					{
+						auto& msg_payload = std::get<1>(v);
+						CBitstream msg_bs(&msg_payload[0], msg_payload.size() << 3);
+						uint16_t peek_msg_id = (uint16_t)msg_bs.PeekBits(16);
+						if (peek_msg_id == 0x8000 || peek_msg_id == 0x8002 || peek_msg_id == 0x8003 || peek_msg_id == 0x8004)// Packet_id, which includes CRC32
+						{
+							MessageCRC* ptr_M2Msg = new MessageCRC((uint32_t)msg_payload.size());
+							if (ptr_M2Msg->Unpack(msg_bs) >= 0)
+							{
+								table_id = ptr_M2Msg->table_id;
+									data_length = ptr_M2Msg->data_length;
+									signaling_data_byte = new uint8_t[(int)data_length];
+									signaling_data_byte = ptr_M2Msg->getCRC();
+							}
+							
+							delete ptr_M2Msg;
+
+						}
+					}
+
+				}
+			}
+			uint8_t* getCRC()
+			{
+				return signaling_data_byte;
+			}
+
+			void deleteCRC()
+			{
+				delete signaling_data_byte;
 			}
 
 			void Print(FILE* fp = nullptr, int indent = 0)

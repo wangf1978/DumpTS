@@ -487,14 +487,14 @@ inline uint64_t _ReserveCRCBits(uint64_t u64Ret, uint8_t width)
 		return uRet;\
 	}\
 
-uint64_t CalcCRC(CRC_TYPE type, const uint8_t* pBuf, size_t cbSize)
+uint64_t CalcCRC(CRC_TYPE type, uint8_t* pBuf, size_t cbSize)
 {
 	if (type < 0 || type >= CRC_MAX)
 		return UINT64_MAX;
 
 	_InitCRC(type);
 
-	const uint8_t* pEndBuf = pBuf + cbSize;
+	uint8_t* pEndBuf = pBuf + cbSize;
 	uint8_t crc_width = crc_props[type].width;
 	uint64_t* crc_lut = crc_props[type].CRCLookupTable;
 	bool bNeedReservedBit = crc_props[type].Reversed;

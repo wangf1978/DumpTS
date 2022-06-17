@@ -30,6 +30,7 @@ SOFTWARE.
 #include "ESRepacker.h"
 #include "PayloadBuf.h"
 #include <chrono>
+#include "crc.h"
 
 extern std::map<std::string, std::string, CaseInsensitiveComparator> g_params;
 extern int g_verbose_level;
@@ -1939,6 +1940,13 @@ int DumpMMTOneStream()
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
+	//added to process CRC
+	uint8_t* signaling_data_byte;
+	uint8_t table_id;
+	uint16_t data_length = 0;
+	uint64_t CRC_res;
+	uint32_t CRC_in_data;
+
 	if (g_params.find("input") == g_params.end())
 		return -1;
 
@@ -2416,6 +2424,28 @@ int DumpMMTOneStream()
 				}
 				else if (pHeaderCompressedIPPacket->MMTP_Packet->Payload_type == 0x2)
 				{
+
+				if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id >= 0x8000 && pHeaderCompressedIPPacket->MMTP_Packet->Packet_id <= 0x8004 && pHeaderCompressedIPPacket->MMTP_Packet->Packet_id != 0x8001) //Packet_id 0x8001 doesn't include CRC32
+					{
+					
+					//check CRC
+						pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->ProcessCRC();
+						if (pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->table_id <=0xA6) //0xA6 is EMT
+						{
+						data_length = pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->data_length;
+						signaling_data_byte = pHeaderCompressedIPPacket->MMTP_Packet->ptr_Messages->getCRC();
+						CRC_res = CalcCRC(CRC32_MPEG, signaling_data_byte, data_length - 4);//Last 4 bytes are CRC in data stream
+						//Convert Last 4 bytes (uint8) into uint32_t 
+						CRC_in_data = signaling_data_byte[data_length - 4] * 256 * 256 * 256 + signaling_data_byte[data_length - 3] * 256 * 256 + signaling_data_byte[data_length - 2] * 256 + signaling_data_byte[data_length - 1];
+						
+						if ((uint32_t)CRC_res != CRC_in_data)
+						{
+							fprintf(stdout, "\n" "CRC check result: False, Packet_sequence_number %x, CRC data %x, CRC %x", pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number, CRC_in_data, CRC_res);
+						}
+						///else { fprintf(stdout, "\n" "CRC OK"); }
+						}
+					}
+
 					if (pHeaderCompressedIPPacket->MMTP_Packet->Packet_id == 0x1)	// Process CA message
 					{
 						// Check there is an existed CID there or not, if it does NOT exist, add one
