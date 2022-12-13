@@ -45,6 +45,7 @@ SOFTWARE.
 #include <tchar.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <limits>
 #include <climits>
 #include <new>
 #include <memory>

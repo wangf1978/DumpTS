@@ -1942,7 +1942,6 @@ int DumpMMTOneStream()
 
 	//added to process CRC
 	uint8_t* signaling_data_byte;
-	uint8_t table_id;
 	uint16_t data_length = 0;
 	uint64_t CRC_res;
 	uint32_t CRC_in_data;
@@ -2440,7 +2439,7 @@ int DumpMMTOneStream()
 						
 						if ((uint32_t)CRC_res != CRC_in_data)
 						{
-							fprintf(stdout, "\n" "CRC check result: False, Packet_sequence_number %x, CRC data %x, CRC %x", pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number, CRC_in_data, CRC_res);
+							fprintf(stdout, "\n" "CRC check result: False, Packet_sequence_number %" PRIx32 "x, CRC data %" PRIx32 "x, CRC %" PRIx64 "x", pHeaderCompressedIPPacket->MMTP_Packet->Packet_sequence_number, CRC_in_data, CRC_res);
 						}
 						///else { fprintf(stdout, "\n" "CRC OK"); }
 						}
